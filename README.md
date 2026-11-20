@@ -15,6 +15,13 @@ npm run web        # browser prototype (primary target for now)
 npm start          # Expo dev server for iOS / Android
 ```
 
+## Live
+
+Every push to `main` builds the web app and publishes it to the `gh-pages` branch:
+https://miguelaguerrero.github.io/wanderment/
+
+Your data lives in that browser's storage. Use Settings → Export to keep a copy.
+
 ## Checks
 
 ```bash
