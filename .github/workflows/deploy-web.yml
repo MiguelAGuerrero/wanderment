@@ -24,11 +24,22 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npx tsc --noEmit
+      - run: npx eslint .
       - name: Build web
+        # Also copies index.html to 404.html (deep links on GitHub Pages) and adds .nojekyll (keeps _expo/).
+        run: npm run build:web
+      - name: End-to-end tests
+        env:
+          E2E_PREBUILT: '1'
         run: |
-          npx expo export --platform web
-          cp dist/index.html dist/404.html   # deep links on GitHub Pages
-          touch dist/.nojekyll               # keep the _expo/ folder
+          npx playwright install --with-deps chromium
+          npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
       - name: Publish to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:

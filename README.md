@@ -28,6 +28,7 @@ Your data lives in that browser's storage. Use Settings → Export to keep a cop
 npm test           # domain unit tests (vitest)
 npm run typecheck  # tsc --noEmit
 npx eslint .       # lint
+npm run e2e        # Playwright end-to-end tests against the built web app
 ```
 
 ## Layout
