@@ -22,6 +22,10 @@ https://miguelaguerrero.github.io/wanderment/
 
 Your data lives in that browser's storage. Use Settings → Export to keep a copy.
 
+It's an installable web app: on iPhone, Safari → Share → **Add to Home Screen**; on Android/desktop Chrome, **Install app**.
+After the first visit it works offline. When a new version is deployed, a small "A new version is ready · Reload"
+banner appears; nothing reloads on its own.
+
 ## Checks
 
 ```bash
@@ -37,7 +41,10 @@ npm run e2e        # Playwright end-to-end tests against the built web app
 |---|---|
 | `src/domain/` | Pure TypeScript model, selectors, @-autocomplete, backup. No React. Fully unit-tested. |
 | `src/store/` | Zustand store persisted to AsyncStorage (localStorage on web). Draft, toast, single-step undo. |
-| `src/components/` | Composer (log box), ThreadCard (card + next-step crumb), Toast, Screen shell. |
+| `src/components/` | Composer (log box), ThreadCard (card + next-step crumb), Toast, UpdateBanner, Screen shell. |
+| `src/pwa/` | Service-worker registration and update detection (web only). |
+| `public/` | Web HTML template, PWA manifest and icons. `workbox-config.js` generates `sw.js` at build time. |
+| `e2e/` | Playwright specs and a static server that mimics GitHub Pages. |
 | `src/app/` | Expo Router screens: Home, Activities, Graph (placeholder), thread page, activity details, settings. |
 | `docs/` | Design decisions and roadmap. |
 

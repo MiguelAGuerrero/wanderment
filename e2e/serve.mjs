@@ -1,6 +1,6 @@
 // Serves the web build the way GitHub Pages does: under /wanderment/, with 404.html as the
 // fallback for unknown paths (that's how deep links work there).
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, normalize } from 'node:path';
 
@@ -26,8 +26,19 @@ function send(res, status, file) {
   createReadStream(file).pipe(res);
 }
 
+// Tests can simulate a new deploy: after POST /__e2e/bump-sw, sw.js changes by a comment.
+let swBuild = 0;
+
 createServer((req, res) => {
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (path === '/__e2e/bump-sw') {
+    swBuild += 1;
+    return res.end(String(swBuild));
+  }
+  if (path === `${base}/sw.js` && swBuild > 0) {
+    res.writeHead(200, { 'Content-Type': types['.js'], 'Cache-Control': 'no-cache' });
+    return res.end(`${readFileSync(join(root, 'sw.js'), 'utf8')}\n// e2e build ${swBuild}\n`);
+  }
   if (path === '/' || path === base) {
     res.writeHead(302, { Location: `${base}/` });
     return res.end();

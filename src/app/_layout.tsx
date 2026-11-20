@@ -3,10 +3,13 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 
+import { UpdateBanner } from '@/components/UpdateBanner';
+import { registerServiceWorker } from '@/pwa/serviceWorker';
 import { useStore } from '@/store/useStore';
 import { C } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
+registerServiceWorker();
 
 export default function RootLayout() {
   // Hide the splash once saved data has loaded from storage.
@@ -25,6 +28,7 @@ export default function RootLayout() {
         <Stack.Screen name="activity/[id]" options={{ presentation: 'modal' }} />
         <Stack.Screen name="settings" />
       </Stack>
+      <UpdateBanner />
     </>
   );
 }
