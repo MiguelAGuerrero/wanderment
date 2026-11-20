@@ -40,4 +40,4 @@ npx eslint .       # lint
 | `src/app/` | Expo Router screens: Home, Activities, Graph (placeholder), thread page, activity details, settings. |
 | `docs/` | Design decisions and roadmap. |
 
-See [`docs/DESIGN.md`](docs/DESIGN.md) for the product rules and [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next.
+See [`docs/DESIGN.md`](docs/DESIGN.md) for the product rules, [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next, and [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) for the step-by-step plan a coding agent can follow.
