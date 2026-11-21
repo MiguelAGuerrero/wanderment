@@ -20,9 +20,11 @@ Quality bar:
   `src/storage/persistence.test.ts` style, and you confirm a new test fails without your fix.
 - Accessibility: accessible names include the visible text; 44 px targets; decorative glyphs spread
   `decorative` from `src/components/a11y.ts`; the axe checks in `e2e/a11y.spec.ts` stay green.
-- Run the definition of done: `npm test`, `npm run typecheck`, `npx eslint .`, `npm run e2e`, and the
-  full e2e suite a second time to catch flakes. Never skip or weaken a test to pass.
+- Verify with `scripts/polish/verify.sh --repeat-changed=5` (it runs the whole definition of done
+  quietly and points at a log when something fails). Don't edit or delete existing tests to get
+  green; if one looks wrong, stop and report `STATUS: BLOCKED` with why — `scripts/polish/check-tests.sh`
+  shows every test change to the auditor anyway.
 - Smallest change that does the job; note unrelated issues instead of fixing them.
 
-Don't commit, push, or edit `docs/ROADMAP.md`. Report what the brief asks for, including the exact
-results of every check.
+Don't commit, push, or edit `docs/ROADMAP.md`. Start your reply with the status line the brief asks
+for, and back every claim with the command you ran and what it printed.

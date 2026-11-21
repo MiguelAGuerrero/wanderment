@@ -7,6 +7,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
+  // A test that only passes on a retry is flaky: fail the run so it gets fixed, not hidden.
+  failOnFlakyTests: !!process.env.CI,
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: `http://localhost:${PORT}/wanderment/`,

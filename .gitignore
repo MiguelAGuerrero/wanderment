@@ -46,3 +46,6 @@ example
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# /polish batch notes, logs and the verification stamp (local only)
+/.polish/

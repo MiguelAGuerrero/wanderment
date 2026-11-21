@@ -14,3 +14,8 @@ npm run typecheck    # tsc --noEmit
 npx eslint .         # lint
 npm run e2e          # Playwright against the built web app (builds it first)
 ```
+
+`scripts/polish/verify.sh` runs all of these (plus a test-integrity check and the roadmap lint)
+quietly, with logs in `.polish/logs/`, and stamps the tree it verified. A project hook only lets
+Claude push that exact tree, and blocks force-pushes and `--no-verify`: run the full verify, then
+push (or use `scripts/polish/land.sh`).

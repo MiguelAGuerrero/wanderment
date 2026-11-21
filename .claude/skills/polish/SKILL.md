@@ -1,116 +1,197 @@
 ---
 name: polish
-description: Orchestrates one batch of refinement work on Wanderment from docs/ROADMAP.md — triage the Inbox, pick the next items, send fresh subagents to scout edge cases and UX, build, run one independent adversarial audit, verify, land on main and update the roadmap. Use when the user says /polish, "next batch", "push the app forward", "polish/refine X", or names roadmap items (e.g. "/polish P-03") or a theme ("/polish data", "/polish a11y").
+description: Orchestrates one batch of refinement work on Wanderment from docs/ROADMAP.md — triages the Inbox, picks the next items, scouts edge cases and UX with fresh subagents, builds, runs one independent adversarial audit, verifies with scripts, lands on main and updates the roadmap. Run it with /polish, optionally naming roadmap items (e.g. /polish P-03) or a theme (/polish data).
 argument-hint: "[item ids like P-03 P-05 | a theme: data, capture, ux, a11y, perf, platform | inbox]"
+disable-model-invocation: true
 ---
 
 # Polish — one batch, end to end
 
-You are the **orchestrator**. You keep the plan, talk to the user, and judge results. Fresh subagents
-do the scouting, building and auditing, so their work and file dumps stay out of your context and
-their reviews aren't anchored on your reasoning. One run = one batch, landed on `main`.
+You are the **orchestrator**: you hold the plan, talk to the owner, run the gates and judge
+results. Fresh subagents scout, build and audit. Their detailed output goes to files in the batch
+folder, and you pass files between them, not your paraphrase. One run = one batch, landed on `main`.
 
-The roadmap (`docs/ROADMAP.md`) is the shared surface with the user: they steer by editing it, you
-report by updating it. Respect their ordering; never silently drop or reword their Inbox entries.
+`docs/ROADMAP.md` is the shared surface with the owner: they steer by editing it (the Inbox,
+ordering, decisions), you report by updating it. Respect their ordering and never silently drop or
+reword their Inbox entries.
 
-## Ground rules (all phases)
+## What's enforced by code, not by this text
+
+- `scripts/polish/verify.sh` is the definition of done. It runs test integrity, unit, typecheck,
+  lint, roadmap lint, build and e2e, writes logs to `.polish/logs/` and prints a short summary. On a
+  full pass it stamps the exact tree it verified.
+- The git guard hook (`.claude/settings.json` → `scripts/polish/guard-git.mjs`) blocks pushes of
+  anything but the stamped tree, force-pushes and `--no-verify`.
+- `scripts/polish/land.sh` commits, re-checks the stamp, pushes and archives the batch folder.
+- CI re-runs everything on `main` before deploying. Playwright fails CI on flaky tests.
+- `scripts/polish/check-tests.sh` lists every weakened, edited or deleted test, and fails on `.only`.
+
+Run these scripts as they are; don't re-implement their steps by hand. Read their summaries, and
+open a log file only when a step fails.
+
+## Ground rules
 
 - Read `CLAUDE.md`, `AGENTS.md`, `docs/DESIGN.md` and `docs/ROADMAP.md` first, every run.
-- `DESIGN.md` wins. Never add goals, streaks, % complete, timers, notifications, badge counts, or
-  anything that creates a thread or attaches an activity without a tap. *Capture is sacred*: the log
-  box must never get slower, stricter or more interruptive.
-- Expo: follow `AGENTS.md` (versioned docs for SDK 58). If `npx expo install` can't reach the network,
-  pin the version in `node_modules/expo/bundledNativeModules.json`.
-- `[data]` items (storage, migrations, backup, import, undo, journal): every change gets tests in
-  `src/storage/persistence.test.ts` style (real module, `node:sqlite`, stubbed localStorage), and a
-  test must *fail* with the fix removed (mutation-check it once).
-- Never skip, loosen or delete a test to get green. Never push red.
-- Definition of done (from `CLAUDE.md`): `npm test`, `npm run typecheck`, `npx eslint .`, `npm run e2e`
-  — all pass, and the full e2e suite passes **twice in a row** (flake check).
-- Batch budget: at most **3 items** or one **L** item. Prefer finishing over starting.
+- `DESIGN.md` outranks this skill and the roadmap. Ask the owner before adding goals, streaks,
+  % complete, timers, notifications, badge counts, or anything that creates a thread or attaches an
+  activity without a tap. Those are the product's refusals, and keeping them is the point. Capture
+  must never get slower, stricter or more interruptive.
+- Expo SDK 58: use the versioned docs (see `AGENTS.md`). If `npx expo install` can't reach the
+  network, pin the version from `node_modules/expo/bundledNativeModules.json`.
+- Budget: at most **3 items** or one **L** item per batch, and at most 4 subagents running at once.
+  Finishing beats starting.
 
-## Phase 0 — Orient (you)
+## Phase 0 — Orient
 
-1. `git status` must be clean and `main` up to date with `origin/main`; if not, stop and tell the user.
-2. Note the argument: item ids → take exactly those; a theme → top items with that tag; `inbox` →
-   triage only; nothing → the top of **Now**.
-3. Baseline: run unit tests, typecheck and lint. If the baseline is red, the batch becomes "make it
-   green" and nothing else.
+1. `git status` is clean and `main` matches `origin/main`, or stop and tell the owner.
+2. Resume or start the batch. `scripts/polish/start-batch.sh <ids>` exits 3 and prints
+   `.polish/current/batch.md` if a batch is already in progress. Resume from its phase checklist
+   instead of starting over.
+3. `export POLISH_BASE=<base commit from batch.md>` for every later script call.
+4. Baseline: `scripts/polish/verify.sh`, the full run. If it's red, the batch is "make it green"
+   and nothing else. Don't inherit breakage.
 
-## Phase 1 — Triage the Inbox (you)
+Tick the phase checklist in `batch.md` as you go. Record every decision and every failed approach
+there as well: it's how a fresh session (or a later builder) picks up without guessing.
 
-For each Inbox entry: turn it into a roadmap item (id = next free `P-##`, why, done-when, size, tags)
-placed where its priority belongs, or merge it into an existing item, or — if it conflicts with
-DESIGN.md or is a product call — put it under **Decisions needed 🙋**. Clear the entry from the
-Inbox only once it lives somewhere else. Bugs that lose or corrupt data go to the top of **Now**.
+## Phase 1 — Triage the Inbox
 
-## Phase 2 — Choose the batch (you)
+Turn each Inbox entry into one of:
+- a roadmap item (next free `P-##`, `*Status:* todo`, *Why*, *Done when*, size, tags), placed by
+  priority;
+- part of an existing item;
+- an entry under **Decisions needed 🙋**, if it conflicts with DESIGN.md or is a product call.
 
-Take items in order, skipping any that wait on a 🙋 decision. Stay within the budget. Items that
-touch the same files go in the same batch only if one builder does them sequentially.
+Clear an entry only once it lives elsewhere. Anything that loses or corrupts data goes to the top of
+Now. Run `node scripts/polish/roadmap-lint.mjs`.
 
-## Phase 3 — Scout (parallel `polish-scout` subagents)
+## Phase 2 — Choose the batch
 
-Launch one `polish-scout` per item, **in a single message so they run in parallel**, plus one extra
-"walkthrough" scout for the batch's screens when the batch is `[ux]`/`[a11y]`. Brief each with: the
-item text verbatim, the files you expect are involved, and what *not* to look at. Use the brief in
-`scout-brief.md`. Scouts don't edit tracked files.
+With no argument, take items from the top of Now, skipping `blocked` ones. Within the budget, set
+each chosen item's status to `in-progress`. Check dependencies: items touching the same files or
+state are built by one builder in a stated order, or split across batches.
 
-When they return, read their reports critically: drop speculation, keep reproduced facts.
+## Phase 3 — Scout, scaled to the item
 
-## Phase 4 — Collaborate (you, with the user — at most once per batch)
+| Item | Scouting |
+|---|---|
+| S, not a bug, no `[data]` | None. Localize it yourself (a few greps), then write the contract. |
+| S bug, any `[data]`, any M | One `polish-scout`. |
+| L, or `[ux]`/`[a11y]` across several screens | One `polish-scout` plus one walkthrough scout for the affected screens, with territories split (code paths vs. live-app behaviour). |
 
-Write a short **batch brief** for each item: approach, acceptance tests, edge cases to cover, risks.
-Then decide if anything needs the user:
+Launch all scouts **in one message**, so they run in parallel. Each brief is `scout-brief.md` with
+the blanks filled, including the output path `.polish/current/P-##/scout.md`. Scouts return only
+that path and a ≤2k-token summary.
 
-- Ask (one `AskUserQuestion`, ≤ 4 questions, recommended option first) **only** for product calls:
-  visible UX choices with real trade-offs, anything touching DESIGN.md rules, anything irreversible
-  for users' data, new dependencies with native code, or a scope change.
-- Everything else (implementation choices, test design, naming) — decide and proceed.
-- If the user's answer changes the plan, update the brief; if they decline an item, move it back with
-  a note.
+Read-only check: run `scripts/polish/tree-hash.sh` before launching scouts and after they return.
+If the hash changed, a scout wrote files. Restore them (`git checkout -- . && git clean -fd`, after
+looking at what changed) and note it in `batch.md`.
 
-## Phase 5 — Build (`polish-builder` subagents)
+Read the scout files critically:
+- keep reproduced facts;
+- treat speculation as a hypothesis;
+- treat a scout's "not a bug / already fine" verdict as a claim to check yourself, not a reason to
+  drop the item.
 
-One `polish-builder` per item, **sequentially** on the main checkout (they share files and the build).
-Use parallel builders only for items with no overlapping files, each with `isolation: "worktree"`.
-Give each the batch brief from Phase 4, `build-brief.md`, and the scouts' reproduced facts. Builders
-don't commit.
+If a scout says an item is hours of work rather than minutes, split it in the roadmap now and build
+only the first part.
 
-After each builder: look at the diff yourself (`git diff --stat`, then the risky parts), run the
-definition of done, and look at the affected screens (screenshots at 390×844, plus 200 % zoom for
-`[a11y]`). Send the builder back (SendMessage) with concrete corrections rather than patching
-around it, unless the fix is one line.
+## Phase 4 — Contract, then the owner (at most once)
 
-## Phase 6 — Audit (one fresh `polish-auditor`)
+For each item, fill `.polish/current/P-##/contract.md`: approach, done-when (each line becomes a
+test or a recorded check), must-handle states, non-goals, and where expected values come from. The
+contract is what builders build and what the auditor grades. It never contains the builder's own
+story.
 
-Exactly one fresh `polish-auditor` per batch, after everything is built. Give it **the code, not your
-conclusions**: the uncommitted diff, the items' text, DESIGN.md — use `audit-brief.md` verbatim with
-the blanks filled. Do not tell it what you think is fine.
+Ask the owner (one `AskUserQuestion`, ≤ 4 questions, recommended option first) **only** for:
+- visible UX choices with real trade-offs;
+- anything near a DESIGN.md rule;
+- anything irreversible for people's data;
+- a new dependency with native code;
+- a scope change.
 
-Then verify every finding yourself: reproduce it (or show why it can't happen) before changing code.
-Fix real ones (builder or yourself), add a test per fixed finding, re-run the definition of done
-(e2e twice). Findings you won't fix go to the roadmap as items or under *Known edge cases* with the
-reason — never silently dropped.
+Everything else you decide and proceed: implementation, test design, naming, ordering. Record the
+answers in the contracts.
 
-## Phase 7 — Land (you)
+## Phase 5 — Build, one writer at a time
 
-1. Commit on `main` — subject "Polish: <short theme>", body listing items (by id), what changed,
-   audit findings fixed, and tests added. End with the attribution lines the session requires.
-2. Update `docs/ROADMAP.md` in the same commit: remove finished items from Now/Next, add a Done-log
-   line (`date · ids + one-line summary · commit`), add newly discovered items where they belong.
-3. Push to `origin main` (it deploys). Check the "Deploy web" run with the GitHub MCP tools; if it
-   fails, fix forward immediately — main must stay green.
+One `polish-builder` per item, **sequentially** on the main checkout. Its prompt is `build-brief.md`
+with the blanks filled: the contract path, the scout file path, and `.polish/current/decisions.md`
+(earlier builders' decisions, which this builder must follow or explicitly revisit).
 
-## Phase 8 — Report (you)
+Parallel builders are allowed only for items with disjoint files. Each runs with
+`isolation: "worktree"`, and you integrate their work one at a time with a full verify between them.
 
-Tell the user, briefly: what landed (by id) and what they'll notice in the app; what the audit found
-and what was fixed; what's left open and why; decisions waiting on them (🙋); what the next batch
-will be. Point them at the Inbox for anything they want next.
+After each builder:
+1. Check its status line: DONE, BLOCKED or FAIL.
+2. Look at the diff yourself (`git diff --stat`, then the risky parts).
+3. Run `scripts/polish/verify.sh --repeat-changed=5`.
+4. Look at the screenshots the builder saved, at 390×844, plus 200 % zoom for `[a11y]`.
+5. Commit the item locally: `git commit -m "Polish(P-##): …"`. This gives one revertable commit per
+   item. Don't push yet.
+
+Corrections go back to the same builder via SendMessage, at most **twice**. If it still fails, start
+a fresh builder with a rewritten brief that names what went wrong. A third round in the same context
+rarely recovers. If an item is BLOCKED or fails twice from scratch, set it to `blocked` with the
+reason, and drop it from the batch.
+
+## Phase 6 — One independent audit
+
+Exactly one `polish-auditor`, after all items are built. Its prompt is `audit-brief.md` with the
+blanks filled: the contract paths, the batch base commit, and the output path
+`.polish/current/audit.md`. Run `scripts/polish/check-tests.sh` and include its output. Don't
+include the builders' reports or your opinion.
+
+Choose the auditor's model by risk:
+- **Batches with a `[data]` item:** audit with a different model from the builders. Pass the Agent
+  `model` override, e.g. `fable` when the session runs Opus, `opus` otherwise. A different reviewer
+  is the only kind of second opinion the evidence supports.
+- **Other batches:** leave the model at its default.
+
+Take the tree hash before and after, as in Phase 3.
+
+Triage the findings (the auditor reports everything; filtering is your job):
+1. Reproduce each finding, or show why it can't happen, before touching code.
+2. Fix every reproduced correctness, data, DESIGN.md or accessibility finding, with a test that fails
+   without the fix (via a builder, or yourself for one-liners). Commit locally.
+3. Defer anything else to the roadmap with a reason (an item, or *Known edge cases*). Never drop it
+   silently, never call it "minor" without saying why, and don't "fix" style findings.
+4. Record the tally in `batch.md`: reported, reproduced, fixed, deferred.
+
+## Phase 7 — Land
+
+1. Update `docs/ROADMAP.md`:
+   - Remove the finished items from Now/Next.
+   - Add the Done-log line in the format the roadmap describes, including evidence (test and spec
+     names, screenshot paths) and the audit tally.
+   - Add newly discovered items and set the statuses.
+2. `scripts/polish/verify.sh --repeat-changed=5`, which must end with `RESULT: PASS`.
+3. Write the commit message to `.polish/current/commit.txt`:
+   - subject "Polish: <theme> (P-##, …)";
+   - a body listing what changed per item, the audit findings fixed and deferred, and the tests added;
+   - the attribution lines the session requires.
+4. `scripts/polish/land.sh .polish/current/commit.txt`.
+5. Check the "Deploy web" run with the GitHub MCP tools. If it fails, fix forward immediately:
+   `main` must stay green.
+
+## Phase 8 — Report
+
+Tell the owner, briefly:
+- what landed, by id, and what they'll notice in the app;
+- what the audit found, and what was fixed and what was deferred;
+- what's waiting on them (🙋);
+- what the next batch will be.
+
+Point them at the Inbox.
+
+Every 5th batch, add a harness review to the report. Using the Done-log tallies and any bugs that
+escaped to later batches, which steps keep paying off and which never do? Propose pruning the ones
+that don't. Every step here is a guess about what the model can't do alone.
 
 ## Stop and ask instead of pushing on when
 
-- the definition of done fails after two honest fix attempts;
-- an item turns out to conflict with DESIGN.md, or is much bigger than its size;
-- a change would alter or migrate users' existing data in a way that can't be undone;
-- the audit finds a data-loss path you can't close within the batch.
+- verify fails after two honest fix attempts;
+- an item conflicts with DESIGN.md, or is much bigger than its size;
+- a change would alter or migrate people's existing data in a way that can't be undone;
+- the audit finds a data-loss path you can't close within the batch;
+- the guard hook blocks something and you think it shouldn't. Ask; don't work around it.

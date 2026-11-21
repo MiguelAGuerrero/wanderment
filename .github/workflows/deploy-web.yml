@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # check-tests.sh compares with the previous push
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -25,6 +27,12 @@ jobs:
       - run: npm test
       - run: npx tsc --noEmit
       - run: npx eslint .
+      - name: Roadmap format
+        run: node scripts/polish/roadmap-lint.mjs
+      - name: Test integrity (since the previous push)
+        env:
+          POLISH_BASE: ${{ github.event.before }}
+        run: scripts/polish/check-tests.sh
       - name: Build web
         # Also copies index.html to 404.html (deep links on GitHub Pages) and adds .nojekyll (keeps _expo/).
         run: npm run build:web

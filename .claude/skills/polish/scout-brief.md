@@ -1,27 +1,66 @@
-# Scout brief (fill the blanks, send as the `polish-scout` prompt)
+# Scout brief (fill the blanks; send as the `polish-scout` prompt)
 
-You're scouting one roadmap item for Wanderment before anyone writes code. Your job is to find out
-what's really true in the code and the running app — edge cases, UX friction, accessibility gaps,
-data risks — so the build can be right the first time.
+<objective>
+Find out what's really true about one roadmap item before anyone builds it: where it lives in the
+code, which edge cases and UX problems it has, and which risks to people's data it carries. The
+build should then be right the first time. Report what the repo can't tell a builder (intent,
+traps, edge cases). Don't redescribe the layout; builders can read that themselves.
+</objective>
 
-**Item** (verbatim from docs/ROADMAP.md):
-> ____
+<item>
+____ (verbatim from docs/ROADMAP.md)
+</item>
 
-**Likely involved:** ____ (files/screens). **Out of scope:** ____.
+<territory>
+Likely involved: ____. Out of scope: ____.
+Your territory: ____. Another scout covers ____, so leave that to them.
+</territory>
 
-Read `docs/DESIGN.md` first; the product rules there are not negotiable.
+<method>
+Read `docs/DESIGN.md` first; its product rules are not negotiable.
 
-Do:
-1. Trace the current behaviour in the code (file:line).
-2. Reproduce it: unit-level with vitest in a throwaway file under the scratchpad, or in the built app
-   with Playwright (`npm run build:web`, then `node e2e/serve.mjs` → http://localhost:4173/wanderment/,
-   viewport 390×844; seed data with `e2e/graphFixture.ts` helpers). Screenshots for UX questions.
-3. List the edge cases this item must handle: empty/huge/odd input, rapid repeats, undo, reload
-   mid-action, offline, second tab, screen reader, keyboard-only, 200 % zoom, web vs iOS/Android.
-4. Propose an approach and the tests that would prove it (unit + e2e), smallest change first.
-5. Flag product questions only the owner can answer, and anything that would touch saved data.
+1. **Localize, narrowing step by step.** Files, then functions or components, then the exact
+   lines or branches. For everything the item would change, list **every** caller and every reader
+   (including storage, migrations, export/import and tests). Shallow dependency tracing is the most
+   common way investigations mislead builders.
+2. **Read before you claim.** Open the code before saying anything about it.
+3. **Reproduce.** At unit level, use a throwaway vitest file in your scratchpad (the technique is in
+   `src/storage/persistence.test.ts`). In the app:
+   1. run `npm run build:web`, then `node e2e/serve.mjs`;
+   2. open http://localhost:4173/wanderment/ with Playwright at 390×844;
+   3. seed data with the `e2e/graphFixture.ts` helpers.
 
-Don't edit tracked files, commit or push. Kill any server you start.
+   Take screenshots for UX questions. If you conclude "not a bug" or "already fine", show the
+   evidence.
+4. **List the edge cases the item must handle:**
+   - empty, huge or odd input;
+   - rapid repeats;
+   - undo;
+   - reload mid-action;
+   - offline;
+   - a second tab;
+   - screen reader;
+   - keyboard only;
+   - 200 % zoom;
+   - web vs iOS/Android.
+5. **Propose** the smallest approach, plus the tests that would prove each done-when line. Expected
+   values come from the item or DESIGN.md, not from what the code currently does.
+6. **Size it.** Estimate how long a careful human would take. If it's hours rather than minutes,
+   propose a split into parts that ship separately.
+7. **Flag** product questions only the owner can answer, and anything that would touch saved data.
+</method>
 
-Report (terse): **Facts** (reproduced, with how) · **Edge cases** · **Approach** · **Tests** ·
-**Risks** · **Questions for the owner**. Mark anything not reproduced as *reasoned*.
+<boundaries>
+Don't edit tracked files, commit or push; the orchestrator checks the tree hash afterwards. Write
+throwaway files only in your scratchpad. Stop any server you start.
+</boundaries>
+
+<output>
+Write the full report to ____ (`.polish/current/P-##/scout.md`) with these sections:
+
+**Facts** (reproduced, with how) · **Call sites & readers** · **Edge cases** · **Approach** ·
+**Tests** · **Size & split** · **Risks** · **Questions for the owner**
+
+Mark anything you didn't reproduce as *reasoned*. Reply with only the file path and a summary of
+2,000 tokens or less.
+</output>
