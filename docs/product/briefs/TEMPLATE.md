@@ -20,6 +20,20 @@ when empty, when there's a lot of data, offline, and with a screen reader.
 - STRATEGY.md: which bet it advances.
 - What we're deliberately *not* doing, and why.
 
+## Persona panel
+_Simulated perspectives from `docs/product/PERSONAS.md`, run by /product before asking. A thinking
+tool, not user research._
+
+| Persona | Reaction | What it hinges on |
+|---|---|---|
+| … | … | … |
+
+- **Trade-offs**: who gains, who pays, by personality structure.
+- **Strong, lean on it**: what several personas found strong.
+- **Refinements**: folded into the slices, offered as options, or refused (with the rule that
+  refuses them).
+- **Against the owner's notes (P0)**: how the panel reads against what the owner said.
+
 ## Slices
 Thin, shippable steps, smallest valuable one first. Each is S or M, with *done when* lines that can
 become roadmap items.

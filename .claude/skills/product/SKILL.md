@@ -26,6 +26,7 @@ Everything you need to decide alone is in the docs below; everything you decide,
    the owner does, wants, and reacted to.
 4. `docs/ROADMAP.md`: Inbox, Now/Next/Later, decisions (with answers), Done log.
 5. `docs/product/briefs/`, `docs/product/discovery/`: big-feature proposals and earlier research.
+6. `docs/product/PERSONAS.md`: the persona panel every product decision is run past (Step D2).
 
 Run state lives in `.polish/product/run.md` (git-ignored). Create it at the start of the run, and
 update it at every step: cycle number, what was chosen and why, what's in flight, and decisions
@@ -102,10 +103,37 @@ ask (Step G).
 **Writing a brief:**
 1. Copy `docs/product/briefs/TEMPLATE.md` to `B-##-name.md` (next free number).
 2. Fill it from owner notes, discovery and a scout look at the current app.
-3. Add a `D-##` entry under *Decisions needed 🙋* that links it, with the question and the
-   recommended answer.
-4. Commit it with the cycle's landing. If nothing else is landing, land it on its own via the
+3. Run the persona panel on it (Step D2) and write the synthesis into the brief's "Persona panel"
+   section. Fold refinements that fit DESIGN.md into the brief, and keep the rest as options.
+4. Add a `D-##` entry under *Decisions needed 🙋* that links it, with the question and the
+   recommended answer, informed by the panel.
+5. Commit it with the cycle's landing. If nothing else is landing, land it on its own via the
    polish scripts.
+
+### D2. Persona panel (every product decision)
+Every product decision gets this before the owner is asked. That covers briefs, hits, DESIGN.md or
+STRATEGY.md tensions, and a decision that's taking shape in conversation with the owner. If
+answering quickly is clearly better than waiting, ask first and run the panel right after, then
+show the owner anything that would change their answer.
+
+1. Split the roster in `docs/product/PERSONAS.md` (except P0, the owner) into 2–3 groups. Each group
+   mixes clusters that disagree, e.g. {Dabbler, Builder}, {Returner, Minimalist}, {Meaning-Seeker,
+   Assistive-Tech}.
+2. Launch one `persona-panelist` per group, **in one message**, each with `panel-brief.md` filled
+   in and output to `.polish/product/panel-B-##-<n>.md`. Give them the brief, plus screenshots of
+   the current app when the decision changes an existing screen. Don't include your own
+   recommendation.
+3. Synthesize into the brief's **Persona panel** section:
+   - a reaction table (persona × reaction × what it hinges on);
+   - **trade-offs**: who gains and who pays, by personality structure;
+   - **strong, lean on it**: what several personas found strong;
+   - **refinements**: which fit DESIGN.md and are folded into the slices, which are offered as
+     options, and which are refused, with the rule that refuses them;
+   - how P0 (the owner's notes) reads against the panel.
+4. Label it plainly as simulated perspectives, not user research.
+
+The panel informs the decision; it never makes it. A refinement that changes what the owner asked
+for is offered as an option, not applied.
 
 **On *go*:**
 1. Set the brief's status to `building`.
@@ -154,7 +182,9 @@ Then:
 2. Ask with one `AskUserQuestion` (≤ 4 questions). Each question:
    - stands alone and names the brief or D-## path;
    - offers the recommended option first;
-   - says what happens with each answer.
+   - says what happens with each answer;
+   - summarizes the persona panel in one or two lines (who gains, who pays, the strongest
+     refinement). The full panel is in the brief.
 
    The run pauses until they answer; that's intended.
 3. Record the answer in the D-## entry and in `owner-notes.md`. Act on it (Step D *go*, or record
@@ -182,5 +212,6 @@ Point them at `owner-notes.md`: telling `/product` how they use the app is how i
   notification, badge count or silent automation is recorded as **doesn't fit**, and isn't softened
   until it slips through.
 - Never edit `STRATEGY.md` or DESIGN.md yourself. Propose a change as a decision.
-- Cost: at most 3 discovery scouts per run, and at most 4 subagents running at once. Reuse earlier
+- Cost: at most 3 discovery scouts and 3 persona panelists per decision, and at most 4 subagents
+  running at once. Reuse earlier
   discovery files. If a cycle used a lot and produced little, end the run early and say so.
