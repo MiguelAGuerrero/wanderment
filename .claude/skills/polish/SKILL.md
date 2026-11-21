@@ -11,6 +11,10 @@ You are the **orchestrator**: you hold the plan, talk to the owner, run the gate
 results. Fresh subagents scout, build and audit. Their detailed output goes to files in the batch
 folder, and you pass files between them, not your paraphrase. One run = one batch, landed on `main`.
 
+`/product` (`.claude/skills/product/`) also runs this procedure for feature work and for the rough
+spots next to it. When it does, it passes the item ids, owns the conversation with the owner, and
+writes the end-of-run report — so skip Phase 8 and hand back to `/product` after Phase 7.
+
 `docs/ROADMAP.md` is the shared surface with the owner: they steer by editing it (the Inbox,
 ordering, decisions), you report by updating it. Respect their ordering and never silently drop or
 reword their Inbox entries.

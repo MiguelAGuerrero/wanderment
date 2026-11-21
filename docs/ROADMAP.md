@@ -2,8 +2,13 @@
 
 A living, **polish-first** roadmap. The features from the original plan (M1–M4) are built; from here
 the work is mostly making what exists trustworthy, smooth and kind at the edges, and only then adding
-more. The `/polish` skill (`.claude/skills/polish/`) reads this file, works through it in small
-batches, and updates it as batches land. You steer it by editing this file.
+more. Two skills work from this file:
+- `/product` (`.claude/skills/product/`) decides what's next: it turns your notes and research into
+  items and briefs (`docs/product/`), ships small features, and asks you about big ones.
+- `/polish` (`.claude/skills/polish/`) builds items well, in small audited batches — on its own, or
+  called by `/product` for features and the rough spots around them.
+
+You steer both by editing this file and by telling `/product` how you use the app.
 
 ## How this file works
 
@@ -15,7 +20,8 @@ batches, and updates it as batches land. You steer it by editing this file.
 - Each item has an id (`P-##`), a *status* (`todo` · `in-progress` · `blocked` · `done`), a one-line
   *why*, *done when* criteria (required for Now), a size (S/M/L) and tags:
   `[data]` storage/backup/undo (always audited, needs migration tests) · `[capture]` the log box ·
-  `[ux]` · `[a11y]` · `[perf]` · `[platform]` · `[native]` (needs a device build to verify).
+  `[ux]` · `[a11y]` · `[perf]` · `[platform]` · `[native]` (needs a device build to verify) ·
+  `[feature]` (new capability, usually a slice of a brief in `docs/product/briefs/`).
 - `node scripts/polish/roadmap-lint.mjs` checks this format (it also runs in `scripts/polish/verify.sh`
   and in CI). Finished items leave Now/Next for the Done log, as one line:
   `- YYYY-MM-DD · P-01, P-02 — what changed · evidence: <tests/specs/screenshots> · audit: N reported · N reproduced · N fixed · N deferred · <commit>`

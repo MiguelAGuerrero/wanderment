@@ -9,7 +9,7 @@ const path = process.argv[2] ?? fileURLToPath(new URL('../../docs/ROADMAP.md', i
 const text = readFileSync(path, 'utf8');
 const lines = text.split('\n');
 const problems = [];
-const TAGS = new Set(['data', 'capture', 'ux', 'a11y', 'perf', 'platform', 'native']);
+const TAGS = new Set(['data', 'capture', 'ux', 'a11y', 'perf', 'platform', 'native', 'feature']);
 const STATUSES = new Set(['todo', 'in-progress', 'blocked', 'done']);
 const SECTIONS = ['Inbox', 'Now', 'Next', 'Later', 'Decisions needed 🙋', 'Known edge cases (accepted for now)', 'Done log'];
 

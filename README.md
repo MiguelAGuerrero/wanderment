@@ -51,5 +51,7 @@ npm run e2e        # Playwright end-to-end tests against the built web app
 | `docs/` | Design decisions and roadmap. |
 
 See [`docs/DESIGN.md`](docs/DESIGN.md) for the product rules and [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next —
-drop ideas or annoyances in its **Inbox**, then run `/polish` in Claude Code to work through it one batch at a time.
+drop ideas or annoyances in its **Inbox**. In Claude Code, `/product` pushes the product forward (it ships small
+features, proposes big ones as briefs in [`docs/product/`](docs/product/), and asks you only for product decisions);
+`/polish` works through roadmap items one audited batch at a time.
 [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) is the (completed) plan for M1–M4.
