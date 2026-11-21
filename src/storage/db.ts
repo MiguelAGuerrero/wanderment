@@ -12,4 +12,6 @@ export interface Db {
   all<T>(sql: string, params?: SqlValue[]): Promise<T[]>;
   /** Runs `task` in a transaction. Callers serialise writes, so it needn't be exclusive. */
   transaction(task: () => Promise<void>): Promise<void>;
+  /** Closes the connection (so a failed open can be tried again from the start). */
+  close?(): Promise<void> | void;
 }

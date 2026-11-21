@@ -178,3 +178,25 @@ test('the thread page with the "what it’s for" swap row open has no serious ac
   await expect(page.getByRole('button', { name: /^Swap with/ })).toHaveCount(3);
   await expectNoSeriousViolations(page);
 });
+
+test('the waiting screen (another tab has the data) has no serious accessibility violations, and says what failed (P-29)', async ({ page, context }) => {
+  await openHome(page);
+  const second = await context.newPage();
+  await second.goto('./');
+  // Read out once, as an alert.
+  await expect(second.getByRole('alert')).toHaveText(
+    'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.',
+    { timeout: 20_000 },
+  );
+  // The details line is always visible, and selectable so it can be copied into a report.
+  const details = second.getByText('Details: tab lock · another page holds it', { exact: true });
+  await expect(details).toBeVisible();
+  expect(await details.evaluate((el) => getComputedStyle(el).userSelect)).toBe('text');
+  await expectNoSeriousViolations(second);
+
+  // Reload stays as a second way: named by its text, a 44 px target, reachable by keyboard.
+  const reload = second.getByRole('button', { name: 'Reload', exact: true });
+  expect((await reload.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await second.keyboard.press('Tab');
+  await expect(reload).toBeFocused();
+});

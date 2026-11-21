@@ -57,8 +57,12 @@ export type StorageKind = 'sqlite' | 'local';
 export type StorageStatus =
   | { state: 'loading' }
   | { state: 'ready'; kind: StorageKind }
-  /** Couldn't open the saved data; nothing is shown so nothing can be overwritten. */
-  | { state: 'blocked'; message: string };
+  /**
+   * Couldn't open the saved data; nothing is shown so nothing can be overwritten. `waiting`:
+   * another copy of the app holds it, and this page opens by itself once it's free.
+   * `details`: "Details: {step} · {message}", for bug reports.
+   */
+  | { state: 'blocked'; message: string; details?: string; waiting?: boolean };
 
 interface State {
   data: Data;

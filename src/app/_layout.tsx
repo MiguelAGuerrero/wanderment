@@ -35,8 +35,9 @@ export default function RootLayout() {
         </Text>
         {Platform.OS === 'web' && (
           <>
-            <Pressable onPress={() => window.location.reload()} style={s.primaryBtn} accessibilityRole="button">
-              <Text style={s.primaryBtnText}>Reload</Text>
+            {/* While waiting the page opens by itself, so Reload is only a second way. */}
+            <Pressable onPress={() => window.location.reload()} style={storage.waiting ? s.chip : s.primaryBtn} accessibilityRole="button">
+              <Text style={storage.waiting ? s.chipText : s.primaryBtnText}>Reload</Text>
             </Pressable>
             <Pressable onPress={downloadRawData} style={s.chip} accessibilityRole="button">
               <Text style={s.chipText}>Download this browser’s local copy</Text>
@@ -46,6 +47,12 @@ export default function RootLayout() {
               browser and shows up again once Wanderment can open it.
             </Text>
           </>
+        )}
+        {/* Small print for bug reports: which step failed, and the browser's own words. */}
+        {storage.details && (
+          <Text selectable style={[s.meta, { textAlign: 'center' }]}>
+            {storage.details}
+          </Text>
         )}
       </View>
     );

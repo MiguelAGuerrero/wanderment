@@ -5,11 +5,13 @@
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const env = vi.hoisted(() => {
   const ls = new Map<string, string>();
   const state = { dbPath: '', openError: undefined as Error | undefined, quotaKey: undefined as string | undefined, hangWrites: false };
+  /** P-29: opens that fail before one succeeds, SQL that fails, and every open and write, in order. */
+  const p29 = { failOpens: [] as Error[], failSql: undefined as { match: RegExp; error: Error } | undefined, opens: 0, writes: [] as string[] };
   const localStorage = {
     get length() {
       return ls.size;
@@ -23,7 +25,7 @@ const env = vi.hoisted(() => {
     removeItem: (k: string) => void ls.delete(k),
   };
   (globalThis as { localStorage?: unknown }).localStorage = localStorage;
-  return { ls, state, localStorage };
+  return { ls, state, localStorage, p29 };
 });
 
 vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
@@ -38,10 +40,24 @@ vi.mock('./expoDb', async () => {
   const { nodeDb } = await import('./nodeDb');
   return {
     openExpoDb: async () => {
+      env.p29.opens++;
       if (env.state.openError) throw env.state.openError;
+      const failure = env.p29.failOpens.shift();
+      if (failure) throw failure;
       const db = nodeDb(env.state.dbPath);
-      // "The tab dies mid-write": transactions opened while hangWrites is on never commit.
-      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+      const sql = <A extends unknown[], R>(write: boolean, f: (q: string, ...rest: A) => Promise<R>) => async (q: string, ...rest: A) => {
+        if (env.p29.failSql?.match.test(q)) throw env.p29.failSql.error;
+        if (write) env.p29.writes.push(q);
+        return f(q, ...rest);
+      };
+      return {
+        ...db,
+        exec: sql(true, db.exec),
+        run: sql(true, db.run),
+        all: sql(false, db.all) as typeof db.all,
+        // "The tab dies mid-write": transactions opened while hangWrites is on never commit.
+        transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)),
+      };
     },
   };
 });
@@ -72,7 +88,14 @@ beforeEach(() => {
   env.state.quotaKey = undefined;
   env.state.hangWrites = false;
   env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-')), 'db.sqlite');
+  env.p29.failOpens = [];
+  env.p29.failSql = undefined;
+  env.p29.opens = 0;
+  env.p29.writes = [];
 });
+
+// A page left waiting would otherwise keep trying during later tests (a real page goes away).
+afterEach(async () => (await import('./persistence')).stopPersistence());
 
 describe('loading', () => {
   it('keeps the good records when one saved record is malformed', async () => {
@@ -93,7 +116,7 @@ describe('loading', () => {
   it('a second tab is blocked, even on the very first launch', async () => {
     env.state.openError = new Error("Failed to execute 'createSyncAccessHandle': Access Handles cannot be created if there is another open Access Handle");
     const store = await load();
-    expect(store.getState().storage).toMatchObject({ state: 'blocked', message: expect.stringMatching(/another tab/) });
+    expect(store.getState().storage).toMatchObject({ state: 'blocked', message: expect.stringMatching(/another tab|somewhere else/) });
   });
 
   it('once SQLite has opened in this browser, a later failure blocks instead of falling back', async () => {
@@ -407,5 +430,217 @@ describe('what a thread is for (P-14)', () => {
     store = await load();
     expect(Object.keys(store.getState().data.threads)).toEqual(['t1']);
     expect(mark(store)).toBeUndefined();
+  });
+});
+
+describe('another copy of the app holds the data (P-29)', () => {
+  const WEBKIT_HELD = 'The object is in an invalid state.';
+  const held = () => new Error(WEBKIT_HELD);
+  const ANOTHER_TAB = 'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
+  const ELSEWHERE =
+    'Wanderment is still open somewhere else in this browser — maybe an old tab, or a page in a tab’s history. Close other Wanderment tabs; if this stays, quit the browser and reopen it. Your data is safe; this page will open by itself.';
+  type Store = Awaited<ReturnType<typeof load>>;
+  const tick = (ms: number) => vi.advanceTimersByTimeAsync(ms);
+  const snapshot = () => JSON.stringify([...env.ls.entries()].sort());
+
+  /** Every storage status the page shows from now on, and the data it shows with it. */
+  function watch(store: Store) {
+    const seen: { storage: unknown; texts: string[] }[] = [];
+    store.subscribe((s, prev) => {
+      if (s.storage !== prev.storage) seen.push({ storage: s.storage, texts: Object.values(s.data.activities).map((a) => a.text) });
+    });
+    return seen;
+  }
+
+  /** navigator.locks with one lock that another page can hold and let go of; requests queue. */
+  function fakeLocks() {
+    let busy = false;
+    const queue: (() => void)[] = [];
+    const grant = async (cb: (lock: unknown) => unknown) => {
+      busy = true;
+      try {
+        return await cb({ name: 'wanderment-data', mode: 'exclusive' });
+      } finally {
+        busy = false;
+        queue.shift()?.();
+      }
+    };
+    const locks = {
+      request(_name: string, opts: { ifAvailable?: boolean; signal?: AbortSignal }, cb: (lock: unknown) => unknown) {
+        if (!busy) return grant(cb);
+        if (opts.ifAvailable) return Promise.resolve(cb(null));
+        return new Promise((resolve, reject) => {
+          const go = () => resolve(grant(cb));
+          queue.push(go);
+          opts.signal?.addEventListener('abort', () => {
+            queue.splice(queue.indexOf(go), 1);
+            reject(new Error('AbortError'));
+          });
+        });
+      },
+    };
+    vi.stubGlobal('navigator', { locks });
+    /** Another page takes the lock; call the result to let go. */
+    const holdElsewhere = () => {
+      let release = () => {};
+      void locks.request('wanderment-data', {}, () => new Promise<void>((r) => (release = r)));
+      return () => release();
+    };
+    return { holdElsewhere, waiting: () => queue.length };
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('waits while the files are held (WebKit’s text), tries again by itself, and opens with no reload — writing nothing meanwhile', async () => {
+    let store = await load();
+    logText(store, 'kept');
+    await tick(30);
+    env.p29.opens = 0;
+    env.p29.writes = [];
+    env.p29.failOpens = [held(), held(), held()];
+    const before = snapshot();
+
+    store = await load();
+    const seen = watch(store);
+    expect(store.getState().storage).toEqual({ state: 'blocked', waiting: true, message: ELSEWHERE, details: `Details: open · ${WEBKIT_HELD}` });
+    expect(store.getState().data.activities).toEqual({});
+    expect(env.p29.opens).toBe(1);
+    // About 0.25 s, then 0.5 s, then 1 s.
+    await tick(249);
+    expect(env.p29.opens).toBe(1);
+    await tick(1);
+    expect(env.p29.opens).toBe(2);
+    await tick(500);
+    expect(env.p29.opens).toBe(3);
+    // Still waiting: nothing written anywhere, nothing shown, and the screen wasn't set again.
+    expect(env.p29.writes).toEqual([]);
+    expect(snapshot()).toBe(before);
+    expect(seen).toEqual([]);
+
+    await tick(1000);
+    expect(env.p29.opens).toBe(4);
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    // Straight from waiting to the saved data: never an empty app.
+    expect(seen).toEqual([{ storage: { state: 'ready', kind: 'sqlite' }, texts: ['kept'] }]);
+    logText(store, 'after waiting');
+    await tick(30);
+    store = await load();
+    expect(texts(store)).toEqual(['after waiting', 'kept']);
+  });
+
+  it('keeps waiting while the files stay held — on the very first launch too, never falling back to local storage', async () => {
+    env.p29.failOpens = Array.from({ length: 100 }, held);
+    const store = await load();
+    const seen = watch(store);
+    expect(store.getState().storage).toMatchObject({ state: 'blocked', waiting: true, message: ELSEWHERE });
+    await tick(60_000);
+    // 0.25 + 0.5 + 1 + 2 + 4 s, then every 5 s: 5 + 10 more tries in the first minute.
+    expect(env.p29.opens).toBe(16);
+    expect(store.getState().storage).toMatchObject({ state: 'blocked', waiting: true, message: ELSEWHERE });
+    expect(seen).toEqual([]);
+    expect(env.p29.writes).toEqual([]);
+    expect([...env.ls.keys()]).toEqual([]);
+  });
+
+  it('while another tab holds the tab lock it says so, queues for the lock instead of polling, and opens when it’s let go', async () => {
+    let store = await load();
+    logText(store, 'from the other tab');
+    await tick(30);
+    const locks = fakeLocks();
+    const letGo = locks.holdElsewhere();
+    env.p29.opens = 0;
+
+    store = await load();
+    expect(store.getState().storage).toEqual({ state: 'blocked', waiting: true, message: ANOTHER_TAB, details: 'Details: tab lock · another page holds it' });
+    await tick(60_000);
+    expect(env.p29.opens).toBe(0);
+    expect(locks.waiting()).toBe(1);
+
+    letGo();
+    await tick(0);
+    expect(env.p29.opens).toBe(1);
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(texts(store)).toEqual(['from the other tab']);
+  });
+
+  it('private browsing / no OPFS (UnknownError) keeps today’s path: local storage first, a plain blocked screen later', async () => {
+    const unknown = () => new Error('The operation failed for an unknown transient reason (e.g. out of memory).');
+    env.p29.failOpens = [unknown()];
+    let store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+
+    env.p29.failOpens = [];
+    await load();
+    env.p29.failOpens = [unknown(), unknown()];
+    env.p29.opens = 0;
+    store = await load();
+    expect(store.getState().storage).toEqual({
+      state: 'blocked',
+      message: `Wanderment couldn’t open its data (${unknown().message}). Reload to try again.`,
+      details: `Details: open · ${unknown().message}`,
+    });
+    await tick(60_000);
+    expect(env.p29.opens).toBe(1);
+  });
+
+  it('the plain “couldn’t open” screen says which step failed, and doesn’t loop', async () => {
+    const io = () => new Error('disk I/O error');
+    const legacy = legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'old') } });
+    const cases = [
+      { step: 'open', setup: () => (env.p29.failOpens = [io()]) },
+      { step: 'migrate', setup: () => (env.p29.failSql = { match: /^PRAGMA user_version$/, error: io() }) },
+      { step: 'absorb', setup: () => (env.ls.set('wanderment', legacy), (env.p29.failSql = { match: /INSERT OR REPLACE INTO activities/, error: io() })) },
+      { step: 'load', setup: () => (env.p29.failSql = { match: /^SELECT \* FROM threads$/, error: io() }) },
+    ];
+    for (const { step, setup } of cases) {
+      await load();
+      setup();
+      env.p29.opens = 0;
+      const store = await load();
+      expect(store.getState().storage, step).toEqual({
+        state: 'blocked',
+        message: 'Wanderment couldn’t open its data (disk I/O error). Reload to try again.',
+        details: `Details: ${step} · disk I/O error`,
+      });
+      await tick(60_000);
+      expect(env.p29.opens, step).toBe(1);
+      (await import('./persistence')).stopPersistence();
+      env.p29.failSql = undefined;
+      env.ls.delete('wanderment');
+    }
+  });
+
+  it('a journal that can’t be replayed because the data is held is kept (not set aside), and lands once it’s free', async () => {
+    let store = await load();
+    // A journal left by an older version: its settings lack newer keys.
+    env.ls.set(
+      'wanderment:journal',
+      JSON.stringify({ changes: { upsertThreads: [], deleteThreads: [], upsertActivities: [act('j1', 'from the journal')], deleteActivities: [] }, settings: { showShading: false } }),
+    );
+    const journal = env.ls.get('wanderment:journal');
+    env.p29.failSql = { match: /INSERT OR REPLACE INTO activities/, error: new Error('database is locked') };
+
+    store = await load();
+    expect(store.getState().storage).toEqual({ state: 'blocked', waiting: true, message: ELSEWHERE, details: 'Details: journal · database is locked' });
+    await tick(250);
+    expect(env.p29.opens).toBe(3);
+    expect(env.ls.get('wanderment:journal')).toBe(journal);
+    expect([...env.ls.keys()].some((k) => k.startsWith('wanderment:journal-failed-'))).toBe(false);
+
+    env.p29.failSql = undefined;
+    await tick(500);
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(store.getState().saveError).toBeUndefined();
+    expect(texts(store)).toEqual(['from the journal']);
+    expect(store.getState().showShading).toBe(false);
+    expect(env.ls.has('wanderment:journal')).toBe(false);
   });
 });

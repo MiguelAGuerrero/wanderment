@@ -15,5 +15,6 @@ export async function openExpoDb(name = 'wanderment.db'): Promise<Db> {
     },
     all: (sql, params = []) => db.getAllAsync(sql, params),
     transaction: (task) => db.withTransactionAsync(task),
+    close: () => db.closeAsync(),
   };
 }

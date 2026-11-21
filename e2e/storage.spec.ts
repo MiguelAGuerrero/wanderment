@@ -57,8 +57,8 @@ test('a second tab waits instead of showing stale data', async ({ page, context 
   await expect(second.getByText(/open in another tab/)).toBeVisible({ timeout: 20_000 });
   await expect(second.getByRole('textbox')).toHaveCount(0);
 
+  // P-29: it opens by itself once the other tab is gone — no Reload.
   await page.close();
-  await second.getByRole('button', { name: 'Reload' }).click();
   await expect(logBox(second)).toBeVisible();
   await second.getByRole('tab', { name: 'Activities' }).click();
   await expect(second.getByText('first tab')).toBeVisible();
@@ -76,4 +76,40 @@ test('in the localStorage fallback a second tab is blocked too (no last-writer-w
   await second.goto('./');
   await expect(second.getByText(/open in another tab/)).toBeVisible();
   await expect(second.getByRole('textbox')).toHaveCount(0);
+});
+
+test('a page whose files another copy holds without the tab lock (a suspended WebKit page) waits, then opens by itself (P-29)', async ({ page, context }) => {
+  // The holder has no Web Locks, as a suspended or cached WebKit page that dropped its lock but kept the files.
+  await page.addInitScript(() => Object.defineProperty(navigator, 'locks', { value: undefined }));
+  await openHome(page);
+  await logLine(page, 'from the holder');
+  await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+
+  const second = await context.newPage();
+  await second.goto('./');
+  const elsewhere = second.getByText(/^Wanderment is still open somewhere else in this browser/);
+  await expect(elsewhere).toBeVisible({ timeout: 20_000 });
+  await expect(second.getByText(/^Details: open · .*Access Handle/)).toBeVisible();
+  await expect(second.getByRole('textbox')).toHaveCount(0);
+  // Never suggests clearing website data (that would delete it).
+  await expect(second.getByText(/clear/i)).toHaveCount(0);
+
+  // A reload while waiting just waits again.
+  await second.reload();
+  await expect(elsewhere).toBeVisible({ timeout: 20_000 });
+
+  await page.close();
+  await expect(logBox(second)).toBeVisible({ timeout: 15_000 });
+  await second.getByRole('tab', { name: 'Activities' }).click();
+  await expect(second.getByText('from the holder')).toBeVisible();
+});
+
+test('the “couldn’t open” screen says which step failed, for bug reports (P-29)', async ({ page }) => {
+  await openHome(page);
+  // This browser has used SQLite; now opening it fails for some other reason (no Worker).
+  await page.addInitScript(() => Object.defineProperty(window, 'Worker', { value: undefined }));
+  await page.reload();
+  await expect(page.getByText(/^Wanderment couldn’t open its data \(.+\)\. Reload to try again\.$/)).toBeVisible();
+  await expect(page.getByText(/^Details: open · TypeError: /)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Reload', exact: true })).toBeVisible();
 });

@@ -3,6 +3,7 @@ import { Platform } from 'react-native';
 
 import { DataChanges, diffData, isEmptyDiff, missingFrom, pendingChanges } from '@/domain/diff';
 import { defaultSettings, LEGACY_STORAGE_KEY, parseLegacyState, sameSettings, Settings, toLegacyState } from '@/domain/migrate';
+import { classifyOpenError, detailsLine, OpenStep, retryDelay, StepError } from '@/domain/opening';
 import { Data, emptyData } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 
@@ -80,10 +81,29 @@ const OPEN_TIMEOUT_MS = 15000;
 const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
   Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Opening the database timed out')), ms))]);
 
-/** OPFS lets one tab hold the database; a second tab gets this kind of error. */
-const isLockError = (e: unknown) => /access handle|nomodificationallowed|another open|locked/i.test(String((e as Error)?.message ?? e));
+class BlockedError extends Error {
+  constructor(
+    message: string,
+    /** The details line, when it isn't about this message (it's about the error behind it). */
+    readonly details?: string,
+  ) {
+    super(message);
+  }
+}
 
-class BlockedError extends Error {}
+/** Runs one step of opening; a failure carries the step's name (for the screen's details line). */
+async function step<T>(name: OpenStep, task: () => Promise<T>): Promise<T> {
+  try {
+    return await task();
+  } catch (e) {
+    throw e instanceof StepError ? e : new StepError(name, e);
+  }
+}
+
+/** Shown while another copy holds the data. The page opens by itself once it's free. */
+const TAB_HELD = 'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
+const FILES_HELD =
+  'Wanderment is still open somewhere else in this browser — maybe an old tab, or a page in a tab’s history. Close other Wanderment tabs; if this stays, quit the browser and reopen it. Your data is safe; this page will open by itself.';
 
 /** Ids already taken in from the first release's format — never taken in again (so deletions stick). */
 const ABSORBED = 'legacyIds';
@@ -133,45 +153,91 @@ async function absorbLegacy(db: Db): Promise<void> {
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
 }
 
+interface TabLock {
+  release(): void;
+}
+
 /**
  * One tab at a time, in every storage mode (the database lock alone doesn't cover the
- * localStorage fallback). Held until the page goes away. Browsers without Web Locks skip this.
+ * localStorage fallback). Held until released or the page goes away. Browsers without Web
+ * Locks skip this. `wait`: queue for the lock instead of giving up (null only if aborted).
  */
-async function acquireTabLock(): Promise<boolean> {
+async function takeTabLock(opts: { wait?: boolean; signal?: AbortSignal } = {}): Promise<TabLock | null> {
   const locks = Platform.OS === 'web' ? (globalThis.navigator as Navigator | undefined)?.locks : undefined;
-  if (!locks?.request) return true;
-  return new Promise<boolean>((resolve) => {
+  const none: TabLock = { release() {} };
+  if (!locks?.request) return none;
+  return new Promise<TabLock | null>((resolve) => {
+    let release = () => {};
+    const held = new Promise<void>((r) => (release = r));
     locks
-      .request('wanderment-data', { ifAvailable: true }, (lock) => {
-        resolve(!!lock);
-        return lock ? new Promise<void>(() => {}) : undefined;
+      .request('wanderment-data', opts.wait ? { signal: opts.signal } : { ifAvailable: true }, (lock) => {
+        resolve(lock ? { release } : null);
+        return lock ? held : undefined;
       })
-      .catch(() => resolve(true));
+      .catch(() => resolve(opts.signal?.aborted ? null : none));
   });
 }
 
-async function openSqlite(): Promise<{ backend: Backend; db: Db; data: Data; settings: Settings }> {
-  const db = await withTimeout(openExpoDb(), OPEN_TIMEOUT_MS);
-  // From this moment this browser is a SQLite browser: never fall back to the old format again.
-  await AsyncStorage.setItem(USES_SQLITE_KEY, '1').catch(() => {});
-  await migrateSchema(db);
-  // Finish any change that was interrupted by a reload or closed tab. Writes are whole records,
-  // so replaying one that did land is harmless.
+/** Finishes changes interrupted by a reload or closed tab. Writes are whole records, so replaying one that did land is harmless. */
+async function replayJournal(db: Db): Promise<void> {
   const journal = readJournal();
-  if (journal) {
-    try {
-      await saveChanges(db, journal.changes);
-      await saveSettings(db, journal.settings);
-      writeJournal(undefined);
-    } catch (e) {
-      // Don't block every start on it: set it aside (still downloadable) and carry on.
-      console.warn('Could not replay the journal', e);
-      quarantineJournal();
-      journalFailed = true;
-    }
+  if (!journal) return;
+  try {
+    await saveChanges(db, journal.changes);
+    await saveSettings(db, journal.settings);
+    writeJournal(undefined);
+  } catch (e) {
+    // Busy because another copy has the data: keep the journal and replay it once this page gets in.
+    if (classifyOpenError(e, 'journal') === 'held') throw e;
+    // Don't block every start on it: set it aside (still downloadable) and carry on.
+    console.warn('Could not replay the journal', e);
+    quarantineJournal();
+    journalFailed = true;
   }
-  await absorbLegacy(db);
-  return { backend: sqliteBackend(db), db, data: await loadData(db), settings: await loadSettings(db) };
+}
+
+interface Opened {
+  backend: Backend;
+  db?: Db;
+  data: Data;
+  settings: Settings;
+}
+
+async function openSqlite(): Promise<Opened> {
+  const db = await step('open', () => withTimeout(openExpoDb(), OPEN_TIMEOUT_MS));
+  try {
+    // From this moment this browser is a SQLite browser: never fall back to the old format again.
+    await AsyncStorage.setItem(USES_SQLITE_KEY, '1').catch(() => {});
+    await step('migrate', () => migrateSchema(db));
+    await step('journal', () => replayJournal(db));
+    await step('absorb', () => absorbLegacy(db));
+    return { backend: sqliteBackend(db), db, ...(await step('load', async () => ({ data: await loadData(db), settings: await loadSettings(db) }))) };
+  } catch (e) {
+    // The next try opens it again.
+    await Promise.resolve(db.close?.()).catch(() => {});
+    throw e;
+  }
+}
+
+/** This page's hold on the tab lock, once it has it. */
+let tabLock: TabLock | null = null;
+
+type Attempt = { ok: true; opened: Opened } | { ok: false; error: StepError; held?: 'tab' | 'files' };
+
+/**
+ * One try at taking the data: the tab lock (unless this page has it), then SQLite — open,
+ * migrate, replay the journal, take in old data, load. Shows nothing and never falls back:
+ * a failure names its step and says whether another copy of the app holds the data.
+ */
+async function tryOpenSqlite(): Promise<Attempt> {
+  if (!tabLock) tabLock = await takeTabLock();
+  if (!tabLock) return { ok: false, held: 'tab', error: new StepError('tab lock', new Error('another page holds it')) };
+  try {
+    return { ok: true, opened: await openSqlite() };
+  } catch (e) {
+    const error = e instanceof StepError ? e : new StepError('open', e);
+    return { ok: false, error, held: Platform.OS === 'web' && classifyOpenError(error.cause, error.step) === 'held' ? 'files' : undefined };
+  }
 }
 
 async function openLocal(): Promise<{ backend: Backend; data: Data; settings: Settings }> {
@@ -183,20 +249,56 @@ async function openLocal(): Promise<{ backend: Backend; data: Data; settings: Se
 }
 
 let started = false;
+/** Stops a waiting page's tries (`stopPersistence`). */
+const stop = new AbortController();
+/** Called the first time the waiting screen shows. */
+let onWaiting = () => {};
 
-const block = (message: string) => useStore.setState({ storage: { state: 'blocked', message } });
+const block = (message: string, details: string) => useStore.setState({ storage: { state: 'blocked', message, details } });
 
-/** Loads saved data into the store, then saves every change in the background. Call once. */
+/** The waiting screen. Set only when its text changes, so a screen reader hears it once, not on every try. */
+function wait(message: string, error: StepError) {
+  const details = detailsLine(error);
+  const now = useStore.getState().storage;
+  if (now.state !== 'blocked' || !now.waiting || now.message !== message || now.details !== details) {
+    useStore.setState({ storage: { state: 'blocked', waiting: true, message, details } });
+  }
+  onWaiting();
+}
+
+/** Never resolves once stopped. */
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => {
+    const cancel = () => clearTimeout(timer);
+    const timer = setTimeout(() => {
+      stop.signal.removeEventListener('abort', cancel);
+      resolve();
+    }, ms);
+    stop.signal.addEventListener('abort', cancel, { once: true });
+  });
+
+/**
+ * Loads saved data into the store, then saves every change in the background. Call once.
+ * Resolves once there's something to show: the data, a blocked screen, or the waiting screen
+ * (which keeps trying by itself and opens as soon as the data is free).
+ */
 export async function startPersistence(): Promise<void> {
   if (started) return;
   started = true;
-  try {
-    await start();
-  } catch (e) {
+  const waiting = new Promise<void>((resolve) => (onWaiting = resolve));
+  const run = start().catch((e) => {
     // Whatever happens, end in a state the person can act on — never an endless blank screen.
     console.warn('Could not load data', e);
-    block(e instanceof BlockedError ? e.message : `Wanderment couldn’t load its data (${(e as Error)?.message ?? e}).`);
-  }
+    const cause = e instanceof StepError ? e.cause : e;
+    if (cause instanceof BlockedError) block(cause.message, cause.details ?? detailsLine(e));
+    else block(`Wanderment couldn’t load its data (${(cause as Error)?.message ?? cause}).`, detailsLine(e));
+  });
+  await Promise.race([run, waiting]);
+}
+
+/** Stops a waiting page from trying again (a page going away; tests). */
+export function stopPersistence(): void {
+  stop.abort();
 }
 
 let journalFailed = false;
@@ -213,27 +315,48 @@ function quarantineJournal() {
 }
 
 async function start(): Promise<void> {
-  if (!(await acquireTabLock())) throw new BlockedError('Wanderment is open in another tab or window. Close it, then reload this one.');
-  let opened: { backend: Backend; db?: Db; data: Data; settings: Settings };
+  let opened: Opened;
   let kind: 'sqlite' | 'local' = 'sqlite';
-  try {
-    opened = await openSqlite();
-  } catch (e) {
-    if (e instanceof BlockedError) throw e;
-    const usedSqliteBefore = (await AsyncStorage.getItem(USES_SQLITE_KEY).catch(() => null)) === '1';
-    if (Platform.OS === 'web' && isLockError(e)) {
-      throw new BlockedError('Wanderment is open in another tab or window. Close it, then reload this one.');
+  for (let failures = 0; ; ) {
+    if (stop.signal.aborted) return;
+    const attempt = await tryOpenSqlite();
+    if (stop.signal.aborted) return;
+    if (attempt.ok) {
+      opened = attempt.opened;
+      break;
     }
+    const { error, held } = attempt;
+    if (held === 'tab') {
+      // Queue for the lock rather than polling: it's granted the moment the other page lets go.
+      wait(TAB_HELD, error);
+      tabLock = await takeTabLock({ wait: true, signal: stop.signal });
+      failures = 0;
+      continue;
+    }
+    if (held === 'files') {
+      // Nothing is shown or written meanwhile; the same worker can simply try again.
+      wait(FILES_HELD, error);
+      await sleep(retryDelay(failures++));
+      continue;
+    }
+    if (error.cause instanceof BlockedError) throw error;
+    const usedSqliteBefore = (await AsyncStorage.getItem(USES_SQLITE_KEY).catch(() => null)) === '1';
     if (Platform.OS !== 'web' || usedSqliteBefore) {
       // Showing an empty or stale app here could overwrite real data, so stop and explain.
-      throw new BlockedError(
-        `Wanderment couldn’t open its data (${(e as Error)?.message ?? e}). ${Platform.OS === 'web' ? 'Reload to try again.' : 'Close the app and open it again to retry.'}`,
+      const message = (error.cause as Error)?.message ?? error.cause;
+      throw new StepError(
+        error.step,
+        new BlockedError(
+          `Wanderment couldn’t open its data (${message}). ${Platform.OS === 'web' ? 'Reload to try again.' : 'Close the app and open it again to retry.'}`,
+          detailsLine(error),
+        ),
       );
     }
     // This browser can't run SQLite at all (e.g. no OPFS in a private window): keep the first release's format.
-    console.warn('SQLite unavailable, using localStorage', e);
-    opened = await openLocal();
+    console.warn('SQLite unavailable, using localStorage', error.cause);
+    opened = await step('load', openLocal);
     kind = 'local';
+    break;
   }
 
   let saved = { data: opened.data, settings: opened.settings };
