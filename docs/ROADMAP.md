@@ -35,6 +35,15 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-24 "Log this" keeps what you typed `[capture]` S
+*Status:* todo
+*Why:* B-03 slice 0 (D-6): the crumb's "Log this" replaces the whole draft (`loadNext`), wiping a
+line you'd started.
+*Done when:* with text in the box, "Log this" keeps the text, caret and existing chips, and adds a
+visible, removable chip that the line is that thread's staged step (doing + `fromNextOf`); logging
+then clears the step; removing the chip logs it as typed with no step consumed; with an empty box it
+works as today; store test + e2e for both; toast and accessible names say so; axe.
+
 ### P-13 A bridge after the first log `[ux]` S
 *Status:* todo
 *Why:* after a first log with no `@`, Home loses the welcome and shows no threads — nothing explains
@@ -150,6 +159,25 @@ focus lands on the result; the live graph shows the link once logged; e2e. (Refi
 *Done when:* collapsed disclosure with expanded state and list semantics; staged steps only, no
 dates/ticks/numbers; *Earlier* rows show the top only; e2e + axe. (Refinement 8.)
 
+### P-25 Find in the graph: matches in memory `[feature]` S
+*Status:* todo
+*Why:* B-03 slice 1 (D-6): the log box needs to know what the typed line matches.
+*Done when:* domain `findInGraph(data, text)` ranks whys and threads (exact, prefix, word-start),
+then staged steps (meaningful-word match only), then past activities *in a thread* by recency; the
+whole line with every word required; one chip per thread (its step wins); the "doing X?" thread left
+out; capped; unit tests incl. `bigBlob` timing under one frame.
+
+### P-26 The log box also finds: quiet row and graph focus `[feature]` `[a11y]` M
+*Status:* todo
+*Why:* B-03 slice 2 (D-6): find a why, thread or step from the box and see it in the live graph.
+*Done when:* on Home only, after 2+ chars and a short settle, up to 3 chips above the box in words
+(no symbols, no dates), stable order, no animation, never an empty message; `@` hides the row; a
+tap focuses the live graph (P-15) — graph only moves, instant under Reduce Motion — with a "Showing
+X · toward … · fed by …" caption in names and a 44 pt "Show all"; Return logs as typed and also
+ends focus (after the new link lands); Esc on web only with `@` closed; "All results →" opens Search
+and the draft survives; accessible names start with visible text then kind; one match at the
+largest text; e2e; axe; 390 px and 200 % text.
+
 ### P-06 Dark mode `[ux]` `[a11y]` M — needs 🙋 D-2
 *Status:* blocked
 *Why:* `app.json` says `userInterfaceStyle: automatic`, but every colour is fixed light.
@@ -233,6 +261,9 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   typed" (a fix to today's crumb) now. Options: one-off activities via "All results →"
   (recommended); whether a kept line counts as the step. Recommended: **go, with the panel's
   refinements**.
+  **Answered 2026-11-21: go, with the panel's refinements; one-offs via "All results →"; a kept
+  line counts as the step (visible chip).** → P-24 (Now), P-25, P-26 (Next, after P-15). B-03 is
+  `building`.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 

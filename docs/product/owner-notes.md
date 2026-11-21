@@ -30,7 +30,12 @@ or bring a why or thread into focus in the graph to look around it. The tension 
 sacred*: Return logs exactly as typed, and typing must never be hijacked. It's big (it changes how
 capture works), so: clarifying questions, then brief B-03, the persona panel and D-6.
 
-Led to: clarifying questions in this run.
+Answers: quiet matches as you type; a tap focuses it in the graph; scope is threads and whys, staged
+steps, past activities.
+Led to: brief B-03, persona panel, D-6.
+Decision (D-6, same day, after the persona panel): **go, with the panel's refinements**; one-off
+activities via "All results →"; when "Log this" keeps typed text, the line counts as the step
+(visible chip). → P-24 (Now), P-25, P-26 (Next).
 
 ## 2026-11-21 — Chains of intention: one staged step, stacked on top
 > The application of this is that you could define the next step towards a value or goal ahead of

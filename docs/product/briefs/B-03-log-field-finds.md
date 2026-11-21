@@ -1,6 +1,6 @@
 # B-03 — The log box also finds
 
-**Status:** proposed · **Decision:** D-6 · **Theme:** Seeing flow / Warm return · **Date:** 2026-11-21
+**Status:** building · **Decision:** D-6 — go with the panel's refinements; one-offs via "All results →"; a kept line counts as the step, 2026-11-21 (→ P-24, P-25, P-26) · **Theme:** Seeing flow / Warm return · **Date:** 2026-11-21
 
 ## The problem, in the owner's terms
 > "Since the graph is gonna be first, let the log field be a mini search engine that can query the
