@@ -144,3 +144,28 @@ describe('"Log this" with text in the box keeps it (D-6)', () => {
     expect(nextOf(y)).toBe('learn the F chord');
   });
 });
+
+describe('a second crumb after an untouched first one (audit F1)', () => {
+  it('replaces the first step in the box, so the line is the second step and only that one is used', () => {
+    const { x, y } = seed();
+    st().setNext(x, 'sketch a hand');
+    st().loadNext(y); // empty box: "learn the F chord"
+    st().loadNext(x); // the box only holds y's untouched step
+    expect(st().draft).toEqual({ text: 'sketch a hand', doingId: x, toIds: [], fromNextOf: x, fromNextText: 'sketch a hand' });
+    st().log();
+    expect(nextOf(x)).toBeUndefined();
+    expect(nextOf(y)).toBe('learn the F chord');
+    const logged = Object.values(st().data.activities);
+    expect(logged.map((a) => [a.text, a.doingId])).toEqual([['sketch a hand', x]]);
+  });
+
+  it('once the person edits the loaded step, it is their line and is kept', () => {
+    const { x, y } = seed();
+    st().setNext(x, 'sketch a hand');
+    st().loadNext(y);
+    st().setDraft({ text: 'learn the F chord slowly' });
+    st().loadNext(x);
+    expect(st().draft.text).toBe('learn the F chord slowly');
+    expect(st().draft.fromNextOf).toBe(x);
+  });
+});

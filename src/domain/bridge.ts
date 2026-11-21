@@ -20,7 +20,8 @@ export function needsBridge(data: Data, activityId: Id | undefined): boolean {
 
 /**
  * Attaches the activity "to" the thread with this name, creating it if needed (an existing name,
- * hidden or not, is reused and brought back). A blank name or a missing activity changes nothing.
+ * hidden or not, is reused and brought back; a leading "@" is dropped). A blank name, a missing
+ * activity, or one already attached to that thread changes nothing (the same data is returned).
  */
 export function attachToNewThread(
   data: Data,
@@ -28,8 +29,16 @@ export function attachToNewThread(
   name: string,
   now = new Date(),
 ): { data: Data; thread?: Thread; created: boolean } {
-  if (!normalizeName(name) || !data.activities[activityId]) return { data, created: false };
-  const created = !findThreadByName(data, name);
+  // "@reading" means the thread "reading", as in the log box.
+  name = name.replace(/^\s*@+/, '');
+  const a = data.activities[activityId];
+  if (!normalizeName(name) || !a) return { data, created: false };
+  const existing = findThreadByName(data, name);
+  // Already attached to a shown thread of that name: nothing changes (the same data comes back).
+  if (existing && !existing.hidden && (a.toIds.includes(existing.id) || a.doingId === existing.id)) {
+    return { data, thread: existing, created: false };
+  }
+  const created = !existing;
   const ensured = ensureThread(data, name, now);
   const id = ensured.thread.id;
   const shown = ensured.thread.hidden ? updateThread(ensured.data, id, { hidden: false }) : ensured.data;

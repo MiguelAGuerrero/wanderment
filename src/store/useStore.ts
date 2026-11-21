@@ -139,7 +139,11 @@ export const useStore = create<State>()((set, get) => ({
     set({
       // A line already started is kept (with its "to" chips) and counts as the step; an empty box
       // takes the step's text.
-      draft: draft.text.trim() ? { ...draft, ...staged, toIds: draft.toIds.filter((id) => id !== threadId) } : { text: t.next, toIds: [], ...staged },
+      // A box holding only another crumb's untouched step isn't the person's own line: replace it.
+      draft:
+        draft.text.trim() && !(draft.fromNextOf && draft.text.trim() === draft.fromNextText?.trim())
+          ? { ...draft, ...staged, toIds: draft.toIds.filter((id) => id !== threadId) }
+          : { text: t.next, toIds: [], ...staged },
       logBoxFocus: logBoxFocus + 1,
     });
   },
@@ -236,6 +240,8 @@ export const useStore = create<State>()((set, get) => ({
     const s = get();
     const res = attachToNewThread(s.data, activityId, name);
     if (!res.thread) return undefined;
+    // Already done (a repeated submit): keep the real Undo entry instead of a no-op one.
+    if (res.data === s.data) return res.thread.id;
     set({
       data: res.data,
       undo: undoEntry(s.data, res.data),
@@ -247,7 +253,13 @@ export const useStore = create<State>()((set, get) => ({
     return res.thread.id;
   },
 
-  dismissBridge: () => set((s) => (s.bridgeFor ? { bridgeFor: undefined } : {})),
+  // The toast's question line goes with it: it was asking about the bridge.
+  dismissBridge: () =>
+    set((s) =>
+      s.bridgeFor || s.toast?.detail
+        ? { bridgeFor: undefined, toast: s.toast?.detail ? { ...s.toast, detail: undefined } : s.toast }
+        : {},
+    ),
 
   updateActivity: (activityId, patch) => set((s) => ({ data: editActivity(s.data, activityId, patch) })),
 

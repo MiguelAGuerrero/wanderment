@@ -19,6 +19,7 @@ export default function ThreadPage() {
   const loadNext = useStore((st) => st.loadNext);
   const dismissedPullIn = useStore((st) => st.dismissedPullIn);
   const dismissPullIn = useStore((st) => st.dismissPullIn);
+  const draftHasText = useStore((st) => st.draft.text.trim() !== '');
   const [editingNext, setEditingNext] = useState(false);
   const [nextValue, setNextValue] = useState('');
   const [renaming, setRenaming] = useState(false);
@@ -132,7 +133,11 @@ export default function ThreadPage() {
               onPress={() => (thread.next ? loadNext(thread.id) : (setNextValue(''), setEditingNext(true)))}
               style={{ flex: 1, minHeight: 48, justifyContent: 'center' }}
               accessibilityRole="button"
-              accessibilityLabel={thread.next ? `${thread.next}. Next step for ${thread.name}. Double-tap to load into the log box.` : '+ What’s next? Set a next step'}>
+              accessibilityLabel={
+                thread.next
+                  ? `${thread.next}. Next step for ${thread.name}. ${draftHasText ? 'Double-tap to count the line in the log box as this step.' : 'Double-tap to load into the log box.'}`
+                  : '+ What’s next? Set a next step'
+              }>
               <Text style={{ color: thread.next ? C.accentInk : C.muted, fontSize: 15 }}>
                 <Text {...decorative}>↳ </Text>
                 {thread.next ?? '+ What’s next?'}

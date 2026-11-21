@@ -35,25 +35,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-24 "Log this" keeps what you typed `[capture]` S
-*Status:* in-progress
-*Why:* B-03 slice 0 (D-6): the crumb's "Log this" replaces the whole draft (`loadNext`), wiping a
-line you'd started.
-*Done when:* with text in the box, "Log this" keeps the text, caret and existing chips, and adds a
-visible, removable chip that the line is that thread's staged step (doing + `fromNextOf`); logging
-then clears the step; removing the chip logs it as typed with no step consumed; with an empty box it
-works as today; store test + e2e for both; toast and accessible names say so; axe.
-
-### P-13 A bridge after the first log `[ux]` S
-*Status:* in-progress
-*Why:* after a first log with no `@`, Home loses the welcome and shows no threads — nothing explains
-threads or what to do next (owner, 2026-11-21; brief B-01 slice 1, which ships regardless of D-4).
-*Done when:* for the latest activity with no thread only, Home shows "Logged. Toward something — or
-just itself?" with one-tap chips for existing threads and "+ name it" (no count); tapping attaches
-the activity as "to" (Undo in the toast); "just itself" or ignoring it leaves no trace; it goes away
-on the next log or when leaving Home; announced once, politely, via the toast; e2e (attach via chip,
-via new name, ignore, next log clears it) + axe. (B-01 panel refinement 8.)
-
 ### P-14 Mark a thread as what it's for (data) `[data]` `[feature]` M
 *Status:* todo
 *Why:* B-01 slice 2 (D-4 go): a "why" is a thread marked as what it's for — the foundation for the
@@ -81,6 +62,14 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
+
+### P-27 The toast speaks on iOS `[a11y]` `[native]` S
+*Status:* todo
+*Why:* audit of P-13/P-24 (F9): the toast relies on `accessibilityLiveRegion`, which is Android-only;
+on iOS VoiceOver neither "Logged" nor the bridge question is announced (the "Logged" gap predates it).
+*Done when:* the toast announces message + detail once via `AccessibilityInfo.announceForAccessibility`
+off-web (no double announce on Android); unit test of the platform branch; checked on a device when
+D-3 allows.
 
 ### P-22 Honest "kept" wording per platform `[ux]` S
 *Status:* todo
@@ -269,6 +258,8 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 ## Known edge cases (accepted for now)
 
+- The thread page's crumb shows no "loaded" state when its step is staged in the log box (the
+  Composer's step chip does); its accessible name says what a tap will do.
 - Picking an `@` suggestion joins the two sides with exactly one space, so extra spaces typed around
   the `@word` collapse ("a @make    b" → "a b").
 - Native only: until the platform reports the selection, the caret after an edit is guessed; with a
@@ -284,6 +275,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-21 · P-13, P-24 — after a log with no thread, Home asks "Toward something — or just itself?" (chips, + name it, Just itself; ignoring writes nothing); "Log this" keeps a line you've started and marks it as the step with a removable chip, and never clears a step edited since it was loaded · evidence: `bridge.test.ts`, `useStore.test.ts`, `loadNext.test.ts`, `persistence.test.ts`, `e2e/bridge.spec.ts`, `e2e/log-this.spec.ts`, `e2e/a11y.spec.ts`, screenshots · audit: 14 reported · 9 reproduced · 11 fixed · 3 deferred (iOS toast to a new item; keyboard-on-focus to the owner; two small test gaps) · `ac866f0`, `2a4b039` + audit fixes
 - 2026-11-21 · P-01, P-02, P-03 — the browser is asked to keep the data (Settings says whether it promised); renaming to a taken name is refused inline, with Cancel/Esc; `@` works at the cursor and a pick never deletes a typed word · evidence: `persistent.test.ts`, `compose.test.ts`, `domain.test.ts`, `e2e/persistence.spec.ts`, `e2e/mention-caret.spec.ts`, `e2e/editing.spec.ts` · audit: 13 reported · 8 reproduced · 10 fixed · 3 deferred (to new items and the import item) · `e2cdbb1`, `6a35eec`, `845724a` + audit fixes
 - 2026-11-21 · Adversarial audits ×2: data-safety, undo, perf (log on Activities 28 s → 0.1 s),
   attach mode, a11y fixes · `5f16188`, `f3dde4b`

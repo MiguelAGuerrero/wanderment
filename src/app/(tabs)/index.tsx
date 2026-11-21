@@ -16,6 +16,8 @@ import { C, s } from '@/theme';
 const EXAMPLES = ['practiced guitar', 'edited a clip', 'leg day', 'sketched for fun'];
 
 export default function Home() {
+  // Brings the bridge into view when it appears, even if Home was scrolled.
+  const bridgeFor = useStore((st) => st.bridgeFor);
   const data = useStore((st) => st.data);
   const setDraft = useStore((st) => st.setDraft);
   const dismissBridge = useStore((st) => st.dismissBridge);
@@ -43,7 +45,7 @@ export default function Home() {
   );
 
   return (
-    <Screen bridge>
+    <Screen bridge scrollToTopOn={bridgeFor}>
       <View style={styles.header}>
         <Text style={s.h1} accessibilityRole="header">
           Wanderment

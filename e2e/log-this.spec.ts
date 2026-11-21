@@ -34,7 +34,7 @@ test('with text in the box, Home’s “Log this” keeps it and the line counts
   await expect(chip).toBeVisible();
   await expect(chip).toContainText('learn the F chord ×');
   // The crumb says the step is attached, not that its text is in the box.
-  await expect(page.getByText('attached to the line in the log box')).toBeVisible();
+  await expect(page.getByText('attached to your line')).toBeVisible();
 
 
   await logBox(page).press('Enter');
@@ -96,7 +96,7 @@ test('the thread page’s “Log this” keeps the text the same way', async ({ 
   await page.getByRole('button', { name: /^play guitar/ }).first().click();
   const box = page.getByRole('textbox', { name: 'Log in play guitar…' });
   await box.fill('half a page of sketches');
-  await page.getByRole('button', { name: 'learn the F chord. Next step for play guitar. Double-tap to load into the log box.' }).click();
+  await page.getByRole('button', { name: 'learn the F chord. Next step for play guitar. Double-tap to count the line in the log box as this step.' }).click();
   await expect(box).toHaveValue('half a page of sketches');
   await expect(box).toBeFocused();
   await expect(page.getByRole('button', { name: STEP_CHIP })).toBeVisible();
@@ -123,4 +123,33 @@ test('a step edited after “Log this” drops the chip and is not cleared by lo
   await box.press('Enter');
   await expect(page.getByRole('button', { name: /^half a page of sketches/ })).toBeVisible();
   await expect(page.getByRole('button', { name: 'learn the B chord. Next step for play guitar. Double-tap to load into the log box.' })).toBeVisible();
+});
+
+test('a second crumb replaces the first crumb’s untouched step, and only its own step is used (audit F1)', async ({ page }) => {
+  await seed(page);
+  await logBox(page).fill('sketched @draw');
+  await page.getByRole('option', { name: /New thread “draw”/ }).click();
+  await logBox(page).press('Enter');
+  const next = page.getByRole('textbox', { name: 'Optional next step for draw' });
+  await next.fill('sketch a hand');
+  await next.press('Enter');
+  await homeCrumb(page).click();
+  await expect(logBox(page)).toHaveValue('learn the F chord');
+  await page.getByRole('button', { name: 'sketch a hand Log this' }).click();
+  await expect(logBox(page)).toHaveValue('sketch a hand');
+  await logBox(page).press('Enter');
+  await expect(page.getByText('Logged in draw')).toBeVisible();
+  await expect(homeCrumb(page)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'sketch a hand Log this' })).toHaveCount(0);
+});
+
+test('clearing the box after staging offers “Log this” again (audit F5)', async ({ page }) => {
+  await seed(page);
+  await logBox(page).fill('half a page of sketches');
+  await homeCrumb(page).click();
+  await expect(page.getByText('attached to your line')).toBeVisible();
+  await logBox(page).fill('');
+  await expect(homeCrumb(page)).toBeVisible();
+  await homeCrumb(page).click();
+  await expect(logBox(page)).toHaveValue('learn the F chord');
 });

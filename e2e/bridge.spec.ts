@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { legacyBlob, seedScript } from './graphFixture';
 
 const COPY = 'Logged. Toward something — or just itself?';
 const QUESTION = 'Toward something — or just itself?';
@@ -210,5 +211,38 @@ test('"+ name it": spaces do nothing, Esc cancels, and naming a hidden thread br
   await field.press('Enter');
   await expect(page.getByText('Attached → to reading', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^reading\s*read a novel/ })).toBeVisible();
+  await counts(page, '2 activities · 1 threads');
+});
+
+test('a scrolled Home brings the bridge into view after a log (audit F2)', async ({ page }) => {
+  const names = Array.from({ length: 40 }, (_, i) => `thread ${i + 1}`);
+  await page.addInitScript(seedScript, legacyBlob(names, names.map((n, i) => ({ from: n, to: [], text: `on ${n}`, daysAgo: i * 0.1 }))));
+  await openHome(page);
+  await page.getByRole('button', { name: /^thread 40\s*\S/ }).scrollIntoViewIfNeeded();
+  await logLine(page, 'read a novel');
+  await expect(bridge(page)).toBeInViewport();
+});
+
+test('"Just itself" returns focus to the log box and takes the question off the toast (audit F3, F4)', async ({ page }) => {
+  await openHome(page);
+  await logLine(page, 'read a novel');
+  await expect(page.getByText(QUESTION, { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Just itself', exact: true }).focus();
+  await page.keyboard.press('Enter');
+  await expect(bridge(page)).toHaveCount(0);
+  await expect(logBox(page)).toBeFocused();
+  await expect(page.getByText(QUESTION, { exact: true })).toHaveCount(0);
+  await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+});
+
+test('"+ name it" with a leading @ attaches to the existing thread, no twin (audit F7)', async ({ page }) => {
+  await openHome(page);
+  await makeThread(page, 'strummed', 'play guitar');
+  await logLine(page, 'tuned up');
+  await page.getByRole('button', { name: '+ name it' }).click();
+  const field = page.getByRole('textbox', { name: 'Name the thread it was toward' });
+  await field.fill('@Play   Guitar');
+  await field.press('Enter');
+  await expect(page.getByText('Attached → to play guitar')).toBeVisible();
   await counts(page, '2 activities · 1 threads');
 });

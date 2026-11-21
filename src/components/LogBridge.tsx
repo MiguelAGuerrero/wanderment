@@ -85,7 +85,14 @@ function Bridge({ activityId }: { activityId: Id }) {
             <Text style={[s.chipText, { color: C.accent }]}>+ name it</Text>
           </Pressable>
         )}
-        <Pressable onPress={dismiss} style={styles.quiet} accessibilityRole="button">
+        <Pressable
+          onPress={() => {
+            const box = logBoxNear(root.current);
+            dismiss();
+            box?.focus();
+          }}
+          style={styles.quiet}
+          accessibilityRole="button">
           <Text style={styles.quietText}>Just itself</Text>
         </Pressable>
       </View>
@@ -111,7 +118,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
   chip: { maxWidth: '100%' },
   chipText: { flexShrink: 1 },
-  input: { flexGrow: 1, minWidth: 160, minHeight: 44, fontSize: 15, color: C.ink, borderBottomWidth: 1, borderColor: C.line },
+  input: { flexGrow: 1, flexBasis: 160, minWidth: 0, maxWidth: '100%', minHeight: 44, fontSize: 15, color: C.ink, borderBottomWidth: 1, borderColor: C.line },
   quiet: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
   quietText: { fontSize: 14, color: C.muted, textDecorationLine: 'underline' },
 });

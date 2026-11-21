@@ -112,3 +112,22 @@ describe('the bridge after a log', () => {
     expect(st().bridgeFor).toBeUndefined();
   });
 });
+
+describe('the bridge (audit of P-13/P-24)', () => {
+  it('"Just itself" also takes the question off the toast (F4)', () => {
+    logText('read a novel', { bridge: true });
+    expect(st().toast?.detail).toBe(QUESTION);
+    st().dismissBridge();
+    expect(st().toast?.message).toBe('Logged');
+    expect(st().toast?.detail).toBeUndefined();
+  });
+
+  it('naming twice (a repeated submit) keeps the real Undo, which still removes the new thread (F8)', () => {
+    const id = logText('read a novel', { bridge: true });
+    st().attachToNew(id, 'reading');
+    st().attachToNew(id, 'reading');
+    st().undoLast();
+    expect(st().data.threads).toEqual({});
+    expect(st().data.activities[id].toIds).toEqual([]);
+  });
+});

@@ -128,3 +128,23 @@ describe('attachToNewThread', () => {
     expect(res.data.activities[activity.id].toIds).toEqual([ids.reading]);
   });
 });
+
+describe('attachToNewThread (audit of P-13/P-24)', () => {
+  it('a leading "@" names the thread without it, so "@Play   Guitar" reuses "play guitar" (F7)', () => {
+    const { data: d0, thread } = ensureThread(emptyData(), 'play guitar', now);
+    const { data, activity } = logActivity(d0, { text: 'strummed' }, now);
+    const res = attachToNewThread(data, activity.id, '@Play   Guitar', now);
+    expect(res.created).toBe(false);
+    expect(res.thread?.id).toBe(thread.id);
+    expect(Object.keys(res.data.threads)).toHaveLength(1);
+    expect(res.data.activities[activity.id].toIds).toEqual([thread.id]);
+  });
+
+  it('naming the thread it is already attached to returns the same data (F8)', () => {
+    const { data: d0 } = ensureThread(emptyData(), 'reading', now);
+    const { data: d1, activity } = logActivity(d0, { text: 'read a novel' }, now);
+    const once = attachToNewThread(d1, activity.id, 'reading', now);
+    const twice = attachToNewThread(once.data, activity.id, 'Reading', now);
+    expect(twice.data).toBe(once.data);
+  });
+});

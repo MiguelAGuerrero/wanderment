@@ -25,9 +25,10 @@ export function ThreadCard({ summary }: { summary: ThreadSummary }) {
   const setNext = useStore((s) => s.setNext);
 
   // Staged in the log box (the Composer shows the same step chip while this holds).
-  const loaded = draft.fromNextOf === thread.id && draft.fromNextText === thread.next;
+  // Only while the box has a line: with an empty box, "Log this" is offered again (it refills it).
+  const loaded = draft.fromNextOf === thread.id && draft.fromNextText === thread.next && draft.text.trim() !== '';
   // Either the step's own text is in the box, or the person's own line counts as it.
-  const where = draft.text.trim() === thread.next ? 'in the log box' : 'attached to the line in the log box';
+  const where = draft.text.trim() === thread.next ? 'in the log box' : 'attached to your line';
   const meta = last ? `${last.text} · last touched ${ageLabel(last.occurredAt)}` : 'nothing logged yet';
 
   return (
@@ -60,7 +61,11 @@ export function ThreadCard({ summary }: { summary: ThreadSummary }) {
               // Native screen readers get the full sentence, starting with what's on screen (WCAG 2.5.3).
               // On web the name comes from the visible text, so voice control matches it exactly.
               accessibilityLabel={
-                Platform.OS === 'web' ? undefined : `${thread.next}, Log this. Next step for ${thread.name}. Double-tap to load into the log box.`
+                Platform.OS === 'web'
+                  ? undefined
+                  : `${thread.next}, Log this. Next step for ${thread.name}. ${
+                      draft.text.trim() ? 'Double-tap to count the line in the log box as this step.' : 'Double-tap to load into the log box.'
+                    }`
               }>
               <Text style={styles.arrow} {...decorative}>↳</Text>
               <Text style={styles.crumbText}>{thread.next}</Text>
@@ -126,7 +131,7 @@ const styles = StyleSheet.create({
   pen: { width: 44, height: 44, marginLeft: 8, alignItems: 'center', justifyContent: 'center' },
   crumbLoaded: { gap: 10, paddingRight: 14 },
   loadedText: { color: C.muted, textDecorationLine: 'line-through' },
-  loadedHint: { fontSize: 12, fontWeight: '500', color: C.muted },
+  loadedHint: { fontSize: 12, fontWeight: '500', color: C.muted, flexShrink: 1, maxWidth: '40%', textAlign: 'right' },
   crumbEmpty: { backgroundColor: 'transparent', borderStyle: 'dashed', borderColor: C.dashed, minHeight: 44, gap: 6 },
   emptyText: { fontSize: 14, color: C.muted },
   nextInput: { flex: 1, fontSize: 15, color: C.ink, minHeight: 40 },

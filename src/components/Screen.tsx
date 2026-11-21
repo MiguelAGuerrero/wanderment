@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ComponentRef, ReactNode, useEffect, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -20,6 +20,7 @@ export function Screen({
   placeholder,
   footer,
   bridge,
+  scrollToTopOn,
 }: {
   children: ReactNode;
   composer?: boolean;
@@ -29,11 +30,17 @@ export function Screen({
   footer?: ReactNode;
   /** Home only: a log with no thread offers the bridge ("Toward something — or just itself?"). */
   bridge?: boolean;
+  /** When this changes to a value, the content scrolls back to the top (Home: the bridge appeared). */
+  scrollToTopOn?: string;
 }) {
+  const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
+  useEffect(() => {
+    if (scrollToTopOn) scroller.current?.scrollTo({ y: 0, animated: false });
+  }, [scrollToTopOn]);
   return (
     <SafeAreaView style={s.screen} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
+        <ScrollView ref={scroller} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
         {(composer || footer) && (
