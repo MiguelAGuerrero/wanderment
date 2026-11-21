@@ -18,6 +18,14 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-21 — Keyboard after a tap: only for "Log this"
+> (Answer to /product's question after the P-13/P-24 audit, finding F12.) Only for "Log this".
+
+Interpretation (by /product): "Log this" focuses the log box (you're about to log); attaching from
+the bridge ("Toward something?") must not raise the keyboard on a phone — focus returns to the log
+box only where there's no on-screen keyboard (desktop web), for keyboard users.
+Led to: a small fix in the P-14 batch.
+
 ## 2026-11-21 — "It's effectively a search over the graph"
 > It's effectively a search over the graph.
 

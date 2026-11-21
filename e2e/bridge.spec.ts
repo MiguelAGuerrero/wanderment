@@ -246,3 +246,20 @@ test('"+ name it" with a leading @ attaches to the existing thread, no twin (aud
   await expect(page.getByText('Attached → to play guitar')).toBeVisible();
   await counts(page, '2 activities · 1 threads');
 });
+
+test.describe('on a touch screen', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+  test('attaching from the bridge or "Just itself" doesn’t focus the log box (no keyboard) (owner, F12)', async ({ page }) => {
+    await openHome(page);
+    await makeThread(page, 'strummed', 'play guitar');
+    await logLine(page, 'tuned up');
+    await page.getByRole('button', { name: 'Attach to play guitar' }).tap();
+    await expect(page.getByText('Attached → to play guitar')).toBeVisible();
+    await expect(logBox(page)).not.toBeFocused();
+    await logLine(page, 'read a novel');
+    await page.getByRole('button', { name: 'Just itself', exact: true }).tap();
+    await expect(bridge(page)).toHaveCount(0);
+    await expect(logBox(page)).not.toBeFocused();
+  });
+});

@@ -36,7 +36,7 @@ _Empty. Write here — one line is enough._
 ## Now
 
 ### P-14 Mark a thread as what it's for (data) `[data]` `[feature]` M
-*Status:* todo
+*Status:* in-progress
 *Why:* B-01 slice 2 (D-4 go): a "why" is a thread marked as what it's for — the foundation for the
 live graph, headers and first step.
 *Done when:* an optional `declaredAt` on threads with an additive schema migration (old data reads

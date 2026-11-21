@@ -100,9 +100,18 @@ function Bridge({ activityId }: { activityId: Id }) {
   );
 }
 
-/** Web: the log box in the same screen as `from`, so focus can go back to it after an attach. */
+/**
+ * Web with a fine pointer (no on-screen keyboard): the log box in the same screen as `from`, so
+ * focus can go back to it after an attach. On touch screens (and native) focusing it would raise
+ * the keyboard over Home, so focus is left alone there (owner, 2026-11-21: only "Log this" does).
+ */
 function logBoxNear(from: unknown): HTMLElement | null {
   if (Platform.OS !== 'web') return null;
+  try {
+    if (globalThis.matchMedia?.('(pointer: coarse)').matches) return null;
+  } catch {
+    // No matchMedia: treat as a desktop.
+  }
   let el = (from as HTMLElement | null)?.parentElement;
   while (el) {
     const box = el.querySelector<HTMLElement>(`input[aria-label="${LOG_BOX_LABEL}"]`);
