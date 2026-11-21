@@ -131,3 +131,83 @@ describe('the bridge (audit of P-13/P-24)', () => {
     expect(st().data.activities[id].toIds).toEqual([]);
   });
 });
+
+describe('what it’s for (P-14)', () => {
+  it('declaring toasts with Undo; a double tap writes nothing more, and the one Undo still reverts it', () => {
+    const t = st().createThread('practice drawing');
+    expect(st().declareThread(t).ok).toBe(true);
+    expect(st().toast).toEqual({ message: '“practice drawing” is what it’s for' });
+    const after = { data: st().data, undo: st().undo, toast: st().toast };
+    st().declareThread(t);
+    expect({ data: st().data, undo: st().undo, toast: st().toast }).toEqual(after);
+    expect(st().data).toBe(after.data);
+    st().undoLast();
+    expect(st().data.threads[t].declaredAt).toBeUndefined();
+  });
+
+  it('undeclaring says "Not what it’s for right now" and Undo restores the mark; undeclaring an unmarked thread is a no-op', () => {
+    const t = st().createThread('draw');
+    st().declareThread(t);
+    const mark = st().data.threads[t].declaredAt;
+    st().undeclareThread(t);
+    expect(st().toast).toEqual({ message: 'Not what it’s for right now' });
+    expect(st().data.threads[t].declaredAt).toBeUndefined();
+    st().undoLast();
+    expect(st().data.threads[t].declaredAt).toBe(mark);
+
+    st().undeclareThread(t);
+    st().dismissToast();
+    const before = { data: st().data, undo: st().undo };
+    st().undeclareThread(t);
+    expect(st().data).toBe(before.data);
+    expect(st().undo).toBe(before.undo);
+    expect(st().toast).toBeUndefined();
+  });
+
+  it('a 4th is refused (nothing written, no toast) with the 3 listed; a swap toasts both and one Undo restores both', () => {
+    const [a, b, c, d] = ['a', 'b', 'c', 'd'].map((n) => st().createThread(n));
+    for (const id of [a, b, c]) st().declareThread(id);
+    st().dismissToast();
+    const before = { data: st().data, undo: st().undo };
+    const res = st().declareThread(d);
+    expect(res).toMatchObject({ ok: false, reason: 'full' });
+    if (res.ok || res.reason !== 'full') throw new Error('expected full');
+    // Declared in the same millisecond here, so compare as a set (domain tests cover the order).
+    expect(res.declared.map((t) => t.name).sort()).toEqual(['a', 'b', 'c']);
+    expect(st().data).toBe(before.data);
+    expect(st().undo).toBe(before.undo);
+    expect(st().toast).toBeUndefined();
+
+    st().swapWhy(b, d);
+    expect(st().toast).toEqual({ message: '“d” is what it’s for · “b” isn’t right now' });
+    expect(st().data.threads[b].declaredAt).toBeUndefined();
+    expect(st().data.threads[d].declaredAt).toBeDefined();
+    st().undoLast();
+    expect(st().data).toEqual(before.data);
+  });
+
+  it('hiding a declared thread says so and unmarks it; one Undo restores both. Hiding another says "Hid"', () => {
+    const t = st().createThread('draw');
+    const other = st().createThread('run');
+    st().declareThread(t);
+    const declared = st().data.threads[t];
+    st().setHidden(t, true);
+    expect(st().toast).toEqual({ message: 'Hidden · not what it’s for right now' });
+    expect(st().data.threads[t]).toMatchObject({ hidden: true });
+    expect(st().data.threads[t].declaredAt).toBeUndefined();
+    st().undoLast();
+    expect(st().data.threads[t]).toEqual(declared);
+
+    st().setHidden(other, true);
+    expect(st().toast).toEqual({ message: 'Hid “run”' });
+  });
+
+  it('a hidden thread can’t be declared', () => {
+    const t = st().createThread('draw');
+    st().setHidden(t, true);
+    st().dismissToast();
+    expect(st().declareThread(t)).toEqual({ ok: false, reason: 'hidden' });
+    expect(st().data.threads[t].declaredAt).toBeUndefined();
+    expect(st().toast).toBeUndefined();
+  });
+});

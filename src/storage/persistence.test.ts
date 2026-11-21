@@ -273,3 +273,139 @@ describe('the bridge after a log', () => {
     expect(store.getState().data.activities[id].toIds).toEqual([]);
   });
 });
+
+describe('what a thread is for (P-14)', () => {
+  const marked = '2026-11-02T09:30:00.000Z';
+  const thread = (extra: Record<string, unknown> = {}) => ({ id: 't1', name: 'practice drawing', hidden: false, createdAt: at, ...extra });
+  const mark = (store: Awaited<ReturnType<typeof load>>, id = 't1') => store.getState().data.threads[id]?.declaredAt;
+  const declared = (store: Awaited<ReturnType<typeof load>>) => {
+    const id = store.getState().createThread('practice drawing');
+    expect(store.getState().declareThread(id).ok).toBe(true);
+    return { id, at: store.getState().data.threads[id].declaredAt! };
+  };
+
+  it('a mark from the first release’s format is moved into SQLite and read from there', async () => {
+    env.ls.set('wanderment', legacyBlob({ version: 1, threads: { t1: thread({ declaredAt: marked }) }, activities: {} }));
+    let store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(mark(store)).toBe(marked);
+    store = await load();
+    expect(env.ls.has('wanderment')).toBe(false);
+    expect(mark(store)).toBe(marked);
+  });
+
+  it('declaring survives a reload, and so do a rename and a next step made afterwards', async () => {
+    let store = await load();
+    const d = declared(store);
+    expect(d.at).toMatch(/^\d{4}-\d\d-\d\dT.*Z$/);
+    await settle();
+    store = await load();
+    expect(mark(store, d.id)).toBe(d.at);
+
+    // Every edit rewrites the whole row: none of them may drop the mark.
+    expect(store.getState().renameThread(d.id, 'draw').ok).toBe(true);
+    await settle();
+    store = await load();
+    store.getState().setNext(d.id, 'gesture study');
+    await settle();
+    store = await load();
+    expect(store.getState().data.threads[d.id]).toEqual({ id: d.id, name: 'draw', next: 'gesture study', hidden: false, createdAt: expect.any(String), declaredAt: d.at });
+  });
+
+  it('Undo of a declare reads absent after a reload; Undo of an undeclare reads the original time', async () => {
+    let store = await load();
+    const d = declared(store);
+    await settle();
+    store.getState().undoLast();
+    await settle();
+    store = await load();
+    expect(mark(store, d.id)).toBeUndefined();
+
+    expect(store.getState().declareThread(d.id).ok).toBe(true);
+    const again = mark(store, d.id)!;
+    await settle();
+    store.getState().undeclareThread(d.id);
+    await settle();
+    store = await load();
+    expect(mark(store, d.id)).toBeUndefined();
+    // Undo after the undeclare was saved puts the exact time back on disk.
+    store.getState().declareThread(d.id);
+    const third = mark(store, d.id)!;
+    expect(third >= again).toBe(true);
+    await settle();
+    store.getState().undeclareThread(d.id);
+    await settle();
+    store.getState().undoLast();
+    await settle();
+    store = await load();
+    expect(mark(store, d.id)).toBe(third);
+  });
+
+  it('hiding a declared thread unmarks it on disk; Undo restores both', async () => {
+    let store = await load();
+    const d = declared(store);
+    await settle();
+    store.getState().setHidden(d.id, true);
+    await settle();
+    store = await load();
+    expect(store.getState().data.threads[d.id]).toMatchObject({ hidden: true });
+    expect(mark(store, d.id)).toBeUndefined();
+    store.getState().setHidden(d.id, false);
+    store.getState().declareThread(d.id);
+    const at2 = mark(store, d.id)!;
+    store.getState().setHidden(d.id, true);
+    store.getState().undoLast();
+    await settle();
+    store = await load();
+    expect(store.getState().data.threads[d.id]).toMatchObject({ hidden: false, declaredAt: at2 });
+  });
+
+  it('a declare survives the tab closing before SQLite commits (journal)', async () => {
+    let store = await load();
+    const id = store.getState().createThread('practice drawing');
+    await settle();
+    env.state.hangWrites = true;
+    store.getState().declareThread(id);
+    const at2 = mark(store, id)!;
+    await settle();
+    env.state.hangWrites = false;
+    store = await load();
+    expect(mark(store, id)).toBe(at2);
+    expect(env.ls.has('wanderment:journal')).toBe(false);
+  });
+
+  it('a browser that can’t run SQLite keeps the mark in the old format, then moves it once it can', async () => {
+    env.state.openError = new Error('no OPFS');
+    let store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+    const d = declared(store);
+    await settle();
+    store = await load();
+    expect(mark(store, d.id)).toBe(d.at);
+    env.state.openError = undefined;
+    store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(mark(store, d.id)).toBe(d.at);
+  });
+
+  it('export → import keeps the mark through a reload; a backup without one imports unmarked', async () => {
+    const { toBackup, fromBackup } = await import('@/domain/backup');
+    let store = await load();
+    const d = declared(store);
+    store.getState().createThread('run');
+    const json = toBackup(store.getState().data);
+    store.getState().undeclareThread(d.id);
+    await settle();
+    store.getState().replaceData(fromBackup(json));
+    await settle();
+    store = await load();
+    expect(mark(store, d.id)).toBe(d.at);
+
+    const bare = JSON.stringify({ app: 'wanderment', exportedAt: at, data: { version: 1, threads: { t1: thread() }, activities: {} } });
+    store.getState().replaceData(fromBackup(bare));
+    await settle();
+    store = await load();
+    expect(Object.keys(store.getState().data.threads)).toEqual(['t1']);
+    expect(mark(store)).toBeUndefined();
+  });
+});

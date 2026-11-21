@@ -6,6 +6,8 @@ import { attachMany } from '@/domain/emergence';
 import {
   ActivityPatch,
   attachActivity,
+  DeclareResult,
+  declareThread,
   deleteActivity,
   editActivity,
   ensureThread,
@@ -14,6 +16,8 @@ import {
   nextOwner,
   RenameResult,
   renameThread,
+  swapWhy,
+  undeclareThread,
   updateThread,
 } from '@/domain/model';
 import { rememberSearch } from '@/domain/search';
@@ -97,6 +101,11 @@ interface State {
   /** Refused (nothing changes) when another thread already has the name. */
   renameThread: (threadId: Id, name: string) => RenameResult;
   setHidden: (threadId: Id, hidden: boolean) => void;
+  /** Marks the thread as what it's for; when MAX_WHYS are already marked, nothing changes (offer a swap). */
+  declareThread: (threadId: Id) => DeclareResult;
+  undeclareThread: (threadId: Id) => void;
+  /** Gives up `outId` as what it's for and marks `inId`; one Undo reverts both. */
+  swapWhy: (outId: Id, inId: Id) => void;
   attach: (activityId: Id, threadId: Id) => void;
   /** Attaches "to" the thread with this name, creating it if needed; one Undo reverts both. */
   attachToNew: (activityId: Id, name: string) => Id | undefined;
@@ -224,7 +233,34 @@ export const useStore = create<State>()((set, get) => ({
       if (!t) return {};
       const data = updateThread(s.data, threadId, { hidden });
       // Every undoable change shows its own toast, so Undo always means the change it names.
-      return { undo: undoEntry(s.data, data), data, toast: { message: hidden ? `Hid “${t.name}”` : `“${t.name}” is back` } };
+      // Hiding a why unmarks it too (one Undo restores both), so the toast says so.
+      const message = hidden ? (t.declaredAt ? 'Hidden · not what it’s for right now' : `Hid “${t.name}”`) : `“${t.name}” is back`;
+      return { undo: undoEntry(s.data, data), data, toast: { message } };
+    }),
+
+  declareThread: (threadId) => {
+    const s = get();
+    const res = declareThread(s.data, threadId);
+    // Already marked (a double tap): keep the real Undo entry and toast instead of a no-op one.
+    if (res.ok && res.data !== s.data) {
+      set({ data: res.data, undo: undoEntry(s.data, res.data), toast: { message: `“${s.data.threads[threadId].name}” is what it’s for` } });
+    }
+    return res;
+  },
+
+  undeclareThread: (threadId) =>
+    set((s) => {
+      const data = undeclareThread(s.data, threadId);
+      if (data === s.data) return {};
+      return { data, undo: undoEntry(s.data, data), toast: { message: 'Not what it’s for right now' } };
+    }),
+
+  swapWhy: (outId, inId) =>
+    set((s) => {
+      const data = swapWhy(s.data, outId, inId);
+      if (data === s.data) return {};
+      const message = `“${data.threads[inId].name}” is what it’s for · “${data.threads[outId].name}” isn’t right now`;
+      return { data, undo: undoEntry(s.data, data), toast: { message } };
     }),
 
   attach: (activityId, threadId) =>

@@ -10,6 +10,7 @@ interface ThreadRow {
   next: string | null;
   hidden: number;
   created_at: string;
+  declared_at: string | null;
 }
 interface ActivityRow {
   id: string;
@@ -27,7 +28,14 @@ interface ToRow {
 export async function loadData(db: Db): Promise<Data> {
   const data = emptyData();
   for (const r of await db.all<ThreadRow>('SELECT * FROM threads')) {
-    data.threads[r.id] = { id: r.id, name: r.name, next: r.next ?? undefined, hidden: r.hidden === 1, createdAt: r.created_at };
+    data.threads[r.id] = {
+      id: r.id,
+      name: r.name,
+      next: r.next ?? undefined,
+      hidden: r.hidden === 1,
+      createdAt: r.created_at,
+      declaredAt: r.declared_at ?? undefined,
+    };
   }
   for (const r of await db.all<ActivityRow>('SELECT * FROM activities')) {
     data.activities[r.id] = {
@@ -46,13 +54,15 @@ export async function loadData(db: Db): Promise<Data> {
   return data;
 }
 
+/** A whole-record write: a column left out here would be wiped by every edit to the thread. */
 const upsertThread = (db: Db, t: Thread) =>
-  db.run('INSERT OR REPLACE INTO threads (id, name, next, hidden, created_at) VALUES (?, ?, ?, ?, ?)', [
+  db.run('INSERT OR REPLACE INTO threads (id, name, next, hidden, created_at, declared_at) VALUES (?, ?, ?, ?, ?, ?)', [
     t.id,
     t.name,
     t.next ?? null,
     t.hidden ? 1 : 0,
     t.createdAt,
+    t.declaredAt ?? null,
   ]);
 
 async function upsertActivity(db: Db, a: Activity) {

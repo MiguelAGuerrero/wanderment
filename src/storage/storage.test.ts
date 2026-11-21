@@ -4,13 +4,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { diffData } from '@/domain/diff';
 import { parseLegacyState } from '@/domain/migrate';
-import { attachActivity, ensureThread, logActivity, updateThread } from '@/domain/model';
+import { attachActivity, declareThread, ensureThread, logActivity, undeclareThread, updateThread } from '@/domain/model';
 import { emptyData } from '@/domain/types';
 
 import { nodeDb } from './nodeDb';
 import { isEmpty, loadData, loadSettings, replaceAll, saveChanges, saveSettings } from './repository';
-import { migrateSchema, SCHEMA_VERSION } from './schema';
+import { MIGRATIONS, migrateSchema, SCHEMA_VERSION } from './schema';
 
+const at = '2026-11-01T10:00:00.000Z';
+const at2 = '2026-11-02T09:30:00.000Z';
 const legacyJson = readFileSync(join(__dirname, 'fixtures/legacy-v1.json'), 'utf8');
 let current: ReturnType<typeof nodeDb> | undefined;
 afterEach(() => {
@@ -101,5 +103,44 @@ describe('saving changes', () => {
     const broken = { ...diffData(emptyData(), data), upsertActivities: [{ id: 'a', text: null } as never] };
     await expect(saveChanges(db, broken)).rejects.toThrow();
     expect(await isEmpty(db)).toBe(true);
+  });
+});
+
+describe('schema 2: what a thread is for (P-14)', () => {
+  it('a version-1 database with rows migrates to 2; old rows read back unchanged, with no mark', async () => {
+    const db = (current = nodeDb());
+    await db.exec(MIGRATIONS[0]);
+    await db.exec('PRAGMA user_version = 1');
+    await db.run('INSERT INTO threads (id, name, next, hidden, created_at) VALUES (?, ?, ?, ?, ?)', ['t1', 'play guitar', 'learn the F chord', 0, at]);
+    await db.run('INSERT INTO threads (id, name, next, hidden, created_at) VALUES (?, ?, ?, ?, ?)', ['t2', 'get stronger', null, 1, at]);
+    await db.run('INSERT INTO activities (id, text, occurred_at, created_at, doing_id, note) VALUES (?, ?, ?, ?, ?, ?)', ['a1', 'scales', at, at, 't2', 'slow']);
+    await db.run('INSERT INTO activity_to (activity_id, position, thread_id) VALUES (?, ?, ?)', ['a1', 0, 't1']);
+
+    expect(await migrateSchema(db)).toBe(1);
+    const [{ user_version }] = await db.all<{ user_version: number }>('PRAGMA user_version');
+    expect(user_version).toBe(2);
+    const loaded = await loadData(db);
+    expect(loaded).toEqual({
+      version: 1,
+      threads: {
+        t1: { id: 't1', name: 'play guitar', next: 'learn the F chord', hidden: false, createdAt: at },
+        t2: { id: 't2', name: 'get stronger', hidden: true, createdAt: at },
+      },
+      activities: { a1: { id: 'a1', text: 'scales', occurredAt: at, createdAt: at, doingId: 't2', toIds: ['t1'], note: 'slow' } },
+    });
+    expect(Object.values(loaded.threads).map((t) => t.declaredAt)).toEqual([undefined, undefined]);
+    // Running again is a no-op.
+    expect(await migrateSchema(db)).toBe(2);
+
+    // The migrated database keeps a mark, and an edit to the thread doesn't wipe it.
+    const declared = declareThread(loaded, 't1', new Date(at2));
+    if (!declared.ok) throw new Error('declare refused');
+    await saveChanges(db, diffData(loaded, declared.data));
+    const renamed = updateThread(declared.data, 't1', { name: 'guitar' });
+    await saveChanges(db, diffData(declared.data, renamed));
+    expect((await loadData(db)).threads.t1).toEqual({ id: 't1', name: 'guitar', next: 'learn the F chord', hidden: false, createdAt: at, declaredAt: at2 });
+    const off = undeclareThread(renamed, 't1');
+    await saveChanges(db, diffData(renamed, off));
+    expect((await loadData(db)).threads.t1.declaredAt).toBeUndefined();
   });
 });

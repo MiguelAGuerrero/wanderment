@@ -74,14 +74,68 @@ function nameTakenBy(data: Data, id: Id, name: string): Thread | undefined {
   return Object.values(data.threads).find((t) => t.id !== id && normalizeName(t.name) === n);
 }
 
-/** A name another thread already has keeps the old name, like a blank one (merging is cut). */
+/**
+ * A name another thread already has keeps the old name, like a blank one (merging is cut).
+ * Hiding a thread also unmarks it as what it's for, in the same change (so one Undo restores
+ * both): every declared why is a visible one.
+ */
 export function updateThread(data: Data, id: Id, patch: Partial<Pick<Thread, 'name' | 'next' | 'hidden'>>): Data {
   const t = data.threads[id];
   if (!t) return data;
   const next = patch.next !== undefined ? patch.next.trim() || undefined : t.next;
   const name =
     patch.name !== undefined && !nameTakenBy(data, id, patch.name) ? patch.name.trim().replace(/\s+/g, ' ') || t.name : t.name;
-  return { ...data, threads: { ...data.threads, [id]: { ...t, ...patch, name, next } } };
+  const updated: Thread = { ...t, ...patch, name, next };
+  if (patch.hidden) delete updated.declaredAt;
+  return { ...data, threads: { ...data.threads, [id]: updated } };
+}
+
+/** At most this many threads are marked as what it's for at once (D-4). */
+export const MAX_WHYS = 3;
+
+/**
+ * Threads marked as what it's for ("whys"): visible ones only, oldest mark first (id breaks ties).
+ * Not capped: an imported backup can hold more than MAX_WHYS, and every one stays undeclarable.
+ */
+export function declaredWhys(data: Data): Thread[] {
+  return Object.values(data.threads)
+    .filter((t) => t.declaredAt && !t.hidden)
+    .sort((a, b) => a.declaredAt!.localeCompare(b.declaredAt!) || a.id.localeCompare(b.id));
+}
+
+export type DeclareResult =
+  | { ok: true; data: Data }
+  /** Already MAX_WHYS whys: nothing changes, and these are the ones a swap can give up. */
+  | { ok: false; reason: 'full'; declared: Thread[] }
+  /** A hidden thread can't be what it's for (unhide it first). */
+  | { ok: false; reason: 'hidden' };
+
+/** Marks a thread as what it's for. Already marked (or gone): the same data, untouched. */
+export function declareThread(data: Data, id: Id, now = new Date()): DeclareResult {
+  const t = data.threads[id];
+  if (!t || t.declaredAt) return { ok: true, data };
+  if (t.hidden) return { ok: false, reason: 'hidden' };
+  const declared = declaredWhys(data);
+  if (declared.length >= MAX_WHYS) return { ok: false, reason: 'full', declared };
+  return { ok: true, data: { ...data, threads: { ...data.threads, [id]: { ...t, declaredAt: now.toISOString() } } } };
+}
+
+/** Unmarks a thread, leaving nothing behind but the thread. Not marked: the same data. */
+export function undeclareThread(data: Data, id: Id): Data {
+  const t = data.threads[id];
+  if (!t?.declaredAt) return data;
+  const { declaredAt: _gone, ...rest } = t;
+  return { ...data, threads: { ...data.threads, [id]: rest } };
+}
+
+/** Gives up one why for another in a single change (so one Undo reverts both). */
+export function swapWhy(data: Data, outId: Id, inId: Id, now = new Date()): Data {
+  const out = data.threads[outId];
+  const into = data.threads[inId];
+  if (!out?.declaredAt || !into || into.declaredAt || into.hidden) return data;
+  // Not through declareThread: a swap never grows the set, even when an import left it over the cap.
+  const swapped = undeclareThread(data, outId);
+  return { ...swapped, threads: { ...swapped.threads, [inId]: { ...into, declaredAt: now.toISOString() } } };
 }
 
 export type RenameResult = { ok: true; data: Data } | { ok: false; reason: 'taken'; other: Thread };

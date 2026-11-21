@@ -16,6 +16,8 @@ export interface Thread {
   next?: string;
   hidden: boolean;
   createdAt: string; // ISO
+  /** When it was marked as what it’s for (a declared "why"); absent when it isn’t one. */
+  declaredAt?: string; // ISO
 }
 
 export interface Activity {

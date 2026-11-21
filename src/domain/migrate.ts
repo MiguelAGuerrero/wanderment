@@ -32,6 +32,8 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
       next: typeof t.next === 'string' && t.next.trim() ? t.next.trim() : undefined,
       hidden: t.hidden === true,
       createdAt: isIso(t.createdAt) ? utc(t.createdAt) : new Date(0).toISOString(),
+      // Never truncated: a backup with more than MAX_WHYS keeps every mark (readers cap).
+      declaredAt: isIso(t.declaredAt) ? utc(t.declaredAt) : undefined,
     };
   }
 

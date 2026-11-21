@@ -164,3 +164,17 @@ test('Home with a typed line attached to a next step (the step chip) has no seri
   expect(box.height).toBeGreaterThanOrEqual(44);
   expect(box.x + box.width).toBeLessThanOrEqual(390);
 });
+
+test('the thread page with the "what it’s for" swap row open has no serious accessibility violations', async ({ page }) => {
+  const at = new Date(Date.now() - 5 * 864e5).toISOString();
+  const threads = Object.fromEntries(
+    ['practice drawing', 'make apparel', 'sell prints', 'learn to sew'].map((name, i) => [`t${i}`, { id: `t${i}`, name, hidden: false, createdAt: at, ...(i < 3 && { declaredAt: at }) }]),
+  );
+  await page.addInitScript(seedScript, JSON.stringify({ state: { data: { version: 1, threads, activities: {} }, showShading: true }, version: 1 }));
+  await page.goto('./thread/t3');
+  // The control's name is its visible text.
+  await page.getByRole('button', { name: 'What it’s for', exact: true }).click();
+  await expect(page.getByText('You have three things it’s all for. Swap one?')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Swap with/ })).toHaveCount(3);
+  await expectNoSeriousViolations(page);
+});

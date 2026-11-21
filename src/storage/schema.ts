@@ -36,6 +36,8 @@ export const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+  // 2: when a thread was marked as what it's for (NULL: it isn't). Old rows read NULL.
+  `ALTER TABLE threads ADD COLUMN declared_at TEXT;`,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

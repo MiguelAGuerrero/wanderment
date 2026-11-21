@@ -1,9 +1,10 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
 import { candidatesForThread } from '@/domain/emergence';
+import { declaredWhys, MAX_WHYS } from '@/domain/model';
 import { activitiesOf, ageLabel, flowsFrom, describeLink } from '@/domain/selectors';
 import { useStore } from '@/store/useStore';
 import { decorative } from '@/components/a11y';
@@ -15,6 +16,9 @@ export default function ThreadPage() {
   const setNext = useStore((st) => st.setNext);
   const renameThread = useStore((st) => st.renameThread);
   const setHidden = useStore((st) => st.setHidden);
+  const declareThread = useStore((st) => st.declareThread);
+  const undeclareThread = useStore((st) => st.undeclareThread);
+  const swapWhy = useStore((st) => st.swapWhy);
   const setDraft = useStore((st) => st.setDraft);
   const loadNext = useStore((st) => st.loadNext);
   const dismissedPullIn = useStore((st) => st.dismissedPullIn);
@@ -36,6 +40,30 @@ export default function ThreadPage() {
   const cancelRename = () => (setRenaming(false), setNameTaken(undefined));
 
   const thread = id ? data.threads[id] : undefined;
+  /** Declaring when MAX_WHYS are already marked offers a swap, inline (nothing is chosen for you). */
+  const [swapOpen, setSwapOpen] = useState(false);
+  const whyChip = useRef<ComponentRef<typeof View>>(null);
+  const whys = declaredWhys(data);
+  const swapShown = swapOpen && !!thread && !thread.declaredAt && !thread.hidden && whys.length >= MAX_WHYS;
+  const swapText = swapShown
+    ? `You have ${whys.length > MAX_WHYS ? 'more than three' : 'three'} things it’s all for. Swap one?`
+    : '';
+  useEffect(() => {
+    if (swapText && Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility(swapText);
+  }, [swapText]);
+  const closeSwap = () => {
+    setSwapOpen(false);
+    // The row's buttons are gone: keep keyboard focus on the control that opened it.
+    if (Platform.OS === 'web') requestAnimationFrame(() => (whyChip.current as unknown as HTMLElement | null)?.focus?.());
+  };
+  useEffect(() => {
+    if (!swapShown || Platform.OS !== 'web') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeSwap();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [swapShown]);
   if (!thread) {
     return (
       <Screen composer={false}>
@@ -153,7 +181,7 @@ export default function ThreadPage() {
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={() => (setNameValue(thread.name), setNameTaken(undefined), setRenaming(true))} style={s.chip} accessibilityRole="button">
+        <Pressable onPress={() => (setNameValue(thread.name), setNameTaken(undefined), setSwapOpen(false), setRenaming(true))} style={s.chip} accessibilityRole="button">
           <Text style={s.chipText}>Rename</Text>
         </Pressable>
         <Pressable
@@ -165,7 +193,39 @@ export default function ThreadPage() {
           accessibilityRole="button">
           <Text style={s.chipText}>{thread.hidden ? 'Unhide' : 'Hide'}</Text>
         </Pressable>
+        {/* A hidden thread can't be what it's for: unhide it first. */}
+        {!thread.hidden && (
+          <Pressable
+            ref={whyChip}
+            onPress={() => {
+              if (thread.declaredAt) return undeclareThread(thread.id);
+              cancelRename();
+              const res = declareThread(thread.id);
+              setSwapOpen(!res.ok && res.reason === 'full');
+            }}
+            style={s.chip}
+            accessibilityRole="button">
+            <Text style={s.chipText}>{thread.declaredAt ? 'Not what it’s for right now' : 'What it’s for'}</Text>
+          </Pressable>
+        )}
       </View>
+
+      {/* Always mounted, so the offer is announced (once, politely) when it appears. */}
+      <View accessibilityLiveRegion="polite">
+        {swapShown && <Text style={s.body}>{swapText}</Text>}
+      </View>
+      {swapShown && (
+        <View style={styles.swap}>
+          {whys.map((w) => (
+            <Pressable key={w.id} onPress={() => (swapWhy(w.id, thread.id), closeSwap())} style={styles.swapBtn} accessibilityRole="button">
+              <Text style={s.chipText}>Swap with “{w.name}”</Text>
+            </Pressable>
+          ))}
+          <Pressable onPress={closeSwap} style={[s.chip, { alignSelf: 'flex-start' }]} accessibilityRole="button">
+            <Text style={s.chipText}>Cancel</Text>
+          </Pressable>
+        </View>
+      )}
 
       {pullable > 0 && (
         <View style={styles.pullInRow}>
@@ -218,7 +278,9 @@ const styles = StyleSheet.create({
   leftOff: { padding: 14, paddingVertical: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderTopLeftRadius: 14, borderTopRightRadius: 14 },
   crumb: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, paddingLeft: 14, paddingRight: 4, backgroundColor: C.crumbBg, borderWidth: 1, borderTopWidth: 0, borderColor: C.line, borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
   pen: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  actions: { flexDirection: 'row', gap: 8 },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  swap: { gap: 8 },
+  swapBtn: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface },
   pullInRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: C.quietBg },
   pullIn: { flex: 1, minHeight: 44, justifyContent: 'center', paddingLeft: 14 },
   step: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
