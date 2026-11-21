@@ -73,7 +73,7 @@ test('a thread most activity flows into gets a "TO …" header, with an explaine
   await expect(page.getByRole('heading', { name: 'OTHER THREADS' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'YOUR THREADS' })).toHaveCount(0);
   await page.getByRole('button', { name: /TO MAKE APPAREL/ }).click();
-  await expect(page.getByText(/4 things you logged went → to make apparel/)).toBeVisible();
+  await expect(page.getByText(/4 things you logged went from another thread → to make apparel/)).toBeVisible();
 });
 
 test('search finds activities, notes and next steps, and remembers the search', async ({ page }) => {

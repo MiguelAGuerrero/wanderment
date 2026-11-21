@@ -122,6 +122,16 @@ export async function saveSettings(db: Db, settings: Settings): Promise<void> {
   });
 }
 
+/** Small bookkeeping values that aren't settings (kept in the settings table under "meta:"). */
+export async function loadMeta(db: Db, key: string): Promise<string | undefined> {
+  const rows = await db.all<{ value: string }>('SELECT value FROM settings WHERE key = ?', [`meta:${key}`]);
+  return rows[0]?.value;
+}
+
+export async function saveMeta(db: Db, key: string, value: string): Promise<void> {
+  await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [`meta:${key}`, value]);
+}
+
 export async function isEmpty(db: Db): Promise<boolean> {
   const [{ n }] = await db.all<{ n: number }>('SELECT (SELECT COUNT(*) FROM threads) + (SELECT COUNT(*) FROM activities) AS n');
   return n === 0;

@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { ToastTimer } from '@/components/Toast';
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { registerServiceWorker } from '@/pwa/serviceWorker';
 import { startPersistence } from '@/storage/persistence';
@@ -38,8 +39,12 @@ export default function RootLayout() {
               <Text style={s.primaryBtnText}>Reload</Text>
             </Pressable>
             <Pressable onPress={downloadRawData} style={s.chip} accessibilityRole="button">
-              <Text style={s.chipText}>Download saved data</Text>
+              <Text style={s.chipText}>Download this browser’s local copy</Text>
             </Pressable>
+            <Text style={[s.meta, { textAlign: 'center' }]}>
+              That file holds what’s kept in local storage (older-format data and unsaved changes). Data already in the database stays safe in this
+              browser and shows up again once Wanderment can open it.
+            </Text>
           </>
         )}
       </View>
@@ -57,6 +62,7 @@ export default function RootLayout() {
         <Stack.Screen name="search" />
         <Stack.Screen name="pull-in/[id]" options={{ presentation: 'modal' }} />
       </Stack>
+      <ToastTimer />
       <UpdateBanner />
       {saveError && (
         <View style={styles.error} accessibilityRole="alert">

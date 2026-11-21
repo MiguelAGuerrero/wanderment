@@ -52,17 +52,19 @@ interface Flow {
   out: number;
 }
 
-/** Links an activity creates: each "to" is an inflow; the doing thread gets one outflow per "to". */
+/**
+ * Links an activity creates between two threads (doing → to): an inflow for the "to", an
+ * outflow for the doing thread. A plain "@thread" log with no doing thread links nothing.
+ */
 function applyLinks(flows: Map<Id, Flow>, a: Activity, sign: 1 | -1) {
+  if (!a.doingId) return;
   for (const to of a.toIds) {
     const t = flows.get(to) ?? { in: 0, out: 0 };
     t.in += sign;
     flows.set(to, t);
-    if (a.doingId) {
-      const d = flows.get(a.doingId) ?? { in: 0, out: 0 };
-      d.out += sign;
-      flows.set(a.doingId, d);
-    }
+    const d = flows.get(a.doingId) ?? { in: 0, out: 0 };
+    d.out += sign;
+    flows.set(a.doingId, d);
   }
 }
 
@@ -85,7 +87,7 @@ function step(values: Set<Id>, flows: Map<Id, Flow>) {
  */
 export function valueThreads(data: Data, now = new Date()): Set<Id> {
   const acts = sortedActivities(data)
-    .filter((a) => a.toIds.length && new Date(a.occurredAt).getTime() <= now.getTime())
+    .filter((a) => a.doingId && a.toIds.length && new Date(a.occurredAt).getTime() <= now.getTime())
     .reverse(); // oldest first
   const window = VALUE_WINDOW_DAYS * DAY;
   const flows = new Map<Id, Flow>();
@@ -158,10 +160,10 @@ export function whyValue(data: Data, id: Id, now = new Date()): string {
   let inflow = 0;
   let outflow = 0;
   for (const a of Object.values(data.activities)) {
-    if (new Date(a.occurredAt).getTime() < since) continue;
+    if (new Date(a.occurredAt).getTime() < since || !a.doingId) continue;
     if (a.toIds.includes(id)) inflow++;
     if (a.doingId === id) outflow += a.toIds.length;
   }
   const name = data.threads[id]?.name ?? 'this';
-  return `In the last ${VALUE_WINDOW_DAYS} days, ${inflow} ${inflow === 1 ? 'thing' : 'things'} you logged went → to ${name}, and ${outflow} went from it to something else. When most of what you do flows toward a thread, it gets a header, and the threads that feed it gather underneath.`;
+  return `In the last ${VALUE_WINDOW_DAYS} days, ${inflow} ${inflow === 1 ? 'thing' : 'things'} you logged went from another thread → to ${name}, and ${outflow} went from it to something else. When most of what you do flows toward a thread, it gets a header, and the threads that feed it gather underneath.`;
 }

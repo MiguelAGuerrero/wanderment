@@ -88,7 +88,6 @@ export default function Graph() {
         attaching ? (
           <AttachCard
             activity={current}
-            remaining={loose.length}
             onAttach={(id) => current && attach(current.id, id)}
             onLeave={() => current && leaveAsIs(current.id)}
             onSkip={() => current && setSkipped((sk) => new Set(sk).add(current.id))}
@@ -148,7 +147,7 @@ export default function Graph() {
             }}
             style={[s.chip, s.chipAccent]}
             accessibilityRole="button">
-            <Text style={[s.chipText, s.chipAccentText]}>Attach loose ({loose.length})</Text>
+            <Text style={[s.chipText, s.chipAccentText]}>Attach loose activities</Text>
           </Pressable>
         )}
       </View>

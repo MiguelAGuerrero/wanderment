@@ -24,8 +24,8 @@ export async function logLine(page: Page, text: string) {
   await box.press('Enter');
 }
 
-/** Opens the app on Home and waits until it has rendered. */
+/** Opens the app on Home and waits until data has loaded (the blocked screen has no log box). */
 export async function openHome(page: Page) {
   await page.goto('./');
-  await expect(page.getByText('Wanderment', { exact: true })).toBeVisible();
+  await expect(logBox(page)).toBeVisible();
 }

@@ -9,7 +9,7 @@ import { useStore } from '@/store/useStore';
 import { Db } from './db';
 import { openExpoDb } from './expoDb';
 import { scheduleBackup } from './nativeBackup';
-import { isEmpty, loadData, loadSettings, replaceAll, saveChanges, saveSettings } from './repository';
+import { isEmpty, loadData, loadMeta, loadSettings, replaceAll, saveChanges, saveMeta, saveSettings } from './repository';
 import { migrateSchema } from './schema';
 
 /** Remembers that this browser has used SQLite, so we never silently fall back to stale data. */
@@ -84,26 +84,69 @@ const isLockError = (e: unknown) => /access handle|nomodificationallowed|another
 
 class BlockedError extends Error {}
 
+/** Ids already taken in from the first release's format — never taken in again (so deletions stick). */
+const ABSORBED = 'legacyIds';
+
+async function loadAbsorbed(db: Db): Promise<Set<string>> {
+  try {
+    return new Set(JSON.parse((await loadMeta(db, ABSORBED)) ?? '[]') as string[]);
+  } catch {
+    return new Set();
+  }
+}
+
+const idsOf = (data: Data) => [...Object.keys(data.threads), ...Object.keys(data.activities)];
+
 /**
- * Data written in the first release's format after the move to SQLite — by a tab still running
- * the old version, or by an earlier fallback session. New records are added; records the
- * database already has are kept as they are (it holds the newer copy).
+ * Records in the first release's format that this database has never seen: written by a tab
+ * still running the old version, or by an earlier fallback session. Records already taken in
+ * once are ignored — even if deleted since — and the old format's copies of existing records
+ * never overwrite the database's.
  */
+function unseen(legacy: Data, base: Data, absorbed: Set<string>): Data {
+  const missing = missingFrom(base, legacy);
+  return {
+    version: 1,
+    threads: Object.fromEntries(missing.upsertThreads.filter((t) => !absorbed.has(t.id)).map((t) => [t.id, t])),
+    activities: Object.fromEntries(missing.upsertActivities.filter((a) => !absorbed.has(a.id)).map((a) => [a.id, a])),
+  };
+}
+
 async function absorbLegacy(db: Db): Promise<void> {
   const json = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
   if (!json) return;
   const legacy = parseLegacyState(json);
   if (!legacy) throw new BlockedError('Saved data in this browser couldn’t be read. Download it below before doing anything else.');
-  if (await isEmpty(db)) {
+  const absorbed = await loadAbsorbed(db);
+  if (absorbed.size === 0 && (await isEmpty(db))) {
     // Persisted format v1 → v2: the first move into SQLite.
     await replaceAll(db, legacy.data);
     await saveSettings(db, legacy.settings);
   } else {
-    const missing = missingFrom(await loadData(db), legacy.data);
-    if (!isEmptyDiff(missing)) await saveChanges(db, missing);
+    const fresh = unseen(legacy.data, await loadData(db), absorbed);
+    await saveChanges(db, diffData(emptyData(), fresh));
   }
-  // Only after SQLite has committed. If this fails, the next start merges again (harmless).
+  for (const id of idsOf(legacy.data)) absorbed.add(id);
+  await saveMeta(db, ABSORBED, JSON.stringify([...absorbed]));
+  // Only after SQLite has committed. If this fails, the next start skips what it already took.
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
+}
+
+/**
+ * One tab at a time, in every storage mode (the database lock alone doesn't cover the
+ * localStorage fallback). Held until the page goes away. Browsers without Web Locks skip this.
+ */
+async function acquireTabLock(): Promise<boolean> {
+  const locks = Platform.OS === 'web' ? (globalThis.navigator as Navigator | undefined)?.locks : undefined;
+  if (!locks?.request) return true;
+  return new Promise<boolean>((resolve) => {
+    locks
+      .request('wanderment-data', { ifAvailable: true }, (lock) => {
+        resolve(!!lock);
+        return lock ? new Promise<void>(() => {}) : undefined;
+      })
+      .catch(() => resolve(true));
+  });
 }
 
 async function openSqlite(): Promise<{ backend: Backend; db: Db; data: Data; settings: Settings }> {
@@ -115,9 +158,16 @@ async function openSqlite(): Promise<{ backend: Backend; db: Db; data: Data; set
   // so replaying one that did land is harmless.
   const journal = readJournal();
   if (journal) {
-    await saveChanges(db, journal.changes);
-    await saveSettings(db, journal.settings);
-    writeJournal(undefined);
+    try {
+      await saveChanges(db, journal.changes);
+      await saveSettings(db, journal.settings);
+      writeJournal(undefined);
+    } catch (e) {
+      // Don't block every start on it: set it aside (still downloadable) and carry on.
+      console.warn('Could not replay the journal', e);
+      quarantineJournal();
+      journalFailed = true;
+    }
   }
   await absorbLegacy(db);
   return { backend: sqliteBackend(db), db, data: await loadData(db), settings: await loadSettings(db) };
@@ -148,7 +198,21 @@ export async function startPersistence(): Promise<void> {
   }
 }
 
+let journalFailed = false;
+
+function quarantineJournal() {
+  const ls = webStorage();
+  try {
+    const raw = ls?.getItem(JOURNAL_KEY);
+    if (raw) ls?.setItem(`${JOURNAL_KEY}-failed-${Date.now()}`, raw);
+    ls?.removeItem(JOURNAL_KEY);
+  } catch {
+    // Nothing more we can do.
+  }
+}
+
 async function start(): Promise<void> {
+  if (!(await acquireTabLock())) throw new BlockedError('Wanderment is open in another tab or window. Close it, then reload this one.');
   let opened: { backend: Backend; db?: Db; data: Data; settings: Settings };
   let kind: 'sqlite' | 'local' = 'sqlite';
   try {
@@ -161,7 +225,9 @@ async function start(): Promise<void> {
     }
     if (Platform.OS !== 'web' || usedSqliteBefore) {
       // Showing an empty or stale app here could overwrite real data, so stop and explain.
-      throw new BlockedError(`Wanderment couldn’t open its data (${(e as Error)?.message ?? e}). Reload to try again.`);
+      throw new BlockedError(
+        `Wanderment couldn’t open its data (${(e as Error)?.message ?? e}). ${Platform.OS === 'web' ? 'Reload to try again.' : 'Close the app and open it again to retry.'}`,
+      );
     }
     // This browser can't run SQLite at all (e.g. no OPFS in a private window): keep the first release's format.
     console.warn('SQLite unavailable, using localStorage', e);
@@ -179,7 +245,12 @@ async function start(): Promise<void> {
     recentSearches: s.recentSearches,
     leftAsIs: s.leftAsIs,
   });
-  useStore.setState({ data: opened.data, ...opened.settings, storage: { state: 'ready', kind } });
+  useStore.setState({
+    data: opened.data,
+    ...opened.settings,
+    storage: { state: 'ready', kind },
+    saveError: journalFailed ? 'A change from your last visit couldn’t be restored. Check your latest entries.' : undefined,
+  });
 
   // One write at a time; changes made meanwhile are folded into the next write.
   let running = false;
@@ -225,20 +296,24 @@ async function start(): Promise<void> {
     void flush();
   });
 
-  // A tab still running the first release keeps writing the old key; fold its new records in.
-  if (kind === 'sqlite' && Platform.OS === 'web' && typeof window !== 'undefined') {
+  // A tab still running the first release keeps writing the old key. Take in records it creates
+  // (once), and say plainly that its edits to existing records won't carry over.
+  const db = opened.db;
+  if (kind === 'sqlite' && db && Platform.OS === 'web' && typeof window !== 'undefined') {
+    let absorbed = await loadAbsorbed(db);
     window.addEventListener('storage', (e) => {
       if (e.key !== LEGACY_STORAGE_KEY || !e.newValue) return;
       const legacy = parseLegacyState(e.newValue);
       if (!legacy) return;
       const { data } = useStore.getState();
-      const missing = missingFrom(data, legacy.data);
-      if (isEmptyDiff(missing)) return;
-      const threads = { ...data.threads };
-      const activities = { ...data.activities };
-      for (const t of missing.upsertThreads) threads[t.id] = t;
-      for (const a of missing.upsertActivities) activities[a.id] = a;
-      useStore.setState({ data: { ...data, threads, activities } });
+      const fresh = unseen(legacy.data, data, absorbed);
+      absorbed = new Set([...absorbed, ...idsOf(legacy.data)]);
+      void saveMeta(db, ABSORBED, JSON.stringify([...absorbed])).catch(() => {});
+      useStore.setState({
+        data: { ...data, threads: { ...data.threads, ...fresh.threads }, activities: { ...data.activities, ...fresh.activities } },
+        saveError:
+          'An older version of Wanderment is open in another tab. Close it — new entries made there are added here, but edits and deletions there aren’t.',
+      });
     });
   }
 }

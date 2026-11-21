@@ -28,6 +28,9 @@ export default function ActivityDetails() {
   const owner = a ? nextOwner(a) : undefined;
   const ownerThread = owner ? data.threads[owner] : undefined;
   const [text, setText] = useState(a?.text ?? '');
+  const [original, setOriginal] = useState(a?.text ?? '');
+  /** "Today" means the day this screen was opened. */
+  const [openedAt] = useState(() => new Date());
   const [note, setNote] = useState(a?.note ?? '');
   const [next, setNextValue] = useState('');
   const [adding, setAdding] = useState<'doing' | 'to'>();
@@ -54,13 +57,21 @@ export default function ActivityDetails() {
     goBack();
   };
 
-  const created = new Date(a.createdAt);
+  // Relative to today, keeping the time of day it happened at.
+  const when = new Date(a.occurredAt);
+  const dayAt = (daysAgo: number) => {
+    const d = new Date(openedAt.getTime() - daysAgo * DAY);
+    d.setHours(when.getHours(), when.getMinutes(), when.getSeconds(), 0);
+    return d;
+  };
   const options: [string, Date][] = [
-    ['Today', created],
-    ['Yesterday', new Date(created.getTime() - DAY)],
-    ['2 days ago', new Date(created.getTime() - 2 * DAY)],
+    ['Today', dayAt(0)],
+    ['Yesterday', dayAt(1)],
+    ['2 days ago', dayAt(2)],
   ];
-  const sameDay = (d: Date) => new Date(a.occurredAt).toDateString() === d.toDateString();
+  const sameDay = (d: Date) => when.toDateString() === d.toDateString();
+  // An older date stays visible (and selected) instead of none of the chips being on.
+  if (!options.some(([, d]) => sameDay(d))) options.unshift([when.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }), when]);
   const others = { ...data, activities: Object.fromEntries(Object.entries(data.activities).filter(([k]) => k !== a.id)) };
   const prev = lastTimeFor(others, a.doingId, a.toIds[0]);
 
@@ -91,7 +102,14 @@ export default function ActivityDetails() {
             setText(v);
             if (v.trim()) updateActivity(a.id, { text: v });
           }}
-          onBlur={() => !text.trim() && setText(a.text)}
+          onFocus={() => setOriginal(a.text)}
+          onBlur={() => {
+            // Emptied by deleting key by key: put back what it said before this edit.
+            if (!text.trim()) {
+              setText(original);
+              updateActivity(a.id, { text: original });
+            }
+          }}
           multiline
           style={styles.title}
           accessibilityLabel="What you did"

@@ -82,7 +82,7 @@ test('the graph, its list view and attach mode have no serious accessibility vio
   await page.goto('./graph');
   await expect(page.getByRole('button', { name: /^make apparel, \d+ steps/ })).toBeVisible();
   await expectNoSeriousViolations(page);
-  await page.getByRole('button', { name: 'Attach loose (1)' }).click();
+  await page.getByRole('button', { name: 'Attach loose activities' }).click();
   await expectNoSeriousViolations(page);
   await page.getByRole('tab', { name: 'List view' }).click();
   await expectNoSeriousViolations(page);

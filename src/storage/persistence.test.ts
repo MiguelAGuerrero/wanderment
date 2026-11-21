@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const env = vi.hoisted(() => {
   const ls = new Map<string, string>();
-  const state = { dbPath: '', openError: undefined as Error | undefined, quotaKey: undefined as string | undefined };
+  const state = { dbPath: '', openError: undefined as Error | undefined, quotaKey: undefined as string | undefined, hangWrites: false };
   const localStorage = {
     get length() {
       return ls.size;
@@ -39,7 +39,9 @@ vi.mock('./expoDb', async () => {
   return {
     openExpoDb: async () => {
       if (env.state.openError) throw env.state.openError;
-      return nodeDb(env.state.dbPath);
+      const db = nodeDb(env.state.dbPath);
+      // "The tab dies mid-write": transactions opened while hangWrites is on never commit.
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
     },
   };
 });
@@ -68,6 +70,7 @@ beforeEach(() => {
   env.ls.clear();
   env.state.openError = undefined;
   env.state.quotaKey = undefined;
+  env.state.hangWrites = false;
   env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-')), 'db.sqlite');
 });
 
@@ -102,9 +105,8 @@ describe('loading', () => {
 });
 
 describe('moving from the first release’s format', () => {
-  it('moves into SQLite without needing room for a second copy', async () => {
+  it('moves into SQLite once, then removes the old key', async () => {
     env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'old') } }));
-    env.state.quotaKey = 'wanderment:moved-to-sqlite';
     let store = await load();
     expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
     logText(store, 'new');
@@ -112,6 +114,22 @@ describe('moving from the first release’s format', () => {
     store = await load();
     expect(texts(store)).toEqual(['new', 'old']);
     expect(env.ls.has('wanderment')).toBe(false);
+  });
+
+  it('records deleted here don’t come back from an old-version tab, but its new records are added', async () => {
+    env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'one'), a2: act('a2', 'two') } }));
+    let store = await load();
+    store.getState().removeActivity('a2');
+    await settle();
+    env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'one'), a2: act('a2', 'two'), a3: act('a3', 'three') } }));
+    store = await load();
+    expect(texts(store)).toEqual(['one', 'three']);
+    // Even if everything is deleted, the old blob doesn't come back as a "first move".
+    for (const id of Object.keys(store.getState().data.activities)) store.getState().removeActivity(id);
+    await settle();
+    env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'one') } }));
+    store = await load();
+    expect(texts(store)).toEqual([]);
   });
 
   it('adds records an old-version tab wrote after the move, keeping newer copies', async () => {
@@ -147,10 +165,23 @@ describe('moving from the first release’s format', () => {
 describe('saving', () => {
   it('a change survives the tab closing before SQLite commits (journal)', async () => {
     let store = await load();
+    env.state.hangWrites = true;
     logText(store, 'one');
-    // No waiting: the page is gone.
+    await settle(); // the write was sent but never commits
+    env.state.hangWrites = false;
     store = await load();
     expect(texts(store)).toEqual(['one']);
+    expect(env.ls.has('wanderment:journal')).toBe(false);
+  });
+
+  it('a journal that can’t be replayed is set aside instead of blocking every start', async () => {
+    await load();
+    env.ls.set('wanderment:journal', JSON.stringify({ changes: { upsertThreads: [], deleteThreads: [], upsertActivities: [{ id: 'x', text: null }], deleteActivities: [] }, settings: {} }));
+    const store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(store.getState().saveError).toMatch(/couldn’t be restored/);
+    expect(env.ls.has('wanderment:journal')).toBe(false);
+    expect([...env.ls.keys()].some((k) => k.startsWith('wanderment:journal-failed-'))).toBe(true);
   });
 
   it('undo, delete and later edits all land', async () => {

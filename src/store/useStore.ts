@@ -20,7 +20,8 @@ import { Data, emptyData, Id } from '@/domain/types';
 /** What's currently in the log box. Shared so a crumb on Home can load into it. */
 export interface Draft {
   text: string;
-  doingId?: Id;
+  /** null = the person removed the doing chip (overrides a screen's preset doing thread). */
+  doingId?: Id | null;
   toIds: Id[];
   /** Set when the draft was loaded from a thread's next step. */
   fromNextOf?: Id;
@@ -46,6 +47,8 @@ interface State {
   /** Thread that shows the quiet "+ What's next? (optional)" line after a log. */
   promptNextFor?: Id;
   toast?: Toast;
+  /** True while any visible toast is pressed, hovered or focused (pauses its timer). */
+  toastHeld: boolean;
   /** Reverts the last undoable change (only the records it touched). */
   undo?: UndoEntry;
   showShading: boolean;
@@ -79,6 +82,7 @@ interface State {
   removeActivity: (activityId: Id) => void;
   undoLast: () => void;
   dismissToast: () => void;
+  holdToast: (held: boolean) => void;
   dismissPrompt: () => void;
   replaceData: (data: Data) => void;
   setShowShading: (on: boolean) => void;
@@ -94,6 +98,7 @@ export const useStore = create<State>()((set, get) => ({
   data: emptyData(),
   draft: emptyDraft(),
   showShading: true,
+  toastHeld: false,
   recentSearches: [],
   leftAsIs: [],
   dismissedPullIn: [],
@@ -114,7 +119,7 @@ export const useStore = create<State>()((set, get) => ({
     if (!text) return undefined;
     const res = logActivity(data, {
       text,
-      doingId: extra?.doingId ?? draft.doingId,
+      doingId: extra?.doingId ?? draft.doingId ?? undefined,
       toIds: extra?.toIds ?? draft.toIds,
       fromNextOf: extra?.fromNextOf ?? draft.fromNextOf,
       occurredAt: extra?.occurredAt,
@@ -172,8 +177,11 @@ export const useStore = create<State>()((set, get) => ({
 
   setHidden: (threadId, hidden) =>
     set((s) => {
+      const t = s.data.threads[threadId];
+      if (!t) return {};
       const data = updateThread(s.data, threadId, { hidden });
-      return { undo: undoEntry(s.data, data), data };
+      // Every undoable change shows its own toast, so Undo always means the change it names.
+      return { undo: undoEntry(s.data, data), data, toast: { message: hidden ? `Hid “${t.name}”` : `“${t.name}” is back` } };
     }),
 
   attach: (activityId, threadId) =>
@@ -200,7 +208,8 @@ export const useStore = create<State>()((set, get) => ({
     if (undo) set({ data: applyUndo(data, undo), undo: undefined, toast: undefined, promptNextFor: undefined });
   },
 
-  dismissToast: () => set({ toast: undefined }),
+  dismissToast: () => set({ toast: undefined, toastHeld: false }),
+  holdToast: (held) => set({ toastHeld: held }),
   dismissPrompt: () => set({ promptNextFor: undefined }),
   replaceData: (data) => set({ data, undo: undefined, draft: emptyDraft() }),
   setShowShading: (on) => set({ showShading: on }),

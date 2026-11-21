@@ -83,6 +83,12 @@ describe('value threads', () => {
     expect(valueThreads(data, NOW).has(ids['make apparel'])).toBe(false);
   });
 
+  it('plain "@thread" logs (no doing thread) link nothing and never make a value', () => {
+    let { data, ids } = threads('play guitar');
+    for (let i = 0; i < 6; i++) data = link(data, undefined, ids['play guitar'], 10 - i);
+    expect(valueThreads(data, NOW).size).toBe(0);
+  });
+
   it('only counts the last 90 days', () => {
     let { data, ids } = threads('draw', 'make apparel');
     for (let i = 0; i < 4; i++) data = link(data, ids.draw, ids['make apparel'], 120 - i);

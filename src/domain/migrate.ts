@@ -31,7 +31,7 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
       name: t.name.trim().replace(/\s+/g, ' '),
       next: typeof t.next === 'string' && t.next.trim() ? t.next.trim() : undefined,
       hidden: t.hidden === true,
-      createdAt: isIso(t.createdAt) ? t.createdAt : new Date(0).toISOString(),
+      createdAt: isIso(t.createdAt) ? utc(t.createdAt) : new Date(0).toISOString(),
     };
   }
 
@@ -44,11 +44,11 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
     const rawTo = Array.isArray(a.toIds) ? a.toIds : (bad('An activity in the backup is malformed.'), []);
     const id = typeof a.id === 'string' && a.id ? a.id : key;
     const doingId = typeof a.doingId === 'string' && a.doingId ? a.doingId : undefined;
-    const createdAt = isIso(a.createdAt) ? a.createdAt : isIso(a.occurredAt) ? a.occurredAt : new Date(0).toISOString();
+    const createdAt = isIso(a.createdAt) ? utc(a.createdAt) : isIso(a.occurredAt) ? utc(a.occurredAt) : new Date(0).toISOString();
     activities[id] = {
       id,
       text: a.text,
-      occurredAt: isIso(a.occurredAt) ? a.occurredAt : createdAt,
+      occurredAt: isIso(a.occurredAt) ? utc(a.occurredAt) : createdAt,
       createdAt,
       doingId,
       toIds: [...new Set(rawTo.filter((t): t is string => typeof t === 'string' && !!t && t !== doingId))],
@@ -59,6 +59,8 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
 }
 
 const isIso = (v: unknown): v is string => typeof v === 'string' && !Number.isNaN(Date.parse(v));
+/** Dates are compared as strings elsewhere, so store them all as UTC ("…Z"). */
+const utc = (v: string) => new Date(v).toISOString();
 
 /** What the first release saved (zustand `persist`, format version 1) under the key "wanderment". */
 export const LEGACY_STORAGE_KEY = 'wanderment';

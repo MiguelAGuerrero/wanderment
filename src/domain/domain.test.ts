@@ -233,3 +233,24 @@ describe('undo', () => {
     expect(c.upsertThreads).toEqual([]);
   });
 });
+
+describe('undo keeps edits made after the action', () => {
+  it('logging a crumb then setting a new next step or renaming: Undo removes the log only', () => {
+    let { data, drawing } = seed();
+    data = updateThread(data, drawing.id, { next: 'A' });
+    const logged = logActivity(data, { text: 'did A', doingId: drawing.id, fromNextOf: drawing.id });
+    const entry = undoEntry(data, logged.data);
+    const later = updateThread(logged.data, drawing.id, { next: 'B', name: 'draw' });
+    const undone = applyUndo(later, entry);
+    expect(undone.activities[logged.activity.id]).toBeUndefined();
+    expect(undone.threads[drawing.id]).toMatchObject({ next: 'B', name: 'draw' });
+  });
+
+  it('puts back a cleared next step if nothing replaced it', () => {
+    let { data, drawing } = seed();
+    data = updateThread(data, drawing.id, { next: 'A' });
+    const logged = logActivity(data, { text: 'did A', doingId: drawing.id, fromNextOf: drawing.id });
+    const undone = applyUndo(updateThread(logged.data, drawing.id, { name: 'draw' }), undoEntry(data, logged.data));
+    expect(undone.threads[drawing.id]).toMatchObject({ next: 'A', name: 'draw' });
+  });
+});

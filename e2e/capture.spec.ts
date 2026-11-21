@@ -73,3 +73,38 @@ test('the toast leaves on its own after about 6 s, but not while hovered', async
   await page.mouse.move(5, 5);
   await expect(toast).toHaveCount(0, { timeout: 8000 });
 });
+
+test('on a thread page, removing the preset doing chip really logs without it', async ({ page }) => {
+  await openHome(page);
+  await logBox(page).fill('scales @play guitar');
+  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await logBox(page).press('Enter');
+  await page.getByRole('button', { name: /^play guitar\s*scales/ }).click();
+  const box = page.getByRole('textbox', { name: 'Log in play guitar…' });
+  await box.fill('unrelated thing');
+  await page.getByRole('button', { name: 'Doing: play guitar. Remove' }).click();
+  await expect(page.getByRole('button', { name: 'Doing: play guitar. Remove' })).toHaveCount(0);
+  await box.press('Enter');
+  await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
+});
+
+test('holding the toast on a stacked screen keeps it up; hiding a thread can be undone', async ({ page }) => {
+  await openHome(page);
+  await logBox(page).fill('scales @play guitar');
+  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await logBox(page).press('Enter');
+  await page.getByRole('button', { name: /^play guitar\s*scales/ }).click();
+  await page.getByRole('textbox', { name: 'Log in play guitar…' }).fill('arpeggios');
+  await page.getByRole('textbox', { name: 'Log in play guitar…' }).press('Enter');
+  const toast = page.getByText('Tap for details').filter({ visible: true });
+  await toast.hover();
+  await page.waitForTimeout(7000);
+  await expect(toast).toBeVisible();
+  await page.mouse.move(5, 5);
+  await expect(toast).toHaveCount(0, { timeout: 8000 });
+
+  await page.getByRole('button', { name: 'Hide' }).click();
+  await expect(page.getByText('Hid “play guitar”').filter({ visible: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Undo' }).filter({ visible: true }).click();
+  await expect(page.getByRole('button', { name: /^play guitar\s*arpeggios/ })).toBeVisible();
+});

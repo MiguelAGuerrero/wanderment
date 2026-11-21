@@ -46,7 +46,7 @@ test('opens on the top value, re-centres on tap, and the breadcrumb goes back', 
 test('attach mode: one loose activity at a time; tap a node, Leave as is, Skip', async ({ page }) => {
   await page.addInitScript(seedScript, world);
   await page.goto('./graph');
-  await page.getByRole('button', { name: 'Attach loose (2)' }).click();
+  await page.getByRole('button', { name: 'Attach loose activities' }).click();
   await expect(page.getByRole('textbox', { name: 'What did you just do?' })).toHaveCount(0);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/attach.png` });
 
@@ -62,7 +62,7 @@ test('attach mode: one loose activity at a time; tap a node, Leave as is, Skip',
   await page.getByRole('button', { name: 'Done' }).click();
 
   // Skipped comes back next time; Leave as is doesn't.
-  await page.getByRole('button', { name: 'Attach loose (1)' }).click();
+  await page.getByRole('button', { name: 'Attach loose activities' }).click();
   await page.getByRole('button', { name: 'Leave as is' }).click();
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /Attach loose/ })).toHaveCount(0);
@@ -99,7 +99,7 @@ test('attach mode holds the centre even when attaching changes which thread is m
   await page.addInitScript(seedScript, blob);
   await page.goto('./graph');
   await expect(centre(page, 'alpha')).toBeVisible();
-  await page.getByRole('button', { name: 'Attach loose (1)' }).click();
+  await page.getByRole('button', { name: 'Attach loose activities' }).click();
   await page.getByRole('button', { name: 'beta, 1 link. Attach here.' }).click();
   await expect(page.getByText('Attached → to beta').filter({ visible: true })).toBeVisible();
   await expect(centre(page, 'alpha')).toBeVisible();
@@ -108,7 +108,7 @@ test('attach mode holds the centre even when attaching changes which thread is m
 test('the centre is an attach target too', async ({ page }) => {
   await page.addInitScript(seedScript, world);
   await page.goto('./graph');
-  await page.getByRole('button', { name: 'Attach loose (2)' }).click();
+  await page.getByRole('button', { name: 'Attach loose activities' }).click();
   await page.getByRole('button', { name: /^make apparel, \d+ steps.*Attach here\.$/ }).click();
   await expect(page.getByText('Attached → to make apparel').filter({ visible: true })).toBeVisible();
 });

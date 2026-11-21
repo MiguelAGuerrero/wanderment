@@ -15,14 +15,12 @@ export function attachSuggestions(data: ReturnType<typeof useStore.getState>['da
 /** Attach mode's bottom card: one unattached activity at a time. Tapping is the only way to attach. */
 export function AttachCard({
   activity,
-  remaining,
   onAttach,
   onLeave,
   onSkip,
   onDone,
 }: {
   activity?: Activity;
-  remaining: number;
   onAttach: (threadId: Id) => void;
   onLeave: () => void;
   onSkip: () => void;
@@ -44,7 +42,7 @@ export function AttachCard({
     <View style={styles.card} accessibilityLabel="Attach mode">
       <View style={styles.head}>
         <Text style={s.meta}>
-          {remaining} without a thread · {ageLabel(activity.occurredAt)}
+          Without a thread · {ageLabel(activity.occurredAt)}
         </Text>
         <Pressable onPress={onDone} style={styles.small} accessibilityRole="button" accessibilityLabel="Done attaching">
           <Text style={{ color: C.accent, fontWeight: '600', fontSize: 15 }}>Done</Text>

@@ -25,15 +25,17 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
   /** Highlighted suggestion, remembered per query so a new query starts at the top. */
   const [active, setActive] = useState<{ query?: string; index: number }>({ index: 0 });
   /** Start index of an @mention the person closed with Esc; it stays closed until a new @. */
-  const [closedAt, setClosedAt] = useState<number>();
+  /** The @mention closed with Esc (its position and the text before it); a new @ reopens. */
+  const [closed, setClosed] = useState<string>();
   const [fits, setFits] = useState(true);
 
-  const doingId = draft.doingId ?? presetDoingId;
+  const doingId = draft.doingId === null ? undefined : (draft.doingId ?? presetDoingId);
   const mention = activeMention(draft.text);
   const query = mention?.query;
   const suggestions = query !== undefined ? suggestThreads(data, query, recentThreadOrder(data)) : [];
   const canCreate = !!mention && mention.query.trim().length > 0 && !findThreadByName(data, mention.query);
-  const open = !!mention && mention.start !== closedAt && (suggestions.length > 0 || canCreate);
+  const mentionKey = mention ? `${mention.start}:${draft.text.slice(0, mention.start)}` : undefined;
+  const open = !!mention && mentionKey !== closed && (suggestions.length > 0 || canCreate);
   const activeIndex = active.query === query ? Math.min(active.index, Math.max(suggestions.length - 1, 0)) : 0;
   const suggestedDoing = !doingId && !mention ? suggestDoing(data, draft.text, draft.toIds) : undefined;
 
@@ -51,7 +53,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
   const onChangeText = (text: string) => {
     setDraft({ text });
     // A removed @ forgets that it was closed with Esc.
-    if (!activeMention(text)) setClosedAt(undefined);
+    if (!activeMention(text)) setClosed(undefined);
     // The inline @highlight is a layer behind the input; hide it if the text scrolls sideways.
     // Native re-measures through onTextLayout, so give the layer a chance to render again.
     if (Platform.OS !== 'web') setFits(true);
@@ -89,7 +91,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
       pick(suggestions[activeIndex].id);
     } else if (key === 'Escape') {
       e.preventDefault?.();
-      setClosedAt(mention?.start);
+      setClosed(mentionKey);
     }
   };
 
@@ -144,7 +146,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
                 <Pressable
                   onPress={() =>
                     c.kind === 'doing'
-                      ? setDraft({ doingId: undefined, fromNextOf: undefined })
+                      ? setDraft({ doingId: null, fromNextOf: undefined })
                       : setDraft({ toIds: draft.toIds.filter((x) => x !== c.id) })
                   }
                   accessibilityRole="button"

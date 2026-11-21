@@ -33,11 +33,8 @@ test('data saved by the first release (localStorage) moves into SQLite once', as
 test('falls back to localStorage where SQLite can’t run, and still keeps data', async ({ page }) => {
   await page.addInitScript(() => {
     // Simulate a browser without workers/OPFS for the database.
-    Object.defineProperty(window, 'Worker', {
-      value: function NoWorker() {
-        throw new Error('Workers unavailable');
-      },
-    });
+    // As in a browser without workers: there is no Worker at all.
+    Object.defineProperty(window, 'Worker', { value: undefined });
   });
   await openHome(page);
   await logLine(page, 'offline-ish note');
@@ -66,4 +63,17 @@ test('a second tab waits instead of showing stale data', async ({ page, context 
   await second.getByRole('tab', { name: 'Activities' }).click();
   await expect(second.getByText('first tab')).toBeVisible();
   expect(secondErrors).toEqual([]);
+});
+
+test('in the localStorage fallback a second tab is blocked too (no last-writer-wins)', async ({ page, context }) => {
+  await context.addInitScript(() => {
+    // As in a browser without workers: there is no Worker at all.
+    Object.defineProperty(window, 'Worker', { value: undefined });
+  });
+  await openHome(page);
+  await logLine(page, 'first tab');
+  const second = await context.newPage();
+  await second.goto('./');
+  await expect(second.getByText(/open in another tab/)).toBeVisible();
+  await expect(second.getByRole('textbox')).toHaveCount(0);
 });
