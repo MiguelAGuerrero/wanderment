@@ -18,4 +18,25 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
-_No notes yet. Run `/product <anything about how you use it>` to start._
+## 2026-11-21 — First log feels disconnected; declare intents up front
+> The initial logging of activities [is] a little bit unintuitive because [after] my first log the
+> onboarding text disappears and I see no threads, and so the disconnect between the activity I
+> logged and the idea of a thread has no clear bridge, and it's confusing as to what my next move
+> should be. One user flow I considered was that you can declare your intents upfront … the "X to
+> why the Y" is declared, and then you can interact with that Y based on how you want to proceed in
+> any direction from [it]. That way you see your intents and values first, rather than trying to
+> work through what you did and reference something, and then introduce the reason why and for
+> what, or to what end.
+
+Interpretation (by /product):
+1. **The first-run bridge is missing.** After the first unattached log, Home loses the welcome and
+   shows no threads. Nothing explains "threads" or offers the next step. This is a UX gap, whatever
+   the answer to (2).
+2. **Intents first.** The owner wants to be able to start from the *Y* (what it's all for: ends,
+   values) and log activities toward it, instead of only discovering the Y later. This is in tension
+   with STRATEGY's "direction emerges… without you having to declare anything up front", with the
+   README ("not declared up front"), and with DESIGN.md's earned value headers. It's a product
+   decision, not a polish item. Note the owner says this was discussed before; there's no record of
+   it in the repo.
+
+Led to: clarifying questions in this run; then a brief (B-01) and a first-run bridge item.

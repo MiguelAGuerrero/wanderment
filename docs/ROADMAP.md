@@ -58,6 +58,15 @@ that includes the rest of the sentence, and picking deletes the text after the c
 `@query`; the inline highlight follows; "Return logs as typed" is unchanged; unit tests for
 caret positions, e2e for a mid-sentence pick.
 
+### P-13 A bridge after the first log `[ux]` S
+*Status:* todo
+*Why:* after a first log with no `@`, Home loses the welcome and shows no threads — nothing explains
+threads or what to do next (owner, 2026-11-21; brief B-01 slice 1, which ships regardless of D-4).
+*Done when:* after an activity with no thread, Home shows "Logged. Is this toward something?" with
+one-tap chips for existing threads and "+ name it"; tapping attaches the activity as "to" (Undo in
+the toast); ignoring it leaves no trace and it goes away once the activity has a thread or another
+log has one; e2e (attach via chip, via new name, ignore) + axe.
+
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
@@ -136,6 +145,9 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 - **D-1 Brand** — an icon/artwork you like, or a direction ("warm, hand-drawn thread", "minimal
   monogram"…) for P-07.
 - **D-2 Dark palette** — approve a proposed dark palette (the skill will bring options) for P-06.
+- **D-4 Start from what it's for** — build [B-01](product/briefs/B-01-start-from-what-its-for.md)
+  slices 2–4 (declared "what it's for" threads that seed Home, an optional first step), and change
+  the "declared up front" wording in DESIGN.md / STRATEGY.md / README? Recommended: **go**.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
