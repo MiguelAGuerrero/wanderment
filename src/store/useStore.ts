@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { attachMany } from '@/domain/emergence';
 import {
   ActivityPatch,
   attachActivity,
@@ -11,6 +12,7 @@ import {
   nextOwner,
   updateThread,
 } from '@/domain/model';
+import { rememberSearch } from '@/domain/search';
 import { Data, emptyData, Id } from '@/domain/types';
 
 /** What's currently in the log box. Shared so a crumb on Home can load into it. */
@@ -45,6 +47,9 @@ interface State {
   /** Snapshot for a single-step undo of the last change. */
   undoSnapshot?: Data;
   showShading: boolean;
+  recentSearches: string[];
+  /** A thread just created from the @ menu whose name appears in earlier activities. */
+  pullInOffer?: Id;
   storage: StorageStatus;
   /** Set when a save failed; cleared by the next successful save. */
   saveError?: string;
@@ -54,6 +59,11 @@ interface State {
   loadNext: (threadId: Id) => void;
   log: (extra?: Partial<LogInput>) => Id | undefined;
   createThread: (name: string) => Id;
+  /** Attaches the chosen past activities to a thread; one Undo reverts all of them. */
+  pullIn: (threadId: Id, activityIds: Id[]) => void;
+  setPullInOffer: (threadId: Id | undefined) => void;
+  rememberSearch: (query: string) => void;
+  clearSearches: () => void;
   setNext: (threadId: Id, next: string) => void;
   renameThread: (threadId: Id, name: string) => void;
   setHidden: (threadId: Id, hidden: boolean) => void;
@@ -77,6 +87,7 @@ export const useStore = create<State>()((set, get) => ({
   data: emptyData(),
   draft: emptyDraft(),
   showShading: true,
+  recentSearches: [],
   storage: { state: 'loading' },
 
   setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
@@ -121,6 +132,23 @@ export const useStore = create<State>()((set, get) => ({
     set({ data: res.data });
     return res.thread.id;
   },
+
+  pullIn: (threadId, activityIds) =>
+    set((s) => {
+      const name = s.data.threads[threadId]?.name;
+      if (!name || !activityIds.length) return {};
+      const n = activityIds.length;
+      return {
+        undoSnapshot: s.data,
+        data: attachMany(s.data, activityIds, threadId),
+        pullInOffer: undefined,
+        toast: { message: `Pulled ${n} ${n === 1 ? 'activity' : 'activities'} into ${name}` },
+      };
+    }),
+
+  setPullInOffer: (threadId) => set({ pullInOffer: threadId }),
+  rememberSearch: (query) => set((s) => ({ recentSearches: rememberSearch(s.recentSearches, query) })),
+  clearSearches: () => set({ recentSearches: [] }),
 
   setNext: (threadId, next) =>
     set((s) => ({

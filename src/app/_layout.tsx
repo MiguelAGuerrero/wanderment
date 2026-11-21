@@ -49,6 +49,8 @@ export default function RootLayout() {
         <Stack.Screen name="thread/[id]" />
         <Stack.Screen name="activity/[id]" options={{ presentation: 'modal' }} />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="search" />
+        <Stack.Screen name="pull-in/[id]" options={{ presentation: 'modal' }} />
       </Stack>
       <UpdateBanner />
       {saveError && (

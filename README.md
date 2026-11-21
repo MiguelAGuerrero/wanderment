@@ -40,14 +40,14 @@ npm run e2e        # Playwright end-to-end tests against the built web app
 
 | Path | What lives there |
 |---|---|
-| `src/domain/` | Pure TypeScript model, selectors, @-autocomplete, backup. No React. Fully unit-tested. |
+| `src/domain/` | Pure TypeScript model, selectors, @-autocomplete, emergence (pull-in, values), search, backup/migration. No React. Fully unit-tested. |
 | `src/store/` | Zustand store: data, draft, toast, single-step undo. |
 | `src/storage/` | SQLite schema + migrations, repository (tested against real SQLite via `node:sqlite`), persistence with a write-ahead journal on web, native file backups. |
 | `src/components/` | Composer (log box), ThreadCard (card + next-step crumb), Toast, UpdateBanner, Screen shell. |
 | `src/pwa/` | Service-worker registration and update detection (web only). |
 | `public/` | Web HTML template, PWA manifest and icons. `workbox-config.js` generates `sw.js` at build time. |
 | `e2e/` | Playwright specs and a static server that mimics GitHub Pages. |
-| `src/app/` | Expo Router screens: Home, Activities, Graph (placeholder), thread page, activity details, settings. |
+| `src/app/` | Expo Router screens: Home, Activities, Graph, thread page, activity details, pull-in, search, settings. |
 | `docs/` | Design decisions and roadmap. |
 
 See [`docs/DESIGN.md`](docs/DESIGN.md) for the product rules, [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next, and [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) for the step-by-step plan a coding agent can follow.

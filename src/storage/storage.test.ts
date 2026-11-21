@@ -59,7 +59,9 @@ describe('persisted format v1 (JSON blob) → v2 (SQLite)', () => {
     await replaceAll(db, legacy.data);
     await saveSettings(db, legacy.settings);
     expect(await loadData(db)).toEqual(legacy.data);
-    expect(await loadSettings(db)).toEqual({ showShading: false });
+    expect(await loadSettings(db)).toEqual({ showShading: false, recentSearches: [] });
+    await saveSettings(db, { showShading: true, recentSearches: ['guitar', 'run'] });
+    expect(await loadSettings(db)).toEqual({ showShading: true, recentSearches: ['guitar', 'run'] });
   });
 });
 

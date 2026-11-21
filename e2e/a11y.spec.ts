@@ -54,3 +54,19 @@ test('suggestions are an accessible listbox', async ({ page }) => {
   await expect(page.getByRole('listbox', { name: 'Thread suggestions' })).toBeVisible();
   await expectNoSeriousViolations(page);
 });
+
+test('pull-in and search screens have no serious accessibility violations', async ({ page }) => {
+  await openHome(page);
+  await logLine(page, 'drawing at lunch');
+  await page.getByRole('button', { name: '+ New thread' }).click();
+  const name = page.getByRole('textbox', { name: 'New thread name' });
+  await name.fill('practice drawing');
+  await name.press('Enter');
+  await expect(page.getByRole('checkbox')).toHaveCount(1);
+  await expectNoSeriousViolations(page);
+
+  await page.goto('./search');
+  await page.getByRole('textbox', { name: 'Search' }).fill('drawing');
+  await expect(page.getByText('1 result')).toBeVisible();
+  await expectNoSeriousViolations(page);
+});

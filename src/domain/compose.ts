@@ -45,7 +45,23 @@ export function removeActiveMention(text: string): string {
   return text.slice(0, m.start).replace(/\s+$/, ' ').trimStart();
 }
 
-const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'for', 'and', 'in', 'on', 'my', 'with', 'at']);
+const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'for', 'and', 'in', 'on', 'my', 'with', 'at', 'some', 'more', 'from', 'into', 'about']);
+
+/** Crude stem so "practiced"/"practice" and "drawing"/"draws" meet. */
+const stem = (w: string) => {
+  const s = w.replace(/(ings|ing|ed|es|s|e)$/, '');
+  return s.length >= 3 ? s : w;
+};
+
+/** Stems of the words that carry meaning (longer than 3 letters, not filler), ignoring @mentions. */
+export function meaningfulStems(text: string): Set<string> {
+  return new Set(
+    normalizeName(text.replace(/@\S*/g, ''))
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 3 && !STOP.has(w))
+      .map(stem),
+  );
+}
 
 /**
  * Suggests a "doing" thread from words in the sentence (never applied automatically).
@@ -53,17 +69,11 @@ const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'for', 'and', 'in', 'on', 'm
  * "sketched 12 gestures for drawing" → "practice drawing".
  */
 export function suggestDoing(data: Data, text: string, exclude: Id[] = []): Thread | undefined {
-  const words = new Set(
-    normalizeName(text.replace(/@\S*/g, ''))
-      .split(/[^a-z0-9]+/)
-      .filter((w) => w.length > 3 && !STOP.has(w)),
-  );
+  const words = meaningfulStems(text);
   if (!words.size) return undefined;
-  return Object.values(data.threads).find(
-    (t) =>
-      !exclude.includes(t.id) &&
-      normalizeName(t.name)
-        .split(' ')
-        .some((w) => w.length > 3 && !STOP.has(w) && words.has(w)),
-  );
+  return Object.values(data.threads).find((t) => {
+    if (exclude.includes(t.id)) return false;
+    for (const w of meaningfulStems(t.name)) if (words.has(w)) return true;
+    return false;
+  });
 }

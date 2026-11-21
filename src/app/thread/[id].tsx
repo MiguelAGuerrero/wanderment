@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
+import { candidatesForThread } from '@/domain/emergence';
 import { activitiesOf, ageLabel, flowsFrom, describeLink } from '@/domain/selectors';
 import { useStore } from '@/store/useStore';
 import { decorative } from '@/components/a11y';
@@ -32,6 +33,7 @@ export default function ThreadPage() {
   }
   const steps = activitiesOf(data, thread.id);
   const flows = flowsFrom(data, thread.id);
+  const pullable = candidatesForThread(data, thread.name, thread.id).length;
 
   return (
     <Screen presetDoingId={thread.id} placeholder={`Log in ${thread.name}…`}>
@@ -127,6 +129,14 @@ export default function ThreadPage() {
         </Pressable>
       </View>
 
+      {pullable > 0 && (
+        <Pressable onPress={() => router.push(`/pull-in/${thread.id}`)} style={styles.pullIn} accessibilityRole="button">
+          <Text style={{ color: C.body, fontSize: 14 }}>
+            {pullable} earlier {pullable === 1 ? 'activity mentions' : 'activities mention'} this · <Text style={{ color: C.accent, fontWeight: '600' }}>Review</Text>
+          </Text>
+        </Pressable>
+      )}
+
       <Text style={s.quietLabel}>Steps</Text>
       {steps.map((a) => (
         <View key={a.id} style={[s.card, styles.step]}>
@@ -163,5 +173,6 @@ const styles = StyleSheet.create({
   crumb: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, paddingLeft: 14, paddingRight: 4, backgroundColor: C.crumbBg, borderWidth: 1, borderTopWidth: 0, borderColor: C.line, borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
   pen: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   actions: { flexDirection: 'row', gap: 8 },
+  pullIn: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, borderRadius: 12, backgroundColor: C.quietBg },
   step: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
 });

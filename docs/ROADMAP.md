@@ -15,10 +15,10 @@
 - Accessibility pass (axe in e2e, 44 px targets, 200 % zoom reflow, decorative glyphs hidden)
 - Edit and delete an activity (with Undo)
 
-## M3 — Emergence
-- Name a new thread and pull in past activities that mention it (bulk, one undo)
-- Value headers on Home once a thread has a clear, stable majority of inflow (with a buffer so headers don't flip)
-- Search
+## M3 — Emergence ✅
+- Name a new thread and pull in past activities that mention it (bulk, one undo) — from Home's "+ New thread", the @ menu (a quiet offer line) and the thread page
+- Value headers on Home: net inflow ≥ 3 and ≥ 60 % incoming over 90 days; stays until below 40 % (hysteresis by replaying history, nothing stored); "why here?" explainer
+- Search across activities, notes and next steps, grouped by thread, with recent searches
 
 ## M4 — Graph
 - Centred node, what it flows to above, what flows in below; list alternative for screen readers

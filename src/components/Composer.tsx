@@ -20,6 +20,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
   const setDraft = useStore((st) => st.setDraft);
   const log = useStore((st) => st.log);
   const createThread = useStore((st) => st.createThread);
+  const setPullInOffer = useStore((st) => st.setPullInOffer);
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   /** Highlighted suggestion, remembered per query so a new query starts at the top. */
   const [active, setActive] = useState<{ query?: string; index: number }>({ index: 0 });
@@ -66,7 +67,10 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
   };
   const createAndPick = () => {
     if (!mention) return;
-    pick(createThread(mention.query));
+    const id = createThread(mention.query);
+    pick(id);
+    // Offer (quietly, after logging) to pull in earlier activities that mention it.
+    setPullInOffer(id);
   };
   const submit = () => {
     if (log({ doingId })) inputRef.current?.focus();

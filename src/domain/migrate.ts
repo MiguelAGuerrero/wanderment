@@ -54,9 +54,14 @@ export const LEGACY_STORAGE_KEY = 'wanderment';
 
 export interface Settings {
   showShading: boolean;
+  /** Last few searches, newest first. */
+  recentSearches: string[];
 }
 
-export const defaultSettings = (): Settings => ({ showShading: true });
+export const defaultSettings = (): Settings => ({ showShading: true, recentSearches: [] });
+
+export const sameSettings = (a: Settings, b: Settings) =>
+  a.showShading === b.showShading && a.recentSearches.join('\n') === b.recentSearches.join('\n');
 
 /**
  * Persisted format v1 → v2: reads the JSON blob the first release kept in AsyncStorage
@@ -72,7 +77,7 @@ export function parseLegacyState(json: string | null | undefined): { data: Data;
   }
   if (!parsed?.state?.data) return undefined;
   const data = migrateData(parsed.state.data);
-  return { data, settings: { showShading: parsed.state.showShading !== false } };
+  return { data, settings: { ...defaultSettings(), showShading: parsed.state.showShading !== false } };
 }
 
 /** The legacy format, still used on web when SQLite can't run (e.g. no OPFS in a private window). */

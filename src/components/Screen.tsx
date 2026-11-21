@@ -6,6 +6,7 @@ import { Id } from '@/domain/types';
 import { C, s } from '@/theme';
 
 import { Composer } from './Composer';
+import { PullInOffer } from './PullInOffer';
 import { Toast } from './Toast';
 
 /**
@@ -34,6 +35,7 @@ export function Screen({
             <View style={styles.toastSlot} pointerEvents="box-none">
               <Toast />
             </View>
+            <PullInOffer />
             <Composer presetDoingId={presetDoingId} placeholder={placeholder} />
           </View>
         )}

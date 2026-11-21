@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 import { DataChanges, diffData, isEmptyDiff, pendingChanges } from '@/domain/diff';
-import { LEGACY_STORAGE_KEY, parseLegacyState, Settings, toLegacyState } from '@/domain/migrate';
+import { defaultSettings, LEGACY_STORAGE_KEY, parseLegacyState, sameSettings, Settings, toLegacyState } from '@/domain/migrate';
 import { Data, emptyData } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 
@@ -51,7 +51,10 @@ function writeJournal(journal: Journal | undefined) {
 function readJournal(): Journal | undefined {
   try {
     const raw = webStorage()?.getItem(JOURNAL_KEY);
-    return raw ? (JSON.parse(raw) as Journal) : undefined;
+    if (!raw) return undefined;
+    const j = JSON.parse(raw) as Journal;
+    // Journals written by older versions may lack newer settings.
+    return { changes: j.changes, settings: { ...defaultSettings(), ...j.settings } };
   } catch {
     return undefined;
   }
@@ -65,7 +68,7 @@ const sqliteBackend = (db: Db): Backend => ({
   async save(prev, next) {
     const changes = diffData(prev.data, next.data);
     if (!isEmptyDiff(changes)) await saveChanges(db, changes);
-    if (prev.settings.showShading !== next.settings.showShading) await saveSettings(db, next.settings);
+    if (!sameSettings(prev.settings, next.settings)) await saveSettings(db, next.settings);
   },
 });
 
@@ -106,7 +109,7 @@ async function openSqlite(): Promise<{ backend: Backend; data: Data; settings: S
 
 async function openLocal(): Promise<{ backend: Backend; data: Data; settings: Settings }> {
   const legacy = parseLegacyState(await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
-  return { backend: localBackend, data: legacy?.data ?? emptyData(), settings: legacy?.settings ?? { showShading: true } };
+  return { backend: localBackend, data: legacy?.data ?? emptyData(), settings: legacy?.settings ?? defaultSettings() };
 }
 
 let started = false;
@@ -146,7 +149,8 @@ export async function startPersistence(): Promise<void> {
   let inflight: Data | undefined;
   const journal = (data: Data, settings: Settings) =>
     kind === 'sqlite' && writeJournal({ changes: pendingChanges(saved.data, inflight, data), settings });
-  useStore.setState({ data: opened.data, showShading: opened.settings.showShading, storage: { state: 'ready', kind } });
+  const settingsOf = (s: ReturnType<typeof useStore.getState>): Settings => ({ showShading: s.showShading, recentSearches: s.recentSearches });
+  useStore.setState({ data: opened.data, ...opened.settings, storage: { state: 'ready', kind } });
 
   // One write at a time; changes made meanwhile are folded into the next write.
   let running = false;
@@ -161,8 +165,8 @@ export async function startPersistence(): Promise<void> {
       do {
         again = false;
         const s = useStore.getState();
-        const target = { data: s.data, settings: { showShading: s.showShading } };
-        if (target.data === saved.data && target.settings.showShading === saved.settings.showShading) continue;
+        const target = { data: s.data, settings: settingsOf(s) };
+        if (target.data === saved.data && sameSettings(target.settings, saved.settings)) continue;
         try {
           inflight = target.data;
           await opened.backend.save(saved, target);
@@ -170,8 +174,8 @@ export async function startPersistence(): Promise<void> {
           inflight = undefined;
           // The journal now only needs what changed after this write (if anything).
           const now = useStore.getState();
-          if (now.data === target.data && now.showShading === target.settings.showShading) writeJournal(undefined);
-          else journal(now.data, { showShading: now.showShading });
+          if (now.data === target.data && sameSettings(settingsOf(now), target.settings)) writeJournal(undefined);
+          else journal(now.data, settingsOf(now));
           if (useStore.getState().saveError) useStore.setState({ saveError: undefined });
           scheduleBackup(target.data);
         } catch (e) {
@@ -187,8 +191,8 @@ export async function startPersistence(): Promise<void> {
   };
 
   useStore.subscribe((s, prev) => {
-    if (s.data === prev.data && s.showShading === prev.showShading) return;
-    journal(s.data, { showShading: s.showShading });
+    if (s.data === prev.data && s.showShading === prev.showShading && s.recentSearches === prev.recentSearches) return;
+    journal(s.data, settingsOf(s));
     void flush();
   });
 }
