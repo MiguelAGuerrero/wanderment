@@ -149,7 +149,11 @@ export async function startPersistence(): Promise<void> {
   let inflight: Data | undefined;
   const journal = (data: Data, settings: Settings) =>
     kind === 'sqlite' && writeJournal({ changes: pendingChanges(saved.data, inflight, data), settings });
-  const settingsOf = (s: ReturnType<typeof useStore.getState>): Settings => ({ showShading: s.showShading, recentSearches: s.recentSearches });
+  const settingsOf = (s: ReturnType<typeof useStore.getState>): Settings => ({
+    showShading: s.showShading,
+    recentSearches: s.recentSearches,
+    leftAsIs: s.leftAsIs,
+  });
   useStore.setState({ data: opened.data, ...opened.settings, storage: { state: 'ready', kind } });
 
   // One write at a time; changes made meanwhile are folded into the next write.
@@ -191,7 +195,7 @@ export async function startPersistence(): Promise<void> {
   };
 
   useStore.subscribe((s, prev) => {
-    if (s.data === prev.data && s.showShading === prev.showShading && s.recentSearches === prev.recentSearches) return;
+    if (s.data === prev.data && s.showShading === prev.showShading && s.recentSearches === prev.recentSearches && s.leftAsIs === prev.leftAsIs) return;
     journal(s.data, settingsOf(s));
     void flush();
   });

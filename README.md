@@ -40,10 +40,10 @@ npm run e2e        # Playwright end-to-end tests against the built web app
 
 | Path | What lives there |
 |---|---|
-| `src/domain/` | Pure TypeScript model, selectors, @-autocomplete, emergence (pull-in, values), search, backup/migration. No React. Fully unit-tested. |
+| `src/domain/` | Pure TypeScript model, selectors, @-autocomplete, emergence (pull-in, values), search, graph neighbourhoods, backup/migration. No React. Fully unit-tested. |
 | `src/store/` | Zustand store: data, draft, toast, single-step undo. |
 | `src/storage/` | SQLite schema + migrations, repository (tested against real SQLite via `node:sqlite`), persistence with a write-ahead journal on web, native file backups. |
-| `src/components/` | Composer (log box), ThreadCard (card + next-step crumb), Toast, UpdateBanner, Screen shell. |
+| `src/components/` | Composer (log box), ThreadCard (card + next-step crumb), Toast, UpdateBanner, PullInOffer, Screen shell; `graph/` holds the graph canvas (react-native-svg edges), list view and attach card. |
 | `src/pwa/` | Service-worker registration and update detection (web only). |
 | `public/` | Web HTML template, PWA manifest and icons. `workbox-config.js` generates `sw.js` at build time. |
 | `e2e/` | Playwright specs and a static server that mimics GitHub Pages. |

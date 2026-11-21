@@ -48,6 +48,7 @@ interface State {
   undoSnapshot?: Data;
   showShading: boolean;
   recentSearches: string[];
+  leftAsIs: Id[];
   /** A thread just created from the @ menu whose name appears in earlier activities. */
   pullInOffer?: Id;
   storage: StorageStatus;
@@ -64,6 +65,7 @@ interface State {
   setPullInOffer: (threadId: Id | undefined) => void;
   rememberSearch: (query: string) => void;
   clearSearches: () => void;
+  leaveAsIs: (activityId: Id) => void;
   setNext: (threadId: Id, next: string) => void;
   renameThread: (threadId: Id, name: string) => void;
   setHidden: (threadId: Id, hidden: boolean) => void;
@@ -88,6 +90,7 @@ export const useStore = create<State>()((set, get) => ({
   draft: emptyDraft(),
   showShading: true,
   recentSearches: [],
+  leftAsIs: [],
   storage: { state: 'loading' },
 
   setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
@@ -149,6 +152,7 @@ export const useStore = create<State>()((set, get) => ({
   setPullInOffer: (threadId) => set({ pullInOffer: threadId }),
   rememberSearch: (query) => set((s) => ({ recentSearches: rememberSearch(s.recentSearches, query) })),
   clearSearches: () => set({ recentSearches: [] }),
+  leaveAsIs: (activityId) => set((s) => (s.leftAsIs.includes(activityId) ? {} : { leftAsIs: [...s.leftAsIs, activityId] })),
 
   setNext: (threadId, next) =>
     set((s) => ({
@@ -160,7 +164,13 @@ export const useStore = create<State>()((set, get) => ({
 
   setHidden: (threadId, hidden) => set((s) => ({ undoSnapshot: s.data, data: updateThread(s.data, threadId, { hidden }) })),
 
-  attach: (activityId, threadId) => set((s) => ({ undoSnapshot: s.data, data: attachActivity(s.data, activityId, threadId) })),
+  attach: (activityId, threadId) =>
+    set((s) => {
+      const a = s.data.activities[activityId];
+      const t = s.data.threads[threadId];
+      if (!a || !t) return {};
+      return { undoSnapshot: s.data, data: attachActivity(s.data, activityId, threadId), toast: { message: `Attached → to ${t.name}`, activityId } };
+    }),
 
   updateActivity: (activityId, patch) => set((s) => ({ data: editActivity(s.data, activityId, patch) })),
 

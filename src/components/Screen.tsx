@@ -18,11 +18,14 @@ export function Screen({
   composer = true,
   presetDoingId,
   placeholder,
+  footer,
 }: {
   children: ReactNode;
   composer?: boolean;
   presetDoingId?: Id;
   placeholder?: string;
+  /** Replaces the log box (e.g. the attach-mode card on the graph). */
+  footer?: ReactNode;
 }) {
   return (
     <SafeAreaView style={s.screen} edges={['top']}>
@@ -30,13 +33,17 @@ export function Screen({
         <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
-        {composer && (
+        {(composer || footer) && (
           <View style={styles.bottom}>
             <View style={styles.toastSlot} pointerEvents="box-none">
               <Toast />
             </View>
-            <PullInOffer />
-            <Composer presetDoingId={presetDoingId} placeholder={placeholder} />
+            {footer ?? (
+              <>
+                <PullInOffer />
+                <Composer presetDoingId={presetDoingId} placeholder={placeholder} />
+              </>
+            )}
           </View>
         )}
       </KeyboardAvoidingView>

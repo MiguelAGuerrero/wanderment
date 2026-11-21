@@ -56,12 +56,16 @@ export interface Settings {
   showShading: boolean;
   /** Last few searches, newest first. */
   recentSearches: string[];
+  /** Unattached activities the person chose to leave as they are (attach mode won't ask again). */
+  leftAsIs: Id[];
 }
 
-export const defaultSettings = (): Settings => ({ showShading: true, recentSearches: [] });
+export const defaultSettings = (): Settings => ({ showShading: true, recentSearches: [], leftAsIs: [] });
 
 export const sameSettings = (a: Settings, b: Settings) =>
-  a.showShading === b.showShading && a.recentSearches.join('\n') === b.recentSearches.join('\n');
+  a.showShading === b.showShading &&
+  a.recentSearches.join('\n') === b.recentSearches.join('\n') &&
+  a.leftAsIs.join('\n') === b.leftAsIs.join('\n');
 
 /**
  * Persisted format v1 → v2: reads the JSON blob the first release kept in AsyncStorage

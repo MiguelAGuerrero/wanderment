@@ -2,6 +2,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { legacyBlob, seedScript } from './graphFixture';
 
 /** Fails on serious or critical axe violations, printing what and where. */
 async function expectNoSeriousViolations(page: Page) {
@@ -68,5 +69,21 @@ test('pull-in and search screens have no serious accessibility violations', asyn
   await page.goto('./search');
   await page.getByRole('textbox', { name: 'Search' }).fill('drawing');
   await expect(page.getByText('1 result')).toBeVisible();
+  await expectNoSeriousViolations(page);
+});
+
+test('the graph, its list view and attach mode have no serious accessibility violations', async ({ page }) => {
+  const blob = legacyBlob(['draw', 'make apparel', 'sew'], [
+    ...[1, 2, 3].map((d) => ({ from: 'draw', to: ['make apparel'], text: `sketch ${d}`, daysAgo: d })),
+    { from: 'sew', to: ['make apparel'], text: 'hemmed', daysAgo: 2 },
+    { text: 'read a novel', daysAgo: 1 },
+  ]);
+  await page.addInitScript(seedScript, blob);
+  await page.goto('./graph');
+  await expect(page.getByRole('button', { name: /^make apparel, \d+ steps/ })).toBeVisible();
+  await expectNoSeriousViolations(page);
+  await page.getByRole('button', { name: 'Attach loose (1)' }).click();
+  await expectNoSeriousViolations(page);
+  await page.getByRole('tab', { name: 'List' }).click();
   await expectNoSeriousViolations(page);
 });

@@ -20,9 +20,11 @@
 - Value headers on Home: net inflow ≥ 3 and ≥ 60 % incoming over 90 days; stays until below 40 % (hysteresis by replaying history, nothing stored); "why here?" explainer
 - Search across activities, notes and next steps, grouped by thread, with recent searches
 
-## M4 — Graph
-- Centred node, what it flows to above, what flows in below; list alternative for screen readers
-- Attach mode for unattached activities
+## M4 — Graph ✅
+- Centred node (size = steps, ring = active in the last 14 days), what it flows to above, what flows in below, siblings at the sides (+N), tap to re-centre, breadcrumb, two-steps-out toggle; opens on the top value
+- List view of the same neighbourhood (default for native screen-reader users)
+- Attach mode: one unattached activity at a time; tap a highlighted node or a suggestion; Leave as is (remembered) or Skip
+- Built ahead of the plan's "wait for real usage" note, on request; tune the layout once there are weeks of real data
 
 ## Later / maybe
 - Share-in from other apps, home-screen widget, opt-in "On this day", photo evidence + gallery

@@ -94,18 +94,22 @@ export async function replaceAll(db: Db, data: Data): Promise<void> {
   });
 }
 
+/** A JSON list of strings; anything damaged reads as empty (these are conveniences, not data). */
+function stringList(json: string): string[] {
+  try {
+    const list = JSON.parse(json);
+    return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 export async function loadSettings(db: Db): Promise<Settings> {
   const settings = defaultSettings();
   for (const r of await db.all<{ key: string; value: string }>('SELECT key, value FROM settings')) {
     if (r.key === 'showShading') settings.showShading = r.value !== 'false';
-    if (r.key === 'recentSearches') {
-      try {
-        const list = JSON.parse(r.value);
-        if (Array.isArray(list)) settings.recentSearches = list.filter((x): x is string => typeof x === 'string');
-      } catch {
-        // Ignore a damaged value; it's only convenience.
-      }
-    }
+    if (r.key === 'recentSearches') settings.recentSearches = stringList(r.value);
+    if (r.key === 'leftAsIs') settings.leftAsIs = stringList(r.value);
   }
   return settings;
 }
@@ -114,6 +118,7 @@ export async function saveSettings(db: Db, settings: Settings): Promise<void> {
   await db.transaction(async () => {
     await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['showShading', String(settings.showShading)]);
     await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['recentSearches', JSON.stringify(settings.recentSearches)]);
+    await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['leftAsIs', JSON.stringify(settings.leftAsIs)]);
   });
 }
 
