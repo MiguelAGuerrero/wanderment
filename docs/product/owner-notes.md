@@ -18,6 +18,15 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-21 — "It's effectively a search over the graph"
+> It's effectively a search over the graph.
+
+Interpretation (by /product): confirms B-03's framing rather than changing it (asked: "Confirming the
+framing"). The row searches what's in the graph (whys, threads, steps, and activities that feed
+them); one-offs, which aren't in the graph, stay in "All results →". The brief's wording is sharpened
+to say so.
+Led to: B-03 wording only; D-6 stands.
+
 ## 2026-11-21 — The log field as a mini search over the graph
 > And for quality of life, since the graph is gonna be first, let the log field be a mini search
 > engine that can query the graph to show what action exists currently, or even an intentional

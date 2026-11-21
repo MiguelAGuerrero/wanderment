@@ -8,6 +8,11 @@
 > through and possibly finding where you want [to be], what step you wanna be [on] quickly, or what
 > intentional value you want [to] survey." — owner, 2026-11-21 ([owner-notes](../owner-notes.md))
 
+In short, it's **a search over the graph**, from the box you already type in. The results are what
+the graph holds (whys, threads, staged steps, and activities that feed them), and a tap shows the
+result *in* the graph. Anything not in the graph (one-off activities, notes) is in Search, one tap
+away via "All results →".
+
 With the live graph moving to the top of Home (P-15), and whys and chains of steps arriving (P-16,
 P-19), Home will hold more than one screen shows. Today you find something by scrolling the cards,
 opening the Graph tab, or going to Search, which is a separate screen. The box you're already typing
