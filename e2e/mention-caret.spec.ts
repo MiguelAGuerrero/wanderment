@@ -130,8 +130,9 @@ test('text loaded from outside puts the caret at the end, not where it was', asy
   await nextInput.fill('tune up for @pla');
   await nextInput.press('Enter');
 
-  // Leave the caret early in some other text, then load the next step.
-  await logBox(page).fill('a draft I was writing');
+  // Leave the caret early in a whitespace-only box (which "Log this" still replaces; a line with
+  // text is kept since D-6), then load the next step.
+  await logBox(page).fill('   ');
   await logBox(page).press('Home');
   await logBox(page).press('ArrowRight');
   await page.getByRole('button', { name: 'tune up for @pla Log this' }).click();

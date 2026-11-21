@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -21,6 +22,8 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
   const log = useStore((st) => st.log);
   const createThread = useStore((st) => st.createThread);
   const setPullInOffer = useStore((st) => st.setPullInOffer);
+  const logBoxFocus = useStore((st) => st.logBoxFocus);
+  const screenFocused = useIsFocused();
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   /** Highlighted suggestion, remembered per query so a new query starts at the top. */
   const [active, setActive] = useState<{ query?: string; index: number }>({ index: 0 });
@@ -40,6 +43,19 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
     const t = setTimeout(() => setPlaceCaret(undefined), 0);
     return () => clearTimeout(t);
   }, [placeCaret]);
+
+  // A crumb's "Log this" was tapped: take focus back (only on the screen in front), with the caret
+  // where it was, or at the end if the text was replaced.
+  const seenFocus = useRef(logBoxFocus);
+  useEffect(() => {
+    if (seenFocus.current === logBoxFocus) return;
+    seenFocus.current = logBoxFocus;
+    if (!screenFocused) return;
+    inputRef.current?.focus();
+    const el = Platform.OS === 'web' ? (inputRef.current as unknown as HTMLInputElement | null) : null;
+    const at = sel?.text === draft.text ? sel : { start: draft.text.length, end: draft.text.length };
+    el?.setSelectionRange?.(at.start, at.end);
+  }, [logBoxFocus, screenFocused, sel, draft.text]);
 
   const doingId = draft.doingId === null ? undefined : (draft.doingId ?? presetDoingId);
   // A selected range has no caret, so no mention (and no menu).
@@ -135,6 +151,9 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
     doingId && data.threads[doingId] ? { id: doingId, label: data.threads[doingId].name, kind: 'doing' as const } : undefined,
     ...draft.toIds.filter((id) => data.threads[id]).map((id) => ({ id, label: data.threads[id].name, kind: 'to' as const })),
   ].filter(Boolean) as { id: Id; label: string; kind: 'doing' | 'to' }[];
+  // The thread's step this line counts as, while that step still says what was staged.
+  const stepThread = draft.fromNextOf ? data.threads[draft.fromNextOf] : undefined;
+  const step = stepThread?.next && stepThread.next === draft.fromNextText ? { name: stepThread.name, text: stepThread.next } : undefined;
 
   return (
     <View style={styles.wrap}>
@@ -170,7 +189,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
       )}
 
       <View style={styles.box}>
-        {(chips.length > 0 || suggestedDoing) && (
+        {(chips.length > 0 || step || suggestedDoing) && (
           <View style={styles.chipRow}>
             {chips.map((c, i) => (
               <View key={c.id + c.kind} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -182,7 +201,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
                 <Pressable
                   onPress={() =>
                     c.kind === 'doing'
-                      ? setDraft({ doingId: null, fromNextOf: undefined })
+                      ? setDraft({ doingId: null, fromNextOf: undefined, fromNextText: undefined })
                       : setDraft({ toIds: draft.toIds.filter((x) => x !== c.id) })
                   }
                   accessibilityRole="button"
@@ -194,6 +213,20 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
                 </Pressable>
               </View>
             ))}
+            {step && (
+              <Pressable
+                onPress={() => setDraft({ fromNextOf: undefined, fromNextText: undefined })}
+                accessibilityRole="button"
+                accessibilityLabel={`${step.text}, next step in ${step.name}. This line counts as it. Remove`}
+                style={[styles.hit, styles.stepHit]}>
+                <View style={[styles.smallChip, styles.stepChip]}>
+                  <Text style={[styles.smallChipText, s.chipAccentText]}>
+                    <Text {...decorative}>↳ </Text>
+                    {step.text} ×
+                  </Text>
+                </View>
+              </Pressable>
+            )}
             {suggestedDoing && (
               <Pressable onPress={() => setDraft({ doingId: suggestedDoing.id })} style={styles.hit} accessibilityRole="button" accessibilityLabel={`Suggested: doing ${suggestedDoing.name}. Tap to accept.`}>
                 <View style={[styles.smallChip, s.chipDashed]}>
@@ -261,6 +294,9 @@ const styles = StyleSheet.create({
   smallChip: { minHeight: 30, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   smallChipText: { fontSize: 13, fontWeight: '500', color: C.ink },
   doingChip: { backgroundColor: C.ink, borderColor: C.ink },
+  /** Long steps wrap inside the chip instead of running off the box. */
+  stepHit: { flexShrink: 1, maxWidth: '100%' },
+  stepChip: { backgroundColor: C.crumbBg, borderColor: C.dashed, alignItems: 'flex-start' },
   to: { fontSize: 13, fontWeight: '600', color: C.accent },
   suggestions: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: 16, overflow: 'hidden' },
   suggestion: { minHeight: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: C.lineSoft },

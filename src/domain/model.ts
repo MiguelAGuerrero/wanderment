@@ -32,6 +32,8 @@ export interface LogInput {
   note?: string;
   /** If this log came from a thread's next step, that thread's next is cleared. */
   fromNextOf?: Id;
+  /** The step as it was when it was loaded: if given, a step edited since then is left alone. */
+  fromNextText?: string;
 }
 
 /** The thread that owns the "next" for an activity: its doing thread, else its first "to". */
@@ -58,8 +60,9 @@ export function logActivity(data: Data, input: LogInput, now = new Date()): { da
   for (const id of [activity.doingId, ...toIds]) {
     if (id && threads[id]?.hidden) threads[id] = { ...threads[id], hidden: false };
   }
-  if (input.fromNextOf && threads[input.fromNextOf]) {
-    threads[input.fromNextOf] = { ...threads[input.fromNextOf], next: undefined };
+  const staged = input.fromNextOf ? threads[input.fromNextOf] : undefined;
+  if (staged?.next && (input.fromNextText === undefined || staged.next === input.fromNextText)) {
+    threads[staged.id] = { ...staged, next: undefined };
   }
   return { data: { ...data, threads, activities: { ...data.activities, [activity.id]: activity } }, activity };
 }

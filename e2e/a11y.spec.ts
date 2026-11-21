@@ -150,3 +150,17 @@ test('the bridge after a log, and its name field, have no serious accessibility 
   expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await expectNoSeriousViolations(page);
 });
+
+test('Home with a typed line attached to a next step (the step chip) has no serious accessibility violations', async ({ page }) => {
+  await seed(page);
+  await logBox(page).fill('half a page of sketches');
+  await page.getByRole('button', { name: 'learn the F chord Log this' }).click();
+  const chip = page.getByRole('button', { name: 'learn the F chord, next step in play guitar. This line counts as it. Remove' });
+  await expect(chip).toBeVisible();
+  await expectNoSeriousViolations(page);
+  // Its name starts with its visible text; it's a 44 px target and stays on the 390 px screen.
+  await expect(chip).toContainText('learn the F chord');
+  const box = (await chip.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  expect(box.x + box.width).toBeLessThanOrEqual(390);
+});

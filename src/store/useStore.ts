@@ -26,8 +26,10 @@ export interface Draft {
   /** null = the person removed the doing chip (overrides a screen's preset doing thread). */
   doingId?: Id | null;
   toIds: Id[];
-  /** Set when the draft was loaded from a thread's next step. */
+  /** Set by a crumb's "Log this": logging this line counts as that thread's next step. */
   fromNextOf?: Id;
+  /** The step's text when it was staged; logging clears the step only if it still says this. */
+  fromNextText?: string;
 }
 
 export interface Toast {
@@ -57,6 +59,8 @@ export type StorageStatus =
 interface State {
   data: Data;
   draft: Draft;
+  /** Bumped when something outside the log box (a crumb's "Log this") hands focus back to it. */
+  logBoxFocus: number;
   /** Activity Home's bridge asks about ("Toward something — or just itself?"). Session only. */
   bridgeFor?: Id;
   /** Thread that shows the quiet "+ What's next? (optional)" line after a log. */
@@ -116,6 +120,7 @@ const emptyDraft = (): Draft => ({ text: '', toIds: [] });
 export const useStore = create<State>()((set, get) => ({
   data: emptyData(),
   draft: emptyDraft(),
+  logBoxFocus: 0,
   showShading: true,
   toastHeld: false,
   recentSearches: [],
@@ -129,7 +134,14 @@ export const useStore = create<State>()((set, get) => ({
   loadNext: (threadId) => {
     const t = get().data.threads[threadId];
     if (!t?.next) return;
-    set({ draft: { text: t.next, doingId: threadId, toIds: [], fromNextOf: threadId } });
+    const { draft, logBoxFocus } = get();
+    const staged = { doingId: threadId, fromNextOf: threadId, fromNextText: t.next };
+    set({
+      // A line already started is kept (with its "to" chips) and counts as the step; an empty box
+      // takes the step's text.
+      draft: draft.text.trim() ? { ...draft, ...staged, toIds: draft.toIds.filter((id) => id !== threadId) } : { text: t.next, toIds: [], ...staged },
+      logBoxFocus: logBoxFocus + 1,
+    });
   },
 
   log: (extra, opts) => {
@@ -141,6 +153,7 @@ export const useStore = create<State>()((set, get) => ({
       doingId: extra?.doingId ?? draft.doingId ?? undefined,
       toIds: extra?.toIds ?? draft.toIds,
       fromNextOf: extra?.fromNextOf ?? draft.fromNextOf,
+      fromNextText: extra?.fromNextOf ? extra.fromNextText : draft.fromNextText,
       occurredAt: extra?.occurredAt,
       note: extra?.note,
     });

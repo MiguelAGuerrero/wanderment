@@ -24,7 +24,10 @@ export function ThreadCard({ summary }: { summary: ThreadSummary }) {
   const loadNext = useStore((s) => s.loadNext);
   const setNext = useStore((s) => s.setNext);
 
-  const loaded = draft.fromNextOf === thread.id;
+  // Staged in the log box (the Composer shows the same step chip while this holds).
+  const loaded = draft.fromNextOf === thread.id && draft.fromNextText === thread.next;
+  // Either the step's own text is in the box, or the person's own line counts as it.
+  const where = draft.text.trim() === thread.next ? 'in the log box' : 'attached to the line in the log box';
   const meta = last ? `${last.text} · last touched ${ageLabel(last.occurredAt)}` : 'nothing logged yet';
 
   return (
@@ -44,9 +47,9 @@ export function ThreadCard({ summary }: { summary: ThreadSummary }) {
 
       {thread.next ? (
         loaded ? (
-          <View style={[styles.crumb, styles.crumbLoaded]} accessibilityLabel={`${thread.next} is in the log box`}>
+          <View style={[styles.crumb, styles.crumbLoaded]} accessibilityLabel={`${thread.next} is ${where}`}>
             <Text style={[styles.crumbText, styles.loadedText]}>{thread.next}</Text>
-            <Text style={styles.loadedHint}>in the log box</Text>
+            <Text style={styles.loadedHint}>{where}</Text>
           </View>
         ) : (
           <View style={styles.crumb}>
@@ -122,8 +125,8 @@ const styles = StyleSheet.create({
   logThis: { fontSize: 12, fontWeight: '600', color: C.accent },
   pen: { width: 44, height: 44, marginLeft: 8, alignItems: 'center', justifyContent: 'center' },
   crumbLoaded: { gap: 10, paddingRight: 14 },
-  loadedText: { color: C.faint, textDecorationLine: 'line-through' },
-  loadedHint: { fontSize: 12, fontWeight: '500', color: C.faint },
+  loadedText: { color: C.muted, textDecorationLine: 'line-through' },
+  loadedHint: { fontSize: 12, fontWeight: '500', color: C.muted },
   crumbEmpty: { backgroundColor: 'transparent', borderStyle: 'dashed', borderColor: C.dashed, minHeight: 44, gap: 6 },
   emptyText: { fontSize: 14, color: C.muted },
   nextInput: { flex: 1, fontSize: 15, color: C.ink, minHeight: 40 },
