@@ -140,7 +140,14 @@ export default function Graph() {
           <Text style={s.chipText}>Two steps out: {depth === 2 ? 'on' : 'off'}</Text>
         </Pressable>
         {!attaching && loose.length > 0 && (
-          <Pressable onPress={() => setAttaching(true)} style={[s.chip, s.chipAccent]} accessibilityRole="button">
+          <Pressable
+            onPress={() => {
+              // Pin the current centre so attaching (which changes recency) can't move the graph.
+              setPath(trail);
+              setAttaching(true);
+            }}
+            style={[s.chip, s.chipAccent]}
+            accessibilityRole="button">
             <Text style={[s.chipText, s.chipAccentText]}>Attach loose ({loose.length})</Text>
           </Pressable>
         )}
@@ -153,7 +160,7 @@ export default function Graph() {
             hood={hood}
             depth={depth}
             onPick={pick}
-            onCenter={() => router.push(`/thread/${hood.center.id}`)}
+            onCenter={() => (attaching && current ? attach(current.id, hood.center.id) : router.push(`/thread/${hood.center.id}`))}
             onMore={() => setView('list')}
             highlight={attaching && current ? { all: true, suggested } : undefined}
           />

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { applyUndo, UndoEntry, undoEntry } from '@/domain/diff';
 import { attachMany } from '@/domain/emergence';
 import {
   ActivityPatch,
@@ -13,6 +14,7 @@ import {
   updateThread,
 } from '@/domain/model';
 import { rememberSearch } from '@/domain/search';
+import { lastActivities } from '@/domain/selectors';
 import { Data, emptyData, Id } from '@/domain/types';
 
 /** What's currently in the log box. Shared so a crumb on Home can load into it. */
@@ -44,13 +46,15 @@ interface State {
   /** Thread that shows the quiet "+ What's next? (optional)" line after a log. */
   promptNextFor?: Id;
   toast?: Toast;
-  /** Snapshot for a single-step undo of the last change. */
-  undoSnapshot?: Data;
+  /** Reverts the last undoable change (only the records it touched). */
+  undo?: UndoEntry;
   showShading: boolean;
   recentSearches: string[];
   leftAsIs: Id[];
   /** A thread just created from the @ menu whose name appears in earlier activities. */
   pullInOffer?: Id;
+  /** Threads whose "earlier activities mention this" line was dismissed (this session only). */
+  dismissedPullIn: Id[];
   storage: StorageStatus;
   /** Set when a save failed; cleared by the next successful save. */
   saveError?: string;
@@ -66,13 +70,14 @@ interface State {
   rememberSearch: (query: string) => void;
   clearSearches: () => void;
   leaveAsIs: (activityId: Id) => void;
+  dismissPullIn: (threadId: Id) => void;
   setNext: (threadId: Id, next: string) => void;
   renameThread: (threadId: Id, name: string) => void;
   setHidden: (threadId: Id, hidden: boolean) => void;
   attach: (activityId: Id, threadId: Id) => void;
   updateActivity: (activityId: Id, patch: ActivityPatch) => void;
   removeActivity: (activityId: Id) => void;
-  undo: () => void;
+  undoLast: () => void;
   dismissToast: () => void;
   dismissPrompt: () => void;
   replaceData: (data: Data) => void;
@@ -91,6 +96,7 @@ export const useStore = create<State>()((set, get) => ({
   showShading: true,
   recentSearches: [],
   leftAsIs: [],
+  dismissedPullIn: [],
   storage: { state: 'loading' },
 
   setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
@@ -119,7 +125,7 @@ export const useStore = create<State>()((set, get) => ({
     const firstTo = res.activity.toIds[0] ? res.data.threads[res.activity.toIds[0]]?.name : undefined;
     set({
       data: res.data,
-      undoSnapshot: data,
+      undo: undoEntry(data, res.data),
       draft: emptyDraft(),
       promptNextFor: owner && !res.data.threads[owner]?.next ? owner : undefined,
       toast: {
@@ -141,9 +147,10 @@ export const useStore = create<State>()((set, get) => ({
       const name = s.data.threads[threadId]?.name;
       if (!name || !activityIds.length) return {};
       const n = activityIds.length;
+      const data = attachMany(s.data, activityIds, threadId);
       return {
-        undoSnapshot: s.data,
-        data: attachMany(s.data, activityIds, threadId),
+        undo: undoEntry(s.data, data),
+        data,
         pullInOffer: undefined,
         toast: { message: `Pulled ${n} ${n === 1 ? 'activity' : 'activities'} into ${name}` },
       };
@@ -152,6 +159,7 @@ export const useStore = create<State>()((set, get) => ({
   setPullInOffer: (threadId) => set({ pullInOffer: threadId }),
   rememberSearch: (query) => set((s) => ({ recentSearches: rememberSearch(s.recentSearches, query) })),
   clearSearches: () => set({ recentSearches: [] }),
+  dismissPullIn: (threadId) => set((s) => ({ dismissedPullIn: [...s.dismissedPullIn, threadId] })),
   leaveAsIs: (activityId) => set((s) => (s.leftAsIs.includes(activityId) ? {} : { leftAsIs: [...s.leftAsIs, activityId] })),
 
   setNext: (threadId, next) =>
@@ -162,14 +170,19 @@ export const useStore = create<State>()((set, get) => ({
 
   renameThread: (threadId, name) => set((s) => ({ data: updateThread(s.data, threadId, { name }) })),
 
-  setHidden: (threadId, hidden) => set((s) => ({ undoSnapshot: s.data, data: updateThread(s.data, threadId, { hidden }) })),
+  setHidden: (threadId, hidden) =>
+    set((s) => {
+      const data = updateThread(s.data, threadId, { hidden });
+      return { undo: undoEntry(s.data, data), data };
+    }),
 
   attach: (activityId, threadId) =>
     set((s) => {
       const a = s.data.activities[activityId];
       const t = s.data.threads[threadId];
       if (!a || !t) return {};
-      return { undoSnapshot: s.data, data: attachActivity(s.data, activityId, threadId), toast: { message: `Attached → to ${t.name}`, activityId } };
+      const data = attachActivity(s.data, activityId, threadId);
+      return { undo: undoEntry(s.data, data), data, toast: { message: `Attached → to ${t.name}`, activityId } };
     }),
 
   updateActivity: (activityId, patch) => set((s) => ({ data: editActivity(s.data, activityId, patch) })),
@@ -178,24 +191,23 @@ export const useStore = create<State>()((set, get) => ({
     set((s) => {
       const a = s.data.activities[activityId];
       if (!a) return {};
-      return { undoSnapshot: s.data, data: deleteActivity(s.data, activityId), toast: { message: `Deleted “${a.text}”` } };
+      const data = deleteActivity(s.data, activityId);
+      return { undo: undoEntry(s.data, data), data, toast: { message: `Deleted “${a.text}”` } };
     }),
 
-  undo: () => {
-    const snap = get().undoSnapshot;
-    if (snap) set({ data: snap, undoSnapshot: undefined, toast: undefined, promptNextFor: undefined });
+  undoLast: () => {
+    const { undo, data } = get();
+    if (undo) set({ data: applyUndo(data, undo), undo: undefined, toast: undefined, promptNextFor: undefined });
   },
 
   dismissToast: () => set({ toast: undefined }),
   dismissPrompt: () => set({ promptNextFor: undefined }),
-  replaceData: (data) => set({ data, undoSnapshot: undefined, draft: emptyDraft() }),
+  replaceData: (data) => set({ data, undo: undefined, draft: emptyDraft() }),
   setShowShading: (on) => set({ showShading: on }),
 }));
 
 /** Threads ordered by most recent use, for autocomplete ranking. */
 export function recentThreadOrder(data: Data): Id[] {
-  const seen: Id[] = [];
-  const acts = Object.values(data.activities).sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
-  for (const a of acts) for (const id of [a.doingId, ...a.toIds]) if (id && !seen.includes(id)) seen.push(id);
-  return seen;
+  const last = lastActivities(data);
+  return [...last.keys()].sort((a, b) => last.get(b)!.occurredAt.localeCompare(last.get(a)!.occurredAt));
 }

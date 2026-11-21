@@ -60,10 +60,14 @@ test('a new version shows a reload banner and never reloads by itself', async ({
   await request.post('/__e2e/bump-sw');
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());
 
+  // Mark this page; a reload would wipe the mark.
+  await page.evaluate(() => ((window as unknown as { stillHere: boolean }).stillHere = true));
   const banner = page.getByText('A new version is ready');
   await expect(banner).toBeVisible();
-  await page.getByRole('button', { name: 'Reload to update' }).click();
-  await page.waitForEvent('load');
+  await page.waitForTimeout(2000);
+  expect(await page.evaluate(() => (window as unknown as { stillHere?: boolean }).stillHere)).toBe(true);
+  await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Reload to update' }).click()]);
+  expect(await page.evaluate(() => (window as unknown as { stillHere?: boolean }).stillHere)).toBeUndefined();
   await expect(page.getByText('Wanderment', { exact: true })).toBeVisible();
   await expect(banner).toHaveCount(0);
 });

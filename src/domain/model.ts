@@ -41,13 +41,15 @@ export const nextOwner = (a: Pick<Activity, 'doingId' | 'toIds'>): Id | undefine
 export function logActivity(data: Data, input: LogInput, now = new Date()): { data: Data; activity: Activity } {
   const text = input.text.trim();
   if (!text) throw new Error('Activity text is required');
-  const toIds = [...new Set((input.toIds ?? []).filter((id) => id !== input.doingId))];
+  // Only threads that exist: a stale id (e.g. a draft chip whose thread was undone) is dropped.
+  const doingId = input.doingId && data.threads[input.doingId] ? input.doingId : undefined;
+  const toIds = [...new Set((input.toIds ?? []).filter((id) => id !== doingId && data.threads[id]))];
   const activity: Activity = {
     id: newId(),
     text,
     occurredAt: (input.occurredAt ?? now).toISOString(),
     createdAt: now.toISOString(),
-    doingId: input.doingId,
+    doingId,
     toIds,
     note: input.note?.trim() || undefined,
   };

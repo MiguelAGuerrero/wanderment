@@ -28,10 +28,17 @@ export function GraphList({ hood, onPick, attaching }: { hood: Neighbourhood; on
     );
   return (
     <View style={{ gap: 12 }}>
-      <Text style={s.body}>
-        <Text style={{ fontWeight: '600' }}>{hood.center.name}</Text> · {hood.steps} steps
-        {hood.recentSteps ? `, ${hood.recentSteps} in the last two weeks` : ''}
-      </Text>
+      {attaching ? (
+        <Pressable onPress={() => onPick(hood.center.id)} style={[s.card, styles.row]} accessibilityRole="button">
+          <Text style={styles.name}>{hood.center.name}</Text>
+          <Text style={s.meta}>{hood.steps} steps · attach here</Text>
+        </Pressable>
+      ) : (
+        <Text style={s.body}>
+          <Text style={{ fontWeight: '600' }}>{hood.center.name}</Text> · {hood.steps} steps
+          {hood.recentSteps ? `, ${hood.recentSteps} in the last two weeks` : ''}
+        </Text>
+      )}
       {section(`${hood.center.name} flows to`, hood.up)}
       {section(`Flows into ${hood.center.name}`, hood.down)}
       {section('Also flows to the same places', hood.siblings, hood.moreSiblings)}

@@ -106,19 +106,6 @@ export function valueThreads(data: Data, now = new Date()): Set<Id> {
   return values;
 }
 
-/** Of the given values, the one `threadId` sends the most links to in the window (ties: most recent). */
-export function mostFlowsTo(data: Data, threadId: Id, values: Set<Id>, now = new Date()): Id | undefined {
-  const since = now.getTime() - VALUE_WINDOW_DAYS * DAY;
-  const counts = new Map<Id, number>();
-  for (const a of sortedActivities(data)) {
-    if (a.doingId !== threadId || new Date(a.occurredAt).getTime() < since) continue;
-    for (const to of a.toIds) if (values.has(to)) counts.set(to, (counts.get(to) ?? 0) + 1);
-  }
-  let best: Id | undefined;
-  for (const [id, n] of counts) if (!best || n > counts.get(best)!) best = id;
-  return best;
-}
-
 export interface ValueGroup {
   value: Thread;
   /** Threads (other than the value itself) that flow mostly into it. */
@@ -132,13 +119,29 @@ export interface ValueGroup {
 export function groupByValue(data: Data, threadIds: Id[], now = new Date()): { groups: ValueGroup[]; rest: Id[] } {
   const values = valueThreads(data, now);
   if (!values.size) return { groups: [], rest: threadIds };
+  // How often each thread sent links to each value in the window — one pass.
+  const since = now.getTime() - VALUE_WINDOW_DAYS * DAY;
+  const toValue = new Map<Id, Map<Id, number>>();
+  for (const a of Object.values(data.activities)) {
+    if (!a.doingId || new Date(a.occurredAt).getTime() < since) continue;
+    for (const to of a.toIds) {
+      if (!values.has(to)) continue;
+      const m = toValue.get(a.doingId) ?? toValue.set(a.doingId, new Map()).get(a.doingId)!;
+      m.set(to, (m.get(to) ?? 0) + 1);
+    }
+  }
+  const best = (id: Id) => {
+    let pick: Id | undefined;
+    for (const [v, n] of toValue.get(id) ?? []) if (!pick || n > toValue.get(id)!.get(pick)!) pick = v;
+    return pick;
+  };
   const groups = new Map<Id, ValueGroup>();
   const rest: Id[] = [];
   const ensure = (v: Id) => groups.get(v) ?? groups.set(v, { value: data.threads[v], members: [] }).get(v)!;
   for (const id of threadIds) {
     if (values.has(id)) ensure(id);
     else {
-      const to = mostFlowsTo(data, id, values, now);
+      const to = best(id);
       if (to) ensure(to).members.push(id);
       else rest.push(id);
     }

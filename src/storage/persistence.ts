@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-import { DataChanges, diffData, isEmptyDiff, pendingChanges } from '@/domain/diff';
+import { DataChanges, diffData, isEmptyDiff, missingFrom, pendingChanges } from '@/domain/diff';
 import { defaultSettings, LEGACY_STORAGE_KEY, parseLegacyState, sameSettings, Settings, toLegacyState } from '@/domain/migrate';
 import { Data, emptyData } from '@/domain/types';
 import { useStore } from '@/store/useStore';
@@ -12,8 +12,6 @@ import { scheduleBackup } from './nativeBackup';
 import { isEmpty, loadData, loadSettings, replaceAll, saveChanges, saveSettings } from './repository';
 import { migrateSchema } from './schema';
 
-/** The legacy blob is kept under this key after moving into SQLite, as a safety copy. */
-const MOVED_KEY = `${LEGACY_STORAGE_KEY}:moved-to-sqlite`;
 /** Remembers that this browser has used SQLite, so we never silently fall back to stale data. */
 const USES_SQLITE_KEY = `${LEGACY_STORAGE_KEY}:uses-sqlite`;
 
@@ -81,20 +79,38 @@ const OPEN_TIMEOUT_MS = 15000;
 const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
   Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Opening the database timed out')), ms))]);
 
-async function openSqlite(): Promise<{ backend: Backend; data: Data; settings: Settings }> {
-  const db = await withTimeout(openExpoDb(), OPEN_TIMEOUT_MS);
-  await migrateSchema(db);
+/** OPFS lets one tab hold the database; a second tab gets this kind of error. */
+const isLockError = (e: unknown) => /access handle|nomodificationallowed|another open|locked/i.test(String((e as Error)?.message ?? e));
+
+class BlockedError extends Error {}
+
+/**
+ * Data written in the first release's format after the move to SQLite — by a tab still running
+ * the old version, or by an earlier fallback session. New records are added; records the
+ * database already has are kept as they are (it holds the newer copy).
+ */
+async function absorbLegacy(db: Db): Promise<void> {
+  const json = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+  if (!json) return;
+  const legacy = parseLegacyState(json);
+  if (!legacy) throw new BlockedError('Saved data in this browser couldn’t be read. Download it below before doing anything else.');
   if (await isEmpty(db)) {
-    // Persisted format v1 → v2: move the first release's JSON blob into SQLite, once.
-    const json = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
-    const legacy = parseLegacyState(json);
-    if (legacy) {
-      await replaceAll(db, legacy.data);
-      await saveSettings(db, legacy.settings);
-      await AsyncStorage.setItem(MOVED_KEY, json!);
-      await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
-    }
+    // Persisted format v1 → v2: the first move into SQLite.
+    await replaceAll(db, legacy.data);
+    await saveSettings(db, legacy.settings);
+  } else {
+    const missing = missingFrom(await loadData(db), legacy.data);
+    if (!isEmptyDiff(missing)) await saveChanges(db, missing);
   }
+  // Only after SQLite has committed. If this fails, the next start merges again (harmless).
+  await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
+}
+
+async function openSqlite(): Promise<{ backend: Backend; db: Db; data: Data; settings: Settings }> {
+  const db = await withTimeout(openExpoDb(), OPEN_TIMEOUT_MS);
+  // From this moment this browser is a SQLite browser: never fall back to the old format again.
+  await AsyncStorage.setItem(USES_SQLITE_KEY, '1').catch(() => {});
+  await migrateSchema(db);
   // Finish any change that was interrupted by a reload or closed tab. Writes are whole records,
   // so replaying one that did land is harmless.
   const journal = readJournal();
@@ -103,42 +119,51 @@ async function openSqlite(): Promise<{ backend: Backend; data: Data; settings: S
     await saveSettings(db, journal.settings);
     writeJournal(undefined);
   }
-  await AsyncStorage.setItem(USES_SQLITE_KEY, '1');
-  return { backend: sqliteBackend(db), data: await loadData(db), settings: await loadSettings(db) };
+  await absorbLegacy(db);
+  return { backend: sqliteBackend(db), db, data: await loadData(db), settings: await loadSettings(db) };
 }
 
 async function openLocal(): Promise<{ backend: Backend; data: Data; settings: Settings }> {
-  const legacy = parseLegacyState(await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
+  const json = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+  const legacy = parseLegacyState(json);
+  // Never start empty on top of data we couldn't read: the first save would overwrite it.
+  if (json && !legacy) throw new BlockedError('Saved data in this browser couldn’t be read. Download it below before doing anything else.');
   return { backend: localBackend, data: legacy?.data ?? emptyData(), settings: legacy?.settings ?? defaultSettings() };
 }
 
 let started = false;
 
+const block = (message: string) => useStore.setState({ storage: { state: 'blocked', message } });
+
 /** Loads saved data into the store, then saves every change in the background. Call once. */
 export async function startPersistence(): Promise<void> {
   if (started) return;
   started = true;
-  let opened: Awaited<ReturnType<typeof openSqlite>>;
+  try {
+    await start();
+  } catch (e) {
+    // Whatever happens, end in a state the person can act on — never an endless blank screen.
+    console.warn('Could not load data', e);
+    block(e instanceof BlockedError ? e.message : `Wanderment couldn’t load its data (${(e as Error)?.message ?? e}).`);
+  }
+}
+
+async function start(): Promise<void> {
+  let opened: { backend: Backend; db?: Db; data: Data; settings: Settings };
   let kind: 'sqlite' | 'local' = 'sqlite';
   try {
     opened = await openSqlite();
   } catch (e) {
+    if (e instanceof BlockedError) throw e;
     const usedSqliteBefore = (await AsyncStorage.getItem(USES_SQLITE_KEY).catch(() => null)) === '1';
+    if (Platform.OS === 'web' && isLockError(e)) {
+      throw new BlockedError('Wanderment is open in another tab or window. Close it, then reload this one.');
+    }
     if (Platform.OS !== 'web' || usedSqliteBefore) {
       // Showing an empty or stale app here could overwrite real data, so stop and explain.
-      console.warn('Could not open the database', e);
-      useStore.setState({
-        storage: {
-          state: 'blocked',
-          message:
-            Platform.OS === 'web'
-              ? 'Wanderment is probably open in another tab or window. Close it, then reload this one.'
-              : `Wanderment couldn’t open its data (${(e as Error).message}).`,
-        },
-      });
-      return;
+      throw new BlockedError(`Wanderment couldn’t open its data (${(e as Error)?.message ?? e}). Reload to try again.`);
     }
-    // This browser can't run SQLite (e.g. no OPFS in a private window): keep the first release's format.
+    // This browser can't run SQLite at all (e.g. no OPFS in a private window): keep the first release's format.
     console.warn('SQLite unavailable, using localStorage', e);
     opened = await openLocal();
     kind = 'local';
@@ -199,4 +224,21 @@ export async function startPersistence(): Promise<void> {
     journal(s.data, settingsOf(s));
     void flush();
   });
+
+  // A tab still running the first release keeps writing the old key; fold its new records in.
+  if (kind === 'sqlite' && Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.addEventListener('storage', (e) => {
+      if (e.key !== LEGACY_STORAGE_KEY || !e.newValue) return;
+      const legacy = parseLegacyState(e.newValue);
+      if (!legacy) return;
+      const { data } = useStore.getState();
+      const missing = missingFrom(data, legacy.data);
+      if (isEmptyDiff(missing)) return;
+      const threads = { ...data.threads };
+      const activities = { ...data.activities };
+      for (const t of missing.upsertThreads) threads[t.id] = t;
+      for (const a of missing.upsertActivities) activities[a.id] = a;
+      useStore.setState({ data: { ...data, threads, activities } });
+    });
+  }
 }

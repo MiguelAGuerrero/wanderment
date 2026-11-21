@@ -33,9 +33,14 @@ export default function RootLayout() {
           {storage.message}
         </Text>
         {Platform.OS === 'web' && (
-          <Pressable onPress={() => window.location.reload()} style={s.primaryBtn} accessibilityRole="button">
-            <Text style={s.primaryBtnText}>Reload</Text>
-          </Pressable>
+          <>
+            <Pressable onPress={() => window.location.reload()} style={s.primaryBtn} accessibilityRole="button">
+              <Text style={s.primaryBtnText}>Reload</Text>
+            </Pressable>
+            <Pressable onPress={downloadRawData} style={s.chip} accessibilityRole="button">
+              <Text style={s.chipText}>Download saved data</Text>
+            </Pressable>
+          </>
         )}
       </View>
     );
@@ -60,6 +65,21 @@ export default function RootLayout() {
       )}
     </>
   );
+}
+
+/** Last resort on web: everything Wanderment keeps in localStorage, as a file, untouched. */
+function downloadRawData() {
+  const raw: Record<string, string | null> = {};
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith('wanderment')) raw[key] = localStorage.getItem(key);
+  }
+  const url = URL.createObjectURL(new Blob([JSON.stringify(raw, null, 2)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `wanderment-raw-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 const styles = StyleSheet.create({

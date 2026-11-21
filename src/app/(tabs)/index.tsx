@@ -1,5 +1,5 @@
 import { Link, router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
@@ -17,15 +17,19 @@ const EXAMPLES = ['practiced guitar', 'edited a clip', 'leg day', 'sketched for 
 export default function Home() {
   const data = useStore((st) => st.data);
   const setDraft = useStore((st) => st.setDraft);
-  const { current, earlier } = homeThreads(data);
+  const { current, earlier } = useMemo(() => homeThreads(data), [data]);
   const isEmpty = Object.keys(data.activities).length === 0 && Object.keys(data.threads).length === 0;
   const firstThread = Object.keys(data.activities).length <= 2 && current.length === 1 ? current[0] : undefined;
 
   // Plain "YOUR THREADS" until a value has clearly emerged; then group under "TO …" headers.
   const byId = new Map(current.map((c) => [c.thread.id, c]));
-  const { groups, rest } = groupByValue(
-    data,
-    current.map((c) => c.thread.id),
+  const { groups, rest } = useMemo(
+    () =>
+      groupByValue(
+        data,
+        current.map((c) => c.thread.id),
+      ),
+    [data, current],
   );
 
   return (

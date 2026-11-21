@@ -42,11 +42,25 @@ export interface ThreadSummary {
 }
 
 /** Visible threads, most recently touched first, split into current and "Earlier". */
+/** Each thread's most recent activity, in one pass over the activities. */
+export function lastActivities(data: Data): Map<Id, Activity> {
+  const last = new Map<Id, Activity>();
+  for (const a of Object.values(data.activities)) {
+    for (const id of new Set([a.doingId, ...a.toIds])) {
+      if (!id) continue;
+      const prev = last.get(id);
+      if (!prev || a.occurredAt > prev.occurredAt) last.set(id, a);
+    }
+  }
+  return last;
+}
+
 export function homeThreads(data: Data, now = new Date()): { current: ThreadSummary[]; earlier: ThreadSummary[] } {
+  const lastOf = lastActivities(data);
   const all: ThreadSummary[] = Object.values(data.threads)
     .filter((t) => !t.hidden)
     .map((thread) => {
-      const last = lastActivityOf(data, thread.id);
+      const last = lastOf.get(thread.id);
       const lastTouched = new Date(last?.occurredAt ?? thread.createdAt);
       return { thread, last, lastTouched, warmth: warmth(lastTouched, now) };
     })

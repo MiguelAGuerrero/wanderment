@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   done: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end' },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  groupHead: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36 },
+  groupHead: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44 },
   hit: { padding: 14, paddingVertical: 10, gap: 2, minHeight: 44 },
   hitBorder: { borderTopWidth: 1, borderTopColor: C.lineSoft },
   hitText: { fontSize: 15, color: C.ink },

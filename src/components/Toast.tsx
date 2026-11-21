@@ -15,7 +15,7 @@ const SHOW_MS = 6000;
  */
 export function Toast() {
   const toast = useStore((s) => s.toast);
-  const undo = useStore((s) => s.undo);
+  const undo = useStore((s) => s.undoLast);
   const dismiss = useStore((s) => s.dismissToast);
   const [held, setHeld] = useState(false);
   const [screenReader, setScreenReader] = useState(false);

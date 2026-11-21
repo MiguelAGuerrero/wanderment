@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { fromBackup, toBackup } from './backup';
-import { diffData, isEmptyDiff, pendingChanges } from './diff';
+import { applyUndo, diffData, isEmptyDiff, missingFrom, pendingChanges, undoEntry } from './diff';
 import { migrateData } from './migrate';
 import { activeMention, removeActiveMention, suggestDoing, suggestThreads } from './compose';
 import { attachActivity, deleteActivity, editActivity, ensureThread, logActivity, nextOwner, updateThread } from './model';
@@ -193,5 +193,43 @@ describe('pending changes for the write-ahead journal', () => {
     const { data, drawing } = seed();
     const next = updateThread(data, drawing.id, { next: 'hands' });
     expect(pendingChanges(data, undefined, next)).toEqual(diffData(data, next));
+  });
+});
+
+describe('undo', () => {
+  it('reverts only what the action touched, keeping later edits', () => {
+    const { data, drawing } = seed();
+    const logged = logActivity(data, { text: 'gestures', doingId: drawing.id });
+    const entry = undoEntry(data, logged.data);
+    // Later, unrelated changes: a next step and a rename.
+    const later = updateThread(logged.data, drawing.id, { next: 'hands', name: 'draw' });
+    const undone = applyUndo(later, entry);
+    expect(undone.activities[logged.activity.id]).toBeUndefined();
+    expect(undone.threads[drawing.id]).toMatchObject({ next: 'hands', name: 'draw' });
+  });
+
+  it('brings back a deleted activity without removing a thread created afterwards', () => {
+    const { data } = seed();
+    const logged = logActivity(data, { text: 'keep' });
+    const deleted = deleteActivity(logged.data, logged.activity.id);
+    const entry = undoEntry(logged.data, deleted);
+    const withThread = ensureThread(deleted, 'new thing');
+    const undone = applyUndo(withThread.data, entry);
+    expect(undone.activities[logged.activity.id].text).toBe('keep');
+    expect(undone.threads[withThread.thread.id]).toBeDefined();
+  });
+
+  it('logging drops thread ids that no longer exist', () => {
+    const { data, drawing } = seed();
+    const { activity } = logActivity(data, { text: 'x', doingId: 'gone', toIds: ['gone2', drawing.id] });
+    expect(activity).toMatchObject({ doingId: undefined, toIds: [drawing.id] });
+  });
+
+  it('missingFrom finds only records the base lacks', () => {
+    const { data } = seed();
+    const more = logActivity(data, { text: 'new' });
+    const c = missingFrom(data, more.data);
+    expect(c.upsertActivities.map((a) => a.text)).toEqual(['new']);
+    expect(c.upsertThreads).toEqual([]);
   });
 });

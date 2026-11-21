@@ -1,19 +1,23 @@
 import { Link } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
 import { suggestDoing } from '@/domain/compose';
 import { ageLabel, describeLink, sortedActivities } from '@/domain/selectors';
-import { Activity, Id } from '@/domain/types';
+import { Activity, Data, Id } from '@/domain/types';
 import { recentThreadOrder, useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
 export default function Activities() {
   const data = useStore((st) => st.data);
   const [onlyLoose, setOnlyLoose] = useState(false);
-  const all = sortedActivities(data);
+  /** Long histories render in pages, so logging stays instant with thousands of entries. */
+  const [shown, setShown] = useState(PAGE);
+  const all = useMemo(() => sortedActivities(data), [data]);
   const list = onlyLoose ? all.filter((a) => !a.doingId && a.toIds.length === 0) : all;
+  // Worked out once per change, not once per row.
+  const recent = useMemo(() => [...new Set([...recentThreadOrder(data), ...Object.keys(data.threads)])].slice(0, 8), [data]);
 
   return (
     <Screen>
@@ -35,21 +39,26 @@ export default function Activities() {
       </View>
       {list.length === 0 && <Text style={s.meta}>{onlyLoose ? 'Everything has a thread.' : 'Nothing logged yet.'}</Text>}
       <View style={[s.card, { padding: 0, overflow: 'hidden' }]}>
-        {list.map((a, i) => (
-          <Row key={a.id} a={a} first={i === 0} />
+        {list.slice(0, shown).map((a, i) => (
+          <Row key={a.id} a={a} first={i === 0} data={data} recent={recent} />
         ))}
       </View>
+      {list.length > shown && (
+        <Pressable onPress={() => setShown((n) => n + PAGE)} style={[s.chip, { alignSelf: 'center' }]} accessibilityRole="button">
+          <Text style={s.chipText}>Show {Math.min(PAGE, list.length - shown)} more</Text>
+        </Pressable>
+      )}
     </Screen>
   );
 }
 
-function Row({ a, first }: { a: Activity; first: boolean }) {
-  const data = useStore((st) => st.data);
+const PAGE = 100;
+
+function Row({ a, first, data, recent }: { a: Activity; first: boolean; data: Data; recent: Id[] }) {
   const attach = useStore((st) => st.attach);
   const [picking, setPicking] = useState(false);
   const link = describeLink(data, a);
   const suggestion = !link ? suggestDoing(data, a.text) : undefined;
-  const recent: Id[] = recentThreadOrder(data).concat(Object.keys(data.threads)).filter((v, i, arr) => arr.indexOf(v) === i).slice(0, 8);
 
   return (
     <View style={[styles.row, !first && styles.rowBorder]}>

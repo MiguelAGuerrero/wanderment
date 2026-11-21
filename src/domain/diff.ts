@@ -53,3 +53,46 @@ export function pendingChanges(committed: Data, inflight: Data | undefined, curr
   }
   return changes;
 }
+
+/**
+ * What Undo needs: the previous version of every record an action touched (null = it didn't
+ * exist). Applying it reverts only those records, so later, unrelated changes survive.
+ */
+export interface UndoEntry {
+  threads: Record<Id, Thread | null>;
+  activities: Record<Id, Activity | null>;
+}
+
+export function undoEntry(prev: Data, next: Data): UndoEntry {
+  const c = diffData(prev, next);
+  const entry: UndoEntry = { threads: {}, activities: {} };
+  for (const t of c.upsertThreads) entry.threads[t.id] = prev.threads[t.id] ?? null;
+  for (const id of c.deleteThreads) entry.threads[id] = prev.threads[id];
+  for (const a of c.upsertActivities) entry.activities[a.id] = prev.activities[a.id] ?? null;
+  for (const id of c.deleteActivities) entry.activities[id] = prev.activities[id];
+  return entry;
+}
+
+export function applyUndo(current: Data, entry: UndoEntry): Data {
+  const threads = { ...current.threads };
+  const activities = { ...current.activities };
+  for (const [id, t] of Object.entries(entry.threads)) {
+    if (t) threads[id] = t;
+    else delete threads[id];
+  }
+  for (const [id, a] of Object.entries(entry.activities)) {
+    if (a) activities[id] = a;
+    else delete activities[id];
+  }
+  return { ...current, threads, activities };
+}
+
+/** Records in `incoming` that `base` doesn't have at all (used to rescue writes from old tabs). */
+export function missingFrom(base: Data, incoming: Data): DataChanges {
+  return {
+    upsertThreads: Object.values(incoming.threads).filter((t) => !base.threads[t.id]),
+    deleteThreads: [],
+    upsertActivities: Object.values(incoming.activities).filter((a) => !base.activities[a.id]),
+    deleteActivities: [],
+  };
+}

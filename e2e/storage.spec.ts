@@ -22,11 +22,8 @@ test('data saved by the first release (localStorage) moves into SQLite once', as
   // Recency shading was off in the old data and stays off.
   await expect(page.getByRole('switch', { name: 'Recency shading' })).not.toBeChecked();
 
-  const keys = await page.evaluate(() => ({
-    legacy: localStorage.getItem('wanderment'),
-    moved: !!localStorage.getItem('wanderment:moved-to-sqlite'),
-  }));
-  expect(keys).toEqual({ legacy: null, moved: true });
+  // The old key is removed once SQLite has committed (no second copy, which could hit the quota).
+  expect(await page.evaluate(() => localStorage.getItem('wanderment'))).toBeNull();
 
   // From now on it loads from SQLite.
   await page.reload();
@@ -57,6 +54,8 @@ test('a second tab waits instead of showing stale data', async ({ page, context 
   await expect(page.getByText('Logged', { exact: true })).toBeVisible();
 
   const second = await context.newPage();
+  const secondErrors: Error[] = [];
+  second.on('pageerror', (e) => secondErrors.push(e));
   await second.goto('./');
   await expect(second.getByText(/open in another tab/)).toBeVisible({ timeout: 20_000 });
   await expect(second.getByRole('textbox')).toHaveCount(0);
@@ -66,4 +65,5 @@ test('a second tab waits instead of showing stale data', async ({ page, context 
   await expect(logBox(second)).toBeVisible();
   await second.getByRole('tab', { name: 'Activities' }).click();
   await expect(second.getByText('first tab')).toBeVisible();
+  expect(secondErrors).toEqual([]);
 });

@@ -53,7 +53,9 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
     // A removed @ forgets that it was closed with Esc.
     if (!activeMention(text)) setClosedAt(undefined);
     // The inline @highlight is a layer behind the input; hide it if the text scrolls sideways.
-    if (Platform.OS === 'web') {
+    // Native re-measures through onTextLayout, so give the layer a chance to render again.
+    if (Platform.OS !== 'web') setFits(true);
+    else {
       requestAnimationFrame(() => {
         const el = inputRef.current as unknown as HTMLInputElement | null;
         if (el && typeof el.scrollWidth === 'number') setFits(el.scrollWidth <= el.clientWidth + 1);

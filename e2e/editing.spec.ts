@@ -15,8 +15,15 @@ test('keyboard: ↑/↓ move through suggestions, Tab picks, Esc closes, Enter a
   await openHome(page);
   await makeThreads(page, ['make apparel', 'make music']);
 
-  await logBox(page).fill('sketched a logo @make');
+  // Enter with suggestions open logs as typed — it never picks.
   const first = page.getByRole('option', { name: /^make music/ });
+  await logBox(page).fill('demo @make');
+  await expect(first).toBeVisible();
+  await logBox(page).press('Enter');
+  await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(logBox(page)).toHaveValue('');
+
+  await logBox(page).fill('sketched a logo @make');
   const second = page.getByRole('option', { name: /^make apparel/ });
   await expect(first).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('mention-highlight')).toHaveText('@make');
@@ -39,6 +46,9 @@ test('keyboard: ↑/↓ move through suggestions, Tab picks, Esc closes, Enter a
   await expect(page.getByText('Logged → to make apparel')).toBeVisible();
   await page.getByRole('tab', { name: 'Activities' }).click();
   await expect(page.getByText('sketched a logo for @make', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText('demo @make', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'No thread' }).click();
+  await expect(page.getByText('demo @make', { exact: true }).filter({ visible: true })).toBeVisible();
 });
 
 test('edit an activity’s text and threads, then delete it and undo', async ({ page }) => {
