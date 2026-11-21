@@ -4,7 +4,7 @@ import { fromBackup, toBackup } from './backup';
 import { applyUndo, diffData, isEmptyDiff, missingFrom, pendingChanges, undoEntry } from './diff';
 import { migrateData } from './migrate';
 import { activeMention, removeActiveMention, suggestDoing, suggestThreads } from './compose';
-import { attachActivity, deleteActivity, editActivity, ensureThread, logActivity, nextOwner, updateThread } from './model';
+import { attachActivity, deleteActivity, editActivity, ensureThread, logActivity, nextOwner, renameThread, updateThread } from './model';
 import { flowsFrom, homeThreads, lastTimeFor, warmth } from './selectors';
 import { Data, emptyData } from './types';
 
@@ -23,6 +23,59 @@ describe('threads', () => {
   it('reuses a thread with the same name regardless of case and spacing', () => {
     const { data, drawing } = seed();
     expect(ensureThread(data, '  Practice   Drawing ').thread.id).toBe(drawing.id);
+  });
+});
+
+describe('renaming threads', () => {
+  it('refuses another thread’s name regardless of case and spacing, leaving the data unchanged', () => {
+    const { data, drawing, apparel } = seed();
+    for (const name of ['practice drawing', 'Practice Drawing', '  practice drawing  ', 'practice   DRAWING', '\tPractice \n Drawing ']) {
+      const res = renameThread(data, apparel.id, name);
+      expect(res.ok, name).toBe(false);
+      if (res.ok) continue;
+      expect(res.reason).toBe('taken');
+      expect(res.other.id).toBe(drawing.id);
+      expect(res.other.name).toBe('practice drawing');
+      expect(data.threads[apparel.id].name).toBe('make apparel');
+    }
+  });
+
+  it('allows a case or spacing change to the thread’s own name', () => {
+    const { data, drawing } = seed();
+    const res = renameThread(data, drawing.id, '  Practice   Drawing ');
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.data.threads[drawing.id].name).toBe('Practice Drawing');
+    const same = renameThread(data, drawing.id, 'practice drawing ');
+    expect(same.ok && same.data.threads[drawing.id].name).toBe('practice drawing');
+  });
+
+  it('refuses a hidden thread’s name and says it is hidden', () => {
+    let { data, drawing, apparel } = seed();
+    data = updateThread(data, drawing.id, { hidden: true });
+    const res = renameThread(data, apparel.id, 'PRACTICE DRAWING');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.other.id).toBe(drawing.id);
+      expect(res.other.hidden).toBe(true);
+    }
+  });
+
+  it('keeps the old name when blank, and renames to a unique name', () => {
+    const { data, apparel } = seed();
+    for (const blank of ['', '   ']) {
+      const res = renameThread(data, apparel.id, blank);
+      expect(res.ok && res.data.threads[apparel.id].name).toBe('make apparel');
+    }
+    const res = renameThread(data, apparel.id, '  sew   clothes ');
+    expect(res.ok && res.data.threads[apparel.id].name).toBe('sew clothes');
+  });
+
+  it('never lets updateThread give a thread another thread’s name', () => {
+    const { data, drawing, apparel } = seed();
+    const updated = updateThread(data, apparel.id, { name: ' Practice Drawing', next: 'hem a shirt' });
+    expect(updated.threads[apparel.id].name).toBe('make apparel');
+    expect(updated.threads[apparel.id].next).toBe('hem a shirt');
+    expect(updated.threads[drawing.id].name).toBe('practice drawing');
   });
 });
 

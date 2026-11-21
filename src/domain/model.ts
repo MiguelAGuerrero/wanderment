@@ -64,12 +64,30 @@ export function logActivity(data: Data, input: LogInput, now = new Date()): { da
   return { data: { ...data, threads, activities: { ...data.activities, [activity.id]: activity } }, activity };
 }
 
+/** Another thread (hidden ones too) whose normalized name equals `name`; blank names match none. */
+function nameTakenBy(data: Data, id: Id, name: string): Thread | undefined {
+  const n = normalizeName(name);
+  if (!n) return undefined;
+  return Object.values(data.threads).find((t) => t.id !== id && normalizeName(t.name) === n);
+}
+
+/** A name another thread already has keeps the old name, like a blank one (merging is cut). */
 export function updateThread(data: Data, id: Id, patch: Partial<Pick<Thread, 'name' | 'next' | 'hidden'>>): Data {
   const t = data.threads[id];
   if (!t) return data;
   const next = patch.next !== undefined ? patch.next.trim() || undefined : t.next;
-  const name = patch.name !== undefined ? patch.name.trim().replace(/\s+/g, ' ') || t.name : t.name;
+  const name =
+    patch.name !== undefined && !nameTakenBy(data, id, patch.name) ? patch.name.trim().replace(/\s+/g, ' ') || t.name : t.name;
   return { ...data, threads: { ...data.threads, [id]: { ...t, ...patch, name, next } } };
+}
+
+export type RenameResult = { ok: true; data: Data } | { ok: false; reason: 'taken'; other: Thread };
+
+/** Renames a thread, or refuses (data untouched) when another thread already has that name. */
+export function renameThread(data: Data, id: Id, name: string): RenameResult {
+  const other = nameTakenBy(data, id, name);
+  if (other) return { ok: false, reason: 'taken', other };
+  return { ok: true, data: updateThread(data, id, { name }) };
 }
 
 export function attachActivity(data: Data, activityId: Id, threadId: Id, as: 'doing' | 'to' = 'to'): Data {

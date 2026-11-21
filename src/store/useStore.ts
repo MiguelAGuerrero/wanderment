@@ -11,6 +11,8 @@ import {
   LogInput,
   logActivity,
   nextOwner,
+  RenameResult,
+  renameThread,
   updateThread,
 } from '@/domain/model';
 import { rememberSearch } from '@/domain/search';
@@ -75,7 +77,8 @@ interface State {
   leaveAsIs: (activityId: Id) => void;
   dismissPullIn: (threadId: Id) => void;
   setNext: (threadId: Id, next: string) => void;
-  renameThread: (threadId: Id, name: string) => void;
+  /** Refused (nothing changes) when another thread already has the name. */
+  renameThread: (threadId: Id, name: string) => RenameResult;
   setHidden: (threadId: Id, hidden: boolean) => void;
   attach: (activityId: Id, threadId: Id) => void;
   updateActivity: (activityId: Id, patch: ActivityPatch) => void;
@@ -173,7 +176,11 @@ export const useStore = create<State>()((set, get) => ({
       promptNextFor: s.promptNextFor === threadId ? undefined : s.promptNextFor,
     })),
 
-  renameThread: (threadId, name) => set((s) => ({ data: updateThread(s.data, threadId, { name }) })),
+  renameThread: (threadId, name) => {
+    const res = renameThread(get().data, threadId, name);
+    if (res.ok) set({ data: res.data });
+    return res;
+  },
 
   setHidden: (threadId, hidden) =>
     set((s) => {

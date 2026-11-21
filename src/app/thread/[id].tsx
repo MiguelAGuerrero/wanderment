@@ -23,6 +23,8 @@ export default function ThreadPage() {
   const [nextValue, setNextValue] = useState('');
   const [renaming, setRenaming] = useState(false);
   const [nameValue, setNameValue] = useState('');
+  /** The thread that already has the typed name, when a rename was refused. */
+  const [nameTaken, setNameTaken] = useState<{ name: string; hidden: boolean }>();
 
   const thread = id ? data.threads[id] : undefined;
   if (!thread) {
@@ -44,17 +46,29 @@ export default function ThreadPage() {
     <Screen presetDoingId={thread.id} placeholder={`Log in ${thread.name}…`}>
       <Back />
       {renaming ? (
-        <TextInput
-          value={nameValue}
-          onChangeText={setNameValue}
-          autoFocus
-          onSubmitEditing={() => {
-            renameThread(thread.id, nameValue);
-            setRenaming(false);
-          }}
-          style={[s.h1, styles.field]}
-          accessibilityLabel="Thread name"
-        />
+        <View>
+          <TextInput
+            value={nameValue}
+            onChangeText={(text) => (setNameValue(text), setNameTaken(undefined))}
+            autoFocus
+            onSubmitEditing={() => {
+              const res = renameThread(thread.id, nameValue);
+              if (res.ok) setRenaming(false);
+              else setNameTaken({ name: res.other.name, hidden: res.other.hidden });
+            }}
+            style={[s.h1, styles.field]}
+            accessibilityLabel="Thread name"
+          />
+          {/* Always mounted while renaming, so the refusal is announced when it appears. */}
+          <View accessibilityLiveRegion="polite">
+            {nameTaken && (
+              <Text style={[s.body, styles.nameTaken]}>
+                Another thread is already called “{nameTaken.name}”.
+                {nameTaken.hidden ? ' It’s hidden — you can unhide it in Settings.' : ''}
+              </Text>
+            )}
+          </View>
+        </View>
       ) : (
         <Text style={s.h1}>{thread.name}</Text>
       )}
@@ -120,7 +134,7 @@ export default function ThreadPage() {
       </View>
 
       <View style={styles.actions}>
-        <Pressable onPress={() => (setNameValue(thread.name), setRenaming(true))} style={s.chip} accessibilityRole="button">
+        <Pressable onPress={() => (setNameValue(thread.name), setNameTaken(undefined), setRenaming(true))} style={s.chip} accessibilityRole="button">
           <Text style={s.chipText}>Rename</Text>
         </Pressable>
         <Pressable
@@ -181,6 +195,7 @@ function Back() {
 
 const styles = StyleSheet.create({
   field: { borderBottomWidth: 1, borderColor: C.line, paddingVertical: 4 },
+  nameTaken: { color: C.accentInk, marginTop: 6 },
   leftOff: { padding: 14, paddingVertical: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderTopLeftRadius: 14, borderTopRightRadius: 14 },
   crumb: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, paddingLeft: 14, paddingRight: 4, backgroundColor: C.crumbBg, borderWidth: 1, borderTopWidth: 0, borderColor: C.line, borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
   pen: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },

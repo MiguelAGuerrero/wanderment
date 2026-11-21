@@ -81,3 +81,52 @@ test('edit an activity’s text and threads, then delete it and undo', async ({ 
   await page.getByText('went for a long run', { exact: true }).filter({ visible: true }).click();
   await expect(page.getByRole('textbox', { name: 'Note' })).toHaveValue('felt good');
 });
+
+test('renaming to another thread’s name is refused inline and keeps the typed text', async ({ page }) => {
+  await openHome(page);
+  await makeThreads(page, ['play guitar', 'make apparel']);
+  await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
+  await page.getByRole('button', { name: 'Rename' }).click();
+
+  const field = page.getByRole('textbox', { name: 'Thread name' });
+  await field.fill('  Play   Guitar ');
+  await field.press('Enter');
+  const refusal = page.getByText('Another thread is already called “play guitar”.');
+  await expect(refusal).toBeVisible();
+  await expect(page.locator('[aria-live="polite"]').filter({ has: refusal })).toHaveCount(1);
+  await expect(field).toHaveValue('  Play   Guitar ');
+
+  // Typing again clears the message.
+  await field.pressSequentially('x');
+  await expect(refusal).toHaveCount(0);
+
+  // Nothing was renamed.
+  await page.reload();
+  await expect(page.getByText('make apparel', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.goto('./');
+  await expect(page.getByRole('button', { name: /^play guitar\s*\S/ })).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /^make apparel\s*\S/ })).toHaveCount(1);
+
+  // A unique name renames.
+  await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
+  await page.getByRole('button', { name: 'Rename' }).click();
+  await field.fill('sew clothes');
+  await field.press('Enter');
+  await expect(field).toHaveCount(0);
+  await expect(page.getByText('sew clothes', { exact: true }).filter({ visible: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText('sew clothes', { exact: true }).filter({ visible: true })).toBeVisible();
+
+  // A hidden thread's name is taken too, and the message says where to find it.
+  await page.goto('./');
+  await page.getByRole('button', { name: /^play guitar\s*\S/ }).click();
+  await page.getByRole('button', { name: 'Hide' }).click();
+  await page.getByRole('button', { name: /^sew clothes\s*\S/ }).click();
+  await page.getByRole('button', { name: 'Rename' }).click();
+  await field.fill('PLAY GUITAR');
+  await field.press('Enter');
+  await expect(
+    page.getByText('Another thread is already called “play guitar”. It’s hidden — you can unhide it in Settings.'),
+  ).toBeVisible();
+  await expect(field).toHaveValue('PLAY GUITAR');
+});

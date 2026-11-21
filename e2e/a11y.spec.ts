@@ -49,6 +49,20 @@ test('Home, Activities, thread page and details have no serious accessibility vi
   await expectNoSeriousViolations(page);
 });
 
+test('a refused rename on the thread page has no serious accessibility violations', async ({ page }) => {
+  await seed(page);
+  await logBox(page).fill('sewed a hem @make apparel');
+  await page.getByRole('option', { name: /New thread “make apparel”/ }).click();
+  await logBox(page).press('Enter');
+  await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
+  await page.getByRole('button', { name: 'Rename' }).click();
+  const field = page.getByRole('textbox', { name: 'Thread name' });
+  await field.fill('Play Guitar');
+  await field.press('Enter');
+  await expect(page.getByText('Another thread is already called “play guitar”.')).toBeVisible();
+  await expectNoSeriousViolations(page);
+});
+
 test('suggestions are an accessible listbox', async ({ page }) => {
   await seed(page);
   await logBox(page).fill('more @pla');
