@@ -17,8 +17,8 @@ npm start          # Expo dev server for iOS / Android
 
 ## Live
 
-Every push to `main` builds the web app and publishes it to the `gh-pages` branch:
-https://miguelaguerrero.github.io/wanderment/
+Every push to `main` is tested, built and deployed straight to GitHub Pages by the "Deploy web" workflow
+(Pages source: **GitHub Actions**): https://miguelaguerrero.github.io/wanderment/
 
 Your data lives in a SQLite database in that browser (on iOS/Android, on the device, with a dated backup in
 Documents/backups for the last 7 days). Use Settings → Export to keep a copy.

@@ -1,24 +1,29 @@
 name: Deploy web
 
+# Every push to main is checked, built, end-to-end tested, and then deployed straight to GitHub Pages
+# (Settings → Pages → Source: "GitHub Actions"). The exact build that passed e2e is the one deployed.
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write # deploy to Pages
+  id-token: write # verify the deployment came from this workflow
 
+# One deployment at a time; a newer push waits rather than cancelling one mid-deploy.
 concurrency:
-  group: deploy-web
-  cancel-in-progress: true
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # check-tests.sh compares with the previous push
+          fetch-depth: 0 # check-tests.sh compares with the previous push
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -34,7 +39,7 @@ jobs:
           POLISH_BASE: ${{ github.event.before }}
         run: scripts/polish/check-tests.sh
       - name: Build web
-        # Also copies index.html to 404.html (deep links on GitHub Pages) and adds .nojekyll (keeps _expo/).
+        # Also copies index.html to 404.html (deep links on GitHub Pages).
         run: npm run build:web
       - name: End-to-end tests
         env:
@@ -48,9 +53,18 @@ jobs:
           name: playwright-results
           path: test-results/
           retention-days: 7
-      - name: Publish to gh-pages
-        uses: peaceiris/actions-gh-pages@v4
+      - name: Package the site for Pages
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          force_orphan: true
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
