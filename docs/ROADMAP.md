@@ -1,33 +1,143 @@
 # Roadmap
 
-## M1 — Capture (this branch) ✅
-- Expo SDK 58 + Expo Router, web-first
-- Domain model + tests, persisted store, JSON export/import
-- Home (first run, first-thread moment, thread cards + crumbs, Earlier), Activities (filter, attach), thread page (next, rename, hide, Again), activity details (when, note, next), settings
+A living, **polish-first** roadmap. The features from the original plan (M1–M4) are built; from here
+the work is mostly making what exists trustworthy, smooth and kind at the edges, and only then adding
+more. The `/polish` skill (`.claude/skills/polish/`) reads this file, works through it in small
+batches, and updates it as batches land. You steer it by editing this file.
 
-## M1.5 — Installable web app ✅
-- Playwright e2e in CI before every deploy; installable, offline PWA with a reload-to-update banner
+## How this file works
 
-## M2 — Hardening the core ✅
-- `expo-sqlite` storage with schema migrations (export `Data` shape unchanged); first-release data moves in once
-- Automatic dated backups in Documents on iOS/Android (last 7), export via the share sheet
-- Composer: inline `@` highlight, ↑/↓/Tab/Esc on web, screen-reader match announcements
-- Accessibility pass (axe in e2e, 44 px targets, 200 % zoom reflow, decorative glyphs hidden)
-- Edit and delete an activity (with Undo)
+- **Inbox** — drop anything here, in any form: an annoyance, a bug, an idea, a screenshot path.
+  Each `/polish` run triages the Inbox first: it turns entries into items below, or asks you.
+- **Now** — the next batch candidates, in priority order. Reorder freely; `/polish` takes from the top.
+- **Next / Later** — queued, roughly ordered.
+- **Decisions needed 🙋** — things only you can decide. Items that depend on one wait for it.
+- Each item has an id (`P-##`), a one-line *why*, *done when* criteria, a size (S/M/L) and tags:
+  `[data]` storage/backup/undo (always audited, needs migration tests) · `[capture]` the log box ·
+  `[ux]` · `[a11y]` · `[perf]` · `[platform]` · `[native]` (needs a device build to verify).
+- Rules every item must respect: [`DESIGN.md`](DESIGN.md) — especially *capture is sacred* and the
+  *never* list (goals, streaks, % complete, timers, notifications, badge counts, anything that
+  creates a thread or attaches an activity without a tap).
 
-## M3 — Emergence ✅
-- Name a new thread and pull in past activities that mention it (bulk, one undo) — from Home's "+ New thread", the @ menu (a quiet offer line) and the thread page
-- Value headers on Home: net inflow ≥ 3 and ≥ 60 % incoming over 90 days; stays until below 40 % (hysteresis by replaying history, nothing stored); "why here?" explainer
-- Search across activities, notes and next steps, grouped by thread, with recent searches
+## Inbox
 
-## M4 — Graph ✅
-- Centred node (size = steps, ring = active in the last 14 days), what it flows to above, what flows in below, siblings at the sides (+N), tap to re-centre, breadcrumb, two-steps-out toggle; opens on the top value
-- List view of the same neighbourhood (default for native screen-reader users)
-- Attach mode: one unattached activity at a time; tap a highlighted node or a suggestion; Leave as is (remembered) or Skip
-- Built ahead of the plan's "wait for real usage" note, on request; tune the layout once there are weeks of real data
+_Empty. Write here — one line is enough._
 
-## Later / maybe
-- Share-in from other apps, home-screen widget, opt-in "On this day", photo evidence + gallery
+## Now
 
-## Cut from v1 (on purpose)
-- Merge, split, hidden "then" pieces, pin
+### P-01 Ask the browser to keep the data `[data]` S
+*Why:* nothing calls `navigator.storage.persist()`, so a browser may evict the database (Safari
+clears storage of sites not used for a while unless they're installed to the Home Screen).
+*Done when:* persistence is requested at a sensible moment (first log, or after install); Settings
+says plainly whether this browser promised to keep the data and suggests Install / Export if not;
+e2e covers the granted and refused paths (stubbed).
+
+### P-02 Renaming to a name another thread already has `[ux]` S
+*Why:* `updateThread` accepts any name, so two threads can end up with the same name and `@`
+suggestions become ambiguous. Merging is cut on purpose, so the rename has to be refused kindly.
+*Done when:* renaming to an existing name (case/spacing-insensitive) is refused with a clear inline
+message and the field keeps the typed text; domain test + e2e.
+
+### P-03 `@` works where the cursor is, not only at the end `[capture]` M
+*Why:* `activeMention` reads the text up to its end, so typing `@` mid-sentence offers a thread name
+that includes the rest of the sentence, and picking deletes the text after the cursor.
+*Done when:* the active mention is found at the caret on web and native; picking replaces only the
+`@query`; the inline highlight follows; "Return logs as typed" is unchanged; unit tests for
+caret positions, e2e for a mid-sentence pick.
+
+### P-04 Import you can trust `[data]` M
+*Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
+*Done when:* import shows a preview (counts, date range, how it differs from what's here) before
+replacing; the current data is kept as an automatic snapshot that one Undo restores; a damaged file
+never touches existing data; tests for preview, undo and a malformed file.
+
+### P-05 Prove it in Safari and Firefox `[platform]` M
+*Why:* storage relies on expo-sqlite's async API working without COOP/COEP and on OPFS; that's only
+verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
+*Done when:* CI runs the e2e suite on WebKit and Firefox too (or a documented subset where a browser
+genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
+
+## Next
+
+### P-06 Dark mode `[ux]` `[a11y]` M — needs 🙋 D-2
+*Why:* `app.json` says `userInterfaceStyle: automatic`, but every colour is fixed light.
+*Done when:* colours come from theme tokens for both schemes; contrast ≥ 4.5:1 for text (checked);
+warmth shading, graph and toasts work in both; status bar and splash follow; screenshots of every
+screen in both schemes.
+
+### P-07 A face for the app: icon, splash, favicon `[platform]` S — needs 🙋 D-1
+*Why:* the icon is still Expo's placeholder, and the splash and Android icon use Expo blue (#208AEF),
+which clashes with the app's warm palette.
+
+### P-08 Focus and titles on navigation (web) `[a11y]` S
+*Why:* after moving between screens, keyboard and screen-reader focus stays where it was, and the
+browser tab title never changes.
+*Done when:* each screen sets a document title and moves focus to its heading on navigation; e2e
+checks focus after opening a thread, details and search.
+
+### P-09 Say when, beyond "2 days ago" `[ux]` S
+*Why:* activity details offer Today / Yesterday / 2 days ago only; anything older can't be backdated.
+*Done when:* a date (and optional time) can be picked without leaving the screen, on web and native,
+never in the future; Activities and Home order update.
+
+### P-10 Long, odd and many `[ux]` M
+*Why:* untested at the extremes: 80-character thread names, 500-character activities, emoji, RTL
+text, 50 threads on Home, a thread with 1,000 steps.
+*Done when:* every screen and the graph wrap/truncate sensibly (screenshots at 390 px and 200 % zoom);
+the thread page paginates long histories; nothing overflows sideways.
+
+### P-11 Native crash safety `[data]` `[native]` M
+*Why:* on iOS/Android there is no write-ahead journal like on web, so a crash mid-save can lose the
+last change.
+*Done when:* native writes are journalled synchronously (e.g. expo-sqlite's sync key-value store) and
+replayed on start; covered by the persistence tests with a native-flavoured mock.
+
+### P-12 Search that shows why it matched `[ux]` S
+*Why:* results don't highlight the matched words, and very large histories search on every keystroke.
+*Done when:* matches are highlighted; input is debounced for large histories; empty-state hints.
+
+## Later
+
+- **Graph tuning with real data** — revisit node sizing, siblings and the two-steps-out ring once
+  there are weeks of entries. `[ux]`
+- **Home at scale** — virtualise thread lists past ~100 threads; cold-start time and the 1.1 MB entry
+  bundle (route-level splitting). `[perf]`
+- **Real-device accessibility pass** — VoiceOver, TalkBack, largest Dynamic Type, Reduce Motion, on
+  a development build. `[a11y]` `[native]` — needs 🙋 D-3
+- **Old-version tabs** — once the first release can't still be open anywhere, retire the legacy
+  listener and its notice. `[data]`
+- From the original list: share-in from other apps, home-screen widget, opt-in "On this day",
+  photo evidence + per-thread gallery. Each needs a product decision before it's queued.
+
+## Decisions needed 🙋
+
+- **D-1 Brand** — an icon/artwork you like, or a direction ("warm, hand-drawn thread", "minimal
+  monogram"…) for P-07.
+- **D-2 Dark palette** — approve a proposed dark palette (the skill will bring options) for P-06.
+- **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
+  be verified on devices?
+
+## Known edge cases (accepted for now)
+
+- An old-version tab: entries created there are added here; its edits and deletions are not (the app
+  says so).
+- Web builds can't detect screen readers, so the toast auto-dismisses after 6 s there (it pauses on
+  hover/focus and is announced politely).
+- The web crumb's accessible name is its visible text ("learn the F chord Log this"); native gets the
+  fuller DESIGN.md sentence.
+
+## Done log
+
+Newest first. One line per batch: date · items · commit.
+
+- 2026-11-21 · Adversarial audits ×2: data-safety, undo, perf (log on Activities 28 s → 0.1 s),
+  attach mode, a11y fixes · `5f16188`, `f3dde4b`
+- 2026-11-21 · M4 Graph + attach mode · `e746e89`
+- 2026-11-21 · M3 Emergence: pull-in, value headers, search · `14e6678`
+- 2026-11-21 · M2 Hardening: SQLite, native backups, edit/delete, composer keys, accessibility · `91a6570`
+- 2026-11-20 · M1.5 Installable offline PWA, e2e in CI · `7dbabba`, `a3ccbf3`
+- 2026-11-20 · M1 Capture: threads, crumbs, activities, settings · `cfdb1e4`
+
+## Cut on purpose
+
+Merge threads, split next steps into hidden "then" pieces, pinning. Don't build them.

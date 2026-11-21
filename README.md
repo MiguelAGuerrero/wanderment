@@ -50,4 +50,6 @@ npm run e2e        # Playwright end-to-end tests against the built web app
 | `src/app/` | Expo Router screens: Home, Activities, Graph, thread page, activity details, pull-in, search, settings. |
 | `docs/` | Design decisions and roadmap. |
 
-See [`docs/DESIGN.md`](docs/DESIGN.md) for the product rules, [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next, and [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) for the step-by-step plan a coding agent can follow.
+See [`docs/DESIGN.md`](docs/DESIGN.md) for the product rules and [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next —
+drop ideas or annoyances in its **Inbox**, then run `/polish` in Claude Code to work through it one batch at a time.
+[`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) is the (completed) plan for M1–M4.

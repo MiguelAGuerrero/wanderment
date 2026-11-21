@@ -1,5 +1,8 @@
 # Wanderment — implementation plan for a coding agent
 
+> **Status: complete (Phases 0–4, November 2026).** Ongoing work lives in [`ROADMAP.md`](ROADMAP.md) and is
+> driven by the `/polish` skill.
+
 Read this whole file before starting. Work through the phases **in order**; each phase is one branch and one PR.
 Product rules live in [`DESIGN.md`](DESIGN.md) and are not up for reinterpretation — if a task seems to
 conflict with them, stop and ask instead of guessing.
