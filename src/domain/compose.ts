@@ -2,13 +2,16 @@ import { normalizeName } from './model';
 import { Data, Id, Thread } from './types';
 
 const MAX_QUERY = 40;
+/** A character that continues a word: letters, digits, marks, "_", "-" and "'". */
+const WORD = /[\p{L}\p{N}\p{M}_'’-]/u;
 
 /**
  * Finds the "@query" the caret (default: the end of the text) is inside, if any: the nearest @
  * before the caret, at the start of the text or after whitespace (so not an email address), with
  * no newline and at most 40 characters between it and the caret. Spaces are allowed so multi-word
  * thread names can be matched. The query is the text between the @ and the caret; `end` also takes
- * in the rest of the word the caret is in ("@ma|ke" → "@make"), so picking leaves no stray letters.
+ * in the rest of the word the caret is in ("@ma|ke" → "@make"), so picking leaves no stray letters,
+ * but never a word the @ was typed in front of, and never punctuation.
  */
 export function mentionAt(text: string, caret = text.length): { start: number; end: number; query: string } | undefined {
   const c = Math.max(0, Math.min(caret, text.length));
@@ -20,8 +23,9 @@ export function mentionAt(text: string, caret = text.length): { start: number; e
   if (at < 0) return undefined;
   if (at > 0 && !/\s/.test(text[at - 1])) return undefined; // e.g. an email address
   let end = c;
-  // Only when the caret is in a word: after a space, the next word is the sentence's, not the mention's.
-  if (!/\s/.test(text[c - 1])) while (end < text.length && !/\s/.test(text[end])) end++;
+  // Only when the caret is inside the @word ("@ma|ke"): a bare "@" typed before a word, or a caret
+  // after a space, leaves the next word to the sentence. Punctuation after it stays too ("@make,").
+  if (c - at > 1 && !/\s/.test(text[c - 1])) while (end < text.length && WORD.test(text[end])) end++;
   return { start: at, end, query: text.slice(at + 1, c) };
 }
 
@@ -32,16 +36,32 @@ export function activeMention(text: string, caret = text.length): { start: numbe
 }
 
 /**
- * Takes the "@query" at the caret out of the text (the picked thread becomes a chip). The two sides
+ * Takes the "@query" at the caret out of the text (the picked thread, named `picked`, becomes a chip;
+ * see `mentionEnd` for how much of the word goes with it). The two sides
  * are joined with exactly one space, never a leading one; the caret goes to the join.
  */
-export function replaceActiveMention(text: string, caret: number): { text: string; caret: number } {
+export function replaceActiveMention(text: string, caret: number, picked?: string): { text: string; caret: number } {
   const m = mentionAt(text, caret);
   if (!m) return { text, caret: Math.max(0, Math.min(caret, text.length)) };
-  const head = text.slice(0, m.start).replace(/\s+$/, ' ').trimStart();
-  const tail = text.slice(m.end).trimStart();
-  const join = head && tail && !/\s$/.test(head) ? ' ' : '';
+  const tail = text.slice(mentionEnd(text, caret, picked) ?? m.end).trimStart();
+  // Punctuation that followed the @word closes up to the word before it ("did @make, then" → "did, then").
+  const closeUp = /^[,.;:!?)]/.test(tail);
+  const head = text.slice(0, m.start).replace(/\s+$/, closeUp ? '' : ' ').trimStart();
+  const join = head && tail && !closeUp && !/\s$/.test(head) ? ' ' : '';
   return { text: head + join + tail, caret: head.length + join.length };
+}
+
+/**
+ * Where the @word at the caret ends once `picked` is chosen: the rest of the word after the caret
+ * is taken in only while it continues that name ("@ma|ke" → "make music"); otherwise it's a word
+ * the @ was typed in front of ("@make|and" keeps "and"). Without a name, the whole word.
+ */
+export function mentionEnd(text: string, caret: number, picked?: string): number | undefined {
+  const m = mentionAt(text, caret);
+  if (!m) return undefined;
+  if (picked === undefined || m.end === m.start + 1 + m.query.length) return m.end;
+  const c = m.start + 1 + m.query.length;
+  return normalizeName(picked).startsWith(normalizeName(text.slice(m.start + 1, m.end))) ? m.end : c;
 }
 
 /** Replaces the "@query" at the end of the text with nothing (the picked thread becomes a chip). */

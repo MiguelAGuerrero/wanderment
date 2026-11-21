@@ -10,3 +10,7 @@ export async function requestPersistence(): Promise<void> {}
 export async function askToKeepData(): Promise<PersistenceStatus> {
   return 'unknown';
 }
+
+export function onPersistenceAnswered(_listener: () => void): () => void {
+  return () => {};
+}

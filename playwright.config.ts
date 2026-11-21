@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 // E2E_PORT gives a run its own server (scripts/polish/verify.sh uses one), so a server another
 // agent started on the default port is never reused — or shut down mid-run.
-const PORT = Number(process.env.E2E_PORT ?? 4173);
+const PORT = Number(process.env.E2E_PORT || 4173);
 
 export default defineConfig({
   testDir: './e2e',

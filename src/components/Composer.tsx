@@ -1,7 +1,7 @@
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { caretAfterEdit, mentionAt, replaceActiveMention, suggestDoing, suggestThreads } from '@/domain/compose';
+import { caretAfterEdit, mentionAt, mentionEnd, replaceActiveMention, suggestDoing, suggestThreads } from '@/domain/compose';
 import { findThreadByName } from '@/domain/model';
 import { Id } from '@/domain/types';
 import { recentThreadOrder, useStore } from '@/store/useStore';
@@ -24,7 +24,6 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   /** Highlighted suggestion, remembered per query so a new query starts at the top. */
   const [active, setActive] = useState<{ query?: string; index: number }>({ index: 0 });
-  /** Start index of an @mention the person closed with Esc; it stays closed until a new @. */
   /** The @mention closed with Esc (its position and the text before it); a new @ reopens. */
   const [closed, setClosed] = useState<string>();
   const [fits, setFits] = useState(true);
@@ -34,6 +33,13 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
   /** Set once after a pick to put the caret where the @word was; cleared on the next selection or
    * edit. Never kept controlled: that fights IME composition and Android's own caret. */
   const [placeCaret, setPlaceCaret] = useState<{ start: number; end: number }>();
+  // One-shot: once the pick has rendered, let go, so a later value change (Log, a crumb) never
+  // re-applies a stale caret (RN re-sends `selection` with every value change while it's set).
+  useEffect(() => {
+    if (!placeCaret) return;
+    const t = setTimeout(() => setPlaceCaret(undefined), 0);
+    return () => clearTimeout(t);
+  }, [placeCaret]);
 
   const doingId = draft.doingId === null ? undefined : (draft.doingId ?? presetDoingId);
   // A selected range has no caret, so no mention (and no menu).
@@ -41,10 +47,16 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
   const mention = caret === undefined ? undefined : mentionAt(draft.text, caret);
   const query = mention?.query;
   const suggestions = query !== undefined ? suggestThreads(data, query, recentThreadOrder(data)) : [];
-  const canCreate = !!mention && mention.query.trim().length > 0 && !findThreadByName(data, mention.query);
+  // In the middle of the text, an unmatched "@word and more" is just a sentence going on: offer to
+  // create only a single word there (at the end, multi-word names still work as before).
+  const midText = caret !== undefined && caret < draft.text.length;
+  const canCreate =
+    !!mention && mention.query.trim().length > 0 && !(midText && /\s/.test(mention.query.trim())) && !findThreadByName(data, mention.query);
   const mentionKey = mention ? `${mention.start}:${draft.text.slice(0, mention.start)}` : undefined;
   const open = !!mention && mentionKey !== closed && (suggestions.length > 0 || canCreate);
   const activeIndex = active.query === query ? Math.min(active.index, Math.max(suggestions.length - 1, 0)) : 0;
+  // The highlight covers what a pick of the highlighted suggestion would take out.
+  const highlightEnd = mention ? (mentionEnd(draft.text, caret!, suggestions[activeIndex]?.name ?? mention.query) ?? mention.end) : 0;
   const suggestedDoing = !doingId && !mention ? suggestDoing(data, draft.text, draft.toIds) : undefined;
 
 
@@ -86,8 +98,8 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
     setPlaceCaret(undefined);
   };
 
-  const pick = (id: Id) => {
-    const next = replaceActiveMention(draft.text, caret ?? draft.text.length);
+  const pick = (id: Id, name = data.threads[id]?.name) => {
+    const next = replaceActiveMention(draft.text, caret ?? draft.text.length, name);
     setSel({ start: next.caret, end: next.caret, text: next.text });
     setPlaceCaret({ start: next.caret, end: next.caret });
     setDraft({ text: next.text, toIds: draft.toIds.includes(id) ? draft.toIds : [...draft.toIds, id] });
@@ -96,7 +108,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
   const createAndPick = () => {
     if (!mention) return;
     const id = createThread(mention.query);
-    pick(id);
+    pick(id, mention.query);
     // Offer (quietly, after logging) to pull in earlier activities that mention it.
     setPullInOffer(id);
   };
@@ -107,9 +119,9 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
   const onKeyPress = (e: { nativeEvent: { key?: string }; preventDefault?: () => void }) => {
     if (Platform.OS !== 'web' || !open) return;
     const key = e.nativeEvent.key;
-    if (key === 'ArrowDown' || key === 'ArrowUp') {
+    if ((key === 'ArrowDown' || key === 'ArrowUp') && suggestions.length) {
       e.preventDefault?.();
-      if (suggestions.length) setActive({ query, index: (activeIndex + (key === 'ArrowDown' ? 1 : suggestions.length - 1)) % suggestions.length });
+      setActive({ query, index: (activeIndex + (key === 'ArrowDown' ? 1 : suggestions.length - 1)) % suggestions.length });
     } else if (key === 'Tab' && suggestions[activeIndex]) {
       e.preventDefault?.();
       pick(suggestions[activeIndex].id);
@@ -202,9 +214,9 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
                 onTextLayout={(e) => Platform.OS !== 'web' && setFits(e.nativeEvent.lines.length <= 1)}>
                 {draft.text.slice(0, mention.start)}
                 <Text style={styles.mentionMark} testID="mention-highlight">
-                  {draft.text.slice(mention.start, mention.end)}
+                  {draft.text.slice(mention.start, highlightEnd)}
                 </Text>
-                {draft.text.slice(mention.end)}
+                {draft.text.slice(highlightEnd)}
               </Text>
             )}
             <TextInput

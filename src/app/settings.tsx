@@ -1,11 +1,11 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fromBackup, toBackup } from '@/domain/backup';
 import { backupsLocation, shareBackup } from '@/storage/nativeBackup';
-import { askToKeepData, PersistenceStatus, persistenceStatus } from '@/storage/persistent';
+import { askToKeepData, onPersistenceAnswered, PersistenceStatus, persistenceStatus } from '@/storage/persistent';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
@@ -20,20 +20,37 @@ export default function Settings() {
   const [pasting, setPasting] = useState(false);
   const [pasted, setPasted] = useState('');
   const [kept, setKept] = useState<PersistenceStatus>();
+  /** What the last "Ask the browser to keep it" got; separate from import/export messages. */
+  const [keepNote, setKeepNote] = useState<string>();
+  const refusals = useRef(0);
+  const keptRef = useRef<ComponentRef<typeof View>>(null);
   const hidden = Object.values(data.threads).filter((t) => t.hidden);
 
   useEffect(() => {
     let live = true;
-    void persistenceStatus().then((status) => live && setKept(status));
+    const read = () => void persistenceStatus().then((status) => live && setKept(status));
+    read();
+    // The automatic request may be answered while Settings is open.
+    const off = onPersistenceAnswered(read);
     return () => {
       live = false;
+      off();
     };
   }, []);
 
   const askToKeep = async () => {
     const status = await askToKeepData();
     setKept(status);
-    if (status === 'not-granted') setMessage('The browser didn’t promise this time.');
+    if (status === 'not-granted') {
+      refusals.current++;
+      setKeepNote(
+        refusals.current === 1 ? 'The browser didn’t promise this time.' : 'Still no promise from the browser. Exporting a backup keeps your data safe.',
+      );
+    } else {
+      setKeepNote(undefined);
+      // The button is gone: keep focus on the line that now says what happened.
+      if (Platform.OS === 'web') requestAnimationFrame(() => (keptRef.current as unknown as HTMLElement | null)?.focus?.());
+    }
   };
 
   const exportData = async () => {
@@ -98,7 +115,10 @@ export default function Settings() {
                 : 'Saved in a database on this device.'}
             {backupsLocation ? ` Automatic backups: ${backupsLocation}.` : ''}
           </Text>
-          {kept && keptLine[kept] && <Text style={s.meta}>{keptLine[kept]}</Text>}
+          <View ref={keptRef} accessibilityLiveRegion="polite" {...(Platform.OS === 'web' ? { tabIndex: -1 } : {})} style={{ gap: 8 }}>
+            {kept && keptLine[kept] && <Text style={s.meta}>{keptLine[kept]}</Text>}
+            {kept === 'not-granted' && keepNote && <Text style={s.meta}>{keepNote}</Text>}
+          </View>
           {kept === 'not-granted' && (
             <Pressable onPress={askToKeep} style={s.chip} accessibilityRole="button">
               <Text style={s.chipText}>Ask the browser to keep it</Text>

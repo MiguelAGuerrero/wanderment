@@ -4,7 +4,7 @@ export const newId = (): Id =>
   globalThis.crypto?.randomUUID?.() ??
   `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 
-export const normalizeName = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+export const normalizeName = (name: string) => name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
 
 export function findThreadByName(data: Data, name: string): Thread | undefined {
   const n = normalizeName(name);
@@ -85,6 +85,12 @@ export type RenameResult = { ok: true; data: Data } | { ok: false; reason: 'take
 
 /** Renames a thread, or refuses (data untouched) when another thread already has that name. */
 export function renameThread(data: Data, id: Id, name: string): RenameResult {
+  const own = data.threads[id];
+  // Keeping its own name (or recasing it) is never refused, even beside an imported twin.
+  if (own && normalizeName(name) === normalizeName(own.name)) {
+    const trimmed = name.normalize('NFC').trim().replace(/\s+/g, ' ');
+    return { ok: true, data: trimmed && trimmed !== own.name ? { ...data, threads: { ...data.threads, [id]: { ...own, name: trimmed } } } : data };
+  }
   const other = nameTakenBy(data, id, name);
   if (other) return { ok: false, reason: 'taken', other };
   return { ok: true, data: updateThread(data, id, { name }) };

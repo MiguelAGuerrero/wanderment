@@ -142,3 +142,51 @@ test.describe('Firefox (may prompt)', () => {
     expect(await persistCalls(page)).toBe(1);
   });
 });
+
+test('Settings opened before the automatic request updates when it is granted (audit B, finding 2)', async ({ page }) => {
+  await stubStorage(page, 'grant');
+  await openHome(page);
+  await page.goto('./settings');
+  await expect(page.getByText(NOT_GRANTED)).toBeVisible();
+  expect(await persistCalls(page)).toBe(0);
+  // A change made from Settings saves and triggers the once-per-session request.
+  await page.getByRole('switch', { name: 'Recency shading' }).click();
+  await expect.poll(() => persistCalls(page)).toBe(1);
+  await expect(page.getByText(GRANTED)).toBeVisible();
+  await expect(page.getByText(NOT_GRANTED)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: ASK })).toHaveCount(0);
+});
+
+test('refuse twice, then grant: each answer replaces the last, and focus stays on the result (audit B, findings 3–4)', async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.storage.persisted = async () => sessionStorage.getItem('persistGranted') === '1';
+    navigator.storage.persist = async () => {
+      // Counted in sessionStorage so it survives the reload into Settings.
+      const calls = Number(sessionStorage.getItem('persistCalls') ?? 0) + 1;
+      sessionStorage.setItem('persistCalls', String(calls));
+      if (calls >= 4) sessionStorage.setItem('persistGranted', '1');
+      return calls >= 4;
+    };
+  });
+  await openHome(page);
+  await logAndSave(page, 'first');
+  await expect.poll(() => persistCalls(page)).toBe(1);
+  await page.goto('./settings');
+  const ask = page.getByRole('button', { name: ASK });
+  await ask.focus();
+  await page.keyboard.press('Enter');
+  const refused = page.getByText('The browser didn’t promise this time.');
+  await expect(refused).toBeVisible();
+  await expect(page.locator('[aria-live="polite"]').filter({ has: refused })).toHaveCount(1);
+  await page.keyboard.press('Enter');
+  const still = page.getByText('Still no promise from the browser. Exporting a backup keeps your data safe.');
+  await expect(still).toBeVisible();
+  await expect(refused).toHaveCount(0);
+  await page.keyboard.press('Enter');
+  const granted = page.getByText(GRANTED);
+  await expect(granted).toBeVisible();
+  await expect(still).toHaveCount(0);
+  await expect(page.getByText(NOT_GRANTED)).toHaveCount(0);
+  // The button is gone; focus is on the live line that says so, not lost to the page.
+  await expect(page.locator('[aria-live="polite"]').filter({ has: granted })).toBeFocused();
+});

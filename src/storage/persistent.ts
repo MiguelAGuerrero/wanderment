@@ -60,6 +60,13 @@ export async function persistenceStatus(): Promise<PersistenceStatus> {
 }
 
 let requested = false;
+const listeners = new Set<() => void>();
+
+/** Called when the automatic request has been answered, so an open Settings can re-read the status. */
+export function onPersistenceAnswered(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
 
 /**
  * Called after a change is saved: asks the browser to keep the data, at most once per page
@@ -75,6 +82,7 @@ export async function requestPersistence(): Promise<void> {
   } catch {
     // Refused or unavailable: Settings says so and offers Install / Export.
   }
+  for (const listener of listeners) listener();
 }
 
 /** The Settings button: the person asked, so ask now (Firefox may show its prompt). */

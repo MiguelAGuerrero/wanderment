@@ -130,3 +130,25 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
   ).toBeVisible();
   await expect(field).toHaveValue('PLAY GUITAR');
 });
+
+test('a refused rename can be left with Cancel or Esc, keeping the old name (audit B, finding 6)', async ({ page }) => {
+  await openHome(page);
+  await makeThreads(page, ['play guitar', 'make apparel']);
+  await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
+  await page.getByRole('button', { name: 'Rename' }).click();
+
+  const field = page.getByRole('textbox', { name: 'Thread name' });
+  await field.fill('play guitar');
+  await field.press('Enter');
+  await expect(field).toHaveAttribute('aria-invalid', 'true');
+  await expect(field).toHaveAttribute('aria-describedby', 'rename-taken');
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(field).toHaveCount(0);
+  await expect(page.getByText('make apparel', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+
+  await page.getByRole('button', { name: 'Rename' }).click();
+  await page.getByRole('textbox', { name: 'Thread name' }).fill('play guitar');
+  await page.getByRole('textbox', { name: 'Thread name' }).press('Escape');
+  await expect(page.getByRole('textbox', { name: 'Thread name' })).toHaveCount(0);
+  await expect(page.getByText('Another thread is already called', { exact: false })).toHaveCount(0);
+});

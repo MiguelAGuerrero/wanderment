@@ -35,29 +35,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-01 Ask the browser to keep the data `[data]` S
-*Status:* in-progress
-*Why:* nothing calls `navigator.storage.persist()`, so a browser may evict the database (Safari
-clears storage of sites not used for a while unless they're installed to the Home Screen).
-*Done when:* persistence is requested at a sensible moment (first log, or after install); Settings
-says plainly whether this browser promised to keep the data and suggests Install / Export if not;
-e2e covers the granted and refused paths (stubbed).
-
-### P-02 Renaming to a name another thread already has `[ux]` S
-*Status:* in-progress
-*Why:* `updateThread` accepts any name, so two threads can end up with the same name and `@`
-suggestions become ambiguous. Merging is cut on purpose, so the rename has to be refused kindly.
-*Done when:* renaming to an existing name (case/spacing-insensitive) is refused with a clear inline
-message and the field keeps the typed text; domain test + e2e.
-
-### P-03 `@` works where the cursor is, not only at the end `[capture]` M
-*Status:* in-progress
-*Why:* `activeMention` reads the text up to its end, so typing `@` mid-sentence offers a thread name
-that includes the rest of the sentence, and picking deletes the text after the cursor.
-*Done when:* the active mention is found at the caret on web and native; picking replaces only the
-`@query`; the inline highlight follows; "Return logs as typed" is unchanged; unit tests for
-caret positions, e2e for a mid-sentence pick.
-
 ### P-13 A bridge after the first log `[ux]` S
 *Status:* todo
 *Why:* after a first log with no `@`, Home loses the welcome and shows no threads — nothing explains
@@ -83,7 +60,9 @@ behind but the thread ("Not what it's for right now", Undo). (B-01 panel refinem
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
 *Done when:* import shows a preview (counts, date range, how it differs from what's here) before
 replacing; the current data is kept as an automatic snapshot that one Undo restores; a damaged file
-never touches existing data; tests for preview, undo and a malformed file.
+never touches existing data; tests for preview, undo and a malformed file. Also: a backup whose threads share a name ("draw" and "Draw") is imported
+without creating ambiguous `@` matches (refuse, or suffix with the user's say), with a test (audit B
+of batch P-01–P-03).
 
 ### P-05 Prove it in Safari and Firefox `[platform]` M
 *Status:* todo
@@ -93,6 +72,21 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
+
+### P-22 Honest "kept" wording per platform `[ux]` S
+*Status:* todo
+*Why:* audit B (finding 10): Settings says an installed app's data is kept even when the browser
+hasn't promised it, hides the ask button there, and shows the iOS-only "Share → Add to Home Screen"
+on desktop and Android. The warning also shows when there's nothing saved yet.
+*Done when:* the install hint names the platform's own way (or none); "installed" never claims what
+`persisted()` denies; no warning on an empty install; e2e per stubbed platform.
+
+### P-23 An exact `@` match always shows `[capture]` S
+*Status:* todo
+*Why:* audit B (finding 13): with 220 threads, `@thread 21` offers 215, 216 and 211, so the exact
+match can be neither picked nor created.
+*Done when:* an exact (normalized) name match is always the first suggestion; unit test with
+`bigBlob`-sized data.
 
 ### P-15 A live graph at the top of Home `[feature]` M
 *Status:* todo
@@ -244,6 +238,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 ## Known edge cases (accepted for now)
 
+- Picking an `@` suggestion joins the two sides with exactly one space, so extra spaces typed around
+  the `@word` collapse ("a @make    b" → "a b").
+- Native only: until the platform reports the selection, the caret after an edit is guessed; with a
+  repeated letter ("aab" → "aaab") the guess can be one off, and the next selection event corrects it.
 - An old-version tab: entries created there are added here; its edits and deletions are not (the app
   says so).
 - Web builds can't detect screen readers, so the toast auto-dismisses after 6 s there (it pauses on
@@ -255,6 +253,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-21 · P-01, P-02, P-03 — the browser is asked to keep the data (Settings says whether it promised); renaming to a taken name is refused inline, with Cancel/Esc; `@` works at the cursor and a pick never deletes a typed word · evidence: `persistent.test.ts`, `compose.test.ts`, `domain.test.ts`, `e2e/persistence.spec.ts`, `e2e/mention-caret.spec.ts`, `e2e/editing.spec.ts` · audit: 13 reported · 8 reproduced · 10 fixed · 3 deferred (to new items and the import item) · `e2cdbb1`, `6a35eec`, `845724a` + audit fixes
 - 2026-11-21 · Adversarial audits ×2: data-safety, undo, perf (log on Activities 28 s → 0.1 s),
   attach mode, a11y fixes · `5f16188`, `f3dde4b`
 - 2026-11-21 · M4 Graph + attach mode · `e746e89`

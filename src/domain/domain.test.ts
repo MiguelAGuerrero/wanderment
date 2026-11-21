@@ -70,6 +70,24 @@ describe('renaming threads', () => {
     expect(res.ok && res.data.threads[apparel.id].name).toBe('sew clothes');
   });
 
+  it('treats composed and decomposed accents as the same name (audit B, finding 11)', () => {
+    let { data, apparel } = seed();
+    data = ensureThread(data, 'caf\u00e9').data;
+    const res = renameThread(data, apparel.id, 'cafe\u0301');
+    expect(res.ok).toBe(false);
+    expect(ensureThread(data, 'CAFE\u0301').thread.name).toBe('caf\u00e9');
+  });
+
+  it('keeps its own name beside an imported twin with the same name (audit B, finding 6)', () => {
+    const { data, drawing } = seed();
+    const twin = { ...drawing, id: 'twin', name: 'Practice Drawing' };
+    const both = { ...data, threads: { ...data.threads, twin } };
+    const res = renameThread(both, drawing.id, 'practice drawing');
+    expect(res.ok).toBe(true);
+    if (res.ok) expect(res.data).toBe(both);
+    expect(renameThread(both, drawing.id, 'Practice drawing').ok).toBe(true);
+  });
+
   it('never lets updateThread give a thread another thread’s name', () => {
     const { data, drawing, apparel } = seed();
     const updated = updateThread(data, apparel.id, { name: ' Practice Drawing', next: 'hem a shirt' });

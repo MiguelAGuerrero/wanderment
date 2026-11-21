@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { Screen } from '@/components/Screen';
 import { candidatesForThread } from '@/domain/emergence';
@@ -25,6 +25,14 @@ export default function ThreadPage() {
   const [nameValue, setNameValue] = useState('');
   /** The thread that already has the typed name, when a rename was refused. */
   const [nameTaken, setNameTaken] = useState<{ name: string; hidden: boolean }>();
+  const takenText = nameTaken
+    ? `Another thread is already called “${nameTaken.name}”.${nameTaken.hidden ? ' It’s hidden — you can unhide it in Settings.' : ''}`
+    : '';
+  useEffect(() => {
+    // Web announces through the live region below; iOS has no live regions, so say it.
+    if (takenText && Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility(takenText);
+  }, [takenText]);
+  const cancelRename = () => (setRenaming(false), setNameTaken(undefined));
 
   const thread = id ? data.threads[id] : undefined;
   if (!thread) {
@@ -56,18 +64,24 @@ export default function ThreadPage() {
               if (res.ok) setRenaming(false);
               else setNameTaken({ name: res.other.name, hidden: res.other.hidden });
             }}
+            onKeyPress={(e) => {
+              if (e.nativeEvent.key === 'Escape') cancelRename();
+            }}
             style={[s.h1, styles.field]}
             accessibilityLabel="Thread name"
+            {...(Platform.OS === 'web' ? { 'aria-invalid': !!nameTaken, 'aria-describedby': nameTaken ? 'rename-taken' : undefined } : {})}
           />
           {/* Always mounted while renaming, so the refusal is announced when it appears. */}
           <View accessibilityLiveRegion="polite">
             {nameTaken && (
-              <Text style={[s.body, styles.nameTaken]}>
-                Another thread is already called “{nameTaken.name}”.
-                {nameTaken.hidden ? ' It’s hidden — you can unhide it in Settings.' : ''}
+              <Text nativeID="rename-taken" style={[s.body, styles.nameTaken]}>
+                {takenText}
               </Text>
             )}
           </View>
+          <Pressable onPress={cancelRename} style={[s.chip, { alignSelf: 'flex-start', marginTop: 8 }]} accessibilityRole="button">
+            <Text style={s.chipText}>Cancel</Text>
+          </Pressable>
         </View>
       ) : (
         <Text style={s.h1}>{thread.name}</Text>

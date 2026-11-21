@@ -154,3 +154,44 @@ test('the @ highlight never hides what you type, and taps on it reach the input'
   );
   expect(topIsInput).toBe(true);
 });
+
+test('the contract’s keystrokes: "@make" typed right in front of "and" keeps "and" (audit B, finding 1)', async ({ page }) => {
+  await openHome(page);
+  await makeThreads(page, ['make apparel', 'make music']);
+  const box = logBox(page);
+  await box.fill('sketched and then more');
+  await box.press('Home');
+  for (let i = 0; i < 'sketched '.length; i++) await box.press('ArrowRight');
+  await box.pressSequentially('@make');
+  await expect(box).toHaveValue('sketched @makeand then more');
+  await expect(page.getByTestId('mention-highlight')).toHaveText('@make');
+  await box.press('ArrowDown');
+  await box.press('Tab');
+  await expect(box).toHaveValue('sketched and then more');
+  await expect(page.getByRole('button', { name: 'To: make apparel. Remove' })).toBeVisible();
+});
+
+test('an @ typed in front of a word, then picked, keeps the word (audit B, finding 1)', async ({ page }) => {
+  await openHome(page);
+  await makeThreads(page, ['sew']);
+  const box = logBox(page);
+  await box.fill('finished the hem');
+  await box.press('End');
+  for (let i = 0; i < 'hem'.length; i++) await box.press('ArrowLeft');
+  await box.pressSequentially('@');
+  await page.getByRole('option', { name: /^sew/ }).click();
+  await expect(box).toHaveValue('finished the hem');
+  await expect(page.getByRole('button', { name: 'To: sew. Remove' })).toBeVisible();
+});
+
+test('an unmatched "@word and more" mid-sentence offers no new thread (audit B, finding 7)', async ({ page }) => {
+  await openHome(page);
+  const box = logBox(page);
+  await box.fill('went @zzq and then home');
+  await box.press('End');
+  for (let i = 0; i < ' home'.length; i++) await box.press('ArrowLeft');
+  await expect(page.getByRole('option', { name: /New thread/ })).toHaveCount(0);
+  // At the end of the text, a multi-word new thread is still offered.
+  await box.fill('went @zzq and');
+  await expect(page.getByRole('option', { name: '+ New thread “zzq and”' })).toBeVisible();
+});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { activeMention, caretAfterEdit, mentionAt, removeActiveMention, replaceActiveMention } from './compose';
+import { activeMention, caretAfterEdit, mentionAt, mentionEnd, removeActiveMention, replaceActiveMention } from './compose';
 
 // "sketched for @ma and then more": the @ is at 13, the caret after "@ma" is 16.
 const MID = 'sketched for @ma and then more';
@@ -23,8 +23,9 @@ describe('the @mention at the caret', () => {
     expect(activeMention(MID, 16)).toEqual({ start: 13, query: 'ma' });
   });
 
-  it('directly after the @, the query is empty and the mention covers the word', () => {
-    expect(mentionAt(MID, 14)).toEqual({ start: 13, end: 16, query: '' });
+  it('directly after the @, the query is empty and the mention is just the @', () => {
+    // A bare @ may have been typed in front of a word the person wrote: picking must keep that word.
+    expect(mentionAt(MID, 14)).toEqual({ start: 13, end: 14, query: '' });
   });
 
   it('before the @, there is no mention', () => {
@@ -55,7 +56,7 @@ describe('the @mention at the caret', () => {
     const text = 'for @ma and @mu then';
     expect(mentionAt(text, 7)).toEqual({ start: 4, end: 7, query: 'ma' });
     expect(mentionAt(text, 15)).toEqual({ start: 12, end: 15, query: 'mu' });
-    expect(mentionAt(text, 13)).toEqual({ start: 12, end: 15, query: '' });
+    expect(mentionAt(text, 13)).toEqual({ start: 12, end: 13, query: '' });
   });
 
   it('a caret beyond the text is clamped to its end', () => {
@@ -119,5 +120,41 @@ describe('the caret after an edit (when the platform reports the text before the
     expect(caretAfterEdit('sketched and', 'sketched pasted and')).toBe(16);
     expect(caretAfterEdit('', 'x')).toBe(1);
     expect(caretAfterEdit('same', 'same')).toBe(4);
+  });
+});
+
+describe('picking never deletes words the person typed (audit B, finding 1)', () => {
+  it('an @ typed in front of a word keeps the word', () => {
+    expect(replaceActiveMention('finished the @hem', 14)).toEqual({ text: 'finished the hem', caret: 13 });
+    expect(replaceActiveMention('sketched @and then more', 10).text).toBe('sketched and then more');
+  });
+
+  it('punctuation after the @word stays', () => {
+    expect(mentionAt('did @make, then left', 7)).toEqual({ start: 4, end: 9, query: 'ma' });
+    expect(replaceActiveMention('did @make, then left', 7).text).toBe('did, then left');
+    expect(replaceActiveMention('did @make, then left', 9).text).toBe('did, then left');
+  });
+
+  it('the rest of a word with accents, digits or an apostrophe is still taken in', () => {
+    expect(mentionAt('at @caf\u00e9s now', 7)).toEqual({ start: 3, end: 9, query: 'caf' });
+    expect(mentionAt('at @v2-beta now', 5)).toEqual({ start: 3, end: 11, query: 'v' });
+    expect(mentionAt("at @mum's place", 6)).toEqual({ start: 3, end: 9, query: 'mu' });
+  });
+});
+
+describe('the rest of the word goes only if it continues the picked name', () => {
+  it('"@make" typed in front of "and" keeps "and" (the contract\'s own keystrokes)', () => {
+    const text = 'sketched @makeand then more';
+    expect(mentionEnd(text, 14, 'make apparel')).toBe(14);
+    expect(replaceActiveMention(text, 14, 'make apparel')).toEqual({ text: 'sketched and then more', caret: 9 });
+  });
+
+  it('"@ma|ke" picking "make music" takes the whole word', () => {
+    expect(mentionEnd('sketched @make more', 12, 'make music')).toBe(14);
+    expect(replaceActiveMention('sketched @make more', 12, 'Make Music').text).toBe('sketched more');
+  });
+
+  it('without a name, the whole word goes (as before)', () => {
+    expect(replaceActiveMention('sketched @makeand then more', 14).text).toBe('sketched then more');
   });
 });
