@@ -18,6 +18,30 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-21 — Refining the philosophy: know the why, leave the how open
+> I do recognize the contradiction, so there might have to be a refining [of the] app philosophy,
+> because intents and values are ultimately the things [we're] moving towards, and how we exactly
+> get there is unknown — but always keeping in mind what those are, as in your current motivation,
+> and your pulses or impulsivity or inclining towards has a structural reason to exist within this
+> app. Trying to find a theme that you can either induce or deduce, without clarity on how to
+> actually go about doing that, is I believe in [the] spirit of what the app is trying to achieve.
+
+Interpretation (by /product): the tension between "declare up front" and "direction emerges" goes
+away if the app separates the **why** from the **how**:
+- **The why** (intents, values, what you're moving toward) can be **induced**, named up front, or
+  **deduced**, surfacing from what you do. Both are first-class, and the app keeps them in view.
+- **The how stays open.** Impulses, inclinations and detours aren't noise or failure: they're how
+  paths get found, and they need a structural place in the app. That's what threads and one-off
+  activities already are.
+- What stays refused: plans for the how (steps-to-goal, milestones, schedules), plus the existing
+  never list.
+
+This changes STRATEGY.md and DESIGN.md wording, which the owner owns. Proposed wording is in B-01.
+
+Led to: B-01 "Philosophy" section with proposed wording; D-4 now includes accepting it.
+Decision (D-4, same day): wording **accepted as written** and applied; B-01 **go, with the live graph
+earlier** → P-13, P-14 (Now), P-15 live graph, P-16 headers, P-17 animation, P-18 first step (Next).
+
 ## 2026-11-21 — A graph-first view that updates live
 > I want to consider maybe a graph first view so that way when you declare intents or activities you
 > get to see a graph update live.

@@ -1,6 +1,6 @@
 # B-01 — Start from what it's for
 
-**Status:** proposed · **Decision:** D-4 · **Theme:** Warm return / Seeing flow · **Date:** 2026-11-21
+**Status:** building · **Decision:** D-4 — go with changes (graph earlier), philosophy wording accepted as written, 2026-11-21 · **Theme:** Warm return / Seeing flow · **Date:** 2026-11-21
 
 ## The problem, in the owner's terms
 > "After my first log the onboarding text disappears and I see no threads, … the disconnect between
@@ -80,6 +80,31 @@ The owner's answers in this conversation shaped the brief:
      `prefers-reduced-motion` on web).
    - Headers are announced as headings, and the card and bridge have labelled inputs.
 
+## Philosophy (accepted as written by the owner, 2026-11-21 — applied to STRATEGY.md, DESIGN.md Model and README; the DESIGN.md Interaction line lands with P-15, when the graph ships)
+From the owner's refinement on 2026-11-21: know the **why**, leave the **how** open. Exact text for
+each file, so it can be accepted as-is:
+
+- **STRATEGY.md**, north star 3. Replace "**Direction emerges.** Over weeks, what you do reveals what
+  it's *for* (values, flows) without you having to declare anything up front." with:
+  > **Know the why; leave the how open.** What you're moving toward (intents, values) can be named
+  > up front or surface from what you do, and the app keeps it in view either way. How you get there
+  > stays open: impulses, inclinations and detours are how paths are found, not failures to follow a
+  > plan.
+- **STRATEGY.md**, Refusals. Add:
+  > No plans for the how: no steps-to-goal, milestones or schedules. A next step is one optional
+  > crumb, never a plan.
+- **DESIGN.md**, Model. Add:
+  > A thread can be marked as **what it's for** (a "why"). That's a direction, not a goal: no target,
+  > progress or deadline. A why can be declared (named up front) or earned (most of your activity
+  > flows into it). Both look the same on Home, and both fade to Earlier when nothing flows in.
+- **DESIGN.md**, Interaction. Replace "Home shows a plain **YOUR THREADS** list until value headers
+  are earned (see roadmap)." with:
+  > Home opens with a compact live graph of what it's for and what feeds it; below it, a plain
+  > **YOUR THREADS** list until value headers are earned or declared.
+- **README.md**. Replace "direction is read from what you've done, not declared up front" with:
+  > you can name what you're moving toward or let it surface from what you do; how you get there
+  > stays open
+
 ## Fit with the product
 - **DESIGN.md:** "Home shows a plain YOUR THREADS list until value headers are earned" becomes:
   "Home opens with a compact live graph of what it's for and what feeds it; below it, a plain YOUR
@@ -95,6 +120,8 @@ The owner's answers in this conversation shaped the brief:
   declared Ys.
 
 ## Slices
+
+Build order after D-4 (owner: graph earlier): P-13 bridge → P-14 data → P-15 live graph → P-16 whys as headers → P-17 animation → P-18 first step.
 1. **First-log bridge** (S, no new data). Can ship without this brief, and is tracked as **P-13**
    now. After the first unattached log, Home shows "Logged. Is this toward something?" with
    one-tap thread chips and "+ name it".

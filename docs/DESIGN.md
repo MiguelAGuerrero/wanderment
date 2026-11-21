@@ -8,6 +8,9 @@ These came out of the design sessions and several rounds of persona reviews. Cha
 - **Links between threads are never stored.** They are derived from activities (doing → to), counted. Both directions are distinct intentions ("drawing to make apparel" ≠ "making apparel to practise drawing").
 - Everything references ids, so renaming a thread never rewrites history.
 - A thread can be created with just a name. If nothing flows into it, it simply fades.
+- A thread can be marked as **what it's for** (a "why"): a direction, not a goal — no target, progress
+  or deadline. A why can be declared (named up front) or earned (most activity flows into it); both
+  look the same on Home and both fade to Earlier when nothing flows in. _(Owner decision D-4.)_
 - The **next** belongs to the activity's doing thread, else its first "to".
 
 ## Interaction

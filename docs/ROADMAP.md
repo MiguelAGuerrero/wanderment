@@ -67,6 +67,15 @@ one-tap chips for existing threads and "+ name it"; tapping attaches the activit
 the toast); ignoring it leaves no trace and it goes away once the activity has a thread or another
 log has one; e2e (attach via chip, via new name, ignore) + axe.
 
+### P-14 Mark a thread as what it's for (data) `[data]` `[feature]` M
+*Status:* todo
+*Why:* B-01 slice 2 (D-4 go): a "why" is a thread marked as what it's for — the foundation for the
+live graph, headers and first step.
+*Done when:* an optional `declaredAt` on threads with an additive schema migration (old data reads
+unchanged); export includes it and import accepts backups with and without it (Data version stays
+1); declare / undeclare from the thread page with Undo; migration + round-trip + mutation-checked
+persistence tests; at most 3 declared whys (a 4th is refused kindly).
+
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
@@ -82,6 +91,36 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
+
+### P-15 A live graph at the top of Home `[feature]` M
+*Status:* todo
+*Why:* B-01 slice 3b, moved earlier by the owner: see what it's for and what feeds it the moment
+you declare or log.
+*Done when:* domain `overview(data, index)` (whys + most active feeders, cap with "+N", placeholder
+when empty) with tests; compact graph above the cards; tapping a node opens the thread; one
+screen-reader summary line; e2e: a node appears right after declaring, a link right after logging;
+axe; 390 px and 200 % zoom; Home stays fast with `bigBlob`. Ships with the DESIGN.md Interaction
+wording accepted in D-4.
+
+### P-16 Whys as headers on Home `[feature]` M
+*Status:* todo
+*Why:* B-01 slice 3: declared whys head Home immediately, merged with earned values.
+*Done when:* declared whys render as "TO …" headers with "+ a way toward it", merged with earned
+ones; fade to Earlier after 90 days with no inflow; "why here?" covers declared and earned; `@`
+ranks declared whys first; domain tests for grouping/fading/merging; e2e with 0/1/3 whys.
+
+### P-17 Gentle live animation `[feature]` `[a11y]` S
+*Status:* todo
+*Why:* B-01 slice 3c: new nodes and links ease in and glow briefly, then settle.
+*Done when:* animation on declare/log; none under Reduce Motion (native setting or
+`prefers-reduced-motion`), e2e with reduced motion emulated; no layout shift for the cards below.
+
+### P-18 An optional first step: what's it all for? `[feature]` M
+*Status:* todo
+*Why:* B-01 slice 4: on first open, name up to three whys — or skip in one tap; the log box is
+live throughout.
+*Done when:* first-open card with up to 3 inputs, one-tap skip that leaves no trace, logging works
+while it's shown; e2e for declare, skip and log-during-card; axe.
 
 ### P-06 Dark mode `[ux]` `[a11y]` M — needs 🙋 D-2
 *Status:* blocked
@@ -150,6 +189,8 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   Home that grows as you declare and log — gentle animation, off under Reduce Motion — and an optional
   first step), and change the Home/"declared up front" wording in DESIGN.md / STRATEGY.md / README?
   Recommended: **go**.
+  **Answered 2026-11-21: go, with the live graph earlier; philosophy wording accepted as written.**
+  → P-13, P-14 (Now), P-15–P-18 (Next). B-01 is `building`.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 

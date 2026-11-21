@@ -14,8 +14,10 @@ want to see where their energy actually goes and to pick an interest back up wit
 1. **Logging is effortless.** One line, any time, from anywhere.
 2. **Returning is warm.** Whatever you drifted from greets you with "you left off here" and a small
    next step, never with "you broke your streak".
-3. **Direction emerges.** Over weeks, what you do reveals what it's *for* (values, flows) without
-   you having to declare anything up front.
+3. **Know the why; leave the how open.** What you're moving toward — intents, values — can be named
+   up front or surface from what you do; the app keeps it in view either way. How you get there
+   stays open: impulses, inclinations and detours are how paths are found, not failures to follow a
+   plan. _(Owner decision D-4, 2026-11-21.)_
 4. **It's yours.** Data stays on your device, survives anything, and leaves with you whenever you
    want.
 
@@ -24,6 +26,9 @@ want to see where their energy actually goes and to pick an interest back up wit
 DESIGN.md's *never* list is the product's identity, not a constraint to work around: no goals,
 streaks, % complete, timers, notifications, badge counts, and nothing created or attached without a
 tap. An idea borrowed from another app is changed to fit these, or it isn't used.
+
+No plans for the how: no steps-to-goal, milestones or schedules — a next step is one optional crumb,
+never a plan. _(Owner decision D-4, 2026-11-21.)_
 
 ## Themes (current bets)
 

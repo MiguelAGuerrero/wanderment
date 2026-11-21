@@ -4,8 +4,8 @@ A personal log for people with many interests who don't want goal-setting apps.
 
 Log what you just did in one line. Optionally say what it was **to** — `practiced scales @play guitar`.
 Over time, threads of activity form, each with a small "next step" so picking an interest back up
-feels warm instead of cold. No goals, streaks, timers or notifications: direction is read from
-what you've done, not declared up front.
+feels warm instead of cold. No goals, streaks, timers or notifications: you can name what you're
+moving toward or let it surface from what you do; how you get there stays open.
 
 ## Run it
 
