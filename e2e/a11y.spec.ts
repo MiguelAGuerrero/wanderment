@@ -101,3 +101,17 @@ test('the graph, its list view and attach mode have no serious accessibility vio
   await page.getByRole('tab', { name: 'List view' }).click();
   await expectNoSeriousViolations(page);
 });
+
+test('Settings, with the “may clear your data” line and its button, has no serious accessibility violations', async ({ page }) => {
+  await page.addInitScript(() => {
+    navigator.storage.persisted = async () => false;
+    navigator.storage.persist = async () => false;
+  });
+  await openHome(page);
+  await page.goto('./settings');
+  const ask = page.getByRole('button', { name: 'Ask the browser to keep it' });
+  await expect(ask).toBeVisible();
+  const box = await ask.boundingBox();
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+  await expectNoSeriousViolations(page);
+});

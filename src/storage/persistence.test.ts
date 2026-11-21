@@ -198,3 +198,51 @@ describe('saving', () => {
     expect(store.getState().data.activities[b.id].note).toBe('kept');
   });
 });
+
+describe('asking the browser to keep the data', () => {
+  /** Counts persist() calls; persisted() reports false until a call grants it. */
+  function fakeStorageManager() {
+    const calls = { persist: 0 };
+    vi.stubGlobal('navigator', {
+      userAgent: 'Chrome/140',
+      storage: { persisted: async () => calls.persist > 0, persist: async () => ++calls.persist > 0 },
+    });
+    return calls;
+  }
+
+  it('asks once, after the first saved change, and never on load', async () => {
+    const calls = fakeStorageManager();
+    try {
+      let store = await load();
+      await settle();
+      expect(calls.persist).toBe(0);
+      logText(store, 'one');
+      await settle();
+      expect(calls.persist).toBe(1);
+      logText(store, 'two');
+      store.getState().setShowShading(false);
+      await settle();
+      expect(calls.persist).toBe(1);
+      // A reload without changes asks nothing.
+      store = await load();
+      await settle();
+      expect(calls.persist).toBe(1);
+      expect(texts(store)).toEqual(['one', 'two']);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('doesn’t ask before a save has committed', async () => {
+    const calls = fakeStorageManager();
+    try {
+      const store = await load();
+      env.state.hangWrites = true;
+      logText(store, 'never commits');
+      await settle();
+      expect(calls.persist).toBe(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

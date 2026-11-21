@@ -9,6 +9,7 @@ import { useStore } from '@/store/useStore';
 import { Db } from './db';
 import { openExpoDb } from './expoDb';
 import { scheduleBackup } from './nativeBackup';
+import { requestPersistence } from './persistent';
 import { isEmpty, loadData, loadMeta, loadSettings, replaceAll, saveChanges, saveMeta, saveSettings } from './repository';
 import { migrateSchema } from './schema';
 
@@ -278,6 +279,8 @@ async function start(): Promise<void> {
           else journal(now.data, settingsOf(now));
           if (useStore.getState().saveError) useStore.setState({ saveError: undefined });
           scheduleBackup(target.data);
+          // Something worth keeping now exists: ask the browser not to evict it (once, silently).
+          void requestPersistence();
         } catch (e) {
           inflight = undefined;
           console.warn('Save failed', e);

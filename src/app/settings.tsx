@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Platform, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fromBackup, toBackup } from '@/domain/backup';
 import { backupsLocation, shareBackup } from '@/storage/nativeBackup';
+import { askToKeepData, PersistenceStatus, persistenceStatus } from '@/storage/persistent';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
@@ -18,7 +19,22 @@ export default function Settings() {
   const [message, setMessage] = useState<string>();
   const [pasting, setPasting] = useState(false);
   const [pasted, setPasted] = useState('');
+  const [kept, setKept] = useState<PersistenceStatus>();
   const hidden = Object.values(data.threads).filter((t) => t.hidden);
+
+  useEffect(() => {
+    let live = true;
+    void persistenceStatus().then((status) => live && setKept(status));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const askToKeep = async () => {
+    const status = await askToKeepData();
+    setKept(status);
+    if (status === 'not-granted') setMessage('The browser didn’t promise this time.');
+  };
 
   const exportData = async () => {
     const json = toBackup(data);
@@ -82,6 +98,12 @@ export default function Settings() {
                 : 'Saved in a database on this device.'}
             {backupsLocation ? ` Automatic backups: ${backupsLocation}.` : ''}
           </Text>
+          {kept && keptLine[kept] && <Text style={s.meta}>{keptLine[kept]}</Text>}
+          {kept === 'not-granted' && (
+            <Pressable onPress={askToKeep} style={s.chip} accessibilityRole="button">
+              <Text style={s.chipText}>Ask the browser to keep it</Text>
+            </Pressable>
+          )}
           <Pressable onPress={exportData} style={s.chip} accessibilityRole="button">
             <Text style={s.chipText}>Export everything (.json)</Text>
           </Pressable>
@@ -129,6 +151,15 @@ export default function Settings() {
     </SafeAreaView>
   );
 }
+
+/** Whether this browser promised to keep the data (web only; nothing when it can't say). */
+const keptLine: Record<PersistenceStatus, string | undefined> = {
+  granted: 'This browser has promised to keep your data.',
+  installed: 'Installed on this device — your data is kept with the app.',
+  'not-granted':
+    'This browser may clear your data if you don’t visit for a while. Install the app (Share → Add to Home Screen) or export regularly to be safe.',
+  unknown: undefined,
+};
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
