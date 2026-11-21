@@ -18,6 +18,20 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-21 — The log field as a mini search over the graph
+> And for quality of life, since the graph is gonna be first, let the log field be a mini search
+> engine that can query the graph to show what action exists currently, or even an intentional
+> value, as a way of searching through and possibly finding where you want [to be], what step you
+> wanna be [on] quickly, or what intentional value you want [to] survey.
+
+Interpretation (by /product): with the graph first on Home, the log box should also *find*. As you
+type, it would surface existing threads, staged steps and whys, so you can jump to a step to do it,
+or bring a why or thread into focus in the graph to look around it. The tension is with *capture is
+sacred*: Return logs exactly as typed, and typing must never be hijacked. It's big (it changes how
+capture works), so: clarifying questions, then brief B-03, the persona panel and D-6.
+
+Led to: clarifying questions in this run.
+
 ## 2026-11-21 — Chains of intention: one staged step, stacked on top
 > The application of this is that you could define the next step towards a value or goal ahead of
 > time, but only one at a time — there can only ever be one staged at all. And if that [one] needs
