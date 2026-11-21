@@ -35,16 +35,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-14 Mark a thread as what it's for (data) `[data]` `[feature]` M
-*Status:* in-progress
-*Why:* B-01 slice 2 (D-4 go): a "why" is a thread marked as what it's for — the foundation for the
-live graph, headers and first step.
-*Done when:* an optional `declaredAt` on threads with an additive schema migration (old data reads
-unchanged); export includes it and import accepts backups with and without it (Data version stays
-1); declare / undeclare from the thread page with Undo; migration + round-trip + mutation-checked
-persistence tests; at most 3 declared whys — naming a 4th offers a swap; undeclaring keeps nothing
-behind but the thread ("Not what it's for right now", Undo). (B-01 panel refinement 6.)
-
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
@@ -62,6 +52,16 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
+
+### P-28 The thread page at 200 % zoom and long names `[ux]` `[a11y]` S
+*Status:* todo
+*Why:* audit of P-14 (F5, F6, F9, F12): at 200 % zoom the swap row opens below the fold and a swap
+toast with long names grows past the screen top; Esc doesn't close the swap row from the log box; a
+long thread name makes its page wider than the screen (the composer's "Doing:" chip doesn't wrap —
+existing, not from P-14).
+*Done when:* the swap row is scrolled into view when it opens; toasts cap their height (names wrap,
+Undo stays visible); the doing chip wraps at 390 px with a 90-character name; Esc closes the swap row
+from anywhere on that page only; e2e at 390 px and 200 %.
 
 ### P-27 The toast speaks on iOS `[a11y]` `[native]` S
 *Status:* todo
@@ -275,6 +275,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-21 · P-14 — a thread can be marked as what it's for (`declaredAt`, SQLite migration 2, additive; backups stay version 1 and carry it), at most three, a fourth offers a swap, hiding unmarks; plus the owner's no-keyboard-on-touch fix for the bridge · evidence: `whys.test.ts`, `storage.test.ts` (schema 2), `persistence.test.ts` (6 mutants red), `useStore.test.ts`, `e2e/why.spec.ts`, `e2e/bridge.spec.ts`, `e2e/a11y.spec.ts`, upgrade/downgrade probed in Chromium · audit: 14 reported · 9 reproduced · 7 fixed · 7 deferred (four to a new zoom item; Android double announce and coarse-pointer keyboard focus accepted; toast wording) · `04f6760`, `a5032c4` + audit fixes
 - 2026-11-21 · P-13, P-24 — after a log with no thread, Home asks "Toward something — or just itself?" (chips, + name it, Just itself; ignoring writes nothing); "Log this" keeps a line you've started and marks it as the step with a removable chip, and never clears a step edited since it was loaded · evidence: `bridge.test.ts`, `useStore.test.ts`, `loadNext.test.ts`, `persistence.test.ts`, `e2e/bridge.spec.ts`, `e2e/log-this.spec.ts`, `e2e/a11y.spec.ts`, screenshots · audit: 14 reported · 9 reproduced · 11 fixed · 3 deferred (iOS toast to a new item; keyboard-on-focus to the owner; two small test gaps) · `ac866f0`, `2a4b039` + audit fixes
 - 2026-11-21 · P-01, P-02, P-03 — the browser is asked to keep the data (Settings says whether it promised); renaming to a taken name is refused inline, with Cancel/Esc; `@` works at the cursor and a pick never deletes a typed word · evidence: `persistent.test.ts`, `compose.test.ts`, `domain.test.ts`, `e2e/persistence.spec.ts`, `e2e/mention-caret.spec.ts`, `e2e/editing.spec.ts` · audit: 13 reported · 8 reproduced · 10 fixed · 3 deferred (to new items and the import item) · `e2cdbb1`, `6a35eec`, `845724a` + audit fixes
 - 2026-11-21 · Adversarial audits ×2: data-safety, undo, perf (log on Activities 28 s → 0.1 s),

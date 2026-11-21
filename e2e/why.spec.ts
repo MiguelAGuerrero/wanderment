@@ -236,3 +236,37 @@ test('the swap row at 390 px: names wrap, every target is 44 px, nothing runs of
   expect((await long.boundingBox())!.height).toBeGreaterThan(60);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/why-swap-long.png`, fullPage: true });
 });
+
+test('declaring never moves the control under your finger; a second tap in the same place undeclares (audit F2)', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openThread(page, blob(0), 't1');
+  const before = await declareBtn(page).boundingBox();
+  await declareBtn(page).click();
+  await expect(undeclareBtn(page)).toBeVisible();
+  const after = await undeclareBtn(page).boundingBox();
+  expect(after!.x).toBe(before!.x);
+  expect(after!.y).toBe(before!.y);
+  await page.mouse.click(before!.x + 10, before!.y + before!.height / 2);
+  await expect(declareBtn(page)).toBeVisible();
+});
+
+test('at 200 % zoom the declared control’s words all fit (audit F3)', async ({ page }) => {
+  await page.setViewportSize({ width: 195, height: 422 });
+  await openThread(page, blob(1), 't1');
+  const fits = await undeclareBtn(page).evaluate((el) => {
+    const box = el.getBoundingClientRect();
+    const text = el.querySelector('div[dir="auto"]') ?? el;
+    return box.right <= document.documentElement.clientWidth && text.scrollWidth <= text.clientWidth + 1;
+  });
+  expect(fits).toBe(true);
+});
+
+test('while renaming, the control waits, so a typed name is never dropped (audit F4)', async ({ page }) => {
+  await openThread(page, blob(0), 't1');
+  await page.getByRole('button', { name: 'Rename' }).click();
+  await page.getByRole('textbox', { name: 'Thread name' }).fill('drawing practice');
+  await expect(declareBtn(page)).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Thread name' }).press('Enter');
+  await expect(page.getByText('drawing practice', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(declareBtn(page)).toBeVisible();
+});

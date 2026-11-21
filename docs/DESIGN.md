@@ -11,6 +11,9 @@ These came out of the design sessions and several rounds of persona reviews. Cha
 - A thread can be marked as **what it's for** (a "why"): a direction, not a goal — no target, progress
   or deadline. A why can be declared (named up front) or earned (most activity flows into it); both
   look the same on Home and both fade to Earlier when nothing flows in. _(Owner decision D-4.)_
+  At most **three** are declared at once, all visible: declaring a fourth offers a swap (you pick
+  which one steps back, nothing is chosen for you), and hiding a declared thread unmarks it (Undo
+  restores both). No counts are shown.
 - The **next** belongs to the activity's doing thread, else its first "to".
 
 ## Interaction

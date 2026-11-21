@@ -193,22 +193,25 @@ export default function ThreadPage() {
           accessibilityRole="button">
           <Text style={s.chipText}>{thread.hidden ? 'Unhide' : 'Hide'}</Text>
         </Pressable>
-        {/* A hidden thread can't be what it's for: unhide it first. */}
-        {!thread.hidden && (
+      </View>
+      {/* On its own row, so its label changing never moves it (or what's below) under a finger.
+          A hidden thread can't be what it's for (unhide it first), and it waits while renaming so
+          a typed name is never dropped. */}
+      {!thread.hidden && !renaming && (
+        <View style={styles.whyRow}>
           <Pressable
             ref={whyChip}
             onPress={() => {
               if (thread.declaredAt) return undeclareThread(thread.id);
-              cancelRename();
               const res = declareThread(thread.id);
               setSwapOpen(!res.ok && res.reason === 'full');
             }}
-            style={s.chip}
+            style={[s.chip, styles.whyChip]}
             accessibilityRole="button">
-            <Text style={s.chipText}>{thread.declaredAt ? 'Not what it’s for right now' : 'What it’s for'}</Text>
+            <Text style={[s.chipText, styles.whyText]}>{thread.declaredAt ? 'Not what it’s for right now' : 'What it’s for'}</Text>
           </Pressable>
-        )}
-      </View>
+        </View>
+      )}
 
       {/* Always mounted, so the offer is announced (once, politely) when it appears. */}
       <View accessibilityLiveRegion="polite">
@@ -279,6 +282,9 @@ const styles = StyleSheet.create({
   crumb: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 52, paddingLeft: 14, paddingRight: 4, backgroundColor: C.crumbBg, borderWidth: 1, borderTopWidth: 0, borderColor: C.line, borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
   pen: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  whyRow: { flexDirection: 'row', marginTop: -8 },
+  whyChip: { maxWidth: '100%' },
+  whyText: { flexShrink: 1 },
   swap: { gap: 8 },
   swapBtn: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface },
   pullInRow: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, backgroundColor: C.quietBg },

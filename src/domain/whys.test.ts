@@ -227,3 +227,22 @@ describe('backups and saved data', () => {
     expect(parseLegacyState(toLegacyState(declared, defaultSettings()))!.data.threads[ids.draw].declaredAt).toBe('2026-11-01T10:01:00.000Z');
   });
 });
+
+describe('imports keep the rules (audit of P-14)', () => {
+  const backupWith = (thread: Record<string, unknown>) =>
+    JSON.stringify({ app: 'wanderment', version: 1, data: { version: 1, threads: { t1: { id: 't1', name: 'draw', createdAt: '2026-01-01T00:00:00.000Z', ...thread } }, activities: {} } });
+
+  it('a hidden thread is never imported as a why (F1)', () => {
+    const data = fromBackup(backupWith({ hidden: true, declaredAt: '2026-02-01T00:00:00.000Z' }));
+    expect(data.threads.t1.hidden).toBe(true);
+    expect(data.threads.t1.declaredAt).toBeUndefined();
+    expect(declaredWhys(updateThread(data, 't1', { hidden: false }))).toEqual([]);
+  });
+
+  it('loose date strings are not marks, only real timestamps are (F8)', () => {
+    for (const loose of ['1', '0', '12/25', 'March 7', '2026']) {
+      expect(fromBackup(backupWith({ declaredAt: loose })).threads.t1.declaredAt, loose).toBeUndefined();
+    }
+    expect(fromBackup(backupWith({ declaredAt: '2026-02-01T09:30:00+02:00' })).threads.t1.declaredAt).toBe('2026-02-01T07:30:00.000Z');
+  });
+});

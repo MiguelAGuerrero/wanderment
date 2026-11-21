@@ -33,7 +33,9 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
       hidden: t.hidden === true,
       createdAt: isIso(t.createdAt) ? utc(t.createdAt) : new Date(0).toISOString(),
       // Never truncated: a backup with more than MAX_WHYS keeps every mark (readers cap).
-      declaredAt: isIso(t.declaredAt) ? utc(t.declaredAt) : undefined,
+      // A hidden thread is never a why (at most three, all visible), and only a real ISO timestamp
+      // counts: loose strings like "1" or "March 7" parse as dates but aren't one this app wrote.
+      declaredAt: t.hidden !== true && isIsoStamp(t.declaredAt) ? utc(t.declaredAt) : undefined,
     };
   }
 
@@ -61,6 +63,7 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
 }
 
 const isIso = (v: unknown): v is string => typeof v === 'string' && !Number.isNaN(Date.parse(v));
+const isIsoStamp = (v: unknown): v is string => isIso(v) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v);
 /** Dates are compared as strings elsewhere, so store them all as UTC ("…Z"). */
 const utc = (v: string) => new Date(v).toISOString();
 
