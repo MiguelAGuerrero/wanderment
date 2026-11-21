@@ -18,6 +18,21 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-22 — Locked out on iPhone: "couldn't open its data (The object is in an invalid state.)"
+> [Screenshot: Edge on iPhone, the blocked screen "Wanderment couldn't open its data (The object is
+> in an invalid state.). Reload to try again."] Ensure something like this doesn't happen again.
+> (Answers: Reload doesn't fix it — it keeps failing; before it: tapped the update banner, came back
+> to an old tab, also open elsewhere, opened it fresh; browser: Microsoft Edge on iPhone.)
+
+Interpretation (by /product): a reliability failure, the most serious kind — the person can't reach
+their data. Edge on iOS is WebKit. expo-sqlite's web storage takes exclusive OPFS access handles;
+WebKit refuses a second holder with `InvalidStateError` ("The object is in an invalid state"),
+which our lock-error check (Chromium wording) didn't recognise. Likeliest holder: another Wanderment
+page in the same browser — e.g. a suspended background tab among many — that never releases them,
+so Reload can't help. Not a product decision: fix as polish (P-29), and bring WebKit into CI (P-05).
+Screenshot: `docs/product/evidence/2026-11-22-edge-ios-invalid-state.png`.
+Led to: P-29 (top of Now), P-05 moved up.
+
 ## 2026-11-21 — Keyboard after a tap: only for "Log this"
 > (Answer to /product's question after the P-13/P-24 audit, finding F12.) Only for "Log this".
 

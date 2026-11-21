@@ -35,6 +35,24 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-29 Never locked out by another copy of the app `[data]` `[platform]` M
+*Status:* in-progress
+*Why:* owner, 2026-11-22 (Edge on iPhone, screenshot in `docs/product/evidence/`): "Wanderment
+couldn't open its data (The object is in an invalid state.)", and Reload keeps failing. On WebKit
+expo-sqlite's OPFS access handles are exclusive; another Wanderment page in the same browser (a
+suspended background tab, an update reload racing the old page) keeps them, and WebKit's
+`InvalidStateError` isn't recognised by our lock check, so the person is told to reload forever.
+*Done when:* contention errors on WebKit and Chromium (`InvalidStateError`, `NoModificationAllowedError`,
+"access handle") are recognised; a page holds the database (and the tab lock) only while it's visible
+— when hidden it finishes pending writes, closes the database and lets go, and when visible again it
+takes it back and reloads the data (so another tab's changes show and nothing is lost); a page that
+can't get the database says plainly that Wanderment is open elsewhere in this browser, how to free it
+(close other tabs, quit the browser), and opens by itself as soon as it's free — no reload needed;
+nothing is written or shown empty while waiting; the blocked screen names what failed (error name and
+step) for reports; unit + persistence tests (classification, retry, flush-before-close, reopen and
+reload, journal across a hide); e2e: a hidden page lets another open, a waiting page opens by itself
+when the other closes, an update reload never locks itself out; runs in WebKit in CI (with P-05).
+
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
