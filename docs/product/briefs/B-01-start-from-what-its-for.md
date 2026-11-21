@@ -16,9 +16,14 @@ Two problems:
 2. **Direction only arrives backwards.** Today a "TO …" header appears only after weeks of logs earn
    it. Someone who already knows what they care about can't start there.
 
-The owner's answers in this conversation shaped the brief: declared intents are a **seed that can
-still emerge** (not a replacement for emergence), and declaring is an **optional, skippable first
-step**.
+The owner's answers in this conversation shaped the brief:
+- declared intents are a **seed that can still emerge**, not a replacement for emergence;
+- declaring is an **optional, skippable first step**;
+- Home opens with a **live graph at the top**: a compact picture of the Ys and the threads feeding
+  them, with the cards, crumbs and log box below. It reacts to declaring and logging with a
+  **gentle animation**, which is off when the device asks for reduced motion.
+- The graph is **folded into this brief** rather than a separate one (owner note "A graph-first view
+  that updates live", 2026-11-21).
 
 ## Evidence
 - Owner notes: the 2026-11-21 entry above. It's one person's experience, and also the only usage
@@ -37,9 +42,18 @@ step**.
      doing this toward — like *make apparel* or *get stronger*."
    - Each named thing is a thread, marked as declared. "Skip" is one tap.
    - The log box is live the whole time, so capture is never blocked.
-2. **Home, before any logs.** Declared Ys appear straight away as headers, "TO MAKE APPAREL", each
-   with a quiet "+ a way toward it" line, so the next move is obvious: log toward it (the `@`
-   suggestions offer declared Ys first), or name a pursuit under it.
+2. **Home, before any logs.**
+   - The top of Home is a **compact live graph**: each declared Y is a node. The moment you name
+     one, it eases in.
+   - Below the graph, the same Ys appear as headers, "TO MAKE APPAREL", each with a quiet
+     "+ a way toward it" line. The next move is obvious: log toward it (the `@` suggestions offer
+     declared Ys first), or name a pursuit under it.
+   - **As you log**, the graph grows live. An activity "doing A → to Y" draws A as a node and a link
+     into Y. The new node or link eases in and briefly glows, then settles. Links thicken with use.
+   - The graph is an overview (all Ys plus the threads feeding them), not the Graph tab's
+     single-centre view. Tapping a node opens that thread. The full Graph tab stays for exploring.
+   - Without Ys (skipped, or nothing flows yet), the graph shows recent threads, or a single
+     "your first thread will appear here" placeholder. It never shows a blank box.
 3. **After the first log**, whether declared or not, Home always shows a bridge. If the log
    attached to nothing:
 
@@ -54,15 +68,23 @@ step**.
      "failed".
    - A Y can be undeclared from its page.
    - "why here?" says "You said this is what it's for", plus the flow numbers once there are any.
-5. **Empty, lots, offline, screen reader.**
-   - Zero Ys keeps today's plain list.
+5. **Empty, lots, offline, screen reader, motion.**
+   - Zero Ys keeps today's plain list under the graph.
    - With many Ys, at most 3 are declared, and earned ones group as today.
+   - With many threads, the compact graph shows the Ys plus the most active feeders, with "+N",
+     using the existing flow index (fast at 220 threads).
    - Everything is local and works offline.
+   - Screen readers get one summary line for the graph ("3 things it's for; 5 threads feed them").
+     The list below remains the accessible way through.
+   - The animation is skipped when Reduce Motion is on (iOS/Android setting, or
+     `prefers-reduced-motion` on web).
    - Headers are announced as headings, and the card and bridge have labelled inputs.
 
 ## Fit with the product
-- **DESIGN.md:** "Home shows a plain YOUR THREADS list until value headers are earned" becomes
-  "… until value headers are earned **or declared**". The *never* list holds: a Y has no target, %,
+- **DESIGN.md:** "Home shows a plain YOUR THREADS list until value headers are earned" becomes:
+  "Home opens with a compact live graph of what it's for and what feeds it; below it, a plain YOUR
+  THREADS list until value headers are earned **or declared**". The Reduce Motion line ("respect
+  Reduce Motion") already applies. The *never* list holds: a Y has no target, %,
   streak, deadline or reminder, and nothing is created or attached without a tap. Capture stays
   sacred: the first step is skippable and never blocks the log box.
 - **STRATEGY.md:** north star 3 "Direction emerges… without you having to declare anything up front"
@@ -90,6 +112,21 @@ step**.
    - The `@` menu ranks declared Ys first.
    - *Done when:* domain tests for grouping, fading and merging; e2e for Home with zero, one or three
      declared Ys.
+3b. **Live graph on top of Home** (M, `[feature]`).
+   - A compact overview graph: the Ys plus their most active feeders, a placeholder when empty, "+N"
+     past the cap.
+   - It reuses `buildFlowIndex`. A domain function `overview(data, index)` returns the nodes and
+     links.
+   - Tapping a node opens the thread.
+   - A screen-reader summary line.
+   - *Done when:* domain tests for the overview (empty, Ys only, feeders, cap); e2e showing a node
+     appearing right after declaring and a link right after logging; axe; layout at 390 px and 200 %
+     zoom; Home stays fast with `bigBlob`.
+3c. **Gentle live animation** (S, `[feature]` `[a11y]`).
+   - A new node or link eases in and glows briefly.
+   - Off under Reduce Motion (native setting, or `prefers-reduced-motion` on web).
+   - *Done when:* e2e with reduced motion emulated shows no animation; the default animates once
+     and then settles; no layout shift for the cards below.
 4. **Optional first step** (M, `[feature]`).
    - The first-open card: name up to 3 Ys, skip in one tap, and the log box is usable throughout.
    - *Done when:* e2e for declare, skip, and logging during the card; axe.
@@ -114,11 +151,12 @@ step**.
   values are already threads that receive flow.
 
 ## Decision requested
-**Build B-01 slices 2–4 (slice 1 ships anyway as P-13), and approve the wording changes to DESIGN.md,
-STRATEGY.md and the README described above?**
+**Build B-01 slices 2, 3, 3b, 3c and 4 (slice 1 ships anyway as P-13), and approve the wording
+changes to DESIGN.md, STRATEGY.md and the README described above?**
 
-- **Go** (recommended): slices 2–4 become roadmap items and get built in order. You edit
-  STRATEGY.md, or let /product propose exact wording for you to accept.
+- **Go** (recommended): the slices become roadmap items and get built in order (data → Ys on Home →
+  live graph → animation → optional first step). You edit STRATEGY.md, or let /product propose
+  exact wording for you to accept.
 - **Go, but change …**
 - **Not now**
 - **No**

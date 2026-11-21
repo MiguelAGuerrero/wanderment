@@ -146,8 +146,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   monogram"…) for P-07.
 - **D-2 Dark palette** — approve a proposed dark palette (the skill will bring options) for P-06.
 - **D-4 Start from what it's for** — build [B-01](product/briefs/B-01-start-from-what-its-for.md)
-  slices 2–4 (declared "what it's for" threads that seed Home, an optional first step), and change
-  the "declared up front" wording in DESIGN.md / STRATEGY.md / README? Recommended: **go**.
+  slices 2–4 (declared "what it's for" threads that seed Home, a compact live graph at the top of
+  Home that grows as you declare and log — gentle animation, off under Reduce Motion — and an optional
+  first step), and change the Home/"declared up front" wording in DESIGN.md / STRATEGY.md / README?
+  Recommended: **go**.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 

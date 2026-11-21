@@ -18,6 +18,20 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-21 — A graph-first view that updates live
+> I want to consider maybe a graph first view so that way when you declare intents or activities you
+> get to see a graph update live.
+
+Interpretation (by /product): the owner wants the graph to be where they *start*, not a tab they
+visit later, and to see it respond the moment they declare a Y (B-01) or log an activity: the new
+node or link appears. That's big (it changes what the first screen is, and touches DESIGN.md's Home
+rule and Reduce Motion), and it's closely tied to B-01. Clarifying what "graph first" means in this
+run.
+
+Answers: live graph on top of Home (cards, crumbs and log box below); gentle animation, off under
+Reduce Motion; folded into B-01.
+Led to: B-01 slices 3b (live graph on Home) and 3c (gentle animation); D-4 updated.
+
 ## 2026-11-21 — First log feels disconnected; declare intents up front
 > The initial logging of activities [is] a little bit unintuitive because [after] my first log the
 > onboarding text disappears and I see no threads, and so the disconnect between the activity I
