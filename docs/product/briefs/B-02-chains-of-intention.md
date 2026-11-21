@@ -1,6 +1,6 @@
 # B-02 — Chains of intention
 
-**Status:** proposed · **Decision:** D-5 · **Theme:** Warm return / Seeing flow · **Date:** 2026-11-21
+**Status:** building · **Decision:** D-5 — go with model A, only the top step loggable, 2026-11-21 (→ P-19, P-20, P-21; DESIGN.md "at most one visible next" line is updated when P-19 ships) · **Theme:** Warm return / Seeing flow · **Date:** 2026-11-21
 
 ## The problem, in the owner's terms
 > "You could define the next step towards a value or goal ahead of time, but only one at a time —

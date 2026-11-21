@@ -131,6 +131,31 @@ live throughout.
 time", "Let it surface" as an equal path (no trace), one value-shaped example; logging dismisses it
 for good; e2e for declare, let-it-surface and log-during-card; axe. (B-01 panel refinement 9.)
 
+### P-19 A step toward this `[data]` `[feature]` M
+*Status:* todo
+*Why:* B-02 slice 1 (D-5 go, model A): a next step can hold a smaller step on top — one staged at
+a time — forming chains of intention ("toward …").
+*Done when:* stacked steps per thread (additive migration; export carries the whole stack and
+round-trips, `next` stays the top for older versions); "+ a step toward this" (one step per tap),
+remove, "let these go" (Undo) and "done it already" (Undo) behind ✎ on the thread page; logging the
+top surfaces the one beneath, calmly; the logged activity keeps "toward …" as plain text; toast
+"Logged in X, toward Y" spoken once; Home crumb shows top + "toward …", wraps, accessible name starts
+with the visible text; only the top is loggable; no "chain" wording, no counts; domain + migration +
+mutation-checked persistence tests; e2e; axe. (B-02 panel refinements 1–6, 9, 10.)
+
+### P-20 Make a step a thread `[feature]` S
+*Status:* todo
+*Why:* B-02 slice 2: a step that becomes a pursuit can be promoted — on request only.
+*Done when:* promote from ✎; its first log presets a visible "to" chip toward the step's why (never
+applied silently); toast "Now a thread, toward X. Undo"; the original crumb shows what remains;
+focus lands on the result; the live graph shows the link once logged; e2e. (Refinement 7.)
+
+### P-21 The "toward" view on the thread page `[ux]` S
+*Status:* todo
+*Why:* B-02 slice 3: see the staged steps as one sentence ("A → toward B → toward C").
+*Done when:* collapsed disclosure with expanded state and list semantics; staged steps only, no
+dates/ticks/numbers; *Earlier* rows show the top only; e2e + axe. (Refinement 8.)
+
 ### P-06 Dark mode `[ux]` `[a11y]` M — needs 🙋 D-2
 *Status:* blocked
 *Why:* `app.json` says `userInterfaceStyle: automatic`, but every colour is fixed light.
@@ -202,8 +227,11 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   → P-13, P-14 (Now), P-15–P-18 (Next). B-01 is `building`.
 - **D-5 Chains of intention** — build [B-02](product/briefs/B-02-chains-of-intention.md): one staged
   next step that can take a smaller step "on top" (the old one becomes its why), forming chains of
-  intention; steps can be promoted to threads. Reverses DESIGN.md's cut of hidden "then" pieces, so
+  intention; steps can be promoted to threads. Reverses the roadmap's cut of hidden "then" pieces, so
   the rules would be refined. Recommended: decided after the persona panel.
+  **Answered 2026-11-21: go with model A; only the top step is loggable.** → P-19, P-20, P-21 (Next,
+  after B-01's slices). B-02 is `building`. Also decided: no "Show graph on Home" setting for now
+  (B-01 panel option).
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
@@ -230,4 +258,6 @@ Newest first. One line per batch: date · items · commit.
 
 ## Cut on purpose
 
-Merge threads, split next steps into hidden "then" pieces, pinning. Don't build them.
+Merge threads, pinning. Don't build them.
+(Splitting next steps into hidden "then" pieces was cut here too; **D-5 reversed it** in a narrower
+form: one staged step that can hold a smaller step "toward" it — see B-02.)

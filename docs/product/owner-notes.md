@@ -40,6 +40,8 @@ Interpretation (by /product):
   It's a product decision: brief B-02 plus the persona panel, then ask.
 
 Led to: brief B-02 (chains of intention), persona panel, D-5.
+Decision (D-5, same day, after the persona panel): **go with model A; only the top step is loggable**;
+no "Show graph on Home" setting for now. → P-19, P-20, P-21.
 
 ## 2026-11-21 — Refining the philosophy: know the why, leave the how open
 > I do recognize the contradiction, so there might have to be a refining [of the] app philosophy,

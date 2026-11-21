@@ -174,3 +174,4 @@ Share-in from other apps (needs a native dev build), home-screen widget, opt-in 
 photo evidence + per-thread gallery, native app store builds via EAS.
 
 **Cut on purpose — do not build:** merge threads, split next steps into hidden "then" pieces, pinning.
+_(Later: the owner reversed the "then" pieces cut in a narrower form — decision D-5, chains of intention, B-02.)_
