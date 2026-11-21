@@ -36,7 +36,7 @@ _Empty. Write here — one line is enough._
 ## Now
 
 ### P-24 "Log this" keeps what you typed `[capture]` S
-*Status:* todo
+*Status:* in-progress
 *Why:* B-03 slice 0 (D-6): the crumb's "Log this" replaces the whole draft (`loadNext`), wiping a
 line you'd started.
 *Done when:* with text in the box, "Log this" keeps the text, caret and existing chips, and adds a
@@ -45,7 +45,7 @@ then clears the step; removing the chip logs it as typed with no step consumed; 
 works as today; store test + e2e for both; toast and accessible names say so; axe.
 
 ### P-13 A bridge after the first log `[ux]` S
-*Status:* todo
+*Status:* in-progress
 *Why:* after a first log with no `@`, Home loses the welcome and shows no threads — nothing explains
 threads or what to do next (owner, 2026-11-21; brief B-01 slice 1, which ships regardless of D-4).
 *Done when:* for the latest activity with no thread only, Home shows "Logged. Toward something — or
