@@ -18,6 +18,29 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-21 — Chains of intention: one staged step, stacked on top
+> The application of this is that you could define the next step towards a value or goal ahead of
+> time, but only one at a time — there can only ever be one staged at all. And if that [one] needs
+> to be edited or extended, such that maybe you wanted to [add] another note on top of it, you can,
+> and that implicitly creates a chain of intentions that the user can select and do by a quick tap
+> of the note, granted each [note] itself can be treated as an intention. So X to Y, even if Y is an
+> action like "practice head proportions" to "be a better drawer", and "be a better drawer" to
+> something else — it's perfectly valid chains. That's the implication I see outright.
+
+Interpretation (by /product):
+- A next step is itself an intention, so it can be a *why* for a smaller step.
+- **Only one step is ever staged.** "Adding a note on top" makes the new note the staged one, and the
+  previous step becomes its why. Chains of intention grow this way ("practice head proportions" → "be
+  a better drawer" → …). Tapping the staged note loads it into the log box, as crumbs do today.
+- This rubs against three written rules:
+  - DESIGN.md's *Cut from v1: split next steps into hidden "then" pieces*;
+  - STRATEGY.md's just-accepted *no plans for the how*;
+  - DESIGN.md's *links between threads are never stored* (if the chain links are stored).
+
+  It's a product decision: brief B-02 plus the persona panel, then ask.
+
+Led to: brief B-02 (chains of intention), persona panel, D-5.
+
 ## 2026-11-21 — Refining the philosophy: know the why, leave the how open
 > I do recognize the contradiction, so there might have to be a refining [of the] app philosophy,
 > because intents and values are ultimately the things [we're] moving towards, and how we exactly

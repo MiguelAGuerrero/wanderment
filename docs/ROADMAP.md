@@ -191,6 +191,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   Recommended: **go**.
   **Answered 2026-11-21: go, with the live graph earlier; philosophy wording accepted as written.**
   → P-13, P-14 (Now), P-15–P-18 (Next). B-01 is `building`.
+- **D-5 Chains of intention** — build [B-02](product/briefs/B-02-chains-of-intention.md): one staged
+  next step that can take a smaller step "on top" (the old one becomes its why), forming chains of
+  intention; steps can be promoted to threads. Reverses DESIGN.md's cut of hidden "then" pieces, so
+  the rules would be refined. Recommended: decided after the persona panel.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
