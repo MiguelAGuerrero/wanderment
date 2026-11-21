@@ -1,18 +1,65 @@
 import { normalizeName } from './model';
 import { Data, Id, Thread } from './types';
 
+const MAX_QUERY = 40;
+
 /**
- * Finds the "@query" the cursor is currently inside, if any.
- * Spaces are allowed after @ so multi-word thread names can be matched;
- * the query ends at the end of the text (the cursor is assumed to be at the end).
+ * Finds the "@query" the caret (default: the end of the text) is inside, if any: the nearest @
+ * before the caret, at the start of the text or after whitespace (so not an email address), with
+ * no newline and at most 40 characters between it and the caret. Spaces are allowed so multi-word
+ * thread names can be matched. The query is the text between the @ and the caret; `end` also takes
+ * in the rest of the word the caret is in ("@ma|ke" → "@make"), so picking leaves no stray letters.
  */
-export function activeMention(text: string): { start: number; query: string } | undefined {
-  const at = text.lastIndexOf('@');
+export function mentionAt(text: string, caret = text.length): { start: number; end: number; query: string } | undefined {
+  const c = Math.max(0, Math.min(caret, text.length));
+  let at = c - 1;
+  while (at >= 0 && text[at] !== '@') {
+    if (text[at] === '\n' || c - at > MAX_QUERY) return undefined;
+    at--;
+  }
   if (at < 0) return undefined;
   if (at > 0 && !/\s/.test(text[at - 1])) return undefined; // e.g. an email address
-  const query = text.slice(at + 1);
-  if (query.length > 40 || /\n/.test(query)) return undefined;
-  return { start: at, query };
+  let end = c;
+  // Only when the caret is in a word: after a space, the next word is the sentence's, not the mention's.
+  if (!/\s/.test(text[c - 1])) while (end < text.length && !/\s/.test(text[end])) end++;
+  return { start: at, end, query: text.slice(at + 1, c) };
+}
+
+/** The "@query" the caret (default: the end of the text) is inside, if any. See `mentionAt`. */
+export function activeMention(text: string, caret = text.length): { start: number; query: string } | undefined {
+  const m = mentionAt(text, caret);
+  return m && { start: m.start, query: m.query };
+}
+
+/**
+ * Takes the "@query" at the caret out of the text (the picked thread becomes a chip). The two sides
+ * are joined with exactly one space, never a leading one; the caret goes to the join.
+ */
+export function replaceActiveMention(text: string, caret: number): { text: string; caret: number } {
+  const m = mentionAt(text, caret);
+  if (!m) return { text, caret: Math.max(0, Math.min(caret, text.length)) };
+  const head = text.slice(0, m.start).replace(/\s+$/, ' ').trimStart();
+  const tail = text.slice(m.end).trimStart();
+  const join = head && tail && !/\s$/.test(head) ? ' ' : '';
+  return { text: head + join + tail, caret: head.length + join.length };
+}
+
+/** Replaces the "@query" at the end of the text with nothing (the picked thread becomes a chip). */
+export function removeActiveMention(text: string): string {
+  return replaceActiveMention(text, text.length).text;
+}
+
+/**
+ * Where the caret most likely is after an edit turned `before` into `after`: just after the part
+ * that changed. Used until the platform reports the real selection (native may send it late).
+ */
+export function caretAfterEdit(before: string, after: string): number {
+  let prefix = 0;
+  while (prefix < before.length && prefix < after.length && before[prefix] === after[prefix]) prefix++;
+  let suffix = 0;
+  const room = Math.min(before.length, after.length) - prefix;
+  while (suffix < room && before[before.length - 1 - suffix] === after[after.length - 1 - suffix]) suffix++;
+  return after.length - suffix;
 }
 
 /** Top matches for an @query: prefix matches first, then substring, most recent first. */
@@ -36,13 +83,6 @@ export function suggestThreads(data: Data, query: string, recentOrder: Id[], lim
     .sort((a, b) => a.r - b.r || recency(a.t) - recency(b.t))
     .slice(0, limit)
     .map(({ t }) => t);
-}
-
-/** Replaces the active "@query" with nothing (the picked thread becomes a chip). */
-export function removeActiveMention(text: string): string {
-  const m = activeMention(text);
-  if (!m) return text;
-  return text.slice(0, m.start).replace(/\s+$/, ' ').trimStart();
 }
 
 const STOP = new Set(['the', 'a', 'an', 'to', 'of', 'for', 'and', 'in', 'on', 'my', 'with', 'at', 'some', 'more', 'from', 'into', 'about']);
