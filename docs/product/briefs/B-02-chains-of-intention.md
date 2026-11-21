@@ -56,7 +56,8 @@ that, this", and the step can't carry a why of its own. A step that's really an 
 
 ## Fit with the product
 - **DESIGN.md, *at most one visible next*.** Kept: only one step is ever staged.
-- **DESIGN.md, *cut: hidden "then" pieces*.** That cut was about splitting a next step into a hidden
+- **The cut of hidden "then" pieces** (written in `docs/ROADMAP.md` *Cut on purpose* and
+  `docs/IMPLEMENTATION_PLAN.md`, not in DESIGN.md). That cut was about splitting a next step into a hidden
   sequence planned in advance. Here a chain grows only from the top, one step at a time, at the
   moment you know it, and each step is the *why* of the one above, not a later item in a plan.
   **Still a reversal of a written cut. The owner decides.**
@@ -79,7 +80,80 @@ that, this", and the step can't carry a why of its own. A step that's really an 
 - **C — Not now.** Keep one note; revisit after B-01 ships and the live graph is in use.
 
 ## Persona panel
-_To be filled by /product before the owner is asked (Step D2)._
+_Simulated perspectives from `docs/product/PERSONAS.md`, run 2026-11-21 before asking. This is a
+thinking tool, not user research. Full reports: `.polish/product/panel-B-02-{1,2,3}.md` (local)._
+
+| Persona | Reaction | Model | What it hinges on |
+|---|---|---|---|
+| A — Impulsive Dabbler | uneasy; *yes, by mostly ignoring it* | A, strongly | Letting go is as easy as stacking; stacked impulses don't come back as "shoulds" |
+| B — Intentional Builder | delighted, one frustration; *yes* | wants B, *needs* A | Promote and log visibly draws the link: the graph shows what was done, not what was planned |
+| C — Pressure-Sensitive Returner | uneasy; *maybe* | A | Stepping down to something smaller, not a queue; no "chain" language |
+| D — Reflective Meaning-Seeker | delighted; *yes* | A | "toward …" in words, kept in the record; whys never become tasks |
+| E — Skeptical Minimalist | fine → uneasy; *yes, if out of the way* | A (B a dealbreaker) | The Home crumb unchanged for non-users; the full stack survives export |
+| F — Assistive-Tech User | uneasy; *maybe → yes* | A, strongly | No extra stop per card; the chain is spoken once via the toast; the visible-text-first name |
+
+**Trade-offs.**
+- It favours why-first, reflective structures (P0, D), conscientious builders (B), and anyone who
+  navigates by text (F: under A the whole chain is words).
+- It costs low-conscientiousness dabblers (A): stacks pile up and resurface on log.
+- It costs pressure-sensitive returners (C): "done one, here's another" in one beat, and long stacks
+  that read as counts.
+- It costs fast typers (E): only "Log this" uses up a step today.
+- Both A and B would turn the stack into a hidden list, one by impulse and one by plan. The display
+  guardrails protect the screen, not the stack. Hence the refinements below.
+
+**Strong, lean on it.**
+- The "toward …" line is the hinge for everyone: the reason sits next to the step, in the user's
+  words, with no count.
+- After a month away, the crumb greets you with your past self's reason, the warmest re-entry the
+  app has.
+- Shrinking a step without erasing the aim (C: the kindest gesture in the app).
+- Only one staged step, so Home stays stable.
+- Model A adds no new kind of thing.
+
+**Refinements folded in** (inside the proposal):
+1. **Wording.**
+   - The action is **"+ a step toward this"**: relational, not "before that", which reads as a
+     sequence or prerequisite.
+   - The word "chain" is never shown on screen. The thread-page view is called "toward".
+   - "Let these go" (with Undo) replaces "Clear the chain".
+2. **The Home crumb stays as today**: two targets, plus the "toward …" line when a stack exists, and
+   it wraps rather than truncates. Add, remove, "let these go", "done it already" and "make this a
+   thread" all live behind the existing ✎ (thread page). "Log this" stays one tap.
+3. **One step per "+" tap.** The input closes after one step, so there's no add-another loop.
+4. **"Done it already"**, on the thread page: clears the top step without logging, with Undo.
+   Nothing is detected or applied automatically.
+5. **The logged activity keeps its "toward …" as plain text** (not a link). The toast says "Logged in
+   draw, toward practice head proportions" and speaks it once, politely. Focus never moves.
+6. **The base of a stack is its thread or why**, which is never a loggable step. Whys don't turn into
+   tasks.
+7. **Promotion keeps the relationship visible.** The new thread's first log presets a visible "to"
+   chip, and the toast says "Now a thread, toward draw. Undo". It's only on request, never suggested
+   by counting recurrence.
+8. **The "toward" view on the thread page shows only staged steps**, as a sentence ("A → toward B →
+   toward C"): no dates, ticks or numbers. *Earlier* rows show only the top step.
+9. **Export carries the whole stack and round-trips**, and older versions see the top as `next`.
+10. **Accessible name starts with the visible text**: "{step}, toward {why}, Log this. Next step for
+    {thread}…". Focus lands on the result after remove, let go or promote.
+
+**Offered to the owner as options.**
+- Model A (all six personas) or B.
+- Whether a deeper step can be chosen and logged directly ("select and do"). D wants it; to F it
+  reads like a checklist.
+
+**Refused, with the rule.**
+- %, "3 of 5", checkmarks, milestones (B): never-list, "no plans for the how".
+- A per-thread idea list (A): no plans for the how.
+- Steps that expire or pop automatically when the typed text is similar (A, E): nothing applied
+  silently.
+- Nudges about untouched steps (F): no notifications.
+- A pause timer after a log (C): no timers. The surfaced step simply stays calm instead.
+
+**Against the owner's notes (P0).** It keeps the owner's mechanics: one staged step, stacking on top,
+each step an intention, a quick tap to do it. It refines the words and where controls live. The one
+gap A leaves against the owner's "X to Y chains" is that chains reach the graph only through
+promotion plus logging. The preset "to" chip (refinement 7) is the cheapest bridge. Showing them in
+the graph immediately is option B.
 
 ## Slices (option A)
 1. **Stack on top** (M, `[data]` `[feature]`).
