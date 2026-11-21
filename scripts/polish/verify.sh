@@ -49,6 +49,8 @@ step roadmap node scripts/polish/roadmap-lint.mjs
 
 if [ "$mode" = full ] && [ $failed = 0 ]; then
   step build npm run build:web
+  # Its own port: never reuse (or race) a server a scout or auditor started on the default one.
+  export E2E_PORT=${E2E_PORT:-4199}
   [ $failed = 0 ] && step e2e env E2E_PREBUILT=1 npx playwright test --reporter=dot
   if [ $failed = 0 ] && [ "$repeat" -gt 0 ]; then
     specs=$(changed_specs | tr '\n' ' ')

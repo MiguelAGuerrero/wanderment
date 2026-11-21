@@ -1,6 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4173;
+// E2E_PORT gives a run its own server (scripts/polish/verify.sh uses one), so a server another
+// agent started on the default port is never reused — or shut down mid-run.
+const PORT = Number(process.env.E2E_PORT ?? 4173);
 
 export default defineConfig({
   testDir: './e2e',
@@ -21,7 +23,7 @@ export default defineConfig({
     command: process.env.E2E_PREBUILT ? 'node e2e/serve.mjs' : 'npm run build:web && node e2e/serve.mjs',
     url: `http://localhost:${PORT}/wanderment/`,
     env: { PORT: String(PORT) },
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI && !process.env.E2E_PORT,
     timeout: 180_000,
   },
 });

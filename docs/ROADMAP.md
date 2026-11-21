@@ -36,7 +36,7 @@ _Empty. Write here — one line is enough._
 ## Now
 
 ### P-01 Ask the browser to keep the data `[data]` S
-*Status:* todo
+*Status:* in-progress
 *Why:* nothing calls `navigator.storage.persist()`, so a browser may evict the database (Safari
 clears storage of sites not used for a while unless they're installed to the Home Screen).
 *Done when:* persistence is requested at a sensible moment (first log, or after install); Settings
@@ -44,14 +44,14 @@ says plainly whether this browser promised to keep the data and suggests Install
 e2e covers the granted and refused paths (stubbed).
 
 ### P-02 Renaming to a name another thread already has `[ux]` S
-*Status:* todo
+*Status:* in-progress
 *Why:* `updateThread` accepts any name, so two threads can end up with the same name and `@`
 suggestions become ambiguous. Merging is cut on purpose, so the rename has to be refused kindly.
 *Done when:* renaming to an existing name (case/spacing-insensitive) is refused with a clear inline
 message and the field keeps the typed text; domain test + e2e.
 
 ### P-03 `@` works where the cursor is, not only at the end `[capture]` M
-*Status:* todo
+*Status:* in-progress
 *Why:* `activeMention` reads the text up to its end, so typing `@` mid-sentence offers a thread name
 that includes the rest of the sentence, and picking deletes the text after the cursor.
 *Done when:* the active mention is found at the caret on web and native; picking replaces only the
