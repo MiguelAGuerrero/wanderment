@@ -84,6 +84,6 @@ test('the graph, its list view and attach mode have no serious accessibility vio
   await expectNoSeriousViolations(page);
   await page.getByRole('button', { name: 'Attach loose (1)' }).click();
   await expectNoSeriousViolations(page);
-  await page.getByRole('tab', { name: 'List' }).click();
+  await page.getByRole('tab', { name: 'List view' }).click();
   await expectNoSeriousViolations(page);
 });

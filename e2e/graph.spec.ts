@@ -38,7 +38,7 @@ test('opens on the top value, re-centres on tap, and the breadcrumb goes back', 
   await page.getByRole('switch', { name: 'Show two steps out' }).click();
   await expect(page.getByRole('button', { name: 'doodle, 1 link' })).toBeVisible();
 
-  await page.getByRole('tab', { name: 'List' }).click();
+  await page.getByRole('tab', { name: 'List view' }).click();
   await expect(page.getByRole('heading', { name: 'make apparel flows to' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Flows into make apparel' })).toBeVisible();
 });
@@ -67,7 +67,6 @@ test('attach mode: one loose activity at a time; tap a node, Leave as is, Skip',
   await page.getByRole('button', { name: 'Done' }).click();
   await expect(page.getByRole('button', { name: /Attach loose/ })).toHaveCount(0);
   await page.reload();
-  await page.getByRole('tab', { name: 'Graph' }).click();
   await expect(centre(page, 'make apparel')).toBeVisible();
   await expect(page.getByRole('button', { name: /Attach loose/ })).toHaveCount(0);
 });

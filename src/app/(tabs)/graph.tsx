@@ -105,7 +105,13 @@ export default function Graph() {
         </Text>
         <View style={styles.segment} accessibilityRole="tablist">
           {(['graph', 'list'] as const).map((v) => (
-            <Pressable key={v} onPress={() => setView(v)} style={[styles.seg, view === v && styles.segOn]} accessibilityRole="tab" accessibilityState={{ selected: view === v }}>
+            <Pressable
+              key={v}
+              onPress={() => setView(v)}
+              style={[styles.seg, view === v && styles.segOn]}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: view === v }}
+              accessibilityLabel={v === 'graph' ? 'Graph view' : 'List view'}>
               <Text style={[styles.segText, view === v && { color: '#fff' }]}>{v === 'graph' ? 'Graph' : 'List'}</Text>
             </Pressable>
           ))}
