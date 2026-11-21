@@ -232,6 +232,13 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   **Answered 2026-11-21: go with model A; only the top step is loggable.** → P-19, P-20, P-21 (Next,
   after B-01's slices). B-02 is `building`. Also decided: no "Show graph on Home" setting for now
   (B-01 panel option).
+- **D-6 The log box also finds** — build [B-03](product/briefs/B-03-log-field-finds.md): as you
+  type on Home, up to 3 quiet chips show matching whys, threads, staged steps and past activities
+  (whole line, in words, no dates); a tap focuses it in the live graph, with a "Showing … · Show all"
+  caption; Return still logs exactly as typed. Slices after P-15. Also "Log this keeps what you
+  typed" (a fix to today's crumb) now. Options: one-off activities via "All results →"
+  (recommended); whether a kept line counts as the step. Recommended: **go, with the panel's
+  refinements**.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
