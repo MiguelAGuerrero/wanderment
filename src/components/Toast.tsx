@@ -40,6 +40,7 @@ export function Toast() {
           style={styles.body}
           accessibilityRole={toast.activityId ? 'button' : 'text'}>
           <Text style={styles.msg}>{toast.message}</Text>
+          {toast.detail && <Text style={styles.detail}>{toast.detail}</Text>}
           {toast.activityId && <Text style={styles.sub}>Tap for details</Text>}
         </Pressable>
         <Pressable {...hold} onPress={undo} style={styles.undo} accessibilityRole="button" accessibilityLabel="Undo">
@@ -55,6 +56,7 @@ const styles = StyleSheet.create({
   toast: { width: '100%', maxWidth: 616, flexDirection: 'row', alignItems: 'center', backgroundColor: C.ink, borderRadius: 14, paddingRight: 6, minHeight: 52 },
   body: { flex: 1, paddingLeft: 16, paddingVertical: 6, minHeight: 52, justifyContent: 'center' },
   msg: { color: '#fff', fontSize: 15 },
+  detail: { color: '#FFFFFF', fontSize: 14 },
   sub: { color: '#CFCBC3', fontSize: 12 },
   undo: { height: 44, paddingHorizontal: 12, justifyContent: 'center' },
   undoText: { color: '#F2B48A', fontWeight: '600', fontSize: 15 },

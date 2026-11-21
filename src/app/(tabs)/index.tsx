@@ -1,8 +1,9 @@
-import { Link, router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { Link, router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
+import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
 import { ThreadCard } from '@/components/ThreadCard';
 import { candidatesForThread, groupByValue, valueHeader, whyValue } from '@/domain/emergence';
@@ -17,6 +18,15 @@ const EXAMPLES = ['practiced guitar', 'edited a clip', 'leg day', 'sketched for 
 export default function Home() {
   const data = useStore((st) => st.data);
   const setDraft = useStore((st) => st.setDraft);
+  const dismissBridge = useStore((st) => st.dismissBridge);
+  // The bridge is one moment on Home: it goes when Home is left. Home stays mounted in the tabs, so
+  // this runs on blur, and on focus too (in case anything set it while Home was in the background).
+  useFocusEffect(
+    useCallback(() => {
+      dismissBridge();
+      return dismissBridge;
+    }, [dismissBridge]),
+  );
   const { current, earlier } = useMemo(() => homeThreads(data), [data]);
   const isEmpty = Object.keys(data.activities).length === 0 && Object.keys(data.threads).length === 0;
   const firstThread = Object.keys(data.activities).length <= 2 && current.length === 1 ? current[0] : undefined;
@@ -33,7 +43,7 @@ export default function Home() {
   );
 
   return (
-    <Screen>
+    <Screen bridge>
       <View style={styles.header}>
         <Text style={s.h1} accessibilityRole="header">
           Wanderment
@@ -55,6 +65,8 @@ export default function Home() {
           </Link>
         </View>
       </View>
+
+      <LogBridge />
 
       {isEmpty ? (
         <View style={{ gap: 18, marginTop: 24 }}>

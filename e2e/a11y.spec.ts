@@ -115,3 +115,38 @@ test('Settings, with the “may clear your data” line and its button, has no s
   expect(box!.height).toBeGreaterThanOrEqual(44);
   await expectNoSeriousViolations(page);
 });
+
+test('the bridge after a log, and its name field, have no serious accessibility violations at 390 px', async ({ page }) => {
+  const long = 'practise the long slow patient art of baking sourdough every single weekend morning';
+  await openHome(page);
+  // Longer than the @ menu takes, so it's named with "+ New thread" (shown once something is logged).
+  await logLine(page, 'fed the starter');
+  await page.getByRole('button', { name: '+ New thread' }).click();
+  const name = page.getByRole('textbox', { name: 'New thread name' });
+  await name.fill(long);
+  await name.press('Enter');
+  await expect(page.getByRole('button', { name: new RegExp(`^${long}`) })).toBeVisible();
+  await logLine(page, 'read a novel');
+
+  const bridge = page.getByRole('group', { name: 'Attach what you just logged' });
+  await expect(bridge).toBeVisible();
+  await expectNoSeriousViolations(page);
+
+  // The long name wraps inside its chip instead of running off the 390 px screen.
+  const chip = bridge.getByRole('button', { name: `Attach to ${long}` });
+  const chipBox = (await chip.boundingBox())!;
+  expect(chipBox.x + chipBox.width).toBeLessThanOrEqual(390);
+  const oneLine = (await bridge.getByRole('button', { name: '+ name it' }).boundingBox())!;
+  expect(chipBox.height).toBeGreaterThan(oneLine.height);
+  expect(await chip.evaluate((el) => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  for (const button of await bridge.getByRole('button').all()) {
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
+
+  await bridge.getByRole('button', { name: '+ name it' }).click();
+  const field = page.getByRole('textbox', { name: 'Name the thread it was toward' });
+  await expect(field).toBeFocused();
+  expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await expectNoSeriousViolations(page);
+});

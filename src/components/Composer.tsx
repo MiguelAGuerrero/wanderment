@@ -14,7 +14,7 @@ import { C, s } from '@/theme';
  * replacing only that @word. On web, ↑/↓ move through them and Esc closes them. An @word that isn't
  * picked stays plain text — it never creates a thread.
  */
-export function Composer({ presetDoingId, placeholder = 'What did you just do?' }: { presetDoingId?: Id; placeholder?: string }) {
+export function Composer({ presetDoingId, placeholder = 'What did you just do?', bridge }: { presetDoingId?: Id; placeholder?: string; bridge?: boolean }) {
   const data = useStore((st) => st.data);
   const draft = useStore((st) => st.draft);
   const setDraft = useStore((st) => st.setDraft);
@@ -113,7 +113,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?' 
     setPullInOffer(id);
   };
   const submit = () => {
-    if (log({ doingId })) inputRef.current?.focus();
+    if (log({ doingId }, { bridge })) inputRef.current?.focus();
   };
 
   const onKeyPress = (e: { nativeEvent: { key?: string }; preventDefault?: () => void }) => {

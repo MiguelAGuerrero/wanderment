@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { applyUndo, UndoEntry, undoEntry } from '@/domain/diff';
+import { attachToNewThread } from '@/domain/bridge';
 import { attachMany } from '@/domain/emergence';
 import {
   ActivityPatch,
@@ -31,7 +32,17 @@ export interface Draft {
 
 export interface Toast {
   message: string;
+  /** A quiet second line under the message (text only, never an action). */
+  detail?: string;
   activityId?: Id;
+}
+
+/** Asked (in the toast, and on Home's bridge) after a log on Home that went to no thread. */
+export const BRIDGE_QUESTION = 'Toward something — or just itself?';
+
+export interface LogOptions {
+  /** Logged on Home: if the activity has no thread, Home offers the bridge for it. */
+  bridge?: boolean;
 }
 
 /** Where data lives: SQLite (normal), the first release's localStorage format (web fallback). */
@@ -46,6 +57,8 @@ export type StorageStatus =
 interface State {
   data: Data;
   draft: Draft;
+  /** Activity Home's bridge asks about ("Toward something — or just itself?"). Session only. */
+  bridgeFor?: Id;
   /** Thread that shows the quiet "+ What's next? (optional)" line after a log. */
   promptNextFor?: Id;
   toast?: Toast;
@@ -67,7 +80,7 @@ interface State {
   setDraft: (patch: Partial<Draft>) => void;
   clearDraft: () => void;
   loadNext: (threadId: Id) => void;
-  log: (extra?: Partial<LogInput>) => Id | undefined;
+  log: (extra?: Partial<LogInput>, opts?: LogOptions) => Id | undefined;
   createThread: (name: string) => Id;
   /** Attaches the chosen past activities to a thread; one Undo reverts all of them. */
   pullIn: (threadId: Id, activityIds: Id[]) => void;
@@ -81,6 +94,9 @@ interface State {
   renameThread: (threadId: Id, name: string) => RenameResult;
   setHidden: (threadId: Id, hidden: boolean) => void;
   attach: (activityId: Id, threadId: Id) => void;
+  /** Attaches "to" the thread with this name, creating it if needed; one Undo reverts both. */
+  attachToNew: (activityId: Id, name: string) => Id | undefined;
+  dismissBridge: () => void;
   updateActivity: (activityId: Id, patch: ActivityPatch) => void;
   removeActivity: (activityId: Id) => void;
   undoLast: () => void;
@@ -116,7 +132,7 @@ export const useStore = create<State>()((set, get) => ({
     set({ draft: { text: t.next, doingId: threadId, toIds: [], fromNextOf: threadId } });
   },
 
-  log: (extra) => {
+  log: (extra, opts) => {
     const { data, draft } = get();
     const text = (extra?.text ?? draft.text).trim();
     if (!text) return undefined;
@@ -131,13 +147,16 @@ export const useStore = create<State>()((set, get) => ({
     const owner = nextOwner(res.activity);
     const ownerName = owner ? res.data.threads[owner]?.name : undefined;
     const firstTo = res.activity.toIds[0] ? res.data.threads[res.activity.toIds[0]]?.name : undefined;
+    const bridge = !!opts?.bridge && !owner;
     set({
+      bridgeFor: bridge ? res.activity.id : undefined,
       data: res.data,
       undo: undoEntry(data, res.data),
       draft: emptyDraft(),
       promptNextFor: owner && !res.data.threads[owner]?.next ? owner : undefined,
       toast: {
         message: firstTo ? `Logged → to ${firstTo}` : ownerName ? `Logged in ${ownerName}` : 'Logged',
+        ...(bridge && { detail: BRIDGE_QUESTION }),
         activityId: res.activity.id,
       },
     });
@@ -197,8 +216,25 @@ export const useStore = create<State>()((set, get) => ({
       const t = s.data.threads[threadId];
       if (!a || !t) return {};
       const data = attachActivity(s.data, activityId, threadId);
-      return { undo: undoEntry(s.data, data), data, toast: { message: `Attached → to ${t.name}`, activityId } };
+      return { undo: undoEntry(s.data, data), data, bridgeFor: undefined, toast: { message: `Attached → to ${t.name}`, activityId } };
     }),
+
+  attachToNew: (activityId, name) => {
+    const s = get();
+    const res = attachToNewThread(s.data, activityId, name);
+    if (!res.thread) return undefined;
+    set({
+      data: res.data,
+      undo: undoEntry(s.data, res.data),
+      bridgeFor: undefined,
+      // Like a thread made from the @ menu: quietly offer earlier activities that mention it.
+      pullInOffer: res.created ? res.thread.id : s.pullInOffer,
+      toast: { message: `Attached → to ${res.thread.name}`, activityId },
+    });
+    return res.thread.id;
+  },
+
+  dismissBridge: () => set((s) => (s.bridgeFor ? { bridgeFor: undefined } : {})),
 
   updateActivity: (activityId, patch) => set((s) => ({ data: editActivity(s.data, activityId, patch) })),
 
@@ -218,7 +254,7 @@ export const useStore = create<State>()((set, get) => ({
   dismissToast: () => set({ toast: undefined, toastHeld: false }),
   holdToast: (held) => set({ toastHeld: held }),
   dismissPrompt: () => set({ promptNextFor: undefined }),
-  replaceData: (data) => set({ data, undo: undefined, draft: emptyDraft() }),
+  replaceData: (data) => set({ data, undo: undefined, draft: emptyDraft(), bridgeFor: undefined }),
   setShowShading: (on) => set({ showShading: on }),
 }));
 

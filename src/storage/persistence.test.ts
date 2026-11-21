@@ -246,3 +246,30 @@ describe('asking the browser to keep the data', () => {
     }
   });
 });
+
+describe('the bridge after a log', () => {
+  it('is never saved: a reload drops it and keeps the activity, with nothing attached', async () => {
+    let store = await load();
+    store.getState().setDraft({ text: 'read a novel' });
+    const id = store.getState().log(undefined, { bridge: true })!;
+    expect(store.getState().bridgeFor).toBe(id);
+    await settle();
+    store = await load();
+    expect(store.getState().bridgeFor).toBeUndefined();
+    expect(store.getState().data.activities[id].toIds).toEqual([]);
+    expect(store.getState().data.threads).toEqual({});
+  });
+
+  it('naming a thread then Undo leaves no thread on disk and the activity unattached', async () => {
+    let store = await load();
+    store.getState().setDraft({ text: 'read a novel' });
+    const id = store.getState().log(undefined, { bridge: true })!;
+    store.getState().attachToNew(id, 'reading');
+    await settle();
+    store.getState().undoLast();
+    await settle();
+    store = await load();
+    expect(store.getState().data.threads).toEqual({});
+    expect(store.getState().data.activities[id].toIds).toEqual([]);
+  });
+});

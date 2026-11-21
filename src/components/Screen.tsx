@@ -19,6 +19,7 @@ export function Screen({
   presetDoingId,
   placeholder,
   footer,
+  bridge,
 }: {
   children: ReactNode;
   composer?: boolean;
@@ -26,6 +27,8 @@ export function Screen({
   placeholder?: string;
   /** Replaces the log box (e.g. the attach-mode card on the graph). */
   footer?: ReactNode;
+  /** Home only: a log with no thread offers the bridge ("Toward something — or just itself?"). */
+  bridge?: boolean;
 }) {
   return (
     <SafeAreaView style={s.screen} edges={['top']}>
@@ -41,7 +44,7 @@ export function Screen({
             {footer ?? (
               <>
                 <PullInOffer />
-                <Composer presetDoingId={presetDoingId} placeholder={placeholder} />
+                <Composer presetDoingId={presetDoingId} placeholder={placeholder} bridge={bridge} />
               </>
             )}
           </View>
