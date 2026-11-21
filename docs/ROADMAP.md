@@ -62,10 +62,11 @@ caret positions, e2e for a mid-sentence pick.
 *Status:* todo
 *Why:* after a first log with no `@`, Home loses the welcome and shows no threads — nothing explains
 threads or what to do next (owner, 2026-11-21; brief B-01 slice 1, which ships regardless of D-4).
-*Done when:* after an activity with no thread, Home shows "Logged. Is this toward something?" with
-one-tap chips for existing threads and "+ name it"; tapping attaches the activity as "to" (Undo in
-the toast); ignoring it leaves no trace and it goes away once the activity has a thread or another
-log has one; e2e (attach via chip, via new name, ignore) + axe.
+*Done when:* for the latest activity with no thread only, Home shows "Logged. Toward something — or
+just itself?" with one-tap chips for existing threads and "+ name it" (no count); tapping attaches
+the activity as "to" (Undo in the toast); "just itself" or ignoring it leaves no trace; it goes away
+on the next log or when leaving Home; announced once, politely, via the toast; e2e (attach via chip,
+via new name, ignore, next log clears it) + axe. (B-01 panel refinement 8.)
 
 ### P-14 Mark a thread as what it's for (data) `[data]` `[feature]` M
 *Status:* todo
@@ -74,7 +75,8 @@ live graph, headers and first step.
 *Done when:* an optional `declaredAt` on threads with an additive schema migration (old data reads
 unchanged); export includes it and import accepts backups with and without it (Data version stays
 1); declare / undeclare from the thread page with Undo; migration + round-trip + mutation-checked
-persistence tests; at most 3 declared whys (a 4th is refused kindly).
+persistence tests; at most 3 declared whys — naming a 4th offers a swap; undeclaring keeps nothing
+behind but the thread ("Not what it's for right now", Undo). (B-01 panel refinement 6.)
 
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
@@ -100,27 +102,34 @@ you declare or log.
 when empty) with tests; compact graph above the cards; tapping a node opens the thread; one
 screen-reader summary line; e2e: a node appears right after declaring, a link right after logging;
 axe; 390 px and 200 % zoom; Home stays fast with `bigBlob`. Ships with the DESIGN.md Interaction
-wording accepted in D-4.
+wording accepted in D-4. Includes B-01 panel refinements 1–4: names-not-numbers summary, a plain
+"to Y" log visibly feeds Y, never shrinks with time (all-time links; warmth only dims; no placeholder;
+fixed compact height; summary + "Open graph" at largest text), one accessible element.
 
 ### P-16 Whys as headers on Home `[feature]` M
 *Status:* todo
 *Why:* B-01 slice 3: declared whys head Home immediately, merged with earned values.
 *Done when:* declared whys render as "TO …" headers with "+ a way toward it", merged with earned
 ones; fade to Earlier after 90 days with no inflow; "why here?" covers declared and earned; `@`
-ranks declared whys first; domain tests for grouping/fading/merging; e2e with 0/1/3 whys.
+ranks declared whys first; domain tests for grouping/fading/merging; e2e with 0/1/3 whys. Includes
+B-01 panel refinements 1, 5, 6, 7, 10: "why here?" in names; a why with no recent inflow steps back
+to a quiet line and returns on new inflow; remove from the header; real sentence-case headings;
+"+ a thread toward it" only once it presets a visible "to".
 
 ### P-17 Gentle live animation `[feature]` `[a11y]` S
 *Status:* todo
 *Why:* B-01 slice 3c: new nodes and links ease in and glow briefly, then settle.
 *Done when:* animation on declare/log; none under Reduce Motion (native setting or
-`prefers-reduced-motion`), e2e with reduced motion emulated; no layout shift for the cards below.
+`prefers-reduced-motion`), e2e with reduced motion emulated; no layout shift for the cards below;
+only what's new animates, once (thickening is instant); the toast carries the same moment in words.
 
 ### P-18 An optional first step: what's it all for? `[feature]` M
 *Status:* todo
 *Why:* B-01 slice 4: on first open, name up to three whys — or skip in one tap; the log box is
 live throughout.
-*Done when:* first-open card with up to 3 inputs, one-tap skip that leaves no trace, logging works
-while it's shown; e2e for declare, skip and log-during-card; axe.
+*Done when:* first-open card with one field + "+ another" (up to 3), "You can change these any
+time", "Let it surface" as an equal path (no trace), one value-shaped example; logging dismisses it
+for good; e2e for declare, let-it-surface and log-during-card; axe. (B-01 panel refinement 9.)
 
 ### P-06 Dark mode `[ux]` `[a11y]` M — needs 🙋 D-2
 *Status:* blocked

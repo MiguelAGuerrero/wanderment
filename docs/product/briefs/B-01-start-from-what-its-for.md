@@ -119,6 +119,90 @@ each file, so it can be accepted as-is:
 - **Deliberately not doing:** goals or targets on a Y, progress bars, reminders, or more than 3
   declared Ys.
 
+## Persona panel
+_Simulated perspectives from `docs/product/PERSONAS.md`, run 2026-11-21 after the owner's go, to show
+the trade-offs and refine the slices. This is a thinking tool, not user research. The full reports
+are in `.polish/product/panel-B-01-{1,2,3}.md` (local)._
+
+| Persona | Reaction | What it hinges on |
+|---|---|---|
+| A — Impulsive Dabbler | fine → uneasy; *maybe* | Impulse-named whys mustn't stick: removing a why has to be as easy as naming one |
+| B — Intentional Builder | delighted; *yes* | Feedback without scores. Will push for targets and % (refused) |
+| C — Pressure-Sensitive Returner | uneasy; *maybe → yes* | Day 35: coming back to the same picture, dimmer, not an empty "TO …" header |
+| D — Reflective Meaning-Seeker | delighted; *yes* | Names over numbers; "let it surface" treated as an equal path |
+| E — Skeptical Minimalist | fine → uneasy; *maybe* | Everything new gets out of the way without a tap; Home stays as fast |
+| F — Assistive-Tech User | uneasy; *maybe → yes* | The graph's meaning is also in words; real headings; no focus tax |
+
+**Trade-offs.**
+- Declaring weighs differently by personality structure: a commitment for B and D, a passing mood
+  for A, a possible reproach for C.
+- The decision favours reflective, direction-seeking structures (P0, B, D) and anyone who navigates
+  by structure (F gains stable headings from day one).
+- It costs high-openness dabblers (A), through whys that stick; pressure-sensitive returners (C),
+  through untouched whys at the top; and minimalists (E), through more new things on screen.
+
+**Strong, lean on it.**
+- The live graph rewards without points.
+- A why has no number.
+- "You said this is what it's for": authorship.
+- Fading, not failing.
+- The bridge as a tap rather than typed `@`.
+- The log box is never blocked.
+- One concept (a why is a thread), max 3.
+
+**Refinements folded into the slices** (inside the owner's decisions):
+1. **Names over numbers.**
+   - "why here?" and the graph's screen-reader summary say *what* feeds a why, in words ("Lately
+     *draw* and *sew* lead here"). For an earned why: "You didn't name this, but much of what you do
+     leads here".
+   - No counts. (P-15, P-16)
+2. **A plain log still reacts.** A "to Y" with no doing thread visibly feeds Y in the live graph, with
+   a soft fill and no number. (P-15)
+3. **The graph never shrinks because time passed.**
+   - Feeders are picked, and thickness drawn, by all-time links; warmth only dims.
+   - It animates only what's new, once. Thickening is instant.
+   - No placeholder box: an empty graph collapses to nothing.
+   - Fixed compact height, with the first card and its crumb above the fold.
+   - At the largest text sizes it falls back to the summary line plus "Open graph". (P-15, P-17)
+4. **The graph is one accessible element.** Its summary is the element, and its nodes are hidden
+   from assistive tech: tapping stays for touch, and the list below is the way through. (P-15)
+5. **A why with no recent inflow steps back.** It becomes a quiet line, with no "+ a way toward it",
+   instead of an empty header at the top. It returns as soon as something flows in. `declaredAt` is
+   kept. (P-16)
+6. **Remove a why as easily as you named one.**
+   - From its header or "why here?", with Undo and the soft copy "Not what it's for right now".
+   - Naming a 4th why offers a swap, not an error. (P-14, P-16)
+7. **Real headings.** The heading is separate from the "why here?" button, sentence-case
+   (capitals only in styling), and long whys wrap rather than truncate. (P-16)
+8. **The bridge is one moment.**
+   - Only for the latest unattached log, with no count.
+   - It goes on the next log or when you leave Home.
+   - Copy: "Logged. Toward something — or just itself?" (just itself = nothing happens).
+   - Announced once, politely, through the toast. (P-13)
+9. **First step.**
+   - One field plus "+ another", and "You can change these any time".
+   - "Let it surface" replaces "Skip", as an equal path.
+   - One value-shaped example ("be closer to friends") next to the outcome-shaped ones.
+   - Logging dismisses it for good. (P-18)
+10. **"+ a thread toward it"** replaces "+ a way toward it", and isn't shown until it presets a
+    visible "to" chip. (P-16)
+
+**Offered to the owner as options (not applied).**
+- A **"Show graph on Home"** setting next to Recency shading. E and F's cost; it conflicts with the
+  graph-first decision.
+- A free-text **"in my own words"** note on a why (D; later).
+- The ranking of feeders when there are many: all-time links (chosen, for stability) vs. most recent.
+
+**Refused, with the rule.**
+- Targets, %, deadlines, milestones and reminders (B wants them): DESIGN.md never-list, STRATEGY.md
+  "no plans for the how".
+- "Welcome back, it's been N days" (C): it counts absence, against DESIGN.md's neutral recency.
+- Spoken alerts when a why fades (F): notifications.
+
+**Against the owner's notes (P0).** The panel reinforces the owner's direction (start from the
+why, a living graph) and sharpens it. Its strongest message, names over numbers and fading without
+residue, fits "know the why; leave the how open".
+
 ## Slices
 
 Build order after D-4 (owner: graph earlier): P-13 bridge → P-14 data → P-15 live graph → P-16 whys as headers → P-17 animation → P-18 first step.
