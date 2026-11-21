@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useStore } from '@/store/useStore';
 import { C } from '@/theme';
@@ -9,7 +9,9 @@ const SHOW_MS = 6000;
 
 /**
  * Confirms what was logged and where. One action (Undo); tapping the body opens details.
- * Stays at least 6 s, pauses while touched, and doesn't auto-dismiss under a screen reader.
+ * Stays at least 6 s and pauses while touched, hovered or focused. On iOS/Android it doesn't
+ * auto-dismiss under a screen reader; browsers can't tell, so on web it's announced politely
+ * and pauses while keyboard focus is inside it.
  */
 export function Toast() {
   const toast = useStore((s) => s.toast);
@@ -20,12 +22,12 @@ export function Toast() {
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
-    AccessibilityInfo.isScreenReaderEnabled().then(setScreenReader).catch(() => {});
+    // react-native-web always reports a screen reader, which would keep every toast up forever.
+    if (Platform.OS !== 'web') AccessibilityInfo.isScreenReaderEnabled().then(setScreenReader).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!toast) return;
-    AccessibilityInfo.announceForAccessibility?.(toast.message);
+    if (toast && Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility?.(toast.message);
   }, [toast]);
 
   useEffect(() => {
@@ -35,33 +37,40 @@ export function Toast() {
   }, [toast, held, screenReader, dismiss]);
 
   if (!toast) return null;
+  const hold = {
+    onPressIn: () => setHeld(true),
+    onPressOut: () => setHeld(false),
+    onHoverIn: () => setHeld(true),
+    onHoverOut: () => setHeld(false),
+    onFocus: () => setHeld(true),
+    onBlur: () => setHeld(false),
+  };
   return (
     <View style={styles.wrap} pointerEvents="box-none">
-      <Pressable
-        onPressIn={() => setHeld(true)}
-        onPressOut={() => setHeld(false)}
-        onPress={() => {
-          if (toast.activityId) router.push(`/activity/${toast.activityId}`);
-          dismiss();
-        }}
-        style={styles.toast}
-        accessibilityRole="button"
-        accessibilityLabel={`${toast.message}. Tap for details.`}>
-        <View style={{ flex: 1 }}>
+      <View style={styles.toast} accessibilityLiveRegion="polite">
+        <Pressable
+          {...hold}
+          onPress={() => {
+            if (toast.activityId) router.push(`/activity/${toast.activityId}`);
+            dismiss();
+          }}
+          style={styles.body}
+          accessibilityRole={toast.activityId ? 'button' : 'text'}>
           <Text style={styles.msg}>{toast.message}</Text>
           {toast.activityId && <Text style={styles.sub}>Tap for details</Text>}
-        </View>
-        <Pressable onPress={undo} style={styles.undo} accessibilityRole="button" accessibilityLabel="Undo">
+        </Pressable>
+        <Pressable {...hold} onPress={undo} style={styles.undo} accessibilityRole="button" accessibilityLabel="Undo">
           <Text style={styles.undoText}>Undo</Text>
         </Pressable>
-      </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 12, right: 12, bottom: 8, alignItems: 'center' },
-  toast: { width: '100%', maxWidth: 616, flexDirection: 'row', alignItems: 'center', backgroundColor: C.ink, borderRadius: 14, paddingLeft: 16, paddingRight: 6, minHeight: 52, paddingVertical: 6 },
+  toast: { width: '100%', maxWidth: 616, flexDirection: 'row', alignItems: 'center', backgroundColor: C.ink, borderRadius: 14, paddingRight: 6, minHeight: 52 },
+  body: { flex: 1, paddingLeft: 16, paddingVertical: 6, minHeight: 52, justifyContent: 'center' },
   msg: { color: '#fff', fontSize: 15 },
   sub: { color: '#CFCBC3', fontSize: 12 },
   undo: { height: 44, paddingHorizontal: 12, justifyContent: 'center' },

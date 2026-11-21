@@ -10,10 +10,10 @@ test('first open shows the welcome and example chips that fill the log box', asy
 test('@ + "New thread" creates the first thread', async ({ page }) => {
   await openHome(page);
   await logBox(page).fill('practiced scales @play guitar');
-  await page.getByRole('button', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
   await expect(logBox(page)).toHaveValue('practiced scales ');
   await logBox(page).press('Enter');
-  await expect(page.getByRole('button', { name: /^play guitar\. practiced scales/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^play guitar\s*practiced scales/ })).toBeVisible();
   await expect(page.getByText('Your first thread.')).toBeVisible();
 });
 
@@ -30,14 +30,14 @@ test('an unpicked @word is saved as typed and never creates a thread', async ({ 
 test('a next step loads into the log box and clears once logged', async ({ page }) => {
   await openHome(page);
   await logBox(page).fill('practiced scales @play guitar');
-  await page.getByRole('button', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
   await logBox(page).press('Enter');
 
   // The quiet prompt appears under the thread after logging.
   const nextInput = page.getByRole('textbox', { name: 'Optional next step for play guitar' });
   await nextInput.fill('learn the F chord');
   await nextInput.press('Enter');
-  const crumb = page.getByRole('button', { name: 'Next step for play guitar: learn the F chord. Double-tap to load into the log box.' });
+  const crumb = page.getByRole('button', { name: 'learn the F chord Log this' });
   await expect(crumb).toBeVisible();
 
   await crumb.click();
@@ -48,9 +48,9 @@ test('a next step loads into the log box and clears once logged', async ({ page 
   await logBox(page).fill('learned the F chord, mostly');
   await logBox(page).press('Enter');
   await expect(crumb).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /^play guitar\. learned the F chord, mostly/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^play guitar\s*learned the F chord, mostly/ })).toBeVisible();
   await page.getByRole('tab', { name: 'Activities' }).click();
-  await expect(page.getByText('learned the F chord, mostly')).toBeVisible();
+  await expect(page.getByText('learned the F chord, mostly', { exact: true }).filter({ visible: true })).toBeVisible();
 });
 
 test('Undo in the toast removes the last activity', async ({ page }) => {
@@ -60,4 +60,16 @@ test('Undo in the toast removes the last activity', async ({ page }) => {
   await expect(page.getByText('Log what you just did.')).toBeVisible();
   await page.getByRole('tab', { name: 'Activities' }).click();
   await expect(page.getByText('Nothing logged yet.')).toBeVisible();
+});
+
+test('the toast leaves on its own after about 6 s, but not while hovered', async ({ page }) => {
+  await openHome(page);
+  await logLine(page, 'stretched');
+  const toast = page.getByText('Tap for details').filter({ visible: true });
+  await expect(toast).toBeVisible();
+  await toast.hover();
+  await page.waitForTimeout(7000);
+  await expect(toast).toBeVisible();
+  await page.mouse.move(5, 5);
+  await expect(toast).toHaveCount(0, { timeout: 8000 });
 });

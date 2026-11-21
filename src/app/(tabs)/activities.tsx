@@ -65,12 +65,16 @@ function Row({ a, first }: { a: Activity; first: boolean }) {
         <View style={styles.chips}>
           <Text style={s.meta}>No thread{suggestion ? ' · maybe:' : ''}</Text>
           {suggestion && (
-            <Pressable onPress={() => attach(a.id, suggestion.id)} style={[styles.small, styles.dashed]} accessibilityLabel={`Attach to ${suggestion.name}`}>
-              <Text style={{ color: C.accentInk, fontSize: 13, fontWeight: '500' }}>+ {suggestion.name}</Text>
+            <Pressable onPress={() => attach(a.id, suggestion.id)} style={styles.hit} accessibilityRole="button" accessibilityLabel={`+ ${suggestion.name}: attach to ${suggestion.name}`}>
+              <View style={[styles.small, styles.dashed]}>
+                <Text style={{ color: C.accentInk, fontSize: 13, fontWeight: '500' }}>+ {suggestion.name}</Text>
+              </View>
             </Pressable>
           )}
-          <Pressable onPress={() => setPicking((p) => !p)} style={styles.small} accessibilityRole="button" accessibilityState={{ expanded: picking }}>
-            <Text style={{ fontSize: 13, fontWeight: '500', color: C.ink }}>Attach…</Text>
+          <Pressable onPress={() => setPicking((p) => !p)} style={styles.hit} accessibilityRole="button" accessibilityState={{ expanded: picking }}>
+            <View style={styles.small}>
+              <Text style={{ fontSize: 13, fontWeight: '500', color: C.ink }}>Attach…</Text>
+            </View>
           </Pressable>
         </View>
       )}
@@ -79,8 +83,10 @@ function Row({ a, first }: { a: Activity; first: boolean }) {
           {recent.length === 0 && <Text style={s.meta}>No threads yet — type @name in the log box to start one.</Text>}
           {recent.map((id) =>
             data.threads[id] ? (
-              <Pressable key={id} onPress={() => attach(a.id, id)} style={styles.small} accessibilityLabel={`Attach to ${data.threads[id].name}`}>
-                <Text style={{ fontSize: 13, color: C.ink }}>{data.threads[id].name}</Text>
+              <Pressable key={id} onPress={() => attach(a.id, id)} style={styles.hit} accessibilityRole="button" accessibilityLabel={`${data.threads[id].name}: attach`}>
+                <View style={styles.small}>
+                  <Text style={{ fontSize: 13, color: C.ink }}>{data.threads[id].name}</Text>
+                </View>
               </Pressable>
             ) : null,
           )}
@@ -96,6 +102,7 @@ const styles = StyleSheet.create({
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   text: { flex: 1, fontSize: 15, fontWeight: '500', color: C.ink },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
-  small: { height: 32, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, justifyContent: 'center' },
+  hit: { minHeight: 44, justifyContent: 'center' },
+  small: { minHeight: 32, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, justifyContent: 'center' },
   dashed: { borderStyle: 'dashed', borderColor: C.accent, backgroundColor: 'transparent' },
 });

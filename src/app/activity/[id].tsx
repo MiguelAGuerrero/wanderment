@@ -1,43 +1,58 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { describeLink, lastTimeFor } from '@/domain/selectors';
 import { nextOwner } from '@/domain/model';
-import { useStore } from '@/store/useStore';
+import { lastTimeFor } from '@/domain/selectors';
+import { Id } from '@/domain/types';
+import { recentThreadOrder, useStore } from '@/store/useStore';
+import { decorative } from '@/components/a11y';
 import { C, s } from '@/theme';
 
 const DAY = 864e5;
 
-/** Details for one activity: when it happened, a note, and the owning thread's next step. */
+const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
+/**
+ * Details for one activity: what you did, which threads, when, a note, and the owning thread's
+ * next step. Everything saves as you go; Delete can be undone from the toast.
+ */
 export default function ActivityDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const data = useStore((st) => st.data);
   const updateActivity = useStore((st) => st.updateActivity);
+  const removeActivity = useStore((st) => st.removeActivity);
   const setNext = useStore((st) => st.setNext);
   const a = id ? data.activities[id] : undefined;
   const owner = a ? nextOwner(a) : undefined;
   const ownerThread = owner ? data.threads[owner] : undefined;
+  const [text, setText] = useState(a?.text ?? '');
   const [note, setNote] = useState(a?.note ?? '');
   const [next, setNextValue] = useState('');
-
-  const close = () => {
-    if (a) {
-      updateActivity(a.id, { note: note.trim() || undefined });
-      if (owner && next.trim()) setNext(owner, next);
-    }
-    if (router.canGoBack()) router.back();
-    else router.replace('/');
-  };
+  const [adding, setAdding] = useState<'doing' | 'to'>();
 
   if (!a) {
     return (
       <SafeAreaView style={[s.screen, s.content]}>
         <Text style={s.body}>This activity was removed.</Text>
+        <Pressable onPress={goBack} style={styles.headerBtn} accessibilityRole="button">
+          <Text style={styles.done}>Back</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
+
+  const saveNext = () => {
+    if (owner && next.trim()) {
+      setNext(owner, next);
+      setNextValue('');
+    }
+  };
+  const close = () => {
+    saveNext();
+    goBack();
+  };
 
   const created = new Date(a.createdAt);
   const options: [string, Date][] = [
@@ -46,21 +61,91 @@ export default function ActivityDetails() {
     ['2 days ago', new Date(created.getTime() - 2 * DAY)],
   ];
   const sameDay = (d: Date) => new Date(a.occurredAt).toDateString() === d.toDateString();
-  const prev = lastTimeFor({ ...data, activities: Object.fromEntries(Object.entries(data.activities).filter(([k]) => k !== a.id)) }, a.doingId, a.toIds[0]);
+  const others = { ...data, activities: Object.fromEntries(Object.entries(data.activities).filter(([k]) => k !== a.id)) };
+  const prev = lastTimeFor(others, a.doingId, a.toIds[0]);
+
+  const attached = new Set([a.doingId, ...a.toIds]);
+  const candidates: Id[] = [...new Set([...recentThreadOrder(data), ...Object.keys(data.threads)])]
+    .filter((tid) => data.threads[tid] && !data.threads[tid].hidden && !attached.has(tid))
+    .slice(0, 8);
+
+  const pickThread = (tid: Id) => {
+    if (adding === 'doing') updateActivity(a.id, { doingId: tid });
+    else updateActivity(a.id, { toIds: [...a.toIds, tid] });
+    setAdding(undefined);
+  };
 
   return (
-    <SafeAreaView style={[s.screen]}>
-      <View style={[s.content, { gap: 16 }]}>
+    <SafeAreaView style={s.screen}>
+      <ScrollView contentContainerStyle={[s.content, { gap: 16 }]} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text style={s.meta}>Saved automatically</Text>
-          <Pressable onPress={close} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
-            <Text style={{ color: C.accent, fontWeight: '600', fontSize: 16 }}>Done</Text>
+          <Pressable onPress={close} style={styles.headerBtn} accessibilityRole="button">
+            <Text style={styles.done}>Done</Text>
           </Pressable>
         </View>
-        <Text style={{ fontSize: 19, fontWeight: '500', color: C.ink }}>{a.text}</Text>
-        <Text style={s.meta}>{describeLink(data, a) ?? 'Not attached to a thread — you can attach it from Activities.'}</Text>
 
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <TextInput
+          value={text}
+          onChangeText={(v) => {
+            setText(v);
+            if (v.trim()) updateActivity(a.id, { text: v });
+          }}
+          onBlur={() => !text.trim() && setText(a.text)}
+          multiline
+          style={styles.title}
+          accessibilityLabel="What you did"
+        />
+
+        <View style={styles.row}>
+          {a.doingId && data.threads[a.doingId] ? (
+            <Pressable
+              onPress={() => updateActivity(a.id, { doingId: null })}
+              style={[s.chip, styles.doing]}
+              accessibilityRole="button"
+              accessibilityLabel={`Doing: ${data.threads[a.doingId].name}. Remove`}>
+              <Text style={[s.chipText, { color: '#fff' }]}>{data.threads[a.doingId].name} ×</Text>
+            </Pressable>
+          ) : (
+            <Pressable onPress={() => setAdding(adding === 'doing' ? undefined : 'doing')} style={[s.chip, s.chipDashed]} accessibilityRole="button" accessibilityState={{ expanded: adding === 'doing' }}>
+              <Text style={[s.chipText, { color: C.muted }]}>+ Doing…</Text>
+            </Pressable>
+          )}
+          <Text style={styles.to} {...decorative}>
+            → to
+          </Text>
+          {a.toIds.map((tid) =>
+            data.threads[tid] ? (
+              <Pressable
+                key={tid}
+                onPress={() => updateActivity(a.id, { toIds: a.toIds.filter((x) => x !== tid) })}
+                style={[s.chip, s.chipAccent]}
+                accessibilityRole="button"
+                accessibilityLabel={`To: ${data.threads[tid].name}. Remove`}>
+                <Text style={[s.chipText, s.chipAccentText]}>{data.threads[tid].name} ×</Text>
+              </Pressable>
+            ) : null,
+          )}
+          <Pressable onPress={() => setAdding(adding === 'to' ? undefined : 'to')} style={[s.chip, s.chipDashed]} accessibilityRole="button" accessibilityLabel="Add a thread it was to" accessibilityState={{ expanded: adding === 'to' }}>
+            <Text style={[s.chipText, { color: C.muted }]}>+ To…</Text>
+          </Pressable>
+        </View>
+
+        {adding && (
+          <View style={[s.card, { gap: 8 }]}>
+            <Text style={s.meta}>{adding === 'doing' ? 'What were you doing?' : 'What was it to?'}</Text>
+            <View style={styles.row}>
+              {candidates.length === 0 && <Text style={s.meta}>No other threads yet — type @name in the log box to start one.</Text>}
+              {candidates.map((tid) => (
+                <Pressable key={tid} onPress={() => pickThread(tid)} style={s.chip} accessibilityRole="button" accessibilityLabel={`${adding === 'doing' ? 'Doing' : 'To'} ${data.threads[tid].name}`}>
+                  <Text style={s.chipText}>{data.threads[tid].name}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={styles.row}>
           <Text style={s.meta}>When</Text>
           {options.map(([label, d]) => (
             <Pressable
@@ -89,6 +174,8 @@ export default function ActivityDetails() {
             <TextInput
               value={next}
               onChangeText={setNextValue}
+              onSubmitEditing={saveNext}
+              onBlur={saveNext}
               placeholder={ownerThread.next ?? 'Leave empty if nothing’s next'}
               placeholderTextColor={C.faint}
               style={styles.field}
@@ -99,15 +186,44 @@ export default function ActivityDetails() {
 
         <View style={{ gap: 6 }}>
           <Text style={s.meta}>Note</Text>
-          <TextInput value={note} onChangeText={setNote} multiline placeholder="How did it go?" placeholderTextColor={C.faint} style={[styles.field, { minHeight: 88, textAlignVertical: 'top', paddingTop: 10 }]} accessibilityLabel="Note" />
+          <TextInput
+            value={note}
+            onChangeText={(v) => {
+              setNote(v);
+              updateActivity(a.id, { note: v });
+            }}
+            multiline
+            placeholder="How did it go?"
+            placeholderTextColor={C.faint}
+            style={[styles.field, { minHeight: 88, textAlignVertical: 'top', paddingTop: 10 }]}
+            accessibilityLabel="Note"
+          />
         </View>
-      </View>
+
+        <Pressable
+          onPress={() => {
+            removeActivity(a.id);
+            goBack();
+          }}
+          style={styles.delete}
+          accessibilityRole="button"
+          accessibilityLabel="Delete activity (you can undo)">
+          <Text style={{ color: C.accentInk, fontSize: 15 }}>Delete activity</Text>
+        </Pressable>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerBtn: { minHeight: 44, minWidth: 44, justifyContent: 'center', alignItems: 'flex-end' },
+  done: { color: C.accent, fontWeight: '600', fontSize: 16 },
+  title: { fontSize: 19, fontWeight: '500', color: C.ink, borderBottomWidth: 1, borderColor: C.line, paddingVertical: 6, minHeight: 44 },
+  row: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
+  doing: { backgroundColor: C.ink, borderColor: C.ink },
+  to: { fontSize: 13, fontWeight: '600', color: C.accent },
   lastTime: { padding: 12, borderRadius: 12, backgroundColor: C.surface, fontSize: 14, color: C.body },
   field: { minHeight: 44, borderWidth: 1, borderColor: C.line, borderRadius: 12, paddingHorizontal: 12, fontSize: 16, backgroundColor: C.surface, color: C.ink },
+  delete: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center', marginTop: 8 },
 });

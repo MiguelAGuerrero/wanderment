@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Screen } from '@/components/Screen';
 import { activitiesOf, ageLabel, flowsFrom, describeLink } from '@/domain/selectors';
 import { useStore } from '@/store/useStore';
+import { decorative } from '@/components/a11y';
 import { C, s } from '@/theme';
 
 export default function ThreadPage() {
@@ -86,7 +87,7 @@ export default function ThreadPage() {
                 setNext(thread.id, nextValue);
                 setEditingNext(false);
               }}
-              style={[s.primaryBtn, { height: 36 }]}>
+              style={s.primaryBtn}>
               <Text style={s.primaryBtnText}>Save</Text>
             </Pressable>
           </View>
@@ -96,12 +97,15 @@ export default function ThreadPage() {
               onPress={() => (thread.next ? loadNext(thread.id) : (setNextValue(''), setEditingNext(true)))}
               style={{ flex: 1, minHeight: 48, justifyContent: 'center' }}
               accessibilityRole="button"
-              accessibilityLabel={thread.next ? `Next step: ${thread.next}. Double-tap to load into the log box.` : 'Set a next step'}>
-              <Text style={{ color: thread.next ? C.accentInk : C.muted, fontSize: 15 }}>↳ {thread.next ?? '+ What’s next?'}</Text>
+              accessibilityLabel={thread.next ? `${thread.next}. Next step for ${thread.name}. Double-tap to load into the log box.` : '+ What’s next? Set a next step'}>
+              <Text style={{ color: thread.next ? C.accentInk : C.muted, fontSize: 15 }}>
+                <Text {...decorative}>↳ </Text>
+                {thread.next ?? '+ What’s next?'}
+              </Text>
             </Pressable>
             {thread.next && (
-              <Pressable onPress={() => (setNextValue(thread.next ?? ''), setEditingNext(true))} style={styles.pen} accessibilityLabel="Edit next step">
-                <Text style={{ color: C.faint, fontSize: 16 }}>✎</Text>
+              <Pressable onPress={() => (setNextValue(thread.next ?? ''), setEditingNext(true))} style={styles.pen} accessibilityRole="button" accessibilityLabel="Edit next step">
+                <Text style={{ color: C.faint, fontSize: 16 }} {...decorative}>✎</Text>
               </Pressable>
             )}
           </View>
@@ -135,7 +139,7 @@ export default function ThreadPage() {
           </Pressable>
           <Pressable
             onPress={() => setDraft({ text: a.text, doingId: a.doingId ?? thread.id, toIds: a.toIds, fromNextOf: undefined })}
-            style={[s.chip, { height: 36 }]}
+            style={s.chip}
             accessibilityLabel={`Log again: ${a.text}`}>
             <Text style={s.chipText}>Again</Text>
           </Pressable>

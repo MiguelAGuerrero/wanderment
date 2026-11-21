@@ -79,3 +79,30 @@ export function attachActivity(data: Data, activityId: Id, threadId: Id, as: 'do
       : { ...a, toIds: a.doingId === threadId || a.toIds.includes(threadId) ? a.toIds : [...a.toIds, threadId] };
   return { ...data, activities: { ...data.activities, [activityId]: updated } };
 }
+
+export interface ActivityPatch {
+  text?: string;
+  note?: string;
+  occurredAt?: string;
+  /** null removes the doing thread. */
+  doingId?: Id | null;
+  toIds?: Id[];
+}
+
+/** Edits an activity. Text can't become empty; "to" never repeats the doing thread. */
+export function editActivity(data: Data, id: Id, patch: ActivityPatch): Data {
+  const a = data.activities[id];
+  if (!a) return data;
+  const text = patch.text !== undefined ? patch.text.trim() || a.text : a.text;
+  const doingId = patch.doingId === null ? undefined : patch.doingId !== undefined && data.threads[patch.doingId] ? patch.doingId : a.doingId;
+  const toIds = [...new Set((patch.toIds ?? a.toIds).filter((t) => t !== doingId && (data.threads[t] || a.toIds.includes(t))))];
+  const note = patch.note !== undefined ? patch.note.trim() || undefined : a.note;
+  const occurredAt = patch.occurredAt ?? a.occurredAt;
+  return { ...data, activities: { ...data.activities, [id]: { ...a, text, doingId, toIds, note, occurredAt } } };
+}
+
+export function deleteActivity(data: Data, id: Id): Data {
+  if (!data.activities[id]) return data;
+  const { [id]: _gone, ...activities } = data.activities;
+  return { ...data, activities };
+}

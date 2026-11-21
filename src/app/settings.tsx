@@ -4,6 +4,7 @@ import { Platform, Pressable, Share, StyleSheet, Switch, Text, TextInput, View }
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fromBackup, toBackup } from '@/domain/backup';
+import { backupsLocation, shareBackup } from '@/storage/nativeBackup';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
@@ -12,6 +13,7 @@ export default function Settings() {
   const replaceData = useStore((st) => st.replaceData);
   const setHidden = useStore((st) => st.setHidden);
   const showShading = useStore((st) => st.showShading);
+  const storage = useStore((st) => st.storage);
   const setShowShading = useStore((st) => st.setShowShading);
   const [message, setMessage] = useState<string>();
   const [pasting, setPasting] = useState(false);
@@ -28,7 +30,7 @@ export default function Settings() {
       link.download = filename;
       link.click();
       URL.revokeObjectURL(url);
-    } else {
+    } else if (!(await shareBackup(data))) {
       await Share.share({ message: json, title: filename });
     }
     setMessage('Exported.');
@@ -71,6 +73,14 @@ export default function Settings() {
         <View style={[s.card, { gap: 10 }]}>
           <Text style={s.meta}>
             {Object.keys(data.activities).length} activities · {Object.keys(data.threads).length} threads
+          </Text>
+          <Text style={s.meta}>
+            {storage.state === 'ready' && storage.kind === 'local'
+              ? 'Saved in this browser’s local storage (this browser can’t run the database).'
+              : Platform.OS === 'web'
+                ? 'Saved in a database in this browser.'
+                : 'Saved in a database on this device.'}
+            {backupsLocation ? ` Automatic backups: ${backupsLocation}.` : ''}
           </Text>
           <Pressable onPress={exportData} style={s.chip} accessibilityRole="button">
             <Text style={s.chipText}>Export everything (.json)</Text>

@@ -3,7 +3,7 @@ import { expect, logBox, logLine, openHome, test } from './fixtures';
 test('"No thread" filter and Attach…', async ({ page }) => {
   await openHome(page);
   await logBox(page).fill('practiced scales @play guitar');
-  await page.getByRole('button', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
   await logBox(page).press('Enter');
   await logLine(page, 'read a novel');
 
@@ -13,7 +13,7 @@ test('"No thread" filter and Attach…', async ({ page }) => {
   await expect(page.getByText('practiced scales', { exact: true }).filter({ visible: true })).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Attach…' }).click();
-  await page.getByLabel('Attach to play guitar').click();
+  await page.getByRole('button', { name: 'play guitar: attach' }).click();
   await expect(page.getByText('Everything has a thread.')).toBeVisible();
   await page.getByRole('tab', { name: 'All' }).click();
   await expect(page.getByText('→ to play guitar', { exact: true }).filter({ visible: true })).toHaveCount(2);

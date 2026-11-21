@@ -5,6 +5,7 @@ import { Screen } from '@/components/Screen';
 import { ThreadCard } from '@/components/ThreadCard';
 import { ageLabel, homeThreads } from '@/domain/selectors';
 import { useStore } from '@/store/useStore';
+import { decorative } from '@/components/a11y';
 import { C, s } from '@/theme';
 
 const EXAMPLES = ['practiced guitar', 'edited a clip', 'leg day', 'sketched for fun'];
@@ -21,8 +22,8 @@ export default function Home() {
       <View style={styles.header}>
         <Text style={s.h1}>Wanderment</Text>
         <Link href="/settings" asChild>
-          <Pressable accessibilityLabel="Settings and backup" style={styles.icon}>
-            <Text style={{ fontSize: 20, color: C.muted }}>⚙︎</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel="Settings and backup" style={styles.icon}>
+            <Text style={{ fontSize: 20, color: C.muted }} {...decorative}>⚙︎</Text>
           </Pressable>
         </Link>
       </View>

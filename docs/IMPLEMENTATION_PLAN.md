@@ -109,6 +109,10 @@ iPhone, Safari → Share → Add to Home Screen opens full-screen with the right
    *Decision for the agent to surface, not make:* whether to adopt `expo-sqlite` now. It needs special headers
    on web (COOP/COEP) that GitHub Pages can't set, so the recommendation is: **stay on the JSON store for web,
    revisit SQLite when native builds start.**
+   **Decided: adopt `expo-sqlite` now.** Only expo-sqlite's *synchronous* API needs those headers; the async
+   API works without them, so the app uses async calls only (`src/storage/`). Web writes are journalled to
+   localStorage first so a reload mid-write loses nothing; browsers that can't run it fall back to the old
+   localStorage format; a second tab waits rather than showing stale data.
 3. **Native backup.** On iOS/Android, write a dated JSON backup to the app's Documents directory after each
    change (debounced) using `expo-file-system`, keeping the last 7. Export via `expo-sharing`.
 4. **Composer polish.**

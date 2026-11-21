@@ -1,8 +1,16 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
 
-import { attachActivity, ensureThread, LogInput, logActivity, nextOwner, updateThread } from '@/domain/model';
+import {
+  ActivityPatch,
+  attachActivity,
+  deleteActivity,
+  editActivity,
+  ensureThread,
+  LogInput,
+  logActivity,
+  nextOwner,
+  updateThread,
+} from '@/domain/model';
 import { Data, emptyData, Id } from '@/domain/types';
 
 /** What's currently in the log box. Shared so a crumb on Home can load into it. */
@@ -19,6 +27,15 @@ export interface Toast {
   activityId?: Id;
 }
 
+/** Where data lives: SQLite (normal), the first release's localStorage format (web fallback). */
+export type StorageKind = 'sqlite' | 'local';
+
+export type StorageStatus =
+  | { state: 'loading' }
+  | { state: 'ready'; kind: StorageKind }
+  /** Couldn't open the saved data; nothing is shown so nothing can be overwritten. */
+  | { state: 'blocked'; message: string };
+
 interface State {
   data: Data;
   draft: Draft;
@@ -28,6 +45,9 @@ interface State {
   /** Snapshot for a single-step undo of the last change. */
   undoSnapshot?: Data;
   showShading: boolean;
+  storage: StorageStatus;
+  /** Set when a save failed; cleared by the next successful save. */
+  saveError?: string;
 
   setDraft: (patch: Partial<Draft>) => void;
   clearDraft: () => void;
@@ -38,7 +58,8 @@ interface State {
   renameThread: (threadId: Id, name: string) => void;
   setHidden: (threadId: Id, hidden: boolean) => void;
   attach: (activityId: Id, threadId: Id) => void;
-  updateActivity: (activityId: Id, patch: { note?: string; occurredAt?: string }) => void;
+  updateActivity: (activityId: Id, patch: ActivityPatch) => void;
+  removeActivity: (activityId: Id) => void;
   undo: () => void;
   dismissToast: () => void;
   dismissPrompt: () => void;
@@ -48,96 +69,90 @@ interface State {
 
 const emptyDraft = (): Draft => ({ text: '', toIds: [] });
 
-export const useStore = create<State>()(
-  persist(
-    (set, get) => ({
-      data: emptyData(),
+/**
+ * App state. Saving to disk is handled by src/storage/persistence.ts, which loads the data,
+ * then writes every change to SQLite in the background.
+ */
+export const useStore = create<State>()((set, get) => ({
+  data: emptyData(),
+  draft: emptyDraft(),
+  showShading: true,
+  storage: { state: 'loading' },
+
+  setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
+  clearDraft: () => set({ draft: emptyDraft() }),
+
+  loadNext: (threadId) => {
+    const t = get().data.threads[threadId];
+    if (!t?.next) return;
+    set({ draft: { text: t.next, doingId: threadId, toIds: [], fromNextOf: threadId } });
+  },
+
+  log: (extra) => {
+    const { data, draft } = get();
+    const text = (extra?.text ?? draft.text).trim();
+    if (!text) return undefined;
+    const res = logActivity(data, {
+      text,
+      doingId: extra?.doingId ?? draft.doingId,
+      toIds: extra?.toIds ?? draft.toIds,
+      fromNextOf: extra?.fromNextOf ?? draft.fromNextOf,
+      occurredAt: extra?.occurredAt,
+      note: extra?.note,
+    });
+    const owner = nextOwner(res.activity);
+    const ownerName = owner ? res.data.threads[owner]?.name : undefined;
+    const firstTo = res.activity.toIds[0] ? res.data.threads[res.activity.toIds[0]]?.name : undefined;
+    set({
+      data: res.data,
+      undoSnapshot: data,
       draft: emptyDraft(),
-      showShading: true,
-
-      setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
-      clearDraft: () => set({ draft: emptyDraft() }),
-
-      loadNext: (threadId) => {
-        const t = get().data.threads[threadId];
-        if (!t?.next) return;
-        set({ draft: { text: t.next, doingId: threadId, toIds: [], fromNextOf: threadId } });
+      promptNextFor: owner && !res.data.threads[owner]?.next ? owner : undefined,
+      toast: {
+        message: firstTo ? `Logged → to ${firstTo}` : ownerName ? `Logged in ${ownerName}` : 'Logged',
+        activityId: res.activity.id,
       },
+    });
+    return res.activity.id;
+  },
 
-      log: (extra) => {
-        const { data, draft } = get();
-        const text = (extra?.text ?? draft.text).trim();
-        if (!text) return undefined;
-        const res = logActivity(data, {
-          text,
-          doingId: extra?.doingId ?? draft.doingId,
-          toIds: extra?.toIds ?? draft.toIds,
-          fromNextOf: extra?.fromNextOf ?? draft.fromNextOf,
-          occurredAt: extra?.occurredAt,
-          note: extra?.note,
-        });
-        const owner = nextOwner(res.activity);
-        const ownerName = owner ? res.data.threads[owner]?.name : undefined;
-        const firstTo = res.activity.toIds[0] ? res.data.threads[res.activity.toIds[0]]?.name : undefined;
-        set({
-          data: res.data,
-          undoSnapshot: data,
-          draft: emptyDraft(),
-          promptNextFor: owner && !res.data.threads[owner]?.next ? owner : undefined,
-          toast: {
-            message: firstTo ? `Logged → to ${firstTo}` : ownerName ? `Logged in ${ownerName}` : 'Logged',
-            activityId: res.activity.id,
-          },
-        });
-        return res.activity.id;
-      },
+  createThread: (name) => {
+    const res = ensureThread(get().data, name);
+    set({ data: res.data });
+    return res.thread.id;
+  },
 
-      createThread: (name) => {
-        const res = ensureThread(get().data, name);
-        set({ data: res.data });
-        return res.thread.id;
-      },
+  setNext: (threadId, next) =>
+    set((s) => ({
+      data: updateThread(s.data, threadId, { next }),
+      promptNextFor: s.promptNextFor === threadId ? undefined : s.promptNextFor,
+    })),
 
-      setNext: (threadId, next) =>
-        set((s) => ({
-          data: updateThread(s.data, threadId, { next }),
-          promptNextFor: s.promptNextFor === threadId ? undefined : s.promptNextFor,
-        })),
+  renameThread: (threadId, name) => set((s) => ({ data: updateThread(s.data, threadId, { name }) })),
 
-      renameThread: (threadId, name) => set((s) => ({ data: updateThread(s.data, threadId, { name }) })),
+  setHidden: (threadId, hidden) => set((s) => ({ undoSnapshot: s.data, data: updateThread(s.data, threadId, { hidden }) })),
 
-      setHidden: (threadId, hidden) =>
-        set((s) => ({ undoSnapshot: s.data, data: updateThread(s.data, threadId, { hidden }) })),
+  attach: (activityId, threadId) => set((s) => ({ undoSnapshot: s.data, data: attachActivity(s.data, activityId, threadId) })),
 
-      attach: (activityId, threadId) =>
-        set((s) => ({ undoSnapshot: s.data, data: attachActivity(s.data, activityId, threadId) })),
+  updateActivity: (activityId, patch) => set((s) => ({ data: editActivity(s.data, activityId, patch) })),
 
-      updateActivity: (activityId, patch) =>
-        set((s) => {
-          const a = s.data.activities[activityId];
-          if (!a) return {};
-          return { data: { ...s.data, activities: { ...s.data.activities, [activityId]: { ...a, ...patch } } } };
-        }),
-
-      undo: () => {
-        const snap = get().undoSnapshot;
-        if (snap) set({ data: snap, undoSnapshot: undefined, toast: undefined, promptNextFor: undefined });
-      },
-
-      dismissToast: () => set({ toast: undefined }),
-      dismissPrompt: () => set({ promptNextFor: undefined }),
-      replaceData: (data) => set({ data, undoSnapshot: undefined, draft: emptyDraft() }),
-      setShowShading: (on) => set({ showShading: on }),
+  removeActivity: (activityId) =>
+    set((s) => {
+      const a = s.data.activities[activityId];
+      if (!a) return {};
+      return { undoSnapshot: s.data, data: deleteActivity(s.data, activityId), toast: { message: `Deleted “${a.text}”` } };
     }),
-    {
-      name: 'wanderment',
-      version: 1,
-      storage: createJSONStorage(() => AsyncStorage),
-      // Only durable things are saved; drafts, toasts and undo stay in memory.
-      partialize: (s) => ({ data: s.data, showShading: s.showShading }),
-    },
-  ),
-);
+
+  undo: () => {
+    const snap = get().undoSnapshot;
+    if (snap) set({ data: snap, undoSnapshot: undefined, toast: undefined, promptNextFor: undefined });
+  },
+
+  dismissToast: () => set({ toast: undefined }),
+  dismissPrompt: () => set({ promptNextFor: undefined }),
+  replaceData: (data) => set({ data, undoSnapshot: undefined, draft: emptyDraft() }),
+  setShowShading: (on) => set({ showShading: on }),
+}));
 
 /** Threads ordered by most recent use, for autocomplete ranking. */
 export function recentThreadOrder(data: Data): Id[] {

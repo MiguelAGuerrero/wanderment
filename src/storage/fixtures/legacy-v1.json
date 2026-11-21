@@ -1,0 +1,18 @@
+{
+  "state": {
+    "data": {
+      "version": 1,
+      "threads": {
+        "t-guitar": { "id": "t-guitar", "name": "play guitar", "next": "learn the F chord", "hidden": false, "createdAt": "2026-11-01T10:00:00.000Z" },
+        "t-gym": { "id": "t-gym", "name": "get  stronger ", "hidden": true, "createdAt": "2026-11-02T10:00:00.000Z" }
+      },
+      "activities": {
+        "a1": { "id": "a1", "text": "practiced scales", "occurredAt": "2026-11-01T10:05:00.000Z", "createdAt": "2026-11-01T10:05:00.000Z", "toIds": ["t-guitar"] },
+        "a2": { "id": "a2", "text": "leg day @gymm", "occurredAt": "2026-11-02T18:00:00.000Z", "createdAt": "2026-11-02T18:01:00.000Z", "doingId": "t-gym", "toIds": ["t-gym", "t-guitar", "t-guitar"], "note": "  " },
+        "a3": { "id": "a3", "text": "read a novel", "occurredAt": "2026-11-03T21:00:00.000Z", "createdAt": "2026-11-03T21:00:00.000Z", "toIds": [], "note": "chapter 3" }
+      }
+    },
+    "showShading": false
+  },
+  "version": 1
+}

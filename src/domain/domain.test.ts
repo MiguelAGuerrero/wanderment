@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import { fromBackup, toBackup } from './backup';
+import { diffData, isEmptyDiff, pendingChanges } from './diff';
+import { migrateData } from './migrate';
 import { activeMention, removeActiveMention, suggestDoing, suggestThreads } from './compose';
-import { attachActivity, ensureThread, logActivity, nextOwner, updateThread } from './model';
+import { attachActivity, deleteActivity, editActivity, ensureThread, logActivity, nextOwner, updateThread } from './model';
 import { flowsFrom, homeThreads, lastTimeFor, warmth } from './selectors';
 import { Data, emptyData } from './types';
 
@@ -123,5 +125,73 @@ describe('backup', () => {
     expect(fromBackup(toBackup(data))).toEqual(data);
     expect(() => fromBackup('{"hello":1}')).toThrow(/Wanderment backup/);
     expect(() => fromBackup('nope')).toThrow(/valid JSON/);
+  });
+});
+
+describe('migrating data', () => {
+  it('repairs what it can and rejects what it can’t', () => {
+    const repaired = migrateData({
+      version: 1,
+      threads: { t1: { name: ' run ', createdAt: 'nope' } },
+      activities: { a1: { text: 'x', occurredAt: '2026-01-01T00:00:00.000Z', doingId: 't1', toIds: ['t1', 't2', 't2', 3] } },
+    });
+    expect(repaired.threads.t1).toMatchObject({ id: 't1', name: 'run', hidden: false, createdAt: new Date(0).toISOString() });
+    expect(repaired.activities.a1).toMatchObject({ id: 'a1', toIds: ['t2'], createdAt: '2026-01-01T00:00:00.000Z' });
+    expect(() => migrateData({ version: 2, threads: {}, activities: {} })).toThrow(/Wanderment backup/);
+    expect(() => migrateData({ version: 1, threads: {}, activities: { a: { text: 1 } } })).toThrow(/malformed/);
+  });
+});
+
+describe('diffing data', () => {
+  it('finds changed and removed records by identity', () => {
+    const { data, drawing } = seed();
+    const renamed = updateThread(data, drawing.id, { name: 'draw' });
+    const logged = logActivity(renamed, { text: 'x' });
+    const d = diffData(data, logged.data);
+    expect(d.upsertThreads.map((t) => t.id)).toEqual([drawing.id]);
+    expect(d.upsertActivities.map((a) => a.id)).toEqual([logged.activity.id]);
+    expect(diffData(logged.data, data)).toMatchObject({ deleteActivities: [logged.activity.id], deleteThreads: [] });
+    expect(isEmptyDiff(diffData(data, data))).toBe(true);
+  });
+});
+
+describe('editing activities', () => {
+  it('edits text, threads and note but never empties the text or repeats doing in "to"', () => {
+    const { data, drawing, apparel } = seed();
+    const res = logActivity(data, { text: 'gestures', toIds: [apparel.id] });
+    let d = editActivity(res.data, res.activity.id, { text: '  ', note: ' good ', doingId: apparel.id });
+    expect(d.activities[res.activity.id]).toMatchObject({ text: 'gestures', note: 'good', doingId: apparel.id, toIds: [] });
+    d = editActivity(d, res.activity.id, { doingId: null, toIds: [drawing.id, drawing.id, 'missing'], note: '' });
+    expect(d.activities[res.activity.id]).toMatchObject({ doingId: undefined, toIds: [drawing.id], note: undefined });
+    expect(editActivity(d, 'nope', { text: 'x' })).toBe(d);
+  });
+
+  it('deletes an activity, and only that one', () => {
+    const { data } = seed();
+    const a = logActivity(data, { text: 'a' });
+    const b = logActivity(a.data, { text: 'b' });
+    const d = deleteActivity(b.data, a.activity.id);
+    expect(Object.keys(d.activities)).toEqual([b.activity.id]);
+    expect(deleteActivity(d, 'nope')).toBe(d);
+  });
+});
+
+describe('pending changes for the write-ahead journal', () => {
+  it('covers an undo made while a delete is still being written', () => {
+    const { data } = seed();
+    const logged = logActivity(data, { text: 'keep me' });
+    const committed = logged.data;
+    const inflight = deleteActivity(committed, logged.activity.id); // being written
+    const current = committed; // undo restored it
+    expect(diffData(committed, current).upsertActivities).toEqual([]); // the naive journal would be empty
+    const pending = pendingChanges(committed, inflight, current);
+    expect(pending.upsertActivities.map((a) => a.text)).toEqual(['keep me']);
+    expect(pending.deleteActivities).toEqual([]);
+  });
+
+  it('is the plain diff when nothing is in flight', () => {
+    const { data, drawing } = seed();
+    const next = updateThread(data, drawing.id, { next: 'hands' });
+    expect(pendingChanges(data, undefined, next)).toEqual(diffData(data, next));
   });
 });

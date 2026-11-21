@@ -2,6 +2,7 @@ import { TabList, Tabs, TabSlot, TabTrigger, TabTriggerSlotProps } from 'expo-ro
 import { Pressable, PressableProps, StyleSheet, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { decorative } from '@/components/a11y';
 import { C } from '@/theme';
 
 /** Bottom tab bar: Home · Activities · Graph. Same component on web and native. */
@@ -10,7 +11,7 @@ export default function TabLayout() {
   return (
     <Tabs>
       <TabSlot style={{ flex: 1 }} />
-      <TabList style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+      <TabList style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]} accessibilityRole="tablist">
         <TabTrigger name="index" href="/" asChild>
           <TabButton glyph="◎">Home</TabButton>
         </TabTrigger>
@@ -30,7 +31,7 @@ function TabButton({ children, isFocused, glyph, ...props }: TabTriggerSlotProps
   return (
     // expo-router's slot ref type doesn't line up with RN 0.88's Pressable ref type; runtime is fine.
     <Pressable {...(props as PressableProps)} style={styles.tab} accessibilityRole="tab" accessibilityState={{ selected: isFocused }}>
-      <Text style={[styles.glyph, isFocused && styles.on]} accessibilityElementsHidden importantForAccessibility="no">
+      <Text style={[styles.glyph, isFocused && styles.on]} {...decorative}>
         {glyph}
       </Text>
       <Text style={[styles.label, isFocused && styles.on]}>{children}</Text>
@@ -40,7 +41,7 @@ function TabButton({ children, isFocused, glyph, ...props }: TabTriggerSlotProps
 
 const styles = StyleSheet.create({
   bar: { flexDirection: 'row', justifyContent: 'space-around', backgroundColor: C.surface, borderTopWidth: 1, borderTopColor: C.line, paddingTop: 6 },
-  tab: { alignItems: 'center', justifyContent: 'center', minWidth: 96, minHeight: 44, gap: 2 },
+  tab: { flex: 1, maxWidth: 160, alignItems: 'center', justifyContent: 'center', minHeight: 44, gap: 2 },
   glyph: { fontSize: 18, color: C.muted },
   label: { fontSize: 11, fontWeight: '500', color: C.muted },
   on: { color: C.accent, fontWeight: '600' },

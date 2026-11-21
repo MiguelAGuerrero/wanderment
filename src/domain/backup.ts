@@ -1,3 +1,4 @@
+import { migrateData } from './migrate';
 import { Data } from './types';
 
 export interface Backup {
@@ -18,15 +19,6 @@ export function fromBackup(json: string): Data {
     throw new Error('That file isn’t valid JSON.');
   }
   const b = parsed as Partial<Backup>;
-  if (b?.app !== 'wanderment' || !b.data || b.data.version !== 1) {
-    throw new Error('That file isn’t a Wanderment backup.');
-  }
-  const { threads, activities } = b.data;
-  if (typeof threads !== 'object' || typeof activities !== 'object') {
-    throw new Error('The backup is missing threads or activities.');
-  }
-  for (const a of Object.values(activities)) {
-    if (typeof a.text !== 'string' || !Array.isArray(a.toIds)) throw new Error('An activity in the backup is malformed.');
-  }
-  return b.data;
+  if (b?.app !== 'wanderment' || !b.data) throw new Error('That file isn’t a Wanderment backup.');
+  return migrateData(b.data);
 }
