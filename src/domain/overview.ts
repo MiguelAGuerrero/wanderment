@@ -2,10 +2,11 @@
  * The live graph at the top of Home (P-15): what it's for, what feeds it, and your latest logs.
  *
  * With whys (declared first, oldest mark first, then earned ones in the order of Home's headers),
- * up to three whys and three threads beside them (their busiest feeders by all-time links, then your
- * most active other threads). With no whys, your most active threads (all-time). Links between
- * threads (doing → to) are lines; your most recent logs are small dots with a line to each thread
- * they name, so threads you log toward together are visibly connected. Nothing here is stored.
+ * up to three whys and, in the rest of the six slots, threads beside them (their busiest feeders by
+ * all-time links, then your most active other threads). With no whys, your most active threads
+ * (all-time). Links between threads (doing → to) are lines; your most recent logs are small dots
+ * with a line to each thread they name, so threads you log toward together are visibly connected.
+ * The newest dot is marked, so every log visibly changes the picture. Nothing here is stored.
  *
  * Positions never come from counts: a thread keeps its slot while it's in the picture, and one that
  * enters takes a free slot (`overviewLayout` takes the previous slots). No numbers are drawn.
@@ -17,9 +18,7 @@ import { Activity, Data, Id, Thread } from './types';
 
 /** Whys shown at most. */
 export const MAX_COLUMNS = 3;
-/** With whys: threads shown beside them. */
-export const MAX_FEEDERS = 3;
-/** With no whys: the most active threads shown. */
+/** Threads in the picture: whys and the threads beside them, or (with no whys) the most active. */
 export const MAX_THREADS = 6;
 /** Recent logs shown as dots (fewer when the width has fewer free spots). */
 export const MAX_DOTS = 8;
@@ -142,11 +141,11 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data))
   }
   const byActivity = (a: Thread, b: Thread) => (steps.get(b.id) ?? 0) - (steps.get(a.id) ?? 0) || byName(a, b);
 
-  // The threads beside the whys (or, with none, all of the picture), best first.
+  // The threads beside the whys (or, with none, all of the picture), best first: whatever slots the
+  // whys leave, so declaring one never makes the picture emptier.
+  const room = MAX_THREADS - whyIds.size;
   let picked: Thread[];
-  let room: number;
   if (whyIds.size) {
-    room = MAX_FEEDERS;
     // Each why's busiest feeder first, then each one's next, so every why that has one shows one.
     const queues = shownWhys.map((w) =>
       [...(into.get(w.id) ?? [])]
@@ -172,7 +171,6 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data))
       picked.push(t);
     }
   } else {
-    room = MAX_THREADS;
     picked = all.filter(eligible).sort(byActivity).slice(0, room);
   }
   // Every log shows: if the newest one names nothing in the picture, its threads come in (in place
@@ -312,6 +310,8 @@ export interface LaidDot {
   /** The activity. */
   id: Id;
   threads: Id[];
+  /** Your latest log in the picture: drawn larger, in the accent colour, until the next log. */
+  newest: boolean;
   /** The pointer target (44 × 44); the dot is drawn at its centre. */
   x: number;
   y: number;
@@ -322,6 +322,8 @@ export interface LaidDotLine {
   key: string;
   dot: Id;
   thread: Id;
+  /** A line of the newest dot: a little stronger. */
+  newest: boolean;
   x1: number;
   y1: number;
   x2: number;
@@ -365,7 +367,9 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
  * Where everything goes, `width` wide. Pure. Given `prev` (the last layout's `slots`), every thread
  * and dot still shown keeps its slot; one that enters takes a free slot (a why prefers the top row,
  * a thread beside the whys the bottom one, and with no whys they alternate rows); a dot takes the
- * free spot nearest the threads it names.
+ * free spot nearest the threads it names. The newest dot is marked: once the dots are full, a new
+ * log to the same thread can land in the spot the oldest one just left, and the mark (which moves
+ * from the dot before it, still shown elsewhere) is what makes that log visible.
  * The picture's centre is never a target, so a screen reader activating it opens nothing.
  * `focusId` is reserved for focusing a node (P-26) and does nothing yet.
  */
@@ -457,11 +461,11 @@ export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: 
     dotSlot[d.id] = best;
     used.add(best);
   }
-  const dots: LaidDot[] = shownDots.map((d) => ({ key: d.id, id: d.id, threads: d.threads, ...spots.get(dotSlot[d.id])!, w: ROW, h: ROW }));
+  const dots: LaidDot[] = shownDots.map((d, i) => ({ key: d.id, id: d.id, threads: d.threads, newest: i === 0, ...spots.get(dotSlot[d.id])!, w: ROW, h: ROW }));
   const dotLines: LaidDotLine[] = dots.flatMap((d) =>
     d.threads.map((t) => {
       const a = anchor(t);
-      return { key: `${d.id}>${t}`, dot: d.id, thread: t, x1: r1(d.x + ROW / 2), y1: r1(d.y + ROW / 2), x2: r1(a.x), y2: r1(a.y) };
+      return { key: `${d.id}>${t}`, dot: d.id, thread: t, newest: d.newest, x1: r1(d.x + ROW / 2), y1: r1(d.y + ROW / 2), x2: r1(a.x), y2: r1(a.y) };
     }),
   );
   return {

@@ -3,9 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import { bigBlob } from '../../e2e/graphFixture';
 import { groupByValue, valueThreads } from './emergence';
-import { buildFlowIndex } from './graph';
 import { declareThread, deleteActivity, ensureThread, logActivity, renameThread, undeclareThread, updateThread } from './model';
-import { COMPACT_H, GRAPH_H, headerWhys, MAX_DOTS, MAX_FEEDERS, MAX_THREADS, NARROW_W, overview, Overview, overviewLayout, OverviewLayout } from './overview';
+import { COMPACT_H, GRAPH_H, headerWhys, MAX_DOTS, MAX_THREADS, NARROW_W, overview, Overview, overviewLayout, OverviewLayout } from './overview';
 import { homeThreads } from './selectors';
 import { Data, emptyData, Id } from './types';
 
@@ -43,29 +42,12 @@ const whyNames = (o: Overview | undefined) => whys(o).map((w) => w.thread.name);
 const feederNames = (o: Overview | undefined, why: string) => whys(o).find((w) => w.thread.name === why)?.feeders.map((f) => f.thread.name);
 const threadNames = (o: Overview | undefined) => (o?.mode === 'threads' ? o.threads.map((t) => t.thread.name) : []);
 
-describe('the flow index counts plain "to Y" logs as direct', () => {
-  it('counts each log with no doing thread toward every "to", and makes no link', () => {
-    let { data, id } = make('draw', 'sew');
-    data = plain(data, id.draw);
-    data = plain(data, id.draw);
-    data = logActivity(data, { text: 'both', toIds: [id.draw, id.sew] }, day(1)).data;
-    data = link(data, id.sew, id.draw);
-    const index = buildFlowIndex(data, NOW);
-    expect(index.direct.get(id.draw)).toBe(3);
-    expect(index.direct.get(id.sew)).toBe(1);
-    // The one doing → to log is a link, not a direct one.
-    expect(index.in.get(id.draw)?.get(id.sew)?.count).toBe(1);
-    expect(index.in.get(id.sew)).toBeUndefined();
-  });
-
-  it('an undone log takes its direct count and its link with it', () => {
+describe('undone logs', () => {
+  it('an undone log takes its link with it', () => {
     let { data, id } = make('draw', 'sew');
     const a = logActivity(data, { text: 'x', toIds: [id.draw] }, day(1));
     const b = logActivity(a.data, { text: 'y', doingId: id.sew, toIds: [id.draw] }, day(1));
     data = deleteActivity(deleteActivity(b.data, b.activity.id), a.activity.id);
-    const index = buildFlowIndex(data, NOW);
-    expect(index.direct.get(id.draw) ?? 0).toBe(0);
-    expect(index.in.get(id.draw)?.get(id.sew)).toBeUndefined();
     const o = ov(data);
     expect(o?.mode === 'threads' ? o.links : undefined).toEqual([]);
   });
@@ -97,17 +79,19 @@ describe('overview with whys', () => {
     expect(feederNames(o, 'make apparel')).toEqual(['draw']);
   });
 
-  it('caps feeders at three by all-time links, with the rest as +N', () => {
-    let { data, id } = make('make apparel', 'a', 'b', 'c', 'd', 'e');
+  it('caps feeders at the slots the whys leave (five beside one why) by all-time links, with the rest left out', () => {
+    let { data, id } = make('make apparel', 'a', 'b', 'c', 'd', 'e', 'f', 'g');
     data = declare(data, id['make apparel'], 1);
     data = links(data, id.a, id['make apparel'], 1);
     data = links(data, id.b, id['make apparel'], 5);
     data = links(data, id.c, id['make apparel'], 3);
     data = links(data, id.d, id['make apparel'], 4);
     data = links(data, id.e, id['make apparel'], 2);
+    data = links(data, id.f, id['make apparel'], 6);
+    data = links(data, id.g, id['make apparel'], 2, 2);
     const w = whys(ov(data))[0];
-    expect(w.feeders).toHaveLength(MAX_FEEDERS);
-    expect(new Set(w.feeders.map((f) => f.thread.name))).toEqual(new Set(['b', 'd', 'c']));
+    expect(w.feeders).toHaveLength(5);
+    expect(new Set(w.feeders.map((f) => f.thread.name))).toEqual(new Set(['f', 'b', 'd', 'c', 'e']));
     expect(w.moreFeeders).toBe(2);
   });
 
@@ -117,7 +101,7 @@ describe('overview with whys', () => {
     // More links than any other, but long ago (so lighter than the recent ones by weight).
     data = links(data, id.old, id['make apparel'], 4, 280);
     data = links(data, id.fresh, id['make apparel'], 1, 0);
-    for (const extra of ['p', 'q', 'r']) {
+    for (const extra of ['p', 'q', 'r', 's']) {
       const r = ensureThread(data, extra, day(99));
       data = links(r.data, r.thread.id, id['make apparel'], 3, 1);
     }
@@ -364,19 +348,21 @@ describe('what the picture shows over time', () => {
 
 describe('overviewLayout: a thread that stays never moves', () => {
   it('P1: a busier feeder that first linked long ago takes the place of the one that left; the others stay', () => {
-    let { data, id } = make('W', 'A', 'B', 'C', 'D');
+    let { data, id } = make('W', 'A', 'B', 'C', 'D', 'E', 'F');
     data = declare(data, id.W, 30);
     data = link(data, id.D, id.W, 20);
     data = links(data, id.A, id.W, 3, 10);
     data = links(data, id.B, id.W, 3, 9);
     data = links(data, id.C, id.W, 3, 8);
+    data = links(data, id.E, id.W, 3, 7);
+    data = links(data, id.F, id.W, 3, 6);
     const before = lay(ov(data));
-    expect(feederNames(ov(data), 'W')).toEqual(['A', 'B', 'C']);
+    expect(feederNames(ov(data), 'W')).toEqual(['A', 'B', 'C', 'E', 'F']);
     data = links(data, id.D, id.W, 5, 0);
     const after = lay(ov(data), before);
-    expect(feederNames(ov(data), 'W')).toEqual(['D', 'A', 'B']);
+    expect(feederNames(ov(data), 'W')).toEqual(['D', 'A', 'B', 'C', 'E']);
     expectStayed(where(before), where(after));
-    expect(where(after).get(id.D)).toBe(where(before).get(id.C));
+    expect(where(after).get(id.D)).toBe(where(before).get(id.F));
   });
 
   it('P2: no whys, a quiet older thread overtaking another takes its place; nothing else moves', () => {
@@ -411,20 +397,24 @@ describe('overviewLayout: a thread that stays never moves', () => {
   });
 
   it('an earned why entering takes a free top-row slot; the thread it brings takes the one that left', () => {
-    let { data, id } = make('w', 'a', 'b', 'c', 'e', 'g');
+    let { data, id } = make('w', 'a', 'b', 'c', 'd', 'f', 'e', 'g');
     data = declare(data, id.w, 30);
     data = link(data, id.a, id.w, 20);
-    for (const n of ['b', 'c']) data = plain(data, id[n], 20);
-    data = plain(data, id.b, 19);
+    for (const n of ['b', 'd', 'f']) for (let k = 0; k < 3; k++) data = plain(data, id[n], 20);
+    data = plain(data, id.c, 19);
     const before = lay(ov(data));
-    expect(before.nodes.map((n) => n.id)).toEqual([id.w, id.a, id.b, id.c]);
+    // One why and five beside it (a full picture): w, then by first appearance a, b, c (bottom), d, f (top).
+    expect(before.nodes.map((n) => n.id)).toEqual([id.w, id.d, id.f, id.a, id.b, id.c]);
     data = links(data, id.g, id.e, 5, 0);
     const o = ov(data)!;
     expect(whyNames(o)).toEqual(['w', 'e']);
     const after = lay(o, before);
     expectStayed(where(before), where(after));
-    expect(after.nodes.find((n) => n.id === id.e)).toMatchObject({ kind: 'why', y: 0 });
+    // Two whys leave room for four: the two least active (c, then f by name) leave.
     expect(where(after).has(id.c)).toBe(false);
+    expect(where(after).has(id.f)).toBe(false);
+    expect(after.nodes.find((n) => n.id === id.e)).toMatchObject({ kind: 'why', y: 0 });
+    expect(where(after).get(id.e)).toBe(where(before).get(id.f));
     expect(where(after).get(id.g)).toBe(where(before).get(id.c));
   });
 
@@ -624,7 +614,7 @@ describe('overviewLayout: narrow screens', () => {
           expect(apart).toBe(true);
         }
       expect(l.nodes.filter((n) => n.kind === 'why')).toHaveLength(3);
-      expect(l.nodes.filter((n) => n.kind === 'feeder')).toHaveLength(MAX_FEEDERS);
+      expect(l.nodes.filter((n) => n.kind === 'feeder')).toHaveLength(MAX_THREADS - 3);
     }
   });
 });
@@ -647,5 +637,147 @@ describe('with a big history', () => {
     }
     runs.sort((a, b) => a - b);
     expect(runs[2]).toBeLessThan(16);
+  });
+});
+
+describe('P-33: every log is visibly new', () => {
+  /** What's drawn, without ids (they aren't visible): every dot's spot and mark, every dot line. */
+  const drawn = (l: OverviewLayout) =>
+    JSON.stringify([l.dots.map((d) => [d.x, d.y, d.newest]).sort(), l.dotLines.map((x) => [x.x1, x.y1, x.x2, x.y2, x.newest]).sort()]);
+
+  for (const [name, threads, width] of [
+    ['one thread (compact)', ['draw'], W],
+    ['three threads', ['draw', 'knit', 'make apparel'], W],
+    ['three threads, 125 % zoom', ['draw', 'knit', 'make apparel'], 272],
+    ['six threads', ['draw', 'knit', 'make apparel', 'sew', 'run', 'read'], W],
+  ] as const)
+    it(`with the dots full, another log to the same thread changes what's drawn: ${name}`, () => {
+      let { data, id } = make(...threads);
+      for (let k = 0; k < 12; k++) data = plainAt(data, [id.draw], 100 - k).data;
+      let l = lay(ov(data), undefined, width);
+      expect(l.dots.length).toBeGreaterThanOrEqual(2);
+      for (let k = 0; k < 4; k++) {
+        const r = plainAt(data, [id.draw], 50 - k);
+        data = r.data;
+        const next = lay(ov(data), l, width);
+        // Full before and after: one dot came, one left.
+        expect(next.dots.length).toBe(l.dots.length);
+        expect(drawn(next)).not.toBe(drawn(l));
+        // The newest dot is marked, and only it (and its lines).
+        expect(next.dots.filter((d) => d.newest).map((d) => d.id)).toEqual([r.activity.id]);
+        expect(next.dotLines.filter((x) => x.newest).map((x) => x.dot)).toEqual([r.activity.id]);
+        // The one before it stays where it was, no longer marked.
+        const was = l.dots.find((d) => d.newest)!;
+        expect(next.dots.find((d) => d.id === was.id)).toMatchObject({ x: was.x, y: was.y, newest: false });
+        l = next;
+      }
+    });
+
+  it('an undone log gives the mark back to the log before it', () => {
+    const { data: d0, id } = make('draw', 'knit');
+    const a = plainAt(d0, [id.draw], 3);
+    const b = plainAt(a.data, [id.knit], 2);
+    expect(lay(ov(b.data)).dots.filter((d) => d.newest).map((d) => d.id)).toEqual([b.activity.id]);
+    expect(lay(ov(deleteActivity(b.data, b.activity.id))).dots.filter((d) => d.newest).map((d) => d.id)).toEqual([a.activity.id]);
+  });
+});
+
+describe('P-33: declaring a why keeps the picture as full as before', () => {
+  /** w (to be declared) and seven others: f busiest, then e, d, c, b, a; g never logged. */
+  function busy() {
+    let { data, id } = make('w', 'a', 'b', 'c', 'd', 'e', 'f', 'g');
+    ['a', 'b', 'c', 'd', 'e', 'f'].forEach((n, i) => {
+      for (let k = 0; k <= i; k++) data = plainAt(data, [id[n]], 200 - i * 10 - k).data;
+    });
+    return { data, id };
+  }
+
+  it('one, two or three whys: the slots beside them fill with the most active other threads, six in all', () => {
+    let { data, id } = busy();
+    expect(threadNames(ov(data))).toHaveLength(6);
+    data = declare(data, id.w, 3);
+    const one = ov(data)!;
+    expect(whyNames(one)).toEqual(['w']);
+    // By all-time activity, not by name (a, b, c…).
+    expect(one.mode === 'whys' && one.others.map((o) => o.thread.name)).toEqual(['f', 'e', 'd', 'c', 'b']);
+    expect(lay(one).nodes).toHaveLength(6);
+    data = declare(data, id.a, 2);
+    expect(lay(ov(data)).nodes).toHaveLength(6);
+    data = declare(data, id.g, 1);
+    const three = ov(data)!;
+    expect(whyNames(three)).toEqual(['w', 'a', 'g']);
+    expect(three.mode === 'whys' && three.others.map((o) => o.thread.name)).toEqual(['f', 'e', 'd']);
+    expect(lay(three).nodes).toHaveLength(6);
+  });
+
+  it('a single why placed afresh (a reload) heads the picture, top left', () => {
+    let { data, id } = busy();
+    data = declare(data, id.c, 1);
+    expect(lay(ov(data)).nodes.find((n) => n.id === id.c)).toMatchObject({ kind: 'why', x: 0, y: 0 });
+  });
+
+  it('a why entering the picture takes a free top-row slot, not a bottom one', () => {
+    // No whys: three threads, top left, bottom middle, top right; the top middle and the bottom row are free.
+    let { data, id } = make('draw', 'sew', 'knit');
+    ['draw', 'sew', 'knit'].forEach((n, i) => (data = plainAt(data, [id[n]], 30 - i).data));
+    const before = lay(ov(data));
+    const r = ensureThread(data, 'make apparel', day(1));
+    data = declare(r.data, r.thread.id, 0);
+    const after = lay(ov(data), before);
+    expectStayed(where(before), where(after));
+    expect(after.nodes.find((n) => n.id === r.thread.id)).toMatchObject({ kind: 'why', y: 0 });
+  });
+});
+
+describe('P-33: what the surviving mutants showed was untested', () => {
+  it('a dot sits between the rows nearest the thread it names (not just in the first free spot)', () => {
+    // No whys: draw top left, sew bottom middle, knit top right.
+    let { data, id } = make('draw', 'sew', 'knit');
+    for (const n of ['draw', 'sew']) data = plainAt(data, [id[n]], 10).data;
+    const before = lay(ov(data));
+    const r = plainAt(data, [id.knit], 1);
+    const l = lay(ov(r.data), before);
+    const knit = l.nodes.find((n) => n.id === id.knit)!;
+    expect(knit.y).toBe(0);
+    const d = l.dots.find((x) => x.id === r.activity.id)!;
+    // In the dot row just under knit, under its column.
+    expect(d.y).toBe(44);
+    expect(d.x + d.w / 2).toBeGreaterThan(knit.x);
+  });
+
+  it('a single thread left in the bottom row keeps the full height (compact is for one thread in the top row)', () => {
+    let { data, id } = make('draw', 'sew');
+    ['draw', 'sew'].forEach((n, i) => (data = plainAt(data, [id[n]], 30 - i).data));
+    const two = lay(ov(data));
+    expect(two.nodes.find((n) => n.id === id.sew)?.y).toBe(GRAPH_H - 44);
+    const one = lay(ov(updateThread(data, id.draw, { hidden: true })), two);
+    expect(one.nodes.map((n) => [n.id, n.y])).toEqual([[id.sew, GRAPH_H - 44]]);
+    expect(one.height).toBe(GRAPH_H);
+  });
+
+  it('when the newest log brings its thread in, the least active one leaves (not the busiest)', () => {
+    const names = ['t1', 't2', 't3', 't4', 't5', 't6', 'quiet'];
+    let { data, id } = make(...names);
+    // t1 busiest … t6 least.
+    names.slice(0, 6).forEach((n, i) => {
+      for (let k = 0; k < 7 - i; k++) data = plainAt(data, [id[n]], 100 + i * 10 + k).data;
+    });
+    const o = ov(plainAt(data, [id.quiet], 0).data)!;
+    expect(new Set(threadNames(o))).toEqual(new Set(['t1', 't2', 't3', 't4', 't5', 'quiet']));
+  });
+
+  it('up to eight dots at 390 px (350 px of content)', () => {
+    let { data, id } = make('draw', 'sew', 'knit');
+    for (let k = 0; k < 12; k++) data = plainAt(data, [[id.draw], [id.sew], [id.knit]][k % 3], 100 - k).data;
+    expect(lay(ov(data)).dots).toHaveLength(8);
+  });
+
+  it('links come in three widths, from all-time links: one, a few (2–4), many (5+)', () => {
+    const width = (n: number) => {
+      let { data, id } = make('draw', 'sew');
+      data = links(data, id.sew, id.draw, n, 300);
+      return lay(ov(data)).links[0].width;
+    };
+    expect([1, 2, 4, 5, 20].map(width)).toEqual([1.5, 2.5, 2.5, 3.5, 3.5]);
   });
 });

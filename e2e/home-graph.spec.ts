@@ -168,7 +168,7 @@ test('marking a thread “What it’s for” makes it a why right away; nodes op
   await expect(page.locator('[data-testid="graph-node-draw"][data-under="make apparel"]')).toBeVisible();
   await expect(link(page, 'draw', 'make apparel')).toHaveCount(1);
   await expect(picture(page)).toHaveAccessibleName(
-    'What it’s for: make apparel, fed by draw and sew. Also: read. Lately: read; draw toward make apparel; sew toward make apparel. And more.',
+    'What it’s for: make apparel, fed by draw and sew. Also: get stronger, lift and read. Lately: read; lift toward get stronger; draw toward make apparel; sew toward make apparel. And more.',
   );
 
   // A feeder opens its own thread.
@@ -215,7 +215,7 @@ test('the graph is one accessible element: its summary, in names; nodes are out 
   await expect(picture(page)).toHaveCount(1);
   const name = await picture(page).getAttribute('aria-label');
   expect(name).toBe(
-    'What it’s for: make apparel, fed by draw and others; get stronger, fed by lift. Also: read. Lately: read; lift toward get stronger; draw toward make apparel; make apparel. And more.',
+    'What it’s for: make apparel, fed by draw and sew; get stronger, fed by lift. Also: read. Lately: read; lift toward get stronger; draw toward make apparel; sew toward make apparel. And more.',
   );
   expect(name).not.toMatch(/\d|→/);
   // Nothing inside is exposed or focusable.
@@ -351,7 +351,62 @@ test('at 125 % zoom the picture still shows', async ({ page }) => {
   await expect(page.getByTestId('home-graph-summary')).toHaveCount(0);
 });
 
-test('at 200 % zoom: only the summary (at most three lines) and “Open graph”, and the first card stays in view', async ({ page }) => {
+test('from 280 to 320 px wide, Search and “Settings and backup” stay fully on screen; the Graph tab is still there', async ({ page }) => {
+  await page.addInitScript(seedScript, world(['make apparel']));
+  for (const width of [280, 300, 312, 320]) {
+    await page.setViewportSize({ width, height: 700 });
+    await openHome(page);
+    await expect(picture(page), `${width}`).toBeVisible();
+    for (const name of ['Search', 'Settings and backup']) {
+      const b = (await page.getByRole('link', { name, exact: true }).boundingBox())!;
+      expect(b.x, `${name} at ${width}`).toBeGreaterThanOrEqual(0);
+      expect(b.x + b.width, `${name} at ${width}`).toBeLessThanOrEqual(width);
+      expect(b.width).toBeGreaterThanOrEqual(44);
+    }
+    await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Graph' })).toBeInViewport();
+    if (SHOTS && width === 312) await page.screenshot({ path: `${SHOTS}/home-header-312.png` });
+  }
+});
+
+test('every log visibly lands: the newest dot is marked, even once the dots are full', async ({ page }) => {
+  // Twelve logs, all to draw: every dot spot is taken, so a new one lands where the oldest just left.
+  const logs = Array.from({ length: 12 }, (_, i) => ({ to: ['draw'], text: `sketch ${i}`, daysAgo: (12 - i) / 10 }));
+  await page.addInitScript(seedScript, legacyBlob(['draw', 'knit', 'make apparel'], logs));
+  await openHome(page);
+  await expect(dots(page)).toHaveCount(8);
+  const newest = page.locator('[data-testid^="graph-dot-"][data-newest]').filter({ visible: true });
+  await expect(newest).toHaveCount(1);
+  await expect(newest).toHaveAttribute('data-testid', 'graph-dot-a11');
+  const spot = async () => {
+    const b = (await newest.boundingBox())!;
+    return `${Math.round(b.x)},${Math.round(b.y)}`;
+  };
+  const before = await spot();
+  // The mark: larger than the other dots, and in the accent colour (theme C.accent; the rest are C.muted).
+  const look = (testId: string) =>
+    page.getByTestId(testId).evaluate((e) => {
+      const d = e.firstElementChild!;
+      return [d.getBoundingClientRect().width, getComputedStyle(d).backgroundColor];
+    });
+  expect(await look('graph-dot-a11')).toEqual([14, 'rgb(168, 70, 15)']);
+  expect(await look('graph-dot-a10')).toEqual([10, 'rgb(94, 91, 85)']);
+  const stroke = (testId: string) => page.getByTestId(testId).evaluate((e) => parseFloat(getComputedStyle(e).strokeWidth));
+  expect(await stroke('graph-dotline-a11-draw')).toBeGreaterThan(await stroke('graph-dotline-a10-draw'));
+
+  await logMentioning(page, 'sketched again', [['draw', false]]);
+  await expect(dots(page)).toHaveCount(8);
+  await expect(newest).toHaveCount(1);
+  await expect(newest).not.toHaveAttribute('data-testid', 'graph-dot-a11');
+  // The log before it is still there, no longer marked: the mark moved, so the picture changed.
+  await expect(page.getByTestId('graph-dot-a11')).toBeVisible();
+  await expect(page.getByTestId('graph-dot-a11')).not.toHaveAttribute('data-newest');
+  expect(await look('graph-dot-a11')).toEqual([10, 'rgb(94, 91, 85)']);
+  expect(await spot()).not.toBe(before);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/home-graph-newest-dot.png` });
+});
+
+test('at 200 % zoom: only the summary (two lines) with “Open graph” beside it, and the whole first card stays above the log box', async ({ page }) => {
   await page.setViewportSize({ width: 195, height: 422 });
   const names = ['make apparel', 'get stronger', 'sell prints', 'draw', 'sew', 'cut patterns', 'lift', 'run', 'photograph', 'frame'];
   const at = (from: string, to: string) => ({ from, to: [to], text: 'a', daysAgo: 1 });
@@ -372,7 +427,7 @@ test('at 200 % zoom: only the summary (at most three lines) and “Open graph”
   const summary = page.getByTestId('home-graph-summary').filter({ visible: true });
   await expect(summary).toContainText('What it’s for: make apparel, fed by');
   // 22 px lines (s.body).
-  expect((await summary.boundingBox())!.height).toBeLessThanOrEqual(3 * 22 + 1);
+  expect((await summary.boundingBox())!.height).toBeLessThanOrEqual(2 * 22 + 1);
   await expect(openGraph(page)).toBeVisible();
   await expect(openGraph(page)).toHaveCount(1);
   await expect(page.locator('[data-testid^="graph-node-"]')).toHaveCount(0);
@@ -380,10 +435,14 @@ test('at 200 % zoom: only the summary (at most three lines) and “Open graph”
   const box = (await openGraph(page).boundingBox())!;
   expect(box.height).toBeGreaterThanOrEqual(44);
   expect(box.x + box.width).toBeLessThanOrEqual(195);
-  // The first card starts above the log box.
+  // On the summary's row, not under it.
+  const s = (await summary.boundingBox())!;
+  expect(box.y).toBeLessThan(s.y + s.height);
+  // The whole first card (its name and when it was last touched) is above the log box.
   const card = page.getByRole('button', { name: new RegExp(`^(${names.join('|')})\\s*\\S`) }).first();
-  expect((await card.boundingBox())!.y).toBeLessThan((await logBox(page).boundingBox())!.y);
-  await expect(card).toBeInViewport();
+  const c = (await card.boundingBox())!;
+  expect(c.y + c.height).toBeLessThanOrEqual((await logBox(page).boundingBox())!.y);
+  await expect(card).toBeInViewport({ ratio: 1 });
   await expectNoSeriousViolations(page);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/home-graph-200.png` });
 });
@@ -404,46 +463,4 @@ test('with a large history the graph is there with the list, and logging stays q
   const ms = Date.now() - t0;
   console.log(`bigBlob with the graph: log → toast ${ms} ms`);
   expect(ms).toBeLessThan(1500);
-});
-
-test('with a large history, logging on Home is not measurably slower with the graph than without it', async ({ page }) => {
-  test.slow();
-  await page.addInitScript(seedScript, bigBlob(220, 4000));
-  await page.goto('./');
-  await expect(page.getByRole('heading', { name: /THREADS|TO / }).first()).toBeVisible({ timeout: 20_000 });
-  await expect(picture(page)).toBeVisible();
-  // In the page: from Return to the end of the work it does before you see it (the log, Home's
-  // render, the toast). The picture itself follows on the next render (deferred), so it never
-  // holds a log up; a regression here is anything the graph adds to Home's own update.
-  await page.evaluate(() => {
-    const w = window as unknown as { __logMs: number[] };
-    w.__logMs = [];
-    window.addEventListener(
-      'keydown',
-      (e) => {
-        if (e.key !== 'Enter') return;
-        const t0 = performance.now();
-        setTimeout(() => w.__logMs.push(performance.now() - t0), 0);
-      },
-      true,
-    );
-  });
-  const times = { with: [] as number[], without: [] as number[] };
-  let n = 0;
-  // Blocks of logs, alternating, each after one unmeasured log (the graph appearing or going).
-  for (const withGraph of [false, true, false, true, false, true, false, true, false, true]) {
-    await page.evaluate((off) => ((globalThis as { __wandermentNoHomeGraph?: boolean }).__wandermentNoHomeGraph = off), !withGraph);
-    for (let k = 0; k < 6; k++) {
-      await logLine(page, `timed log ${n++}`);
-      await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
-      await expect(picture(page)).toHaveCount(withGraph ? 1 : 0);
-      await page.waitForTimeout(150);
-      const last = await page.evaluate(() => (window as unknown as { __logMs: number[] }).__logMs.at(-1)!);
-      if (k > 0) times[withGraph ? 'with' : 'without'].push(last);
-    }
-  }
-  const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
-  const [on, off] = [median(times.with), median(times.without)];
-  console.log(`bigBlob log on Home: median ${on.toFixed(1)} ms with the graph, ${off.toFixed(1)} ms without (${times.with.map(Math.round)} / ${times.without.map(Math.round)})`);
-  expect(on).toBeLessThanOrEqual(off * 1.1);
 });

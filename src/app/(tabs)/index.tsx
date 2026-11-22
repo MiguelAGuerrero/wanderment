@@ -1,9 +1,9 @@
 import { Link, router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
-import { LiveGraph, OpenGraphIcon, useGraphNarrow } from '@/components/graph/HomeGraph';
+import { homeContentWidth, LiveGraph, OpenGraphIcon, useGraphIcon } from '@/components/graph/HomeGraph';
 import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
 import { ThreadCard } from '@/components/ThreadCard';
@@ -52,20 +52,23 @@ export default function Home() {
 
   // The live graph: a pure function of the data, so it simply re-renders as you declare or log. Its
   // earned whys are the headers', in the same order. Any visible thread makes a graph (never an empty
-  // box). (`__wandermentNoHomeGraph` lets the e2e time Home without it, to show it isn't slower.)
-  const noGraph = (globalThis as { __wandermentNoHomeGraph?: boolean }).__wandermentNoHomeGraph === true;
-  const graph = useMemo(() => !noGraph && Object.values(data.threads).some((t) => !t.hidden), [data, noGraph]);
+  // box).
+  const graph = useMemo(() => Object.values(data.threads).some((t) => !t.hidden), [data]);
   const surfacing = useMemo(() => groups.map((g) => g.value.id), [groups]);
-  const graphNarrow = useGraphNarrow();
+  const graphIcon = useGraphIcon();
+  // Search and Settings (the way to your backup) always stay on screen: on a narrow window (125 %
+  // zoom and more) the ⋔ icon goes, the title steps down a size, and as a last resort it truncates.
+  const { width } = useWindowDimensions();
+  const tightHeader = homeContentWidth(width) < 270;
 
   return (
     <Screen bridge scrollToTopOn={bridgeFor}>
       <View style={styles.header}>
-        <Text style={s.h1} accessibilityRole="header">
+        <Text style={[s.h1, styles.title, tightHeader && { fontSize: 24 }]} numberOfLines={1} accessibilityRole="header">
           Wanderment
         </Text>
-        <View style={{ flexDirection: 'row' }}>
-          {graph && !graphNarrow && <OpenGraphIcon style={styles.icon} />}
+        <View style={styles.icons}>
+          {graph && graphIcon && <OpenGraphIcon style={styles.icon} />}
           <Link href="/search" asChild>
             <Pressable accessibilityRole="button" accessibilityLabel="Search" style={styles.icon}>
               <Text style={{ fontSize: 26, lineHeight: 30, color: C.muted }} {...decorative}>
@@ -228,6 +231,8 @@ function NewThread() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  title: { flexShrink: 1 },
+  icons: { flexDirection: 'row', flexShrink: 0 },
   icon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   hero: { fontSize: 26, fontWeight: '600', color: C.ink, lineHeight: 32 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

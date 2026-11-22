@@ -9,7 +9,7 @@ import { Data, Id } from '@/domain/types';
 import { C, s } from '@/theme';
 
 /** Content width on Home before it's measured: Screen's padding (20 each side) inside its 640 cap. */
-const estimate = (windowWidth: number) => Math.min(windowWidth, 640) - 40;
+export const homeContentWidth = (windowWidth: number) => Math.min(windowWidth, 640) - 40;
 
 /**
  * Narrow content (three columns don't fit, e.g. 200 % zoom) or the largest native text: the graph is
@@ -18,7 +18,21 @@ const estimate = (windowWidth: number) => Math.min(windowWidth, 640) - 40;
  */
 export function useGraphNarrow() {
   const { width, fontScale } = useWindowDimensions();
-  return estimate(width) < NARROW_W || fontScale >= BIG_TEXT;
+  return homeContentWidth(width) < NARROW_W || fontScale >= BIG_TEXT;
+}
+
+/** Home's header fits its title and three 44 px icons from this content width (about a 350 px window). */
+const ICON_ROOM = 310;
+
+/**
+ * Whether Home's header shows the ⋔ "Open graph" icon: while the picture shows, if the header has
+ * room for it. Narrower (e.g. 125 % zoom), it would push Settings and backup off screen, so it goes;
+ * the Graph tab is still the way there.
+ */
+export function useGraphIcon() {
+  const { width } = useWindowDimensions();
+  const narrow = useGraphNarrow();
+  return !narrow && homeContentWidth(width) >= ICON_ROOM;
 }
 
 /** The header's way to the Graph tab while the picture shows (keyboard and screen readers too). */
@@ -69,7 +83,7 @@ export function HomeGraph({ ov }: { ov: Overview; /** Reserved for focusing a no
   const { width: windowWidth, fontScale } = useWindowDimensions();
   const narrow = useGraphNarrow();
   const [measured, setMeasured] = useState<number>();
-  const width = measured ?? estimate(windowWidth);
+  const width = measured ?? homeContentWidth(windowWidth);
   const onLayout = (e: LayoutChangeEvent) => setMeasured(e.nativeEvent.layout.width);
   // Laid out again only when something changes, from where things were last time (kept while Home
   // is mounted, never stored): React's "adjust state while rendering" pattern.
@@ -82,15 +96,17 @@ export function HomeGraph({ ov }: { ov: Overview; /** Reserved for focusing a no
   if (!layout) return null;
 
   return (
-    <View onLayout={onLayout} testID="home-graph" style={{ gap: 4 }}>
+    <View onLayout={onLayout} testID="home-graph" style={narrow && styles.summaryRow}>
       {layout.summaryOnly || narrow ? (
-        <Text style={s.body} numberOfLines={3} testID="home-graph-summary">
+        // Two lines, with "Open graph" beside them: at 200 % zoom the first card stays above the log box.
+        <Text style={[s.body, styles.summary]} numberOfLines={2} testID="home-graph-summary">
           {ov.summary}
         </Text>
       ) : (
         <View accessible accessibilityRole="image" accessibilityLabel={ov.summary} onAccessibilityTap={() => {}} style={{ height: layout.height }} testID="home-graph-picture">
           <Svg width={width} height={layout.height} style={StyleSheet.absoluteFill} pointerEvents="none" {...decorative}>
-            {layout.dotLines.map((l) => (
+            {/* Newest first in the layout; drawn last, so its lines are on top. */}
+            {[...layout.dotLines].reverse().map((l) => (
               <DotLine key={l.key} line={l} />
             ))}
             {layout.links.map((l) => (
@@ -129,9 +145,19 @@ export function HomeGraph({ ov }: { ov: Overview; /** Reserved for focusing a no
 // Memoised by value: a log re-renders only the dot and lines it adds (Home must not get slower).
 const DotLine = memo(
   function DotLine({ line: l }: { line: LaidDotLine }) {
-    return <Line testID={`graph-dotline-${l.dot}-${l.thread}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={C.faint} strokeWidth={1} />;
+    return (
+      <Line
+        testID={`graph-dotline-${l.dot}-${l.thread}`}
+        x1={l.x1}
+        y1={l.y1}
+        x2={l.x2}
+        y2={l.y2}
+        stroke={l.newest ? C.muted : C.faint}
+        strokeWidth={l.newest ? 1.5 : 1}
+      />
+    );
   },
-  ({ line: a }, { line: b }) => a.key === b.key && a.x1 === b.x1 && a.y1 === b.y1 && a.x2 === b.x2 && a.y2 === b.y2,
+  ({ line: a }, { line: b }) => a.key === b.key && a.newest === b.newest && a.x1 === b.x1 && a.y1 === b.y1 && a.x2 === b.x2 && a.y2 === b.y2,
 );
 
 const LinkLine = memo(
@@ -152,13 +178,13 @@ const Dot = memo(
       <Shortcut
         onPress={() => router.push(`/activity/${d.id}`)}
         testID={`graph-dot-${d.id}`}
-        data={{ threads: d.threads.join('|') }}
+        data={{ threads: d.threads.join('|'), ...(d.newest && { newest: 'true' }) }}
         style={[styles.hit, styles.center, { left: d.x, top: d.y, width: d.w, height: d.h }]}>
-        <View style={styles.dot} />
+        <View style={[styles.dot, d.newest && styles.newest]} />
       </Shortcut>
     );
   },
-  ({ dot: a }, { dot: b }) => a.id === b.id && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && a.threads.join('|') === b.threads.join('|'),
+  ({ dot: a }, { dot: b }) => a.id === b.id && a.newest === b.newest && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && a.threads.join('|') === b.threads.join('|'),
 );
 
 const Node = memo(
@@ -194,7 +220,11 @@ const styles = StyleSheet.create({
   text: { fontSize: 13, lineHeight: 16, fontWeight: '500', color: C.ink, textAlign: 'center' },
   whyText: { fontWeight: '600', color: C.accentInk },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.muted },
+  // Your latest log: larger, in the accent colour, until the next one (so every log visibly lands).
+  newest: { width: 14, height: 14, borderRadius: 7, backgroundColor: C.accent },
   moreText: { fontSize: 13, fontWeight: '500', color: C.accent },
-  open: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-end', paddingHorizontal: 4 },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  summary: { flex: 1 },
+  open: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
   openText: { color: C.accent, fontSize: 14, fontWeight: '500' },
 });
