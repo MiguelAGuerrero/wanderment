@@ -4,6 +4,34 @@
 
 _Built up over one conversation: the sections below are in the order they were decided. The current design is the mockup page (7 frames) published 2026-11-22 and the owner's answers at the end; research: [discovery/2026-11-22-intention-stack](../discovery/2026-11-22-intention-stack.md)._
 
+
+## Current design (revision 10, 2026-11-22) — still being refined (D-9: not yet)
+Mockups: the intention stack https://claude.ai/artifact/N4iPk2aqyzPdbf8LgWfFuK · the wanderer and
+the bottom layouts https://claude.ai/artifact/2i49zaDfNfJAedxVPNqtTg · cold start
+https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB (private to the owner).
+- **The graph is the picture of your energy.**
+  - Circles, sized relative to the anchor; smaller ones feed up into bigger ones; plain lines.
+  - Darkness = recency (the 14-day warmth); accent = a declared why.
+  - The current step is a small dot with its label, and the done steps make a green trail of beads
+    (fading, no number; tap one to read it).
+  - **The wanderer:** a dot drifting by recency, orbiting a selection with a flare, lingering where
+    you just logged; still under Reduce Motion.
+- **One decision at a time (option A).** A quiet "What's next" card (step + ✓; "＋ add one" when
+  empty), and under it "✎ Log something else", which opens the log box in the card's place.
+  - It rewords DESIGN.md's "capture is sacred" when it ships. On web, typing opens the log directly.
+- **Select:**
+  - swipe the card between leaf chains, in the graph's order and within what it draws;
+  - the graph narrows to the why's whole subtree and zooms;
+  - "‹ All" chip / Back to return;
+  - on open, the card sits on the chain last logged toward (shown, not attached).
+- **Log + ✓:** while typing, a dashed "→ chain" suggestion attaches with one tap. With words typed,
+  ✓ logs those words as the step. Written steps rise after ✓; a wander never fills the step slot.
+- **Edit:** tap the step to rewrite it; a smaller one stacks on top; clearing it sets it down (Undo).
+- **Cold start:** an empty app only. It names a first node (vague welcome), then its next step, and
+  lands on Home.
+- **Later, not now:** an all-chains view; a swipe-up drawer listing every chain.
+- **Data:** the trail needs each completed step's lineage on its activity → with P-19 (Full tier).
+
 ## The problem, in the owner's terms
 > "I should be able to see my pursuits … relative to the actions and activities that I put towards
 > them, as well as stage next steps, and … quickly interact with those wanders from the screen. My
@@ -357,3 +385,164 @@ Applied to the stack design:
 - An ⓘ in the header opens a "How the stack reads" sheet. It never opens by itself.
 - Screen-reader names keep the full meaning ("sketch a hand, next step, toward draw, for make
   apparel").
+
+
+## Revisions 4–10: the owner's words and decisions (2026-11-22)
+## Owner, 2026-11-22: one chain at a time; the graph is the picture of energy (→ revision 4)
+> I'm not particularly resonating with the stack showing multiple paths at once. The idea is that you
+> could swipe between any of the sub-graphs and see the graph react accordingly, and select which
+> stack of intention you want to focus on … it doesn't help shape focusing attention on one thing at
+> a time, which is the spirit of doing things in a stepwise fashion. And I think the stack is
+> consuming too much space compared to the graph. The stack is supposed to be a summary review of
+> what the graph is showing, in a way that makes understanding the context, the why and what to do
+> next a step easier to process as text, whereas the graph provides the illustration and
+> representation of your energy.
+
+Revision 4:
+- **One chain per card:** a short text stack with the next step on top (Load ⋯), the "toward"
+  layers, and the why at the base. The card is only as tall as its chain.
+- **The graph keeps most of the screen.** Swiping the card lights that chain's path and dims the
+  rest. Tapping a node jumps the card there. Tapping the base scopes to that why (× goes back to
+  All).
+- **The card is the spotlight** (no separate dock). It sits right above the log box.
+(Fold into docs/product/briefs/B-06-intention-stack.md + owner-notes at the next landing.)
+- Owner, same day: "a stack showing every side chain could be a separate view, but for now let's
+  focus on one thing at a time." → Later: an all-chains view (revision 3's side-by-side towers),
+  as its own view, not on Home.
+
+## Owner, 2026-11-22: three verbs; context + next step always (→ revision 5)
+> I don't like the idea of load … at most like 3 different things you can do. You can log, you can
+> complete a step, or you can select a current sub view of the graph … the only time you can ever
+> see all your nodes … is at the top level all view, and the carousel is just a means to select a
+> subview … A classification of a wander … would just be a subtree. Any subtree, that's your wander …
+> the carousel itself should show the leaf of that process. So you get the parental context and then
+> the current step next … if there is no step allocated … you can define it, or you can just log it
+> right then and there … A step … is just a little bit of pre-planning. Logging, first and foremost,
+> is how we're gonna enter into the graph quickly … at all times, at all selections, I know my context
+> and the next step. That shouldn't be hidden at any point during home … [a swipe-up drawer listing
+> everything: not now] … one thing at a time. What's my next step? What am I doing?
+Answers:
+- At "All", the card sits on the chain last logged toward (the graph shows everything, that chain
+  lit). This overrides the earlier "the spotlight shows only what I pick" for the default.
+- A selected page narrows the graph to that subtree.
+- Completing a step: "it gets archived and detaches itself from the current context, and it's just
+  logged as data". Drawn as a ✓ icon.
+- Smaller step and set down fold into editing the step (tap it to rewrite; clear = set down, with
+  Undo).
+- Kept by Claude, from DESIGN.md: the default card doesn't capture logs. The log box goes "→ chain"
+  only after a swipe or tap, removable.
+Revision 5: a two-line card (context path; next step + ✓), three verbs (log, complete, select), no
+Load, no ⋯. Later: a swipe-up drawer listing every chain; the all-chains view.
+
+## Adversarial audit of revision 5 (2026-11-22) → revision 6
+Four reviewers: usability tester, information designer, practitioner panel (ADHD coach / GTD
+trainer / ACT therapist) and product skeptic. Reports:
+`.polish/product/adv-{usability,infodesign,practitioners,skeptic}.md` (in docs/product/discovery/2026-11-22-intention-stack/adversarial-*.md).
+
+Owner's answers:
+- **After ✓,** written steps rise one by one. When none are left, the step line rests on a quiet
+  "＋ next step". A wander never goes in the step slot.
+- **Typing shows a dashed suggested "→ chain" chip;** one tap attaches it. With words typed, ✓ logs
+  those words as that step.
+- **Dots → warmth on nodes and lines** (darker = recent; the 14-day rule) plus one mark for the
+  latest log.
+
+Folded in (all four converged):
+- the card reads step first, with "toward <parent> · <why>" under it, shortened from the middle so
+  the why always shows;
+- the step line is never blank (↺ left off + ＋);
+- the carousel follows the graph's order and stays within what it draws, never recency;
+- peeks and ‹ › buttons; a fixed "All" chip; Back goes up a level;
+- narrowing shows the why's whole subtree and zooms to fill;
+- separate tap zones: step = edit, context = select, ✓ = complete;
+- a smaller step stacks on top and never overwrites;
+- selection = one ink outline, no dimming; accent only for whys; equal line widths; contrast floor.
+
+Polish items: the shipped graph's `linkWidth` encodes all-time counts; dimmed labels fail contrast.
+Test before building: from the owner's export, how many active wanders have a `next`, and how many
+of the last 30 logs were unattached.
+
+## Owner, 2026-11-22: a quick, easy onboarding
+> Draft a quick and easy onboarding session … a series of animations or text prompts that prompts me
+> to define at least one goal, value or something I'm trying to move towards — in those words, not
+> achieved, just move towards; ambivalence and uncertainty are encouraged — and then I'll define my
+> next step right after, and the output is clear on the app itself.
+Draft (clickable): https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB
+1. Welcome: a dot drifting toward a glow it never reaches. "What are you moving toward?"
+2. Name it: your words, with examples ("feel productive", "be kinder to myself", "make things with
+   my hands", "something… not sure yet"); "Torn between two? Pick one for now."
+3. "There it is.": the words settle as the base.
+4. "One small thing toward it?": chips, a field, and "Leave it open for now".
+5. Home: the why in the graph; the card shows "↳ step ✓ / toward why". One soft pulse and a hint
+   that fades on its own.
+Rules: Skip on every screen, and one Skip ends it; logging ends it; it writes one declared why and,
+optionally, one step; the keyboard opens only on tap; Reduce Motion gives fades only. It replaces
+P-36's card. This is the one place for explanatory text; ⓘ can replay it.
+
+## Owner, 2026-11-22: done steps as a trail (→ revision 7)
+> I did say … the done nodes be detached from the context, but I think it might be more emotionally
+> impactful to see them like a trail. They might not consume a lot of space, but something like a
+> green dot … to indicate the series of steps done before your current next step, which can occupy
+> its own normal textual representation on the graph.
+Revision 7:
+- **The current step is a text node in the graph** ("↳ sketch a hand", outlined), above its wander.
+- **Completed steps leave small green beads** along a dotted path from the wander up to the step.
+  Older beads fade with the warmth rule; there's no number. Tapping a bead shows the step's text
+  and when.
+- **After ✓, the step becomes a fresh bead.** With no written step left, the node becomes a dashed
+  "＋ next step".
+- **Data:** ✓ still logs an activity, but the trail needs to know that activity completed a step on
+  this chain. That means storing the step lineage on the activity (or the chain keeping its done
+  steps) → part of P-19, Full tier.
+- **Research tension to watch:** the wellbeing lens warned that a visible run of done items can be
+  read as a count; the goals lens recommended keeping popped steps visible (Koo & Fishbach; progress
+  principle). Guardrails: fading, no number, a visible cap.
+
+## Owner, 2026-11-22: circles, not boxes (→ revision 8)
+> I'm not a fan of the boxes … more visually appealing to see bubbles … each sub circle is a smaller
+> link, so it looks like a snowman type of figure, connected not by arrows but standard lines … the
+> smaller circles propagate upwards to the bigger circle.
+Answers: the big why on top, with smaller circles (wanders, then sub-wanders, then the step) feeding
+up into it. Size = level (why > wander > sub-wander > step); energy stays as darkness (recency);
+plain lines, no arrows. Labels sit inside big circles and under small ones; the step's label sits to
+its right. The trail's green beads sit on the line from the step up to its wander.
+- Owner: "It's all relative" → **size is relative to the anchor.** No fixed tiers: the anchored node
+  is the big circle; each level below it is one size smaller (depth 1, 2, 3, then the step as a dot).
+  At All, every top-level node is the same size, loose wanders included. Accent still marks declared
+  whys; darkness marks recency.
+
+## Owner, 2026-11-22: cold start only; a quieter card (→ revision 9)
+> The onboarding is just the cold start where you just guide the user to creating their first node
+> and declaring the next step towards that node … the carousel card seems a little bit busy. A
+> simple what's next might be a better way of communicating that it's the next step to complete. The
+> additional information could just be noise that could be just looked at from the graph.
+- **Onboarding:** an empty app only. It guides you to create the first node and its next step, then
+  lands on Home: the node as a big circle, the step as a dot beneath it, and the card.
+- **The card:** a small "What's next" label, the step and ✓. No context line, no ‹ › (the slim peeks
+  stay). Empty: "＋ add one". The context lives in the graph (the line from the step up to its node)
+  and in the scope chip. Screen readers still hear the full path in the card's name.
+
+## Owner, 2026-11-22: the wanderer; one decision at a time (→ revision 10 draft)
+> I am enthralled by the visual metaphor of the dot orbiting a place of unknown … it emphasizes
+> wonder … leverage something like that in the base UI to show the wandering of the dot indicator
+> where your current interest seems to be hovering, or … a flare in the selection … you see your
+> energy circulating and wandering the whole cluster of activity. And right now, the what's next and
+> the log seem to be competing for action space … make those two actions separate, so there's only
+> one thing demanding a decision from the user at once.
+Draft (live): https://claude.ai/artifact/2i49zaDfNfJAedxVPNqtTg
+- **The wanderer:** one small accent dot drifting through the graph. It visits circles in
+  proportion to recency (the 14-day warmth weights), never counts. On a selection it travels there
+  and orbits with a soft flare (replacing the outline ring); after a log it lingers where the log
+  landed (replacing the "latest log" mark). It never suggests, pulses or speeds up; it stops while
+  typing; under Reduce Motion it stays still at the most recent place. It runs on the UI thread and
+  pauses in the background (perf and battery).
+- **One decision at a time,** three options:
+  - A: next first, with a quiet "✎ Log something else";
+  - B: log first, with the next step in the graph (tap it for a ✓ card);
+  - C: one slot with two faces (a Next / Log toggle).
+Answers:
+- **Option A, next first, log quiet.** The card is the only decision. "✎ Log something else" opens the
+  log box in the card's place. This changes DESIGN.md's "capture is sacred: one line, any time"
+  (logging becomes two taps from Home), so the rule must be reworded when this ships, owner-approved.
+  Keep the keyboard shortcut on web (any typing focuses the log) so capture stays instant there.
+- **The wanderer: yes, as drafted.**

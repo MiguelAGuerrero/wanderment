@@ -37,6 +37,22 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-46 Home's per-log cost with a large history `[perf]` M
+*Status:* todo
+*Why:* `e2e/home-graph-perf.spec.ts` swings 1.19–1.43× against its 1.25× budget with a 4,000-log
+history (CI red on 2026-11-22 before P-38; P-38 pulled for it). The graph's deferred work after each
+log is the cost; P-38 waits on this.
+*Done when:* profile the deferred picture render and its layout/paint after a log; bring the spec
+reliably under budget (10 runs in a row locally); then P-38 can land from `p38-keep-dots`.
+
+### P-47 The Home graph shows no counts, and stays readable `[ux]` `[a11y]` S
+*Status:* todo
+*Why:* adversarial audit 2026-11-22 (information designer): link width is drawn from all-time log
+counts (`linkWidth`), which breaks the no-counts rule; dimmed labels in the picture drop to about
+2:1 contrast.
+*Done when:* links are equal width; no mark's size or width comes from a count; every label is
+4.5:1 or more and every mark 3:1 or more in all states; unit + axe checks.
+
 ### P-05 Prove it in Safari and Firefox `[platform]` M
 *Status:* todo
 *Why:* storage relies on expo-sqlite's async API working without COOP/COEP and on OPFS; that's only
@@ -348,9 +364,9 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   docked above the log box. Panels and a three-lens research audit run 2026-11-22. **Answered so far:**
   A + C's focus; a why holds its own step; layers are the chain of "toward"; it lives on Home; set it
   down; one home + mirror for two whys; the spotlight shows only what you pick; steps never age; rest
-  after a pop; the anchor resets to All; screens without explanations. **Still to answer: go on the
-  slice order** (P-19 chains first, then the stack + spotlight, then re-anchor + pager, then B-05's
-  P-40–P-43 inside it).
+  after a pop; the anchor resets to All; screens without explanations. **Refined through revision 10** (circles, a
+  trail of done steps, the wanderer, a quiet "What's next" card with log one tap behind, cold start).
+  **Owner, 2026-11-22: not yet — keep refining.**
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
