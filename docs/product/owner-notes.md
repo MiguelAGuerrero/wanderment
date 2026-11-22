@@ -18,6 +18,19 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-22 — Onboarding: a feeling, not a goal
+> For example, maybe the onboarding thing is I get to declare something as simple as "I just wanna
+> feel productive", and then the next step [toward] feeling productive might be something mundane like
+> reading a book. It's not necessarily the most structured goal-setting traditional app, but it makes
+> it very apparent why I want the things I do and what I think I should be doing, with a way to track
+> that over time with as much specificity as I allow myself to hold myself to.
+
+Interpretation (by /product): P-36's 1-2-3 names a *why* in the person's own loose words (a feeling
+or reason, e.g. "feel productive"), and a mundane next step ("read a book"); no targets, dates,
+numbers or goal framing. Over time the graph shows why next to what. Specificity is opt-in: a vague
+why can stay vague; more structure comes only by adding a smaller step toward it later (D-5 chains).
+Led to: B-04 / P-36 wording and examples.
+
 ## 2026-11-22 — The graph should be first, from the start, and a place to act
 > [Screenshot: the Graph tab after a log: "This fills in once you've logged for a while…"] I'm not
 > quite satisfied with the idea of having to log a while in order to access the graph view. The graph

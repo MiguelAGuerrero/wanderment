@@ -44,7 +44,10 @@ waits until you've "logged for a while" and shows nothing with no threads.
 *Done when:* Home is a full-screen graph (P-15's model) with the log box at the bottom; with no
 wanders, recent logs show as dots plus a "+ What's it all for?" node (no threshold, no "fills in"
 message); the list moves to a "Wanders" tab; the Graph tab is removed and its view opens from
-"Explore" on Home; e2e flows updated; axe; 390 px and 200 %; Home not slower.
+"Explore" on Home; e2e flows updated; axe; 390 px and 200 %; Home not slower. B-04 panel refinements 2–5: a
+non-pointer list of whys/wanders after the summary (also the large-text layout); staged steps as one
+quiet line under their node (no age, no count); the summary visible under the graph; "+ What's it
+all for?" only while there are no whys, with "Not now". Ships together with P-37.
 
 ### P-35 Act from a node `[feature]` `[capture]` M
 *Status:* todo
@@ -59,8 +62,9 @@ reaches the same actions from the Wanders list; e2e; axe.
 *Status:* todo
 *Why:* B-04 slice 3 (replaces P-18): a quick onboarding — declare an intention, plan its next step,
 see it in the graph.
-*Done when:* first open shows ① "What's it all for?" ② "One next step toward it?" ③ the graph with
-both, log box ready; every step skippable in one tap; nothing required; logging at any point ends it
+*Done when:* first open shows ① "What's it all for?" (examples are feelings/reasons in plain words:
+"feel productive", "feel calmer" — no targets, dates, numbers or "goal" wording) ② "One next step
+toward it?" (mundane is welcome: "read a book") ③ the graph with both, log box ready; every step skippable in one tap; nothing required; logging at any point ends it
 for good; e2e for full path, skips, and log-during; axe.
 
 ### P-37 Threads are "wanders" `[ux]` S
@@ -108,14 +112,6 @@ lands on it again. Deferred from P-29 because it reverses three Part A tests on 
 *Done when:* on web, that case shows the waiting screen and retries with backoff (native unchanged);
 the three Part A assertions are updated with the reason; the remembered Return and draft survive;
 persistence + e2e tests. Patch ready: session scratchpad `U1-cold-start-retry.patch`.
-
-### P-30 A refresh shows the new version `[platform]` `[ux]` S
-*Status:* in-progress
-*Why:* owner, 2026-11-22: refreshed and "it still looks like the same one" — the installed PWA keeps
-serving the old version on a plain refresh until the update banner is tapped or every tab closes.
-*Done when:* a refresh (or reopening) after a deploy loads the new version when it's safe (no unsaved
-write; P-29's release-first), or the banner is impossible to miss; Settings shows the app version
-and "Check for updates"; e2e with a bumped service worker.
 
 ### P-28 The thread page at 200 % zoom and long names `[ux]` `[a11y]` S
 *Status:* todo
@@ -336,6 +332,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-30 — a refresh shows the new version: right after opening, refreshing or returning, a newer version loads by itself (data released first, draft kept); after typing or 10 s the banner asks; one automatic update per version; Settings shows the version and "Check for updates" · evidence: `update.test.ts`, `e2e/update.spec.ts` (9), `e2e/pwa.spec.ts`, `e2e/handoff.spec.ts` update tests ×5 · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (light tier: the batch audit runs with P-33, fixed forward) · `fcf7014`
 - 2026-11-22 · P-15 — Home opens with a live graph: your threads, recent logs as dots linked to every thread they name (owner: activities as dots), doing → to links as lines, declared whys first, nodes that stay put, "and more" instead of numbers, one accessible summary · evidence: `overview.test.ts` (38, 25/25 mutants killed), `e2e/home-graph.spec.ts` (incl. owner-style logging, perf ≤ 1.10× without the graph), `e2e/a11y.spec.ts`, screenshots · audit: 16 reported · 12 reproduced · 14 fixed · 2 deferred (long-name ellipsis, unused flow-index fields; re-audit of the rework still running — findings fixed forward) · `d2423fe`, `c55e96d`
 - 2026-11-22 · P-29 — never locked out by another copy of the app (owner's iPhone report): WebKit's held-file error recognised; a waiting screen that opens by itself; a page holds the data only while visible and takes it back when shown (reloading what other tabs saved, keeping the draft); a page that doesn't hold the data can't change it; Return while reconnecting logs once; take-back never drops unsaved changes · evidence: `opening.test.ts`, `rebase.test.ts`, `field.test.ts`, `persistence.test.ts` (P-29 describes, mutation-checked), `e2e/handoff.spec.ts`, `e2e/storage.spec.ts`, `e2e/a11y.spec.ts` · audit: 49 reported · 34 reproduced · 37 fixed · 12 deferred (4 rounds; a follow-up data item, the cold-start item, accepted edge cases) · `a4a8f7b`, `427e262`…`911588a`
 - 2026-11-21 · P-14 — a thread can be marked as what it's for (`declaredAt`, SQLite migration 2, additive; backups stay version 1 and carry it), at most three, a fourth offers a swap, hiding unmarks; plus the owner's no-keyboard-on-touch fix for the bridge · evidence: `whys.test.ts`, `storage.test.ts` (schema 2), `persistence.test.ts` (6 mutants red), `useStore.test.ts`, `e2e/why.spec.ts`, `e2e/bridge.spec.ts`, `e2e/a11y.spec.ts`, upgrade/downgrade probed in Chromium · audit: 14 reported · 9 reproduced · 7 fixed · 7 deferred (four to a new zoom item; Android double announce and coarse-pointer keyboard focus accepted; toast wording) · `04f6760`, `a5032c4` + audit fixes

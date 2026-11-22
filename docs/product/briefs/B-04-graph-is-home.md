@@ -52,6 +52,15 @@ The owner's own data (activities, no threads yet) shows **no graph anywhere**.
   - "+ next step" sets one inline, and "Open" goes to the wander's page.
   - Tapping empty canvas, Esc, or × clears the selection.
   - Steps in a wander's subtree (B-02 chains, when built) are reachable the same way.
+- **The tone of the first run** (owner, 2026-11-22: "something as simple as I just wanna feel
+  productive … the next step … might be something mundane like reading a book … not the most
+  structured goal-setting traditional app … with as much specificity as I allow myself"):
+  - the why is a feeling or reason in your own words, and the examples model that: "feel
+    productive", "feel calmer", "be a better drawer";
+  - the next step can be mundane, e.g. "read a book";
+  - no targets, dates, numbers or "goal" wording;
+  - specificity is opt-in: a vague why stays vague until you choose to add a smaller step toward it
+    (D-5).
 - **First run (1-2-3):** three short screens over the empty graph.
   - ① "What's it all for?" takes one field, with examples, and "Skip".
   - ② "What's one next step toward it?" takes one field, and "Skip".
@@ -75,8 +84,64 @@ The owner's own data (activities, no threads yet) shows **no graph anywhere**.
   keep `thread`.
 
 ## Persona panel
-Simulated perspectives, run after the owner's answers (per D2's "answer first, panel right after"),
-with refinements feeding slices 2–4. _Pending._
+_Simulated perspectives from `docs/product/PERSONAS.md`, run 2026-11-22 after the owner's answers.
+This is a thinking tool, not user research. Full reports: `.polish/product/panel-B-04-{1,2}.md`._
+
+| Persona | Reaction | Keeps using it | What it hinges on |
+|---|---|---|---|
+| A — Impulsive Dabbler | fine → delighted | yes | Dots on their own show one-offs on the first screen; one-tap "Log next step" |
+| B — Intentional Builder | delighted, fine a week in | yes, if steps are visible | Staged steps visible and one tap from Home |
+| C — Pressure-Sensitive Returner | uneasy → delighted | maybe → yes | No dates and a picture that never shrinks; the first run makes offers, not promises |
+| D — Reflective Meaning-Seeker | fine → delighted | yes | Whys first in their own words; the graph says something in words; a note one tap from its dot |
+| E — Skeptical Minimalist | uneasy | maybe | No tour for existing data; nothing attaches by a stray tap; one change of words at a time |
+| F — Assistive-Tech User | uneasy | maybe → yes | The node actions reachable without pointing; selection announced; a large-text layout that can act |
+
+**Trade-offs.**
+- It favours A (dots on their own), B (an end, then the next move) and D (why first). It's kind to C
+  on return: no dates, and it never shrinks.
+- It costs F most unless the actions also exist outside the picture. It costs E at the moment of the
+  update, not in steady use.
+- The core tension is that the same tap is "look" for A, "where was I" for C, and absent for F.
+
+**Strong, lean on it.**
+- Dots with no wanders.
+- One-tap "Log next step".
+- A picture with no dates that never shrinks.
+- "Logging ends the first run for good".
+- "Wanders" (D and A; B is jarred, so whys keep their own name).
+
+**Refinements folded into the slices:**
+1. **The selection lasts one log** (P-35). Leaving Home or reopening clears it. A tap to *look*
+   never sends a later line anywhere. The "to" chip sits inside the log box, and the toast names
+   where the log went.
+2. **The node actions exist without pointing** (P-34/35): a short list of whys and wanders right
+   after the summary. Activating one selects it, and focus moves to the context row. It doubles as
+   the large-text layout.
+3. **Staged steps show as one quiet line under their node** (P-34): only where one exists, with no
+   age or count. They can be replaced in place.
+4. **The summary is visible as one line under the graph** (P-34). It names unattached logs when
+   there are no wanders.
+5. **"+ What's it all for?"** shows only while there are no whys, with "Not now" to hide it for good
+   (P-34).
+6. **First run** (P-36):
+   - only on an empty app;
+   - one Skip on ① ends it: "Not sure yet? Skip — it can surface from what you do.";
+   - ② is marked "It can wait";
+   - ③ "It's here whenever you get to it";
+   - the log box stays live, and the keyboard never comes up by itself;
+   - each step is a labelled dialog with focus moving.
+7. **Whys keep their role in words** (P-37): "make apparel, what it's for"; "draw, a wander". P-37
+   ships together with P-34, so both words never show at once.
+8. **Dots still open their log**; nodes select (P-35). With the keyboard up, the context row replaces
+   the other rows above the log box rather than stacking on them.
+
+**Refused, with the rule:**
+- progress, counts and dates (B): the never-list;
+- a "welcome back" message (C): no nudges.
+
+**Against the owner's notes (P0).** Every answer stands. The refinements tighten what a tap commits
+to, add a non-pointer path, and make the first run feel like naming a feeling ("feel productive")
+and a mundane step ("read a book"), with specificity opt-in.
 
 ## Slices (in order)
 1. **P-34 The graph is Home** `[feature]` M:
