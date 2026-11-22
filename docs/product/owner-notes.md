@@ -18,6 +18,23 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-22 — "What's it all for?" isn't intuitive or insightful
+> [Screenshot: Home with one log, "Lately: Worked on wanderment.", a lone dot, and the dashed
+> "+ What's it all for?" pill beside "Not now".] This "what's it all for?" view doesn't look very
+> intuitive. I want you to deliberate with the personas in order to create a more engaging way to
+> express linking or refining — declaring your intents, values, motivations, goals, whatever,
+> intentions — and then defining your first step. But this doesn't seem very insightful.
+> (Answers: scope is all three moments — the Home offer once you have logs, the empty-app 1-2-3, and
+> revisiting a why later; what's off: it **stops at the name** and it **looks like a stray
+> button**; how much a why holds: let the panel weigh it; output: a brief with options, then the
+> owner decides.)
+
+Interpretation (by Claude): the owner had logs before P-36 shipped, so they meet the bare pill, never
+the guided 1-2-3. Naming from the pill ends there: no next step is offered, and (found while
+capturing screens) the unattached log dot drops out of the picture once a why exists, so the one
+thing you'd connect it to vanishes. "Goals" here is loose wording; targets/progress stay refused.
+Led to: brief B-05, persona panel, D-8.
+
 ## 2026-11-22 — Onboarding: a feeling, not a goal
 > For example, maybe the onboarding thing is I get to declare something as simple as "I just wanna
 > feel productive", and then the next step [toward] feeling productive might be something mundane like
