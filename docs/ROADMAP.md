@@ -35,6 +35,18 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-15 A live graph at the top of Home `[feature]` M
+*Status:* in-progress
+*Why:* B-01 slice 3b, moved earlier by the owner: see what it's for and what feeds it the moment
+you declare or log.
+*Done when:* domain `overview(data, index)` (whys + most active feeders, cap with "+N", placeholder
+when empty) with tests; compact graph above the cards; tapping a node opens the thread; one
+screen-reader summary line; e2e: a node appears right after declaring, a link right after logging;
+axe; 390 px and 200 % zoom; Home stays fast with `bigBlob`. Ships with the DESIGN.md Interaction
+wording accepted in D-4. Includes B-01 panel refinements 1–4: names-not-numbers summary, a plain
+"to Y" log visibly feeds Y, never shrinks with time (all-time links; warmth only dims; no placeholder;
+fixed compact height; summary + "Open graph" at largest text), one accessible element.
+
 ### P-29 Never locked out by another copy of the app `[data]` `[platform]` M
 *Status:* in-progress
 *Why:* owner, 2026-11-22 (Edge on iPhone, screenshot in `docs/product/evidence/`): "Wanderment
@@ -71,6 +83,14 @@ genuinely lacks a feature); any browser that can't run SQLite lands in the fallb
 
 ## Next
 
+### P-30 A refresh shows the new version `[platform]` `[ux]` S
+*Status:* todo
+*Why:* owner, 2026-11-22: refreshed and "it still looks like the same one" — the installed PWA keeps
+serving the old version on a plain refresh until the update banner is tapped or every tab closes.
+*Done when:* a refresh (or reopening) after a deploy loads the new version when it's safe (no unsaved
+write; P-29's release-first), or the banner is impossible to miss; Settings shows the app version
+and "Check for updates"; e2e with a bumped service worker.
+
 ### P-28 The thread page at 200 % zoom and long names `[ux]` `[a11y]` S
 *Status:* todo
 *Why:* audit of P-14 (F5, F6, F9, F12): at 200 % zoom the swap row opens below the fold and a swap
@@ -104,17 +124,6 @@ match can be neither picked nor created.
 *Done when:* an exact (normalized) name match is always the first suggestion; unit test with
 `bigBlob`-sized data.
 
-### P-15 A live graph at the top of Home `[feature]` M
-*Status:* todo
-*Why:* B-01 slice 3b, moved earlier by the owner: see what it's for and what feeds it the moment
-you declare or log.
-*Done when:* domain `overview(data, index)` (whys + most active feeders, cap with "+N", placeholder
-when empty) with tests; compact graph above the cards; tapping a node opens the thread; one
-screen-reader summary line; e2e: a node appears right after declaring, a link right after logging;
-axe; 390 px and 200 % zoom; Home stays fast with `bigBlob`. Ships with the DESIGN.md Interaction
-wording accepted in D-4. Includes B-01 panel refinements 1–4: names-not-numbers summary, a plain
-"to Y" log visibly feeds Y, never shrinks with time (all-time links; warmth only dims; no placeholder;
-fixed compact height; summary + "Open graph" at largest text), one accessible element.
 
 ### P-16 Whys as headers on Home `[feature]` M
 *Status:* todo
