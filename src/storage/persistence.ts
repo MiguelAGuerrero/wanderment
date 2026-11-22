@@ -3,9 +3,9 @@ import { Platform } from 'react-native';
 
 import { DataChanges, diffData, isEmptyDiff, missingFrom, pendingChanges, rebase } from '@/domain/diff';
 import { defaultSettings, LEGACY_STORAGE_KEY, parseLegacyState, sameSettings, Settings, toLegacyState } from '@/domain/migrate';
-import { classifyOpenError, detailsLine, OpenStep, RECONNECT_GRACE_MS, retryDelay, StepError, takeBackStuck } from '@/domain/opening';
+import { classifyOpenError, detailsLine, OpenStep, RECONNECT_GRACE_MS, retryDelay, StepError, TAKE_BACK_STUCK, takeBackStuck } from '@/domain/opening';
 import { Data, emptyData } from '@/domain/types';
-import { Draft, useStore } from '@/store/useStore';
+import { Draft, sameDraft, ToLog, useStore } from '@/store/useStore';
 
 import { Db } from './db';
 import { openExpoDb } from './expoDb';
@@ -41,15 +41,36 @@ const webStorage = (): Storage | undefined => {
   }
 };
 
-function writeJournal(journal: Journal | undefined) {
+/** Writes (or, with nothing, removes) the journal. True only if it now verifiably says that. */
+function writeJournal(journal: Journal | undefined): boolean {
   const ls = webStorage();
-  if (!ls) return;
+  if (!ls) return false;
   try {
-    if (journal) ls.setItem(JOURNAL_KEY, JSON.stringify(journal));
-    else ls.removeItem(JOURNAL_KEY);
+    if (!journal) {
+      ls.removeItem(JOURNAL_KEY);
+      return true;
+    }
+    const raw = JSON.stringify(journal);
+    ls.setItem(JOURNAL_KEY, raw);
+    return ls.getItem(JOURNAL_KEY) === raw;
   } catch {
     // Quota or privacy mode: the async write still happens, just without the safety net.
+    return false;
   }
+}
+
+/** Whether a page that couldn't replay the journal set this text aside (`quarantineJournal`). */
+function setAside(raw: string): boolean {
+  const ls = webStorage();
+  try {
+    for (let i = 0; ls && i < ls.length; i++) {
+      const key = ls.key(i);
+      if (key?.startsWith(`${JOURNAL_KEY}-failed-`) && ls.getItem(key) === raw) return true;
+    }
+  } catch {
+    // Can't tell: treat it as replayed.
+  }
+  return false;
 }
 
 /** The journal, and its text as read (to clear it only if nothing was added since). */
@@ -117,7 +138,11 @@ class BlockedError extends Error {
 }
 
 /** Runs one step of opening; a failure carries the step's name (for the screen's details line). */
+/** The step of opening running now (a step that never answers is named by the details line). */
+let currentStep: OpenStep = 'open';
+
 async function step<T>(name: OpenStep, task: () => Promise<T>): Promise<T> {
+  currentStep = name;
   try {
     return await task();
   } catch (e) {
@@ -129,7 +154,7 @@ async function step<T>(name: OpenStep, task: () => Promise<T>): Promise<T> {
 const TAB_HELD = 'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
 /** Taking the data back keeps failing for another reason (audit 2 F1). It still opens by itself once it can. */
 const CANT_TAKE_BACK =
-  'Wanderment can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept. If this stays, reload the page.';
+  'Wanderment can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept.';
 const FILES_HELD =
   'Wanderment is still open somewhere else in this browser — maybe an old tab, or a page in a tab’s history. Close other Wanderment tabs; if this stays, quit the browser and reopen it. Your data is safe; this page will open by itself.';
 
@@ -313,22 +338,31 @@ const sessionStore = (): Storage | undefined => {
   }
 };
 
+/** Return pressed while reconnecting, kept with the draft: it's logged once the data shows again. */
+const TO_LOG_KEY = `${DRAFT_KEY}:to-log`;
+
 function keepDraft() {
-  const { draft } = useStore.getState();
+  const { draft, toLog } = useStore.getState();
   try {
     if (draft.text.trim() || draft.toIds.length || draft.doingId) sessionStore()?.setItem(DRAFT_KEY, JSON.stringify(draft));
+    if (toLog) sessionStore()?.setItem(TO_LOG_KEY, JSON.stringify(toLog));
   } catch {
     // Nothing more we can do.
   }
 }
 
-function takeKeptDraft(): Draft | undefined {
+function takeKeptDraft(): { draft: Draft; toLog?: ToLog } | undefined {
   try {
     const raw = sessionStore()?.getItem(DRAFT_KEY);
-    if (!raw) return undefined;
+    const rawToLog = sessionStore()?.getItem(TO_LOG_KEY);
     sessionStore()?.removeItem(DRAFT_KEY);
+    sessionStore()?.removeItem(TO_LOG_KEY);
+    if (!raw) return undefined;
     const d = JSON.parse(raw) as Draft;
-    return typeof d?.text === 'string' && Array.isArray(d.toIds) ? d : undefined;
+    if (typeof d?.text !== 'string' || !Array.isArray(d.toIds)) return undefined;
+    const toLog = rawToLog ? (JSON.parse(rawToLog) as ToLog) : undefined;
+    // Only if it's still that line (`logMarked` checks again).
+    return { draft: d, ...(toLog?.draft && sameDraft(toLog.draft, d) && { toLog }) };
   } catch {
     return undefined;
   }
@@ -482,6 +516,12 @@ const settingsOf = (s: ReturnType<typeof useStore.getState>): Settings => ({
 });
 const journal = (data: Data, settings: Settings) =>
   kind === 'sqlite' && writeJournal({ changes: pendingChanges(saved.data, inflight, data), settings: changedSettings(saved.settings, settings) });
+/**
+ * Set when the page let go with changes only its journal holds: what was saved before them, and
+ * the journal's text. If that journal is set aside (its replay failed, here or in another page),
+ * taking the data back puts the changes back on screen from this base, and the next save retries.
+ */
+let unwritten: { base: { data: Data; settings: Settings }; raw: string } | undefined;
 
 // One write at a time; changes made meanwhile are folded into the next write.
 let running = false;
@@ -505,6 +545,8 @@ function flush(): Promise<void> {
         const s = useStore.getState();
         const target = { data: s.data, settings: settingsOf(s) };
         if (target.data === saved.data && sameSettings(target.settings, saved.settings)) continue;
+        // A save that writes nothing (equal values, new objects) says nothing about earlier failures.
+        const writes = !isEmptyDiff(diffData(saved.data, target.data)) || !sameSettings(saved.settings, target.settings);
         try {
           inflight = target.data;
           await backend.save(saved, target);
@@ -514,7 +556,7 @@ function flush(): Promise<void> {
           const now = useStore.getState();
           if (now.data === target.data && sameSettings(settingsOf(now), target.settings)) writeJournal(undefined);
           else journal(now.data, settingsOf(now));
-          if (useStore.getState().saveError) useStore.setState({ saveError: undefined });
+          if (writes && useStore.getState().saveError) useStore.setState({ saveError: undefined });
           scheduleBackup(target.data);
           // Something worth keeping now exists: ask the browser not to evict it (once, silently).
           void requestPersistence();
@@ -573,15 +615,17 @@ function publish(opened: Opened) {
   if (!shown) {
     shown = true;
     saved = { data: opened.data, settings: opened.settings };
-    const draft = takeKeptDraft();
+    const kept = takeKeptDraft();
     useStore.setState({
       data: opened.data,
       ...opened.settings,
       storage: { state: 'ready', kind },
       saveError: restoreFailed ? RESTORE_FAILED : undefined,
-      ...(draft && !useStore.getState().draft.text && { draft }),
+      ...(kept && !useStore.getState().draft.text && { draft: kept.draft, toLog: kept.toLog }),
     });
     wire();
+    // Return pressed before the reload, while reconnecting.
+    useStore.getState().logMarked();
     return;
   }
   // The page can change the data again. Other pages' changes replace what's shown, and so do the
@@ -589,11 +633,17 @@ function publish(opened: Opened) {
   // changed before letting go was in the journal it just replayed). The draft is kept.
   useStore.setState({ storage: { state: 'ready', kind }, ...(restoreFailed && { saveError: RESTORE_FAILED }) });
   const s = useStore.getState();
-  const r = rebase(saved.data, s.data, opened.data);
+  // Changes only the journal held, and that journal was set aside rather than replayed: they go
+  // back on screen (from what was saved before them), and the next save retries them.
+  const base = unwritten && setAside(unwritten.raw) ? unwritten.base : saved;
+  unwritten = undefined;
+  const r = rebase(base.data, s.data, opened.data);
   saved = { data: r.saved, settings: opened.settings };
   const own = settingsOf(s);
+  const ownSettings = changedSettings(base.settings, own);
   // The same objects if equal, so nothing re-renders or re-saves.
-  s.refreshData(r.data, sameSettings(own, opened.settings) ? own : opened.settings, !r.changed);
+  const settings = sameSettings(own, opened.settings) ? own : { ...opened.settings, ...(base !== saved && ownSettings) };
+  s.refreshData(r.data, settings, !r.changed);
   // Return pressed while reconnecting.
   useStore.getState().logMarked();
   void flush();
@@ -608,6 +658,17 @@ async function acquire(signal: AbortSignal): Promise<void> {
   const since = Date.now();
   let later: (() => void) | undefined;
   let graceTimer: ReturnType<typeof setTimeout> | undefined;
+  /**
+   * A try at taking the data back that neither succeeds nor fails (a step that never answers) is
+   * told too, 30 s into it, unless something else is already on screen. It ends when the try does.
+   */
+  const watchTry = () =>
+    shown
+      ? setTimeout(() => {
+          if (signal.aborted || stop.signal.aborted || useStore.getState().storage.state !== 'ready') return;
+          showWaiting(CANT_TAKE_BACK, new StepError(currentStep, new Error('No answer for 30 s')));
+        }, TAKE_BACK_STUCK.ms)
+      : undefined;
   const wait = (message: string, error: StepError) => {
     if (useStore.getState().storage.state === 'ready' && Date.now() - since < RECONNECT_GRACE_MS) {
       later = () => showWaiting(message, error);
@@ -619,7 +680,8 @@ async function acquire(signal: AbortSignal): Promise<void> {
   try {
     for (let failures = 0; ; ) {
       if (stop.signal.aborted || signal.aborted) return;
-      const attempt = shown && kind === 'local' ? await tryOpenLocal() : await tryOpenSqlite();
+      const stuck = watchTry();
+      const attempt = await (shown && kind === 'local' ? tryOpenLocal() : tryOpenSqlite()).finally(() => clearTimeout(stuck));
       if (stop.signal.aborted) return;
       // Even if hidden meanwhile: show it, then the loop lets go again.
       if (attempt.ok) return publish(attempt.opened);
@@ -686,12 +748,20 @@ async function letGo(): Promise<void> {
   let kept = false;
   try {
     await flushed;
-    // What isn't written yet is in the journal, and whoever opens next (this page or another)
-    // replays it: from here on it counts as saved, so taking the data back never puts it back
-    // over a later edit made elsewhere. (The gate is closed: nothing changes after this.)
+    // What isn't written yet goes in the journal, which whoever opens next (this page or another)
+    // replays: once the journal verifiably holds it, it counts as saved, so taking the data back
+    // never puts it back over a later edit made elsewhere. If the journal can't hold it, the base
+    // stays, and taking the data back puts this page's changes back and saves them. (The gate is
+    // closed: nothing changes after this.)
     if (opened.kind === 'sqlite') {
       const s = useStore.getState();
-      saved = { data: s.data, settings: settingsOf(s) };
+      const now = { data: s.data, settings: settingsOf(s) };
+      const pending: Journal = { changes: pendingChanges(saved.data, undefined, now.data), settings: changedSettings(saved.settings, now.settings) };
+      if (isEmptyDiff(pending.changes) && !pending.settings) saved = now;
+      else if (writeJournal(pending)) {
+        unwritten = { base: saved, raw: JSON.stringify(pending) };
+        saved = now;
+      }
     }
     if (opened.db) {
       await Promise.resolve(opened.db.close?.()).catch((e) => console.warn('Could not close the database', e));

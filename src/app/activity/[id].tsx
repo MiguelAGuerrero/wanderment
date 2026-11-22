@@ -33,7 +33,6 @@ export default function ActivityDetails() {
   // Both follow edits made elsewhere (another page's, taken in when this one takes the data back).
   const title = useSavedField(a?.text ?? '');
   const text = title.value;
-  const [original, setOriginal] = useState(a?.text ?? '');
   /** "Today" means the day this screen was opened. */
   const [openedAt] = useState(() => new Date());
   const note = useSavedField(a?.note ?? '');
@@ -108,16 +107,13 @@ export default function ActivityDetails() {
             title.setValue(v);
             if (v.trim()) updateActivity(a.id, { text: v });
           }}
-          onFocus={() => {
-            title.onFocus();
-            setOriginal(a.text);
-          }}
+          onFocus={title.onFocus}
           onBlur={() => {
             title.onBlur();
             // Emptied by deleting key by key: put back what it said before this edit.
             if (!text.trim()) {
-              title.setValue(original);
-              updateActivity(a.id, { text: original });
+              title.setValue(title.restore);
+              updateActivity(a.id, { text: title.restore });
             }
           }}
           multiline
