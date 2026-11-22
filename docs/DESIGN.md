@@ -40,7 +40,7 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   focused parent narrows the picture to it ("‹ All · <node>", Esc or Back go up). Focus persists after
   a log; heat never changes with focus or scope. On open the card shows the wander last logged
   toward, never attached. There's no
-  threshold: with no wanders your recent logs show as dots on their own, and while there are no whys
+  threshold: with no wanders your recent logs show on their own as rows, a dot and its words, newest first (P-57), and while there are no whys
   a gentle "+ What's it all for?" offers to name one ("Not now" hides it for good). Under the picture,
   its summary in one line, then the whys and wanders as buttons (the way through without pointing,
   and the whole layout at large text). The cards are the **Wanders** tab (a plain **YOUR WANDERS**

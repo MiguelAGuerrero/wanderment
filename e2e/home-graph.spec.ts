@@ -410,7 +410,8 @@ test('every log visibly lands: the newest dot is marked, even once the dots are 
       return [d.getBoundingClientRect().width, getComputedStyle(d).backgroundColor];
     });
   expect(await look('graph-dot-a11')).toEqual([14, 'rgb(168, 70, 15)']);
-  expect(await look('graph-dot-a10')).toEqual([10, 'rgb(94, 91, 85)']);
+  // P-57: the others are coloured by their recency, P-48's heat (was: C.muted).
+  expect(await look('graph-dot-a10')).toEqual([10, 'rgb(150, 57, 11)']);
   // P-48: logs on their own have no dot lines (was: the newest dot's line to draw is stronger).
 
   await logLine(page, 'sketched again'); // P-48: a plain log, so there are still no wanders (was @draw).
@@ -420,8 +421,10 @@ test('every log visibly lands: the newest dot is marked, even once the dots are 
   // The log before it is still there, no longer marked: the mark moved, so the picture changed.
   await expect(page.getByTestId('graph-dot-a11')).toBeVisible();
   await expect(page.getByTestId('graph-dot-a11')).not.toHaveAttribute('data-newest');
-  expect(await look('graph-dot-a11')).toEqual([10, 'rgb(94, 91, 85)']);
-  expect(await spot()).not.toBe(before);
+  expect((await look('graph-dot-a11'))[0]).toBe(10); // P-57: its colour is its recency now (was: C.muted).
+  // P-57: the newest is always the top row, so the mark keeps its place and the words change (was: the mark moved to another spot).
+  expect(await spot()).toBe(before);
+  await expect(newest).toHaveText('sketched again');
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/home-graph-newest-dot.png` });
 });
 

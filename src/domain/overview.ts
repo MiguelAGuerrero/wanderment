@@ -15,7 +15,7 @@ import { groupByValue, valueThreads } from './emergence';
 import { STEP_ROOM, subtree } from './focus';
 import { emptyHeatIndex, indexHeat, nodeHeat } from './heat';
 import { declaredWhys } from './model';
-import { homeThreads } from './selectors';
+import { homeThreads, warmth } from './selectors';
 import { Activity, Data, Id, Thread } from './types';
 
 /** Whys shown at most. */
@@ -61,6 +61,10 @@ export interface OverviewDot {
   threads: Id[];
   /** The first of `threads` is its doing thread. */
   doing: boolean;
+  /** No wanders (P-57): the log's words, spaces collapsed, drawn beside its dot. */
+  text?: string;
+  /** No wanders (P-57): the log's recency (`warmth`, as P-48's heat), 0–1; 0 with the shading off. */
+  heat?: number;
 }
 interface Shared {
   /** Doing → to links between threads in the picture (all-time). */
@@ -240,13 +244,18 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data),
 
 /**
  * With no visible wanders (P-34, no threshold): your most recent logs on their own, newest first, as
- * dots (the newest marked), and a summary naming them in words. Nothing logged: undefined.
+ * dots (the newest marked), each with its words and its recency (P-57), and a summary naming them in
+ * words (the picture's accessible name). Nothing logged: undefined.
  */
-export function looseOverview(data: Data): Overview | undefined {
+export function looseOverview(data: Data, opts: { now?: Date; shading?: boolean } = {}): Overview | undefined {
+  const { now = new Date(), shading = true } = opts;
   const recent = Object.values(data.activities).sort(newer).slice(0, MAX_DOTS);
   if (!recent.length) return undefined;
-  const dots: OverviewDot[] = recent.map((a) => ({ id: a.id, threads: [], doing: false }));
-  const texts = [...new Set(recent.map((a) => a.text.trim().replace(/\s+/g, ' ')).filter(Boolean))];
+  const words = (a: Activity) => a.text.trim().replace(/\s+/g, ' ');
+  // Heat to the hundredth, as the circles' (a log a moment later doesn't redraw every dot).
+  const heat = (a: Activity) => (shading ? Math.round(warmth(new Date(a.occurredAt), now) * 100) / 100 : 0);
+  const dots: OverviewDot[] = recent.map((a) => ({ id: a.id, threads: [], doing: false, text: words(a), heat: heat(a) }));
+  const texts = [...new Set(recent.map(words).filter(Boolean))];
   return { mode: 'logs', links: [], dots, more: false, heat: {}, summary: texts.length ? `Lately: ${texts.join('; ')}.` : '' };
 }
 
@@ -379,6 +388,10 @@ export interface LaidDot {
   threads: Id[];
   /** Your latest log in the picture: drawn larger, in the accent colour, until the next log. */
   newest: boolean;
+  /** No wanders (P-57): the log's words, drawn beside the dot on its row. */
+  text?: string;
+  /** No wanders (P-57): the dot's colour, the log's recency (0–1). */
+  heat?: number;
   /** The pointer target (44 × 44); the dot is drawn at its centre. */
   x: number;
   y: number;
@@ -446,8 +459,8 @@ const MORE_Y = ROOMY_NODE + LABEL_H + STEP_H;
 const BOTTOM_Y = MORE_Y + ROW;
 /** Roomy, with wanders: the top row, a 44 px band, the bottom row, each row with its labels and step line. */
 export const ROOMY_H = BOTTOM_Y + 2 * BOTTOM_R + LABEL_H + STEP_H;
-/** Roomy, no wanders: just the two rows of dots. */
-export const LOGS_H = 2 * ROW + ROOMY_GAP;
+/** Roomy, no wanders (P-57): one row per log, a dot with its words, each a 44 px target. */
+export const LOG_ROW = ROW;
 /** Compact layout: every link the same width (P-48: no width comes from a count). */
 const LINK_W = 1.5;
 
@@ -505,6 +518,8 @@ export function insideWidth(name: string, r: number, fontScale = 1): number | un
  */
 export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: number; prev?: Slots; focusId?: Id; roomy?: boolean } = {}): OverviewLayout {
   const { fontScale = 1, prev, roomy = false } = opts;
+  // Home with no wanders (P-57): a column of rows at any width or text size (the words are the point).
+  if (roomy && ov.mode === 'logs') return logRows(ov, width);
   if (width < NARROW_W || fontScale >= BIG_TEXT) return { summaryOnly: true, height: 0, nodes: [], links: [], dots: [], dotLines: [], stepH: 0, slots: prev ?? { threads: {}, dots: {} } };
 
   // Threads: whys first, then the rest by when they were made (first appearance).
@@ -527,17 +542,16 @@ export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: 
     taken.add(p);
   }
   const compact = !roomy && members.length === 1 && slot[members[0].id] < MAX_COLUMNS;
-  const logsOnly = roomy && !members.length;
   // Home with wanders (P-48): circles and branches, no dots.
-  if (roomy && !logsOnly) return circleLayout(ov, width, members, slot, fontScale);
+  if (roomy) return circleLayout(ov, width, members, slot, fontScale);
   // Vertical geometry: node rows (each with its step line when roomy) and the two rows of dots.
   const nodeH = roomy ? ROOMY_NODE : ROW;
   const stepH = roomy ? STEP_H : 0;
   const rowGap = roomy ? ROOMY_GAP : 0;
-  const dotTop = logsOnly ? 0 : nodeH + stepH + rowGap;
+  const dotTop = nodeH + stepH + rowGap;
   const dotY = (r: number) => dotTop + r * (ROW + rowGap);
   const bottomY = dotY(2);
-  const height = logsOnly ? LOGS_H : roomy ? ROOMY_H : compact ? COMPACT_H : GRAPH_H;
+  const height = roomy ? ROOMY_H : compact ? COMPACT_H : GRAPH_H;
   const steps = new Map<Id, string>();
   if (roomy) for (const t of members) if (stagedStep(t)) steps.set(t.id, stagedStep(t)!);
 
@@ -628,6 +642,16 @@ export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: 
     ...(more && { more: { x: width - MORE_SLOTS * pitch, y: roomy ? dotY(1) : ROW * 2, w: MORE_SLOTS * pitch, h: ROW } }),
     slots: { threads: slot, dots: dotSlot },
   };
+}
+
+/**
+ * Home with no wanders (P-57): your recent logs as a column of 44 px rows, newest on top (and marked),
+ * each a dot coloured by its recency with the log's words beside it. Nothing names a wander, so there
+ * are no lines; the rows move down as logs arrive (their order is the point, not a place).
+ */
+function logRows(ov: Overview, width: number): OverviewLayout {
+  const dots: LaidDot[] = ov.dots.slice(0, MAX_DOTS).map((d, i) => ({ key: d.id, id: d.id, threads: [], newest: i === 0, text: d.text ?? '', heat: d.heat ?? 0, x: 0, y: i * LOG_ROW, w: width, h: LOG_ROW }));
+  return { summaryOnly: false, height: dots.length * LOG_ROW, nodes: [], links: [], dots, dotLines: [], stepH: 0, slots: { threads: {}, dots: {} } };
 }
 
 function feedersAndOthers(ov: Extract<Overview, { mode: 'whys' }>): Thread[] {

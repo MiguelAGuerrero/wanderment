@@ -12,8 +12,9 @@ const notNow = (page: Page) => page.getByRole('button', { name: 'Not now', exact
 const dots = (page: Page) => page.locator('[data-testid^="graph-dot-"]').filter({ visible: true });
 const nodes = (page: Page) => page.locator('[data-testid^="graph-node-"]').filter({ visible: true });
 const line = (page: Page) => page.getByTestId('home-graph-line').filter({ visible: true });
-const picture = (page: Page) => page.getByRole('img').filter({ visible: true });
 const pictureList = (page: Page) => page.getByRole('list', { name: 'What’s in the picture' });
+/** P-57: with no wanders, your recent logs as rows (a list named by the summary). */
+const logRows = (page: Page) => page.getByRole('list', { name: /^Lately: / }).filter({ visible: true });
 
 async function expectNoSeriousViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
@@ -62,8 +63,8 @@ test('logs with no wanders: dots on their own, the newest marked, and the summar
   await expect(nodes(page)).toHaveCount(0);
   await expect(page.locator('[data-testid^="graph-dot-"][data-newest]')).toHaveAttribute('data-testid', 'graph-dot-a0');
   const summary = 'Lately: read a chapter; sketched a hand; ran 5k; tidied the desk; cooked dinner.';
-  await expect(line(page)).toHaveText(summary);
-  await expect(picture(page)).toHaveAccessibleName(summary);
+  await expect(line(page)).toHaveCount(0); // P-57: no "Lately" line; the rows say it (was: the line shows the summary).
+  await expect(logRows(page)).toHaveAccessibleName(summary); // P-57: the rows' list carries the summary (was: the picture, an image).
   await expect(offer(page)).toBeVisible();
   await expect(notNow(page)).toBeVisible();
   await expectNoSeriousViolations(page);
@@ -72,10 +73,103 @@ test('logs with no wanders: dots on their own, the newest marked, and the summar
   // A new log is a new dot, marked as the newest, named first.
   await logLine(page, 'watered the plants');
   await expect(dots(page)).toHaveCount(6);
-  await expect(line(page)).toHaveText(/^Lately: watered the plants; read a chapter;/);
+  await expect(dots(page).first()).toHaveText('watered the plants'); // P-57: the newest row, on top (was: named first in the "Lately" line).
   // A dot still opens its log.
   await page.getByTestId('graph-dot-a1').click();
   await expect(page).toHaveURL(/\/activity\/a1$/);
+});
+
+/** P-57: the owner's Home (2026-11-22): two logs, no wanders. */
+const ownersTwo = () =>
+  legacyBlob([], [
+    { text: 'Watched an video on AI acceptance', daysAgo: 0.01 },
+    { text: 'Worked on wanderment', daysAgo: 0.2 },
+  ]);
+const LONG = 'Watched a long talk on how people come to accept AI tools at work, then wrote notes about what it means for wanderment';
+/** Whether an element's text is cut off with "…" (it overflows its one line). */
+const ellipsised = (l: ReturnType<Page['locator']>) =>
+  l.locator('div[dir="auto"]').evaluate((e) => getComputedStyle(e).textOverflow === 'ellipsis' && e.scrollWidth > e.clientWidth);
+
+test('P-57: logs with no wanders show their words: a dot and its text per row, newest first, no “Lately” line', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(seedScript, ownersTwo());
+  await openHome(page);
+  await expect(dots(page)).toHaveCount(2);
+  await expect(dots(page)).toHaveText(['Watched an video on AI acceptance', 'Worked on wanderment']);
+  // Each row is a link named by its words, a 44 px target across the width, the newest on top and marked.
+  for (const [i, text] of ['Watched an video on AI acceptance', 'Worked on wanderment'].entries()) {
+    const row = page.getByRole('link', { name: text, exact: true });
+    await expect(row).toBeInViewport({ ratio: 1 });
+    expect(await ellipsised(row)).toBe(false);
+    const b = (await row.boundingBox())!;
+    expect(b.height).toBeGreaterThanOrEqual(44);
+    expect(b.width).toBeGreaterThan(300);
+    await expect(row).toHaveAttribute('data-testid', `graph-dot-a${i}`);
+  }
+  const [first, second] = [(await dots(page).nth(0).boundingBox())!, (await dots(page).nth(1).boundingBox())!];
+  expect(first.y + first.height).toBeLessThanOrEqual(second.y + 0.5);
+  await expect(page.locator('[data-testid^="graph-dot-"][data-newest]')).toHaveAttribute('data-testid', 'graph-dot-a0');
+  // Recency on the dot (P-48's heat), no time labels or counts.
+  await expect(dots(page).nth(1)).toHaveAttribute('data-heat', '0.99');
+  await expect(logRows(page)).not.toContainText(/\d/);
+  // No "Lately" sentence on screen; the list still names the logs for a screen reader.
+  await expect(line(page)).toHaveCount(0);
+  await expect(page.getByText(/^Lately/).filter({ visible: true })).toHaveCount(0);
+  await expect(logRows(page)).toHaveAccessibleName('Lately: Watched an video on AI acceptance; Worked on wanderment.');
+  // Unchanged: the offer.
+  await expect(offer(page)).toBeVisible();
+  await expectNoSeriousViolations(page);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/p57-logs-words-390.png` });
+
+  // A tap on a row opens that log.
+  await page.getByRole('link', { name: 'Worked on wanderment', exact: true }).click();
+  await expect(page).toHaveURL(/\/activity\/a1$/);
+});
+
+test('P-57: a long log is cut short on screen with its full words in the accessible name', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(seedScript, legacyBlob([], [{ text: LONG, daysAgo: 0.01 }, { text: 'Worked on wanderment', daysAgo: 0.2 }]));
+  await openHome(page);
+  const row = page.getByRole('link', { name: LONG, exact: true });
+  await expect(row).toBeVisible();
+  expect(await ellipsised(row)).toBe(true);
+  expect((await row.boundingBox())!.height).toBeLessThan(60); // one line
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+  await expectNoSeriousViolations(page);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/p57-logs-long-390.png` });
+  await row.click();
+  await expect(page).toHaveURL(/\/activity\/a0$/);
+});
+
+test('P-57: at 200 % zoom the rows stay readable, above the log box, nothing wider than the screen', async ({ page }) => {
+  await page.setViewportSize({ width: 195, height: 422 });
+  await page.addInitScript(seedScript, ownersTwo());
+  await openHome(page);
+  await expect(dots(page)).toHaveCount(2);
+  await expect(line(page)).toHaveCount(0);
+  await expect(page.getByTestId('home-graph-summary').filter({ visible: true })).toHaveCount(0);
+  const box = (await logBox(page).boundingBox())!;
+  for (const text of ['Watched an video on AI acceptance', 'Worked on wanderment']) {
+    const row = page.getByRole('link', { name: text, exact: true });
+    await expect(row).toBeInViewport({ ratio: 1 });
+    const b = (await row.boundingBox())!;
+    expect(b.height).toBeGreaterThanOrEqual(44);
+    expect(b.x + b.width).toBeLessThanOrEqual(195);
+    expect(b.y + b.height).toBeLessThanOrEqual(box.y);
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(195);
+  await expectNoSeriousViolations(page);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/p57-logs-200.png` });
+});
+
+test('P-57: with the recency shading off, every dot but the newest mark is neutral', async ({ page }) => {
+  const json = JSON.parse(ownersTwo());
+  json.state.showShading = false;
+  await page.addInitScript(seedScript, JSON.stringify(json));
+  await openHome(page);
+  await expect(dots(page)).toHaveCount(2);
+  await expect(dots(page).nth(1)).toHaveAttribute('data-heat', '0.00');
+  expect(await dots(page).nth(1).evaluate((e) => getComputedStyle(e.firstElementChild!).backgroundColor)).toBe('rgb(122, 116, 108)');
 });
 
 test('“+ What’s it all for?” names a wander and marks it what it’s for; Undo takes it back', async ({ page }) => {

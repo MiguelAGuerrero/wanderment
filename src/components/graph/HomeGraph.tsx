@@ -77,7 +77,7 @@ export const LiveGraph = memo(function LiveGraph({ data, surfacing, firstRun }: 
   const sf = useDeferredValue(surfacing);
   // Heat (P-48) follows the recency shading setting: off, every circle is neutral.
   const shading = useStore((st) => st.showShading);
-  const ov = useMemo(() => overview(d, sf, { shading }) ?? looseOverview(d), [d, sf, shading]);
+  const ov = useMemo(() => overview(d, sf, { shading }) ?? looseOverview(d, { shading }), [d, sf, shading]);
   const offerOff = useStore((st) => st.whyOfferOff);
   const offer = !offerOff && ov?.mode !== 'whys';
   // P-50: the node the What's next card is on carries the ring (the default too: shown, never attached).
@@ -207,7 +207,16 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
   return (
     <View onLayout={onLayout} testID="home-graph" style={styles.graph}>
       {ov.mode !== 'logs' && <ScopeChip scope={scope} names={allMap} picture={!summaryOnly} />}
-      {!summaryOnly && (
+      {/* No wanders (P-57): each recent log a dot with its words, at any width; the rows say what the
+          "Lately" line did, so there's none. Its words (your logs) only while Home is shown. */}
+      {ov.mode === 'logs' && focused && (
+        <View role="list" aria-label={ov.summary} testID="home-graph-picture">
+          {layout.dots.map((d) => (
+            <LogRow key={d.key} dot={d} />
+          ))}
+        </View>
+      )}
+      {ov.mode !== 'logs' && !summaryOnly && (
         <View accessible accessibilityRole="image" accessibilityLabel={ov.summary} onAccessibilityTap={() => {}} style={{ height: layout.height }} testID="home-graph-picture">
           <Animated.View style={[StyleSheet.absoluteFill, zoom]} {...({ dataSet: { zoom: 'true' } } as object)}>
           <Svg width={width} height={layout.height} style={StyleSheet.absoluteFill} pointerEvents="none" {...decorative}>
@@ -243,12 +252,12 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
       )}
       {/* The summary in one line (two where the picture is hidden), with "Explore" beside it whenever
           the header has no room for its icon: at 200 % zoom the first item stays above the log box. */}
-      {focused && (
+      {focused && ov.mode !== 'logs' && (
         <View style={styles.summaryRow}>
           <Text style={[s.body, styles.summary, !summaryOnly && styles.line]} numberOfLines={summaryOnly ? 2 : 1} testID={summaryOnly ? 'home-graph-summary' : 'home-graph-line'}>
             {ov.summary}
           </Text>
-          {!icon && ov.mode !== 'logs' && (
+          {!icon && (
             <Link href="/explore" asChild>
               <Pressable accessibilityRole="link" style={styles.open}>
                 <Text style={styles.openText}>Explore</Text>
@@ -337,6 +346,34 @@ const Dot = memo(
     );
   },
   ({ dot: a }, { dot: b }) => a.id === b.id && a.newest === b.newest && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && a.threads.join('|') === b.threads.join('|'),
+);
+
+/**
+ * No wanders (P-57): a log as a 44 px row, its dot coloured by recency (P-48's ramp; neutral with the
+ * shading off), the newest marked as before (larger, in the accent colour), and its words on one line
+ * (ellipsised; the full words are its accessible name). A tap opens the log, as a dot did.
+ */
+const LogRow = memo(
+  function LogRow({ dot: d }: { dot: LaidDot }) {
+    const heat = d.heat ?? 0;
+    return (
+      <View role="listitem">
+        <Link href={`/activity/${d.id}`} asChild>
+          <Pressable
+            accessibilityRole="link"
+            testID={`graph-dot-${d.id}`}
+            {...({ dataSet: { heat: heat.toFixed(2), ...(d.newest && { newest: 'true' }) } } as object)}
+            style={styles.logRow}>
+            <View style={d.newest ? styles.newest : [styles.dot, styles.logDot, { backgroundColor: heatInk(heat) }]} {...decorative} />
+            <Text style={[styles.logText, d.newest && styles.logNewest]} numberOfLines={1}>
+              {d.text}
+            </Text>
+          </Pressable>
+        </Link>
+      </View>
+    );
+  },
+  ({ dot: a }, { dot: b }) => a.id === b.id && a.newest === b.newest && a.text === b.text && a.heat === b.heat,
 );
 
 const Node = memo(
@@ -549,6 +586,12 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.muted },
   // Your latest log: larger, in the accent colour, until the next one (so every log visibly lands).
   newest: { width: 14, height: 14, borderRadius: 7, backgroundColor: C.accent },
+  // P-57: a log's row (no wanders): its dot in a fixed column, its words beside it on one line.
+  logRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
+  // Centred in the newest dot's 14 px column, so every row's words start at the same place.
+  logDot: { marginHorizontal: 2 },
+  logText: { flex: 1, fontSize: 15, color: C.ink },
+  logNewest: { fontWeight: '500' },
   moreText: { fontSize: 13, fontWeight: '500', color: C.accent },
   graph: { gap: 12, marginTop: 8 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

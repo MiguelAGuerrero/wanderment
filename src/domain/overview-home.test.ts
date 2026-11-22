@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { declareThread, ensureThread, logActivity, updateThread } from './model';
-import { headerWhys, looseOverview, LOGS_H, MAX_DOTS, MAX_THREADS, overview, overviewLayout, pictureItems, ROOMY_H, ROOMY_NODE, STEP_CHARS, STEP_H, stagedStep } from './overview';
+import { headerWhys, LOG_ROW, looseOverview, MAX_DOTS, MAX_THREADS, overview, overviewLayout, pictureItems, ROOMY_H, ROOMY_NODE, STEP_CHARS, STEP_H, stagedStep } from './overview';
 import { Data, emptyData, Id, Thread } from './types';
 
 const NOW = new Date(Date.UTC(2026, 10, 22, 12));
@@ -51,20 +51,25 @@ describe('no wanders: your recent logs on their own (no threshold)', () => {
     expect(o.summary).not.toMatch(/\d/);
   });
 
-  it('dots fill in reading order and stay put as more logs arrive; the mark moves to the newest', () => {
+  // P-57: was "dots fill in reading order and stay put" (bare dots in two rows); now one row per log, newest on top.
+  it('dots are rows, newest on top; a new log goes on top and the mark moves to it', () => {
     let data = emptyData();
     for (let i = 0; i < 3; i++) data = loose(data, `log ${'abc'[i]}`, 10 - i).data;
     const first = overviewLayout(looseOverview(data)!, W, { roomy: true });
-    expect(first.height).toBe(LOGS_H);
-    // Newest first, each in the next free spot: all three in the top row, left to right.
-    const ys = new Set(first.dots.map((d) => d.y));
-    expect(ys).toEqual(new Set([0]));
-    const xs = first.dots.map((d) => d.x);
-    expect([...xs].sort((a, b) => a - b)).toEqual(xs);
+    expect(first.height).toBe(3 * LOG_ROW);
+    expect(first.dots.map((d) => [d.text, d.y])).toEqual([
+      ['log c', 0],
+      ['log b', LOG_ROW],
+      ['log a', 2 * LOG_ROW],
+    ]);
     const next = loose(data, 'log d', 1);
     const second = overviewLayout(looseOverview(next.data)!, W, { roomy: true, prev: first.slots });
-    for (const d of first.dots) expect(second.dots.find((e) => e.id === d.id)).toMatchObject({ x: d.x, y: d.y, newest: false });
-    expect(second.dots.find((d) => d.id === next.activity.id)?.newest).toBe(true);
+    expect(second.dots.map((d) => [d.text, d.newest])).toEqual([
+      ['log d', true],
+      ['log c', false],
+      ['log b', false],
+      ['log a', false],
+    ]);
   });
 
   it('hidden wanders don’t count: their logs show on their own', () => {
@@ -73,6 +78,58 @@ describe('no wanders: your recent logs on their own (no threshold)', () => {
     data = updateThread(data, id.draw, { hidden: true });
     expect(overview(data)).toBeUndefined();
     expect(looseOverview(data)?.summary).toBe('Lately: sketch.');
+  });
+});
+
+describe('P-57: with no wanders, each log is a dot with its words beside it', () => {
+  it('each dot carries its log’s words (spaces collapsed), newest first, at most eight', () => {
+    let data = emptyData();
+    const texts = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', '  ten   and  more '];
+    texts.forEach((t, i) => (data = loose(data, t, texts.length - i).data));
+    const o = looseOverview(data, { now: NOW })!;
+    expect(o.dots.map((d) => d.text)).toEqual(['ten and more', 'nine', 'eight', 'seven', 'six', 'five', 'four', 'three']);
+    // The same words twice are two logs, two rows.
+    const twice = loose(loose(emptyData(), 'ran', 2).data, 'ran', 1).data;
+    expect(looseOverview(twice, { now: NOW })!.dots.map((d) => d.text)).toEqual(['ran', 'ran']);
+  });
+
+  it('the layout is one 44 px row per log, full width, newest on top and marked, the cap kept', () => {
+    let data = emptyData();
+    for (let i = 0; i < 10; i++) data = loose(data, `log ${i}`, 20 - i).data;
+    const l = overviewLayout(looseOverview(data, { now: NOW })!, W, { roomy: true });
+    expect(l.summaryOnly).toBe(false);
+    expect(l.dots).toHaveLength(MAX_DOTS);
+    expect(l.height).toBe(MAX_DOTS * LOG_ROW);
+    expect(LOG_ROW).toBeGreaterThanOrEqual(44);
+    l.dots.forEach((d, i) => {
+      expect(d).toMatchObject({ x: 0, y: i * LOG_ROW, w: W, h: LOG_ROW, newest: i === 0, text: `log ${9 - i}` });
+    });
+  });
+
+  it('rows stay rows where the picture can’t fit (200 % zoom, the largest text): the words are the point', () => {
+    const { data } = loose(loose(emptyData(), 'Watched an video on AI acceptance', 2).data, 'Worked on wanderment', 1);
+    for (const l of [overviewLayout(looseOverview(data)!, 175, { roomy: true }), overviewLayout(looseOverview(data)!, W, { roomy: true, fontScale: 2 })]) {
+      expect(l.summaryOnly).toBe(false);
+      expect(l.dots.map((d) => d.text)).toEqual(['Worked on wanderment', 'Watched an video on AI acceptance']);
+    }
+  });
+
+  it('a dot’s colour is its log’s recency (warmth), newer warmer; neutral with the shading off', () => {
+    let data = emptyData();
+    data = loose(data, 'a month ago', 30 * 24 * 60).data;
+    data = loose(data, 'just now', 0).data;
+    const heat = looseOverview(data, { now: NOW })!.dots.map((d) => d.heat!);
+    expect(heat[0]).toBe(1);
+    expect(heat[1]).toBeGreaterThan(0);
+    expect(heat[1]).toBeLessThan(0.3);
+    expect(looseOverview(data, { now: NOW, shading: false })!.dots.map((d) => d.heat)).toEqual([0, 0]);
+    // Through the layout to the drawing.
+    expect(overviewLayout(looseOverview(data, { now: NOW })!, W, { roomy: true }).dots.map((d) => d.heat)).toEqual(heat);
+  });
+
+  it('the picture’s accessible summary still names the logs', () => {
+    const { data } = loose(loose(emptyData(), 'Watched an video on AI acceptance', 2).data, 'Worked on wanderment', 1);
+    expect(looseOverview(data)!.summary).toBe('Lately: Worked on wanderment; Watched an video on AI acceptance.');
   });
 });
 

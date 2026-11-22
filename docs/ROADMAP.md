@@ -37,14 +37,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-57 Logs show their words `[feature]` `[ux]` S
-*Status:* todo
-*Why:* owner, 2026-11-22 (screenshot of their Home with logs and no wanders): "the truncated
-'lately' and the dots hovering with no context … should at least show their text."
-*Done when:* with no wanders, each recent log is a dot with its words beside it (shortened if long,
-the full text in its accessible name), newest first; the one-line "Lately" sentence is gone from
-that state; tapping one still opens it; e2e at 390 px and 200 %.
-
 ### P-58 Wanders and Activities pull out from Home `[feature]` `[a11y]` M
 *Status:* todo
 *Why:* owner, 2026-11-22 (D-10): "make activities and wanders just pull out views from the home
@@ -419,6 +411,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-57 — logs show their words (owner's screenshot): with no wanders, Home's recent logs are rows, a heat-coloured dot and the log's words (cut short with "…", full text in the name), newest first, each opening its log; no cut-off "Lately" line in that state (the list is named by it for screen readers) · evidence: `overview-home.test.ts` (+4), e2e P-57 tests (4: the owner's two logs at 390 px, long text, 200 %, shading off) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · this commit
 - 2026-11-22 · P-50 — tap to focus, swipe to move, tap to narrow (B-06 slice 3, D-9): one ink ring marks focus, only the focused node's step is drawn (dot or dashed ＋), a tap also attaches the next log (visible chip, one log); swiping the card (or ‹ ›, arrow keys, screen-reader actions) moves focus between chains without attaching or zooming; tapping a focused parent narrows to its subtree with "‹ All · <node>", Esc/Back to go up; focus persists after a log; the "Toward X" row removed; DESIGN.md updated (D-9) · evidence: `focus.test.ts`, store `focus.test.ts`, `e2e/home-focus.spec.ts` (10), act-from-node rewritten; perf 1.12–1.19× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-22 · P-56 + CI fix — CI red since P-48: the build job's overview time test read the wall clock for heat (fixed in 9906c09, which also unblocked P-49's deploy); two e2e flakes were real app bugs: the first-run step mounted twice for a moment as the picture caught up, wiping anything typed (HomeGraph now renders the step/offer in one fixed place), and on web a stray blur after Return could send the next line nowhere (`blurOnSubmit={false}` on the log field) · evidence: new tests in `e2e/first-run.spec.ts` and `e2e/capture.spec.ts` (each failed 5/5 before), the two flaky specs 360/360 repeats under load, verify --full · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Fix lane, Light) · this commit
 - 2026-11-22 · P-49 — Home's bottom is one slot with two faces (B-06 slice 2, D-9): a [What’s next | Log] toggle; What’s next · <node> shows its step and ✓ (logs it as typed, Undo) or “＋ add one” (inline); the node is the selection, else the wander last logged toward, and is never attached; Log is the box with one ↑ send; it opens on What’s next, flips back after a log, starts on Log with no wanders; on web typing switches to Log and Esc goes back; “Reconnecting…” shows on both faces; DESIGN.md capture rule updated (owner-approved, D-9) · evidence: `slot.test.ts` (8), store `slot.test.ts` (4), `e2e/home-slot.spec.ts` (10), fixtures switch Home to Log before logging; perf 1.08–1.20× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
