@@ -18,6 +18,35 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-22 — Screens without explanations
+> Please eliminate most of the descriptions because the UI should be intuitive enough to realize
+> what's going on at best. You should have an information dialogue, but never it being part of the UI
+> itself. (Answer: app-wide; safety warnings stay inline.)
+
+Interpretation (by Claude): a DESIGN.md rule. Meaning comes from structure, position and a few marks
+(↳ next, ↺ left off, · · · more, ⋯ choices, accent = a why); an ⓘ sheet explains, never opening by
+itself; screen-reader names keep the full meaning.
+Led to: DESIGN.md Interaction rule, P-44 (copy pass), the B-06 mockups.
+
+## 2026-11-22 — A stack, not a list: the intention stack
+> My initial intuition was that there was going to be … a stack of … pursuits or higher level nodes
+> with their steps appended to them. So I can quickly see, oh, I should do this next … click on that
+> step, onboard the next step, and just kind of see those chains come into view. And the graph was
+> just supposed to be a way to … provide a more impactful illustration.
+> … a literal stack … almost like a pyramid … keep stacking on steps towards a base, and that base is
+> ultimately whatever the parent goal or pursuit is … pop off a step … scope that at any level … swipe
+> between [children] and see what the current engagement is for each of those subtrees.
+> … maybe there's like a carousel viewer to swipe between any sort of chain of intention at a given
+> level … leverage selection and focus to really highlight intentionality and what I wanna do next.
+> … perform a … audit … leveraging established productivity science or psychological research …
+> maybe the highlight there should be like a highlighted section that prompts the next step that is a
+> separate view on top of the already displayed stack.
+
+Interpretation (by Claude): a flame graph of intentions (root at the bottom), re-anchored by
+"hoisting", with a pager between sibling chains, under the graph on Home; the next step docked above
+the log box as a spotlight. Answers recorded in B-06 (panel, discovery, research audit).
+Led to: brief B-06, D-9; P-40–P-43 held until Home settles; discovery `2026-11-22-intention-stack`.
+
 ## 2026-11-22 — "What's it all for?" isn't intuitive or insightful
 > [Screenshot: Home with one log, "Lately: Worked on wanderment.", a lone dot, and the dashed
 > "+ What's it all for?" pill beside "Not now".] This "what's it all for?" view doesn't look very

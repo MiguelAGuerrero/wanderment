@@ -37,20 +37,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-04 Import you can trust: check, then preview `[data]` M
-*Status:* in-progress
-*Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
-Split 2026-11-22 (scout: about 2 days whole); the snapshot is P-39.
-*Done when:* a file is checked strictly before anything is shown: duplicate ids, arrays where
-records belong, and a newer version (with an accurate message) are refused; a backup whose wanders
-share a name once normalized as `@` does ("draw"/"Draw", NFC pairs, hidden included) is refused,
-naming them (owner, 2026-11-22: refuse); the legacy loader stays lenient. Import then shows a
-preview (counts, date range, how it differs from what's here: added, removed, changed) that you
-confirm or cancel; an empty backup over existing data is allowed with a plain warning in the preview
-(owner, 2026-11-22); the same file again says it's identical and changes nothing; cancel and a
-damaged file never touch data; works on the native paste path and while reconnecting (refused, text
-kept); tests for each, and why.spec.ts updated.
-
 ### P-05 Prove it in Safari and Firefox `[platform]` M
 *Status:* todo
 *Why:* storage relies on expo-sqlite's async API working without COOP/COEP and on OPFS; that's only
@@ -58,8 +44,8 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 *Done when:* CI runs the e2e suite on WebKit and Firefox too (or a documented subset where a browser
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
-### P-38 Logs never drop out of Home's picture `[ux]` `[a11y]` S
-*Status:* in-progress
+### P-38 Logs never drop out of Home's picture `[ux]` `[a11y]` `[perf]` S
+*Status:* todo
 *Why:* found while capturing B-05 screens (owner, 2026-11-22): once any wander exists, only logs that
 name a shown wander are dots (`overview.ts`), so an unattached log ("Worked on wanderment") vanishes
 from the picture and from the spoken "Lately" line the moment you name a why. All six panel personas
@@ -67,9 +53,32 @@ from the picture and from the spoken "Lately" line the moment you name a why. Al
 *Done when:* with wanders or whys shown, your latest logs that name none of them still show as dots
 (no line) and are named in the summary's "Lately"; the cap and the newest marker work as before;
 unit tests in `overview-home.test.ts`; e2e: name a why from "+ What's it all for?" with one log, and
-the log's dot and words stay.
+the log's dot and words stay; **and `e2e/home-graph-perf.spec.ts` stays within its 1.25× budget**.
+Built 2026-11-22 (branch `p38-keep-dots`, with audit fixes F8/F11/F17) but pulled from the batch:
+every log as a dot redraws the picture on each log, 1.33–1.43× over 6 runs (old rule 1.21×). Two
+fixes didn't move it (recency-first check, dots keyed by spot). Profile the deferred picture render
+first.
 
 ## Next
+
+### P-44 Screens without explanations `[ux]` `[a11y]` M
+*Status:* todo
+*Why:* owner, 2026-11-22: "the UI should be intuitive enough … you should have an information
+dialogue, but never it being part of the UI itself" (now a DESIGN.md rule). Today's screens carry
+helper sentences: the empty-Home welcome, the first run's helper lines, the bridge question's
+framing, Settings notes.
+*Done when:* each screen shows actions and data only; the explanations move into an ⓘ sheet per
+screen that never opens by itself; safety warnings stay inline; accessible names keep the full
+meaning; e2e and a11y specs updated (copy assertions move to the sheet); screenshots at 390 px.
+
+### P-45 Import odds and ends `[data]` S
+*Status:* todo
+*Why:* P-04 audit, deferred: F14 a backup with five declared whys imports as five (DESIGN.md: at most
+three); F12 the preview's date range trusts any parseable date (1999–2031) and calls version 1.5
+"newer"; F15 "Lately: weave; weave" when a doing-log and a to-only log name the same wander.
+*Done when:* importing more than three declared whys keeps the three most recently declared and says
+so in the preview; implausible dates are left out of the range; non-integer versions are refused as
+not a backup; "Lately" names a wander once; unit tests.
 
 ### P-39 Import keeps a snapshot one Undo restores `[data]` M
 *Status:* todo
@@ -82,7 +91,7 @@ through the gated and journaled path; a crash between snapshot and swap leaves d
 persistence tests for reload, crash, second page and the local-storage fallback.
 
 ### P-40 Naming copy `[feature]` `[ux]` S
-*Status:* todo
+*Status:* blocked (held for D-9: B-06 reshapes Home first)
 *Why:* B-05 slice 2 (D-8): "nothing feeds it yet" reads false right after you did something and
 scolds a month later; the examples read as moods only.
 *Done when:* "nothing feeds it yet" is gone from the summary; the examples span a feeling, a value
@@ -91,7 +100,7 @@ words"; the step prompt reads "a next step, if one comes to mind · it can wait"
 names its staged step for screen readers, and the summary never repeats it; tests updated.
 
 ### P-41 Name → step → link `[feature]` `[data]` M
-*Status:* todo
+*Status:* blocked (held for D-9: B-06 reshapes Home first)
 *Why:* B-05 slice 3 (D-8): naming a why stops at the name; linking what you already did is the
 panel's most valued moment.
 *Done when:* after naming a why from any route, an optional step field and "Anything here toward
@@ -100,7 +109,7 @@ the log to the why, with Undo; ignoring writes nothing; it ends on log, type or 
 rules as the 1-2-3's; still under Reduce Motion; Full tier.
 
 ### P-42 Home's offer starts from what you did `[feature]` M
-*Status:* todo
+*Status:* blocked (held for D-9: B-06 reshapes Home first)
 *Why:* B-05 slice 4 (D-8): the pill floats apart from the picture and the logs.
 *Done when:* with logs and no whys, the offer reads "<latest log> — what was it toward?" with
 "+ name it", your wanders and "Just itself", merged with the post-log bridge (never two prompts for
@@ -108,7 +117,7 @@ one log); naming there makes a why born fed (the log attached); "Not now" for go
 dot is the way back; the empty-app 1-2-3 is kept.
 
 ### P-43 A why's page `[feature]` M
-*Status:* todo
+*Status:* blocked (held for D-9: B-06 reshapes Home first)
 *Why:* B-05 slice 5 (D-8): a why's page is any wander's page.
 *Done when:* "What it's for" under the title; "Steps" becomes "What's fed it" (hidden when empty);
 "Anything else toward this?" lists recent unattached logs to link (a tap, with Undo); one verb,
@@ -333,11 +342,22 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   a why's page). Panel run 2026-11-22. **Answered 2026-11-22: go with the panel's combination**
   (start from what you did on Home, the refined 1-2-3, name → step → link everywhere, a why's page; no
   "because…" for now). → P-38 (polish, Now), P-40, P-41, P-42, P-43 (Next).
+- **D-9 The intention stack** — [B-06](product/briefs/B-06-intention-stack.md): Home keeps the graph
+  on top; under it a stack of "toward" (a flame graph of intentions: the why as the base, the next
+  step on top), re-anchored at any level, a pager between sibling chains, and a next-step spotlight
+  docked above the log box. Panels and a three-lens research audit run 2026-11-22. **Answered so far:**
+  A + C's focus; a why holds its own step; layers are the chain of "toward"; it lives on Home; set it
+  down; one home + mirror for two whys; the spotlight shows only what you pick; steps never age; rest
+  after a pop; the anchor resets to All; screens without explanations. **Still to answer: go on the
+  slice order** (P-19 chains first, then the stack + spotlight, then re-anchor + pager, then B-05's
+  P-40–P-43 inside it).
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
 ## Known edge cases (accepted for now)
 
+- Import: a backup file with the same JSON key twice keeps the later record silently (JSON.parse
+  can't see duplicates; P-04 audit F10).
 - Web, desktop: reloading the window in use while a second visible window waits hands the data to
   that window; the reloaded one waits and says so (P-29, audit F7).
 - Web: a first launch whose open keeps failing with WebKit's held-file error waits and never falls
@@ -359,6 +379,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-04 — import checks the file strictly (arrays, duplicate ids incl. "constructor", a newer version, wanders whose names `@` can't tell apart — refused, naming them), then shows a preview (what it holds, what changes, empty-backup warning with Cancel first, "matches what's here", "can't be undone yet"); Replace re-checks against what's here; reachable on native; focus and announcements; the keep-the-dots item was built but pulled for the perf budget (branch `p38-keep-dots`) · evidence: `import.test.ts` (21), `persistence.test.ts` P-04 (6, 5 mutants), `useStore.test.ts` (replace clears the toast), `e2e/import.spec.ts` (10), `e2e/a11y.spec.ts` (preview) · audit: 17 reported · 10 reproduced · 13 fixed · 5 deferred · `144e12e`, `df9351d`, `9b2d459`
 - 2026-11-22 · P-35, P-36 — act from a node: tap a wander → "Toward X" above the log box, "↳ Log next step" logs it in one tap (a typed line is kept and counts as the step), typing logs toward it via a visible chip, Open/×; the selection lasts one log; the list under the graph selects too · first run 1-2-3 on an empty app: a feeling or reason ("feel productive"), one next step ("read a book", it can wait), then see it — one Skip ends it, logging ends it for good · a flaky tab-switch race fixed in e2e (`toHome`) · evidence: `select.test.ts` ×2, `firstRun.test.ts`, `persistence.test.ts` (P-36), `e2e/act-from-node.spec.ts` (9), `e2e/first-run.spec.ts` (7) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · `3da27dc`, `e4e0b88`
 - 2026-11-22 · P-34, P-37 — the graph is Home (owner D-7): whys, wanders and recent logs fill the first screen, with no threshold (logs alone show as dots, "+ What's it all for?" with "Not now"), staged steps as a quiet line, the summary visible, a list of what's in the picture for keyboard/screen reader/large text; the list moved to a Wanders tab; Graph → Explore; threads are called wanders everywhere you read or hear them · evidence: `e2e/home-is-graph.spec.ts` (50/50 ×5), `overview-home.test.ts`, `persistence.test.ts` ("Not now", 4 mutants red), perf 1.10×, screenshots · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, no audit) · `be7ad65`
 - 2026-11-22 · P-33 — graph follow-ups: the newest log's dot is marked so every log visibly lands; Search/Settings fit the header at 280–320 px; whys keep the picture full; an honest, serial perf check (limit 1.25×, a 15 ms-slower mutant reads 1.49×); test-only switch and unused flow-index fields removed; DESIGN.md says what ships · evidence: `overview.test.ts` (28/28 mutants killed), `e2e/home-graph.spec.ts`, `e2e/home-graph-perf.spec.ts`, full suite ×10 = 1410 passed · audit: 10 reported · 10 reproduced · 9 fixed · 1 deferred (200 % zoom: the first crumb ends 6 px under the log box — superseded by the graph-as-Home layout) · `c83282c`
