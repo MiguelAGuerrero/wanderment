@@ -5,32 +5,36 @@
 _Built up over one conversation: the sections below are in the order they were decided. The current design is the mockup page (7 frames) published 2026-11-22 and the owner's answers at the end; research: [discovery/2026-11-22-intention-stack](../discovery/2026-11-22-intention-stack.md)._
 
 
-## Current design (revision 10, 2026-11-22) — still being refined (D-9: not yet)
-Mockups: the intention stack https://claude.ai/artifact/N4iPk2aqyzPdbf8LgWfFuK · the wanderer and
-the bottom layouts https://claude.ai/artifact/2i49zaDfNfJAedxVPNqtTg · cold start
-https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB (private to the owner).
-- **The graph is the picture of your energy.**
-  - Circles, sized relative to the anchor; smaller ones feed up into bigger ones; plain lines.
-  - Darkness = recency (the 14-day warmth); accent = a declared why.
-  - The current step is a small dot with its label, and the done steps make a green trail of beads
-    (fading, no number; tap one to read it).
-  - **The wanderer:** a dot drifting by recency, orbiting a selection with a flare, lingering where
-    you just logged; still under Reduce Motion.
-- **One decision at a time (option A).** A quiet "What's next" card (step + ✓; "＋ add one" when
-  empty), and under it "✎ Log something else", which opens the log box in the card's place.
-  - It rewords DESIGN.md's "capture is sacred" when it ships. On web, typing opens the log directly.
+## Current design (revision 11, 2026-11-22) — still being refined (D-9: not yet)
+Mockups (private to the owner): current design https://claude.ai/artifact/N4iPk2aqyzPdbf8LgWfFuK ·
+line drafts https://claude.ai/artifact/MsJ7WxEQJZjQj5msEYtCdY · cold start
+https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB.
+- **The graph is the picture of your energy: heat flows upward.**
+  - Every circle is coloured by heat, from cool stone through amber to ember. A circle's heat is the
+    most recent activity anywhere beneath it, never a sum, and it halves every 14 days.
+  - Circles are sized relative to the anchor; declared whys keep a double ring.
+  - Lines are **branches**: each leaves its circle along its own direction (no shared point), curves,
+    and tapers as it rises; its colour runs from the child's heat to its own.
+  - The current step is a small labelled dot. No wanderer, no trail beads.
+- **Nodes and steps.** A node (a wander or a why) is never done: routines log toward it again and
+  again, and each log warms it. Only a written step completes: ✓ logs it and archives it, and the
+  next written step rises; with none left, "＋ add one". Done steps show only as warmth on their node
+  and everything above it.
+- **The bottom: one slot, two faces (toggle).**
+  - *What's next* shows the step and ✓; swiping selects another leaf chain, in the graph's order.
+  - *Log* shows the log box, with a dashed "→ chain" suggestion that attaches with one tap; with
+    words typed, ✓ logs them as the step.
+  - It opens on What's next and flips back after a log; on web, typing switches to Log. This rewords
+    DESIGN.md's "capture is sacred" when it ships.
 - **Select:**
-  - swipe the card between leaf chains, in the graph's order and within what it draws;
   - the graph narrows to the why's whole subtree and zooms;
-  - "‹ All" chip / Back to return;
-  - on open, the card sits on the chain last logged toward (shown, not attached).
-- **Log + ✓:** while typing, a dashed "→ chain" suggestion attaches with one tap. With words typed,
-  ✓ logs those words as the step. Written steps rise after ✓; a wander never fills the step slot.
+  - "‹ All" / Back to return;
+  - on open, the card shows the chain last logged toward (not attached).
 - **Edit:** tap the step to rewrite it; a smaller one stacks on top; clearing it sets it down (Undo).
 - **Cold start:** an empty app only. It names a first node (vague welcome), then its next step, and
   lands on Home.
-- **Later, not now:** an all-chains view; a swipe-up drawer listing every chain.
-- **Data:** the trail needs each completed step's lineage on its activity → with P-19 (Full tier).
+- **Later:** an all-chains view; a swipe-up drawer of every chain.
+- **Data:** P-19 chains; each completing activity records which step it completed (history/Undo).
 
 ## The problem, in the owner's terms
 > "I should be able to see my pursuits … relative to the actions and activities that I put towards
@@ -546,3 +550,50 @@ Answers:
   (logging becomes two taps from Home), so the rule must be reworded when this ships, owner-approved.
   Keep the keyboard shortcut on web (any typing focuses the log) so capture stays instant there.
 - **The wanderer: yes, as drafted.**
+
+## Owner, 2026-11-22: heat flows upward (→ revision 11 draft)
+> The anchor nodes don't have to be the only ones colored; any of the sub[nodes] should [propagate]
+> upwards to show a heat trail of sorts.
+- **Every circle is coloured by heat.** The colour runs from cool stone through amber to ember, and
+  the lines up to a parent take the child's heat.
+- **Heat flows up.** A circle's heat is the most recent activity anywhere beneath it, never a sum,
+  so busy never looks bigger. It halves every 14 days (the warmth rule).
+- **Declared whys keep a double ring** instead of the accent fill. This supersedes the audit's
+  "accent only for whys".
+- **The wanderer is drawn in ink** so it shows on hot circles. Labels inside hot circles are white;
+  the hottest colour is darkened so they pass 4.5:1.
+(Fold into B-06 at the next landing.)
+
+## Owner, 2026-11-22: revert the wanderer; refine the lines
+> On second thought let's revert the wanderer. The graph looks like it needs some visual refinement
+> … the lines don't look good converging at a point like that, and the different widths look like
+> shapes stacked on each other rather than a natural look … something like a taper or weighted edge.
+- **The wanderer is reverted.** No ambient dot. Selection goes back to a quiet outline, and the latest
+  log is the trail's fresh bead.
+- **Lines, drafts (https://claude.ai/artifact/MsJ7WxEQJZjQj5msEYtCdY):**
+  - 1, branches: each line leaves its circle and enters the parent along its own direction (no
+    shared point), curves gently, tapers from fine to full as it rises, and its colour shifts from
+    the child's heat to its own;
+  - 2, streams: siblings join a short trunk under their parent, like tributaries.
+  The taper is shape, not amount: the width at the top grows with heat only within a narrow range.
+
+## Owner, 2026-11-22: branches; no green dots; nodes are never "done" (→ revision 11)
+> Draft 1. And … let's remove the green dots because they don't look intuitive to the graph itself …
+> infer that the activity or the warmth of a node naturally weights all the done steps underneath
+> it. And … be very careful not to consider every node as a done node, because it's very well
+> possible that I want to reuse a node to log an activity, a routine.
+- **Lines are branches (Draft 1):** each leaves its circle along its own direction, curves, and
+  tapers as it rises; its colour runs from the child's heat to its own.
+- **No trail beads.** Done steps show only as warmth on their node and everything above it.
+- **Only steps complete.** ✓ logs a written step and archives it. Nodes (wanders and whys) are never
+  done: routines log toward the same node again and again, and each log warms it.
+- **This supersedes revision 7's trail.** The activity still records which step it completed (for
+  the step's own history / Undo), but nothing is drawn from it.
+- **The consolidated current design** is at https://claude.ai/artifact/N4iPk2aqyzPdbf8LgWfFuK (four
+  frames: open, swipe, ✓ a step, a routine).
+- Owner: "I was a fan of the two toggle button for 'what's next' and 'log'." → **The bottom is option
+  C:** one slot with two faces, switched by a toggle. *What's next* shows the step and ✓, and swiping
+  selects another chain. *Log* shows the log box (the keyboard up, the dashed "→ chain" suggestion).
+  It opens on What's next and flips back to it after a log; on web, typing switches to Log by
+  itself. This supersedes option A. Logging is still two taps from Home, so "capture is sacred" gets
+  reworded when this ships.
