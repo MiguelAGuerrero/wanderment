@@ -6,6 +6,7 @@ import { Id } from '@/domain/types';
 import { C, s } from '@/theme';
 
 import { Composer } from './Composer';
+import { HomeSlot } from './HomeSlot';
 import { PullInOffer } from './PullInOffer';
 import { Toast } from './Toast';
 
@@ -22,6 +23,7 @@ export function Screen({
   bridge,
   scrollToTopOn,
   aboveLog,
+  slot,
 }: {
   children: ReactNode;
   composer?: boolean;
@@ -35,6 +37,8 @@ export function Screen({
   scrollToTopOn?: string;
   /** Shown right above the log box (Home: the bridge, where logging happens). */
   aboveLog?: ReactNode;
+  /** Home (P-49): the log box is one face of a slot with "What's next" (HomeSlot). */
+  slot?: boolean;
 }) {
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   useEffect(() => {
@@ -55,7 +59,7 @@ export function Screen({
               <>
                 <PullInOffer />
                 {aboveLog}
-                <Composer presetDoingId={presetDoingId} placeholder={placeholder} bridge={bridge} />
+                {slot ? <HomeSlot bridge={bridge} /> : <Composer presetDoingId={presetDoingId} placeholder={placeholder} bridge={bridge} />}
               </>
             )}
           </View>

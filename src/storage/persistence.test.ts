@@ -1430,6 +1430,9 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       holdToast: [true],
       dismissPrompt: [],
       logMarked: [],
+      // P-49: which face Home's slot shows, and handing focus to the log box.
+      showHomeFace: ['next'],
+      focusLogBox: [],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>

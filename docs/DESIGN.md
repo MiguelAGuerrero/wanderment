@@ -18,6 +18,10 @@ These came out of the design sessions and several rounds of persona reviews. Cha
 
 ## Interaction
 - **Capture is sacred.** One line, Return logs, as typed. Nothing is required.
+  On Home the bottom is one slot with two faces (owner, D-9, 2026-11-22): **What's next ·
+  <node>** (its step and ✓, or "＋ add one") and **Log** (the box). It opens on What's next and flips
+  back after a log, so logging on Home is one tap on the toggle away; on web, typing switches to Log.
+  The card's node is only shown, never attached to a log.
 - `@` opens up to 3 wander suggestions (prefix match, then recency). **Tap** (or **Tab** on web) picks. Return never picks or creates a wander; an unmatched `@word` stays plain text.
 - A "doing" can be *suggested* from words in the sentence (dashed chip) but is never applied silently.
 - The next-step **crumb** hangs under each wander card. Tapping it **loads** the text into the log box with the wander as doing — it doesn't complete anything. If you've already started a line, your words stay and a removable "↳ step" chip says the line counts as that step (D-6). Logging turns it into an activity and clears the next (only if the step hasn't changed since it was loaded).

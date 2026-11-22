@@ -2,7 +2,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, showLogFace, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -117,6 +117,8 @@ test('selecting another node moves the context; Open goes to the wander', async 
   await node(page, 'sew').click();
   await node(page, 'draw').click();
   await expect(row(page)).toHaveAccessibleName('Toward draw');
+  // P-49: the chips are in the box, on the Log face of Home's slot (Home opens on What's next).
+  await showLogFace(page);
   await expect(toChip(page, 'sew')).toHaveCount(0);
   await expect(toChip(page, 'draw')).toBeVisible();
   await row(page).getByRole('link', { name: 'Open draw' }).click();
@@ -153,7 +155,9 @@ test('without pointing: the list selects, focus moves to the row; Esc returns fo
   await expect(page).toHaveURL(/\/wanderment\/$/);
   await expect(row(page)).toHaveAccessibleName('Toward draw');
   await expect(row(page).getByRole('button', { name: 'Log next step: sketch a hand' })).toBeFocused();
-  await expect(toChip(page, 'draw')).toBeVisible();
+  // P-49: the chip is in the box, on the Log face of Home's slot, out of sight on What's next (and
+  // switching faces would move focus): it's on the line all the same.
+  await expect(page.getByTestId('home-slot').getByRole('button', { name: 'To: draw. Remove', exact: true, includeHidden: true })).toHaveCount(1);
   await expectNoSeriousViolations(page);
   await page.keyboard.press('Escape');
   await expect(row(page)).toHaveCount(0);

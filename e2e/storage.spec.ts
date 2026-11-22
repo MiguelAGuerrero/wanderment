@@ -15,7 +15,8 @@ test('data saved by the first release (localStorage) moves into SQLite once', as
   }, legacy);
   await openHome(page);
   await expect(page.getByRole('button', { name: /^play guitar\s*\S/ })).toBeVisible();
-  await expect(page.getByText('learn the F chord')).toBeVisible();
+  // P-49: the step shows under its node and in the What’s next card.
+  await expect(page.getByText('learn the F chord').first()).toBeVisible();
   await page.goto('./settings');
   await expect(page.getByText('3 activities · 2 wanders')).toBeVisible();
   await expect(page.getByText('Saved in a database in this browser.')).toBeVisible();

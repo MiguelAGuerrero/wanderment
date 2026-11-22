@@ -27,6 +27,8 @@ function Bridge({ activityId, style }: { activityId: Id; style?: object }) {
   const attach = useStore((st) => st.attach);
   const attachToNew = useStore((st) => st.attachToNew);
   const dismiss = useStore((st) => st.dismissBridge);
+  // Back to the log box (on Home, its Log face shows: P-49).
+  const focusLogBox = useStore((st) => st.focusLogBox);
   const root = useRef<ComponentRef<typeof View>>(null);
   const nameBtn = useRef<ComponentRef<typeof View>>(null);
   const [naming, setNaming] = useState(false);
@@ -39,13 +41,13 @@ function Bridge({ activityId, style }: { activityId: Id; style?: object }) {
     if (!needsBridge(now, activityId) || !now.threads[threadId] || now.threads[threadId].hidden) return;
     const box = logBoxNear(root.current);
     attach(activityId, threadId);
-    box?.focus();
+    if (box) focusLogBox();
   };
 
   const submitName = () => {
     if (!name.trim()) return;
     const box = logBoxNear(root.current);
-    if (attachToNew(activityId, name)) box?.focus();
+    if (attachToNew(activityId, name) && box) focusLogBox();
   };
 
   const cancelName = () => {
@@ -89,7 +91,7 @@ function Bridge({ activityId, style }: { activityId: Id; style?: object }) {
           onPress={() => {
             const box = logBoxNear(root.current);
             dismiss();
-            box?.focus();
+            if (box) focusLogBox();
           }}
           style={styles.quiet}
           accessibilityRole="button">

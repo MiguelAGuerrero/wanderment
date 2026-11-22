@@ -15,7 +15,24 @@ import { C, s } from '@/theme';
  * replacing only that @word. On web, ↑/↓ move through them and Esc closes them. An @word that isn't
  * picked stays plain text — it never creates a thread.
  */
-export function Composer({ presetDoingId, placeholder = 'What did you just do?', bridge }: { presetDoingId?: Id; placeholder?: string; bridge?: boolean }) {
+export function Composer({
+  presetDoingId,
+  placeholder = 'What did you just do?',
+  bridge,
+  arrow,
+  onEmptyEscape,
+  onLogged,
+}: {
+  presetDoingId?: Id;
+  placeholder?: string;
+  bridge?: boolean;
+  /** Home's Log face (P-49): the send button is one ↑ (still named "Log"; the toggle says "Log"). */
+  arrow?: boolean;
+  /** Web: Esc in an empty box (Home: back to What's next). */
+  onEmptyEscape?: () => void;
+  /** After a log: true when focus was taken care of (Home: the box went away with its face). */
+  onLogged?: () => boolean;
+}) {
   const data = useStore((st) => st.data);
   const draft = useStore((st) => st.draft);
   const setDraft = useStore((st) => st.setDraft);
@@ -137,12 +154,22 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
   };
   // While reconnecting, the store remembers the line and logs it once the data is back.
   const submit = () => {
-    if (log({ doingId }, { bridge })) inputRef.current?.focus();
+    if (!log({ doingId }, { bridge })) return;
+    if (onLogged?.()) inputRef.current?.blur();
+    else inputRef.current?.focus();
   };
 
   const onKeyPress = (e: { nativeEvent: { key?: string }; preventDefault?: () => void }) => {
-    if (Platform.OS !== 'web' || !open) return;
+    if (Platform.OS !== 'web') return;
     const key = e.nativeEvent.key;
+    if (!open) {
+      // Handled here, so Home's Esc (which clears a selection) leaves it be.
+      if (key === 'Escape' && onEmptyEscape && !draft.text.trim()) {
+        e.preventDefault?.();
+        onEmptyEscape();
+      }
+      return;
+    }
     if ((key === 'ArrowDown' || key === 'ArrowUp') && suggestions.length) {
       e.preventDefault?.();
       setActive({ query, index: (activeIndex + (key === 'ArrowDown' ? 1 : suggestions.length - 1)) % suggestions.length });
@@ -288,12 +315,18 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
           {/* The same "Log" (and width) while reconnecting, dimmed; pressing it still counts. */}
           <Pressable
             onPress={submit}
-            style={[s.primaryBtn, !draft.text.trim() ? { opacity: 0.4 } : reconnecting && styles.logWaiting]}
+            style={[s.primaryBtn, arrow && styles.arrow, !draft.text.trim() ? { opacity: 0.4 } : reconnecting && styles.logWaiting]}
             disabled={!draft.text.trim()}
             accessibilityRole="button"
-            accessibilityLabel={reconnecting ? 'Log, reconnecting' : undefined}
+            accessibilityLabel={reconnecting ? 'Log, reconnecting' : arrow ? 'Log' : undefined}
           >
-            <Text style={s.primaryBtnText}>Log</Text>
+            {arrow ? (
+              <Text style={[s.primaryBtnText, styles.arrowText]} {...decorative}>
+                ↑
+              </Text>
+            ) : (
+              <Text style={s.primaryBtnText}>Log</Text>
+            )}
           </Pressable>
         </View>
       </View>
@@ -330,5 +363,7 @@ const styles = StyleSheet.create({
   srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 },
   /** Dimmed, but still readable (it can be pressed: the line logs once the data is back). */
   logWaiting: { backgroundColor: C.muted },
+  arrow: { width: 44, paddingHorizontal: 0 },
+  arrowText: { fontSize: 20, lineHeight: 24 },
   reconnecting: { position: 'absolute', left: 16, right: 16, bottom: '100%', marginBottom: 2, fontSize: 12, color: C.muted },
 });

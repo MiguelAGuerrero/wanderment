@@ -23,6 +23,7 @@ import {
 import { Settings } from '@/domain/migrate';
 import { rememberSearch } from '@/domain/search';
 import { Selection, selectToward, unselect } from '@/domain/select';
+import { HomeFace, restingFace } from '@/domain/slot';
 import { lastActivities } from '@/domain/selectors';
 import { Data, emptyData, Id } from '@/domain/types';
 
@@ -53,6 +54,11 @@ export const BRIDGE_QUESTION = 'Toward something — or just itself?';
 export interface LogOptions {
   /** Logged on Home: if the activity has no thread, Home offers the bridge for it. */
   bridge?: boolean;
+  /**
+   * Logged by one tap outside the log box (the ✓ on Home's "What's next" card, P-49): the box's line
+   * stays, and while reconnecting it's refused out loud instead of waiting like a Return.
+   */
+  keepLine?: boolean;
 }
 
 /** Where data lives: SQLite (normal), the first release's localStorage format (web fallback). */
@@ -107,6 +113,8 @@ interface State {
   selected?: Selection;
   /** Bumped when a selection made without pointing (the list on Home) moves focus to its context row. */
   selectFocus: number;
+  /** Which face Home's bottom slot shows (P-49): "What's next" or "Log". Session only. */
+  homeFace: HomeFace;
   /** Activity Home's bridge asks about ("Toward something — or just itself?"). Session only. */
   bridgeFor?: Id;
   /** Thread that shows the quiet "+ What's next? (optional)" line after a log. */
@@ -136,6 +144,10 @@ interface State {
   setDraft: (patch: Partial<Draft>) => void;
   clearDraft: () => void;
   loadNext: (threadId: Id) => void;
+  /** Shows a face of Home's slot (P-49), without moving focus. */
+  showHomeFace: (face: HomeFace) => void;
+  /** Hands focus to the log box (on Home, its Log face shows): a tap on the toggle, typing, the bridge. */
+  focusLogBox: () => void;
   /** Selects a wander on Home (its "to" chip goes on the line), or clears the selection (`undefined`). */
   select: (threadId: Id | undefined, opts?: { focus?: boolean }) => void;
   /*
@@ -206,14 +218,20 @@ function gated<F extends (...args: never[]) => unknown>(refused: ReturnType<F>, 
     const s = useStore.getState();
     if (holdsData(s)) return action(...args);
     if (onRefused) onRefused(...args);
-    // A toast with Undo stays (its Undo works again once the data is back), saying why on its second
-    // line — unless that line already says something (the bridge question): the Log button's
-    // "Reconnecting…" line says it then.
-    else if (s.toast && !s.toast.notice) {
-      if (!s.toast.detail) useStore.setState({ toast: { ...s.toast, detail: RECONNECTING_NOTICE } });
-    } else if (s.toast?.message !== RECONNECTING_NOTICE) useStore.setState({ toast: { message: RECONNECTING_NOTICE, notice: true } });
+    else sayReconnecting();
     return refused;
   }) as F;
+}
+
+/** The one quiet "Just a moment — reconnecting." for a refused change. */
+function sayReconnecting() {
+  const s = useStore.getState();
+  // A toast with Undo stays (its Undo works again once the data is back), saying why on its second
+  // line — unless that line already says something (the bridge question): the Log button's
+  // "Reconnecting…" line says it then.
+  if (s.toast && !s.toast.notice) {
+    if (!s.toast.detail) useStore.setState({ toast: { ...s.toast, detail: RECONNECTING_NOTICE } });
+  } else if (s.toast?.message !== RECONNECTING_NOTICE) useStore.setState({ toast: { message: RECONNECTING_NOTICE, notice: true } });
 }
 
 /**
@@ -235,6 +253,7 @@ export const useStore = create<State>()((set, get) => ({
   draft: emptyDraft(),
   logBoxFocus: 0,
   selectFocus: 0,
+  homeFace: 'log',
   showShading: true,
   toastHeld: false,
   recentSearches: [],
@@ -261,8 +280,12 @@ export const useStore = create<State>()((set, get) => ({
           ? { ...draft, ...staged, toIds: draft.toIds.filter((id) => id !== threadId) }
           : { text: t.next, toIds: [], ...staged },
       logBoxFocus: logBoxFocus + 1,
+      homeFace: 'log',
     });
   },
+
+  showHomeFace: (face) => set((s) => (s.homeFace === face ? {} : { homeFace: face })),
+  focusLogBox: () => set((s) => ({ homeFace: 'log', logBoxFocus: s.logBoxFocus + 1 })),
 
   select: (threadId, opts) =>
     set((s) => {
@@ -275,7 +298,7 @@ export const useStore = create<State>()((set, get) => ({
   log: gated<State['log']>(
     undefined,
     (extra, opts) => {
-      const { data, draft } = get();
+      const { data, draft, selected } = get();
       const text = (extra?.text ?? draft.text).trim();
       if (!text) return undefined;
       const res = logActivity(data, {
@@ -297,7 +320,10 @@ export const useStore = create<State>()((set, get) => ({
         selected: undefined,
         data: res.data,
         undo: undoEntry(data, res.data),
-        draft: emptyDraft(),
+        // A one-tap log from outside the box keeps its line (without the selection's chip).
+        draft: opts?.keepLine ? unselect(draft, selected) : emptyDraft(),
+        // Home's slot goes back to What's next (it stays on Log while there's no wander, P-49).
+        homeFace: restingFace(res.data) === 'next' ? 'next' : get().homeFace,
         promptNextFor: owner && !res.data.threads[owner]?.next ? owner : undefined,
         toast: {
           message: firstTo ? `Logged → to ${firstTo}` : ownerName ? `Logged in ${ownerName}` : 'Logged',
@@ -308,9 +334,11 @@ export const useStore = create<State>()((set, get) => ({
       });
       return res.activity.id;
     },
-    // Return pressed while reconnecting: remembered, and logged once the data is back.
+    // Return pressed while reconnecting: remembered, and logged once the data is back. A one-tap log
+    // from outside the box isn't a Return: it's refused like any other change.
     (extra, opts) => {
-      if ((extra?.text ?? get().draft.text).trim()) set({ toLog: { draft: get().draft, extra, opts } });
+      if (opts?.keepLine) sayReconnecting();
+      else if ((extra?.text ?? get().draft.text).trim()) set({ toLog: { draft: get().draft, extra, opts } });
     },
   ),
 

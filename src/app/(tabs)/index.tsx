@@ -8,6 +8,7 @@ import { ExploreIcon, homeContentWidth, LiveGraph, useGraphIcon } from '@/compon
 import { HomeAboveLog } from '@/components/graph/NodeContext';
 import { Screen } from '@/components/Screen';
 import { headerWhys } from '@/domain/overview';
+import { restingFace } from '@/domain/slot';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
@@ -23,6 +24,8 @@ export default function Home() {
   const setDraft = useStore((st) => st.setDraft);
   const dismissBridge = useStore((st) => st.dismissBridge);
   const select = useStore((st) => st.select);
+  const showHomeFace = useStore((st) => st.showHomeFace);
+  const ready = useStore((st) => st.storage.state === 'ready');
   // The bridge and a selected wander (P-35) are one moment on Home: they go when Home is left. Home
   // stays mounted in the tabs, so this runs on blur, and on focus too (in case anything set them
   // while Home was in the background).
@@ -35,6 +38,13 @@ export default function Home() {
       leave();
       return leave;
     }, [dismissBridge, select]),
+  );
+  // The slot (P-49) opens on What's next whenever Home is shown (on Log while there's no wander),
+  // once the data is there to say which.
+  useFocusEffect(
+    useCallback(() => {
+      if (ready) showHomeFace(restingFace(useStore.getState().data));
+    }, [ready, showHomeFace]),
   );
   const isEmpty = Object.keys(data.activities).length === 0 && Object.keys(data.threads).length === 0;
   // Earned whys in the Wanders tab's header order, so the graph and the headers agree.
@@ -50,7 +60,7 @@ export default function Home() {
   const firstRun = useFirstRun(() => moveFocus(title.current));
 
   return (
-    <Screen bridge aboveLog={<HomeAboveLog style={styles.bridge} />}>
+    <Screen bridge slot aboveLog={<HomeAboveLog style={styles.bridge} />}>
       <View style={styles.header}>
         <Text ref={title} {...(Platform.OS === 'web' ? { tabIndex: -1 } : {})} style={[s.h1, styles.title, tightHeader && { fontSize: 24 }]} numberOfLines={1} accessibilityRole="header">
           Wanderment

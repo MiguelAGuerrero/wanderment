@@ -37,13 +37,17 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-49 What's next / Log: one slot, two faces `[feature]` `[capture]` M
+### P-50 Tap to focus, swipe to move, tap to narrow `[feature]` `[a11y]` M
 *Status:* todo
-*Why:* B-06 slice 2. Only one thing asks for a decision at a time.
-*Done when:* Home's bottom is one slot with a toggle. "What's next · <node>" shows the focused
-chain's step and ✓ (a clean tap; it logs the step and clears it), or "＋ add one" (inline). "Log"
-shows the log box with one ↑ send. It opens on What's next and flips back after a log; on web,
-typing switches to Log. DESIGN.md "capture is sacred" reworded (owner-approved, D-9).
+*Why:* B-06 slice 3: scope, focus and attach each get one mark.
+*Done when:*
+- Tapping a circle focuses it: the ink ring, its step as the filled dot (a dashed ＋ if it has none;
+  only the focused step is drawn), and the card follows.
+- Swiping the card moves focus between leaf chains in the scope, in the graph's order, with slim
+  peeks.
+- Tapping a focused parent narrows and zooms; "‹ All · <node>" and Back go up.
+- On open, focus is on the chain last logged toward (shown, never attached).
+- Screen readers: the card names the full path with next/previous actions.
 
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
@@ -61,18 +65,6 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
-
-### P-50 Tap to focus, swipe to move, tap to narrow `[feature]` `[a11y]` M
-*Status:* todo
-*Why:* B-06 slice 3: scope, focus and attach each get one mark.
-*Done when:*
-- Tapping a circle focuses it: the ink ring, its step as the filled dot (a dashed ＋ if it has none;
-  only the focused step is drawn), and the card follows.
-- Swiping the card moves focus between leaf chains in the scope, in the graph's order, with slim
-  peeks.
-- Tapping a focused parent narrows and zooms; "‹ All · <node>" and Back go up.
-- On open, focus is on the chain last logged toward (shown, never attached).
-- Screen readers: the card names the full path with next/previous actions.
 
 ### P-51 The Log face: attach by chip, words first, ✓ the step `[feature]` `[capture]` M
 *Status:* todo
@@ -104,6 +96,13 @@ every node by why with its step, which is also the way through for screen reader
 *Why:* B-06 slice 8. It replaces P-36's card on an empty app (prototype
 https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB): name a direction, one step, then land on the new
 Home.
+
+### P-56 A flaky keyboard-suggestion test `[ux]` S
+*Status:* todo
+*Why:* CI on 2026-11-22 (P-48's run) went red on `e2e/editing.spec.ts:14` (↑/↓ move through
+suggestions, Tab picks, Esc closes, Enter logs), which passed on retry; CI fails on flaky tests.
+*Done when:* the race is found and fixed (in the test's waiting or in the app), and the spec passes
+20 runs in a row locally.
 
 ### P-44 Screens without explanations `[ux]` `[a11y]` M
 *Status:* todo
@@ -408,6 +407,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-49 — Home's bottom is one slot with two faces (B-06 slice 2, D-9): a [What’s next | Log] toggle; What’s next · <node> shows its step and ✓ (logs it as typed, Undo) or “＋ add one” (inline); the node is the selection, else the wander last logged toward, and is never attached; Log is the box with one ↑ send; it opens on What’s next, flips back after a log, starts on Log with no wanders; on web typing switches to Log and Esc goes back; “Reconnecting…” shows on both faces; DESIGN.md capture rule updated (owner-approved, D-9) · evidence: `slot.test.ts` (8), store `slot.test.ts` (4), `e2e/home-slot.spec.ts` (10), fixtures switch Home to Log before logging; perf 1.08–1.20× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-22 · P-48 — Home's graph as heat circles and branch lines (B-06 slice 1, D-9): circles sized by level, declared whys double-ringed, each circle coloured by heat (the warmth of the newest activity on it or anything feeding it, cycle-safe, never a sum; neutral with shading off), tapered gradient branches that never share an end point, no widths from counts (`linkWidth` gone, P-47 folded in), no dots once wanders exist, labels ≥ 4.5:1; DESIGN.md's graph rule updated (owner-approved, D-9) · evidence: `heat.test.ts` (13), `overview-circles.test.ts` (13), `e2e/home-heat.spec.ts` (4), six old-visual assertions updated with P-48 notes; perf 1.18–1.19× vs base 1.15–1.25× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · this commit
 - 2026-11-22 · P-04 — import checks the file strictly (arrays, duplicate ids incl. "constructor", a newer version, wanders whose names `@` can't tell apart — refused, naming them), then shows a preview (what it holds, what changes, empty-backup warning with Cancel first, "matches what's here", "can't be undone yet"); Replace re-checks against what's here; reachable on native; focus and announcements; the keep-the-dots item was built but pulled for the perf budget (branch `p38-keep-dots`) · evidence: `import.test.ts` (21), `persistence.test.ts` P-04 (6, 5 mutants), `useStore.test.ts` (replace clears the toast), `e2e/import.spec.ts` (10), `e2e/a11y.spec.ts` (preview) · audit: 17 reported · 10 reproduced · 13 fixed · 5 deferred · `144e12e`, `df9351d`, `9b2d459`
 - 2026-11-22 · P-35, P-36 — act from a node: tap a wander → "Toward X" above the log box, "↳ Log next step" logs it in one tap (a typed line is kept and counts as the step), typing logs toward it via a visible chip, Open/×; the selection lasts one log; the list under the graph selects too · first run 1-2-3 on an empty app: a feeling or reason ("feel productive"), one next step ("read a book", it can wait), then see it — one Skip ends it, logging ends it for good · a flaky tab-switch race fixed in e2e (`toHome`) · evidence: `select.test.ts` ×2, `firstRun.test.ts`, `persistence.test.ts` (P-36), `e2e/act-from-node.spec.ts` (9), `e2e/first-run.spec.ts` (7) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · `3da27dc`, `e4e0b88`
