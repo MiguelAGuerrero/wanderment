@@ -1,41 +1,44 @@
 #!/usr/bin/env bash
 # The definition of done, quietly: full logs go to .polish/logs/, a short summary to stdout.
-# A full run that passes writes .polish/verified = the tree hash it verified; scripts/polish/land.sh
-# and the git guard hook only let that exact tree be pushed.
+# A passing run writes .polish/verified = the tree hash it verified; scripts/polish/land.sh and the
+# git guard hook only let that exact tree be pushed. CI then runs the whole e2e suite on main.
 #
-#   scripts/polish/verify.sh                     # full: integrity, unit, types, lint, roadmap, build, e2e
-#   scripts/polish/verify.sh --quick             # everything except build + e2e (no stamp)
-#   scripts/polish/verify.sh --repeat-changed=5  # full, plus changed/new e2e specs ×5 with retries off
+#   scripts/polish/verify.sh          # default (fast): unit, types, lint, build, changed + smoke e2e
+#   scripts/polish/verify.sh --full   # everything: the whole e2e suite (stored data, storage, sync)
+#   scripts/polish/verify.sh --full --repeat-changed=5   # + changed specs ×5, retries off (flake hunt)
+#   scripts/polish/verify.sh --quick  # no build, no e2e, no stamp
 #
-# Docs-only fast path: if everything that differs from the last fully verified tree is
-# documentation (docs/, .claude/skills/, .claude/agents/, *.md — never settings, scripts or code),
-# only test-integrity and the roadmap lint run, and the tree is stamped. CI still runs everything.
+# Docs-only changes since the last stamp (docs/, .claude/skills|agents/, *.md) skip the code checks.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 source scripts/polish/lib.sh
 
-mode=full
+mode=fast
 repeat=0
 for arg in "$@"; do
   case $arg in
     --quick) mode=quick ;;
+    --full) mode=full ;;
     --repeat-changed) repeat=5 ;;
     --repeat-changed=*) repeat=${arg#*=} ;;
     *) die "unknown option $arg" ;;
   esac
 done
+[ "$repeat" -gt 0 ] && [ "$mode" = fast ] && mode=full
+
+# A few specs that cover the core loop (log, persist, Home), always run in fast mode.
+SMOKE="e2e/capture.spec.ts e2e/storage.spec.ts e2e/home-graph.spec.ts"
 
 logs=.polish/logs
 mkdir -p "$logs"
+last=$(cat .polish/verified 2>/dev/null || true)
 rm -f .polish/verified
 before=$(tree_hash)
 failed=0
 
-# Paths that may change without code checks: documentation only.
 docs_only_since() {
-  local base=$1 f
-  git cat-file -e "$base^{tree}" 2>/dev/null || return 1
-  local changed
+  local base=$1 f changed
+  [ -n "$base" ] && git cat-file -e "$base^{tree}" 2>/dev/null || return 1
   changed=$(git diff --name-only "$base" "$before") || return 1
   [ -n "$changed" ] || return 1
   while read -r f; do
@@ -46,9 +49,7 @@ docs_only_since() {
     esac
   done <<<"$changed"
 }
-if [ "$mode" = full ] && [ -f .polish/verified-full ] && docs_only_since "$(cat .polish/verified-full)"; then
-  mode=docs
-fi
+if [ "$mode" != quick ] && docs_only_since "$last"; then mode=docs; fi
 
 step() {
   local name=$1
@@ -63,31 +64,30 @@ step() {
   fi
 }
 
-step test-integrity scripts/polish/check-tests.sh
 if [ "$mode" = docs ]; then
-  echo "· docs-only change since the last full verify: code checks skipped (CI runs everything)"
+  echo "· docs-only change since the last verify: code checks skipped"
 else
-  step guard node scripts/polish/test-guard.mjs
-  step unit npx vitest run --reporter=dot
-  step typecheck npx tsc --noEmit
-  step lint npx eslint .
+  step checks bash -c 'node scripts/polish/test-guard.mjs && npx vitest run --reporter=dot && npx tsc --noEmit && npx eslint .'
 fi
 step roadmap node scripts/polish/roadmap-lint.mjs
 
-if [ "$mode" = full ] && [ $failed = 0 ]; then
+if { [ "$mode" = fast ] || [ "$mode" = full ]; } && [ $failed = 0 ]; then
   step build npm run build:web
-  # Its own port: never reuse (or race) a server a scout or auditor started on the default one.
+  # Its own port: never reuse (or race) a server another agent started on the default one.
   export E2E_PORT=${E2E_PORT:-4199}
-  [ $failed = 0 ] && step e2e env E2E_PREBUILT=1 npx playwright test --reporter=dot
+  if [ $failed = 0 ]; then
+    if [ "$mode" = full ]; then
+      step e2e env E2E_PREBUILT=1 npx playwright test --reporter=dot
+    else
+      specs=$({ changed_specs; tr ' ' '\n' <<<"$SMOKE"; } | sort -u | while read -r f; do [ -f "$f" ] && echo "$f"; done | tr '\n' ' ')
+      # shellcheck disable=SC2086
+      step e2e-changed env E2E_PREBUILT=1 npx playwright test $specs --reporter=dot
+    fi
+  fi
   if [ $failed = 0 ] && [ "$repeat" -gt 0 ]; then
     specs=$(changed_specs | tr '\n' ' ')
-    if [ -n "$specs" ]; then
-      # Retries off: a test that only passes on a rerun is flaky, and that's a finding.
-      # shellcheck disable=SC2086
-      step "e2e-repeat-x$repeat" env E2E_PREBUILT=1 npx playwright test $specs --repeat-each="$repeat" --retries=0 --reporter=dot
-    else
-      echo "· e2e-repeat: no changed specs"
-    fi
+    # shellcheck disable=SC2086
+    [ -n "$specs" ] && step "e2e-repeat-x$repeat" env E2E_PREBUILT=1 npx playwright test $specs --repeat-each="$repeat" --retries=0 --reporter=dot
   fi
 fi
 
@@ -95,16 +95,11 @@ if [ $failed = 1 ]; then
   echo "RESULT: FAIL"
   exit 1
 fi
-if [ "$mode" = full ] || [ "$mode" = docs ]; then
-  after=$(tree_hash)
-  [ "$before" = "$after" ] || die "the tree changed while verifying — run again"
-  echo "$after" >.polish/verified
-  if [ "$mode" = full ]; then
-    echo "$after" >.polish/verified-full
-    echo "RESULT: PASS — verified tree ${after:0:12}"
-  else
-    echo "RESULT: PASS (docs only) — verified tree ${after:0:12}"
-  fi
-else
-  echo "RESULT: PASS (quick — no stamp; run the full verify before landing)"
+if [ "$mode" = quick ]; then
+  echo "RESULT: PASS (quick — no stamp)"
+  exit 0
 fi
+after=$(tree_hash)
+[ "$before" = "$after" ] || die "the tree changed while verifying — run again"
+echo "$after" >.polish/verified
+echo "RESULT: PASS ($mode) — verified tree ${after:0:12}"

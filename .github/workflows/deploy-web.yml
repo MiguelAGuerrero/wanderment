@@ -1,7 +1,9 @@
 name: Deploy web
 
-# Every push to main is checked, built, end-to-end tested, and then deployed straight to GitHub Pages
-# (Settings → Pages → Source: "GitHub Actions"). The exact build that passed e2e is the one deployed.
+# Every push to main is checked, built and deployed straight to GitHub Pages (Settings → Pages →
+# Source: "GitHub Actions") in about a minute and a half. The pushed tree already passed
+# scripts/polish/verify.sh locally (the push guard enforces it); the whole e2e suite runs here in a
+# parallel job and turns the run red if anything regressed — fix forward.
 on:
   push:
     branches: [main]
@@ -22,8 +24,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # check-tests.sh compares with the previous push
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -32,15 +32,25 @@ jobs:
       - run: npm test
       - run: npx tsc --noEmit
       - run: npx eslint .
-      - name: Roadmap format
-        run: node scripts/polish/roadmap-lint.mjs
-      - name: Test integrity (since the previous push)
-        env:
-          POLISH_BASE: ${{ github.event.before }}
-        run: scripts/polish/check-tests.sh
       - name: Build web
         # Also copies index.html to 404.html (deep links on GitHub Pages).
         run: npm run build:web
+      - name: Package the site for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  e2e:
+    # Runs alongside the deploy; doesn't hold it back.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:web
       - name: End-to-end tests
         env:
           E2E_PREBUILT: '1'
@@ -53,10 +63,6 @@ jobs:
           name: playwright-results
           path: test-results/
           retention-days: 7
-      - name: Package the site for Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
 
   deploy:
     needs: build

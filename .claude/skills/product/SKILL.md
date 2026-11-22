@@ -13,9 +13,9 @@ You don't refine existing features (that's `/polish`, which the owner runs separ
 you pass become Inbox notes for it. Data-loss or lockout reports are the exception: they go first,
 at full rigor, whichever skill is running.
 
-How things get built is shared: `/polish`'s Phases 3–7 (`.claude/skills/polish/SKILL.md`) with its
-**rigor by risk** table. Most features are Light tier (one audit per batch); anything touching
-stored data is Full.
+How things get built is shared: `/polish`'s Phases 5–7 (`.claude/skills/polish/SKILL.md`) with its
+**rigor by risk** table. Most features are Light tier (no scout, no contract file, no audit; ~45 min
+per slice, cut smaller rather than wait); anything touching stored data is Full.
 
 The owner started this run and may not be watching. Keep going on your own, with one exception:
 **a product decision that only the owner can make.** That's the only reason to stop and ask.
@@ -157,7 +157,7 @@ and in `owner-notes.md`.
 ### E. Build the feature
 1. **Neighbours.** Only something that **blocks** the feature is fixed in the same batch (as a
    Light-tier item). Rough spots that merely drag become Inbox notes for `/polish`; don't fix them.
-   The scout that localizes the feature notes them; no separate adjacency scout.
+   The builder notes them.
 2. **Build.** Read `.claude/skills/polish/SKILL.md` and run Phases 0 and 3–7 with these items, at
    the tier the rigor table gives (Light unless stored data or storage is touched). Builders for
    disjoint slices run in parallel worktrees. Its Phase 4 owner check is where any product question

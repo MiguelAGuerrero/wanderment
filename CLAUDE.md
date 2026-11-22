@@ -9,19 +9,20 @@ Two skills drive the work, and each runs only when the owner types it:
   similar apps' UI/UX conventions and quality of life, then fixes the gaps in small audited batches;
   also the Fix lane (data loss, lockouts) at full rigor.
 
-Both build through one pipeline (scout → contract → build → audit → verify → land) with **rigor by
-risk**: Light for UI-only work (one audit per batch), Full for stored data and storage.
+Both build through one pipeline with **rigor by risk**: Light for UI work (build → verify → land;
+no scout, contract file or audit), Full for stored data and storage (scout → contract → build →
+audit → `verify.sh --full` → land).
 
-Definition of done — run all, all must pass:
+Definition of done: `scripts/polish/verify.sh` passes. It runs unit tests, typecheck, lint and the
+roadmap lint, builds the web app, and runs the end-to-end specs you changed plus a smoke set; logs go
+to `.polish/logs/`. Use `--full` (the whole e2e suite) for stored-data, storage or sync work. It
+stamps the tree it verified; a project hook only lets Claude push that exact tree and blocks
+force-pushes and `--no-verify` — so verify, then push (or use `scripts/polish/land.sh`). CI deploys
+in about a minute and a half and runs the whole e2e suite alongside; if that goes red, fix forward.
 
 ```bash
 npm test             # vitest (domain unit tests)
 npm run typecheck    # tsc --noEmit
 npx eslint .         # lint
-npm run e2e          # Playwright against the built web app (builds it first)
+npm run e2e          # Playwright, whole suite (builds first)
 ```
-
-`scripts/polish/verify.sh` runs all of these (plus a test-integrity check and the roadmap lint)
-quietly, with logs in `.polish/logs/`, and stamps the tree it verified. A project hook only lets
-Claude push that exact tree, and blocks force-pushes and `--no-verify`: run the full verify, then
-push (or use `scripts/polish/land.sh`).
