@@ -1,8 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { emptyData } from '@/domain/types';
 
-import { useStore } from './useStore';
+import { rememberSearchQuietly, useStore } from './useStore';
 
 const QUESTION = 'Toward something — or just itself?';
 
@@ -209,5 +209,56 @@ describe('what it’s for (P-14)', () => {
     expect(st().declareThread(t)).toEqual({ ok: false, reason: 'hidden' });
     expect(st().data.threads[t].declaredAt).toBeUndefined();
     expect(st().toast).toBeUndefined();
+  });
+});
+
+describe('while the page doesn’t hold the data (audit 2 F3, F4)', () => {
+  const NOTICE = 'Just a moment — reconnecting.';
+  const back = () => useStore.setState({ storage: { state: 'ready', kind: 'sqlite' } });
+  /** Taking the data back with nothing changed underneath (as persistence does). */
+  const takeBack = () => {
+    back();
+    expect(st().refreshData(st().data, { showShading: st().showShading, recentSearches: st().recentSearches, leftAsIs: st().leftAsIs }, true)).toBe(true);
+  };
+  const reconnect = () => useStore.setState({ storage: { state: 'ready', kind: 'sqlite', reconnecting: true } });
+  afterEach(() => useStore.setState({ storage: { state: 'loading' }, recentSearches: [] }));
+
+  it('remembering a search is quietly skipped: no toast, nothing changes; holding the data, it’s remembered (F3)', () => {
+    useStore.setState({ recentSearches: ['old'] });
+    reconnect();
+    expect(rememberSearchQuietly('plants')).toBe(false);
+    expect(st().recentSearches).toEqual(['old']);
+    expect(st().toast).toBeUndefined();
+    useStore.setState({ storage: { state: 'ready', kind: 'sqlite' } });
+    expect(rememberSearchQuietly('plants')).toBe(true);
+    expect(st().recentSearches).toEqual(['plants', 'old']);
+  });
+
+  it('a refusal keeps a toast with Undo, saying why on its second line; after taking the data back, its Undo still works (F4)', () => {
+    const id = logText('watered the plants');
+    expect(st().toast).toEqual({ message: 'Logged', activityId: id });
+    reconnect();
+    expect(st().setNext('none', 'x')).toBe(false);
+    expect(st().toast).toEqual({ message: 'Logged', activityId: id, detail: NOTICE });
+    expect(st().undo).toBeDefined();
+    takeBack();
+    expect(st().toast).toEqual({ message: 'Logged', activityId: id });
+    expect(st().undoLast()).toBe(true);
+    expect(st().data.activities[id]).toBeUndefined();
+  });
+
+  it('tapping Undo itself while reconnecting: the toast and its Undo stay, with the reconnecting line (F4)', () => {
+    const id = logText('read a novel');
+    reconnect();
+    expect(st().undoLast()).toBe(false);
+    expect(st().data.activities[id]).toBeDefined();
+    expect(st().toast).toEqual({ message: 'Logged', activityId: id, detail: NOTICE });
+    expect(st().undo).toBeDefined();
+  });
+
+  it('with no toast with Undo up, the notice shows on its own (F4)', () => {
+    reconnect();
+    expect(st().setNext('none', 'x')).toBe(false);
+    expect(st().toast).toEqual({ message: NOTICE, notice: true });
   });
 });

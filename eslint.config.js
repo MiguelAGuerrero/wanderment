@@ -5,6 +5,7 @@ const expoConfig = require('eslint-config-expo/flat');
 module.exports = defineConfig([
   expoConfig,
   {
-    ignores: ['dist/*'],
+    // Other builders' git worktrees (agents' isolated checkouts) aren't this tree's code.
+    ignores: ['dist/*', '.claude/worktrees/**'],
   },
 ]);

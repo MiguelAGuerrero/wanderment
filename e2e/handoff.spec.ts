@@ -206,6 +206,45 @@ test('the audit’s F1 with two real pages: the page that doesn’t hold the dat
   for (const text of ['alpha', 'beta']) await expect(page.getByText(text, { exact: true }).filter({ visible: true })).toHaveCount(1);
 });
 
+test('the activity sheet shows what another page changed once it takes the data back, and typing adds to that (audit 2 F2, P-29)', async ({ page, context }) => {
+  await openHome(page);
+  await logLine(page, 'alpha');
+  await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+  await page.getByText('Tap for details').click();
+  const title = page.getByRole('textbox', { name: 'What you did' });
+  const note = page.getByRole('textbox', { name: 'Note' });
+  // A was writing the note when it went to the background (the field keeps focus).
+  await note.fill('from A');
+  const b = await context.newPage();
+  await handTo(page, b);
+
+  // B edits the same activity.
+  await b.getByRole('tab', { name: 'Activities' }).click();
+  await b.getByText('alpha', { exact: true }).filter({ visible: true }).click();
+  await expect(b.getByRole('textbox', { name: 'Note' })).toHaveValue('from A');
+  await b.getByRole('textbox', { name: 'Note' }).fill('from B');
+  await b.getByRole('textbox', { name: 'What you did' }).fill('alpha, edited in B');
+
+  // A comes back: its open sheet shows B's text and note, not what it had.
+  await setVisibility(b, 'hidden');
+  await setVisibility(page, 'visible');
+  await expect(page.getByText('Saved automatically', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(note).toHaveValue('from B');
+  await expect(title).toHaveValue('alpha, edited in B');
+  // Typing adds to B's note instead of replacing it with what A showed before.
+  await note.focus();
+  await note.press('End');
+  await note.pressSequentially(' and A');
+  await expect(note).toHaveValue('from B and A');
+
+  // Saved that way: B, shown again, reads it.
+  await setVisibility(page, 'hidden');
+  await setVisibility(b, 'visible');
+  await expect(b.getByText('Saved automatically', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(b.getByRole('textbox', { name: 'Note' })).toHaveValue('from B and A');
+  await expect(b.getByRole('textbox', { name: 'What you did' })).toHaveValue('alpha, edited in B');
+});
+
 test.describe('without the service worker (the wasm comes from the network)', () => {
   test.use({ serviceWorkers: 'block' });
 
@@ -248,6 +287,63 @@ test.describe('without the service worker (the wasm comes from the network)', ()
     // Saved once, too.
     await page.reload();
     await expect(page.getByText('pressed while away', { exact: true }).filter({ visible: true })).toHaveCount(1, { timeout: 15_000 });
+  });
+
+  test('taking the data back that keeps failing (the wasm stays out of reach) says so over the app, with Reload and the details, and still opens by itself once it can (audit 2 F1, P-29)', async ({ page }) => {
+    test.setTimeout(90_000);
+    await openHome(page);
+    await logLine(page, 'kept');
+    await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+    await setVisibility(page, 'hidden');
+    await expect(reconnecting(page)).toBeVisible();
+    const restore = await cutWasm(page);
+    const failed = failedTry(page);
+    await setVisibility(page, 'visible');
+    await failed;
+    // Return pressed meanwhile is remembered, and stays remembered under the waiting screen.
+    await logBox(page).fill('pressed while it fails');
+    await logBox(page).press('Enter');
+    await expect(page.getByText('Reconnecting… it’ll log as soon as it’s back', { exact: true })).toBeVisible();
+
+    // Not an endless "Reconnecting…": the waiting screen comes up over the app, saying what failed.
+    const message = page.getByText(/^Wanderment can’t open its data right now\./);
+    await expect(message).toBeVisible({ timeout: 40_000 });
+    await expect(message).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Reload', exact: true })).toBeVisible();
+    const details = page.getByText(/^Details: \w[\w ]* · \S/);
+    await expect(details).toBeVisible();
+    // A browser's own words can run long: the line is cut to about 160 characters.
+    expect([...((await details.textContent()) ?? '')].length).toBeLessThanOrEqual(160);
+    const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
+    expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
+
+    // It keeps trying behind it, and opens by itself once the wasm is back; the remembered line logs once.
+    restore();
+    await expect(message).toHaveCount(0, { timeout: 15_000 });
+    await expect(logButton(page)).toBeVisible();
+    await expect(logBox(page)).toHaveValue('');
+    await page.getByRole('tab', { name: 'Activities' }).click();
+    await expect(page.getByText('pressed while it fails', { exact: true }).filter({ visible: true })).toHaveCount(1);
+    await expect(page.getByText('kept', { exact: true }).filter({ visible: true })).toHaveCount(1);
+  });
+
+  test('tapping a search result while reconnecting just opens it: remembering the search isn’t a refused change (audit 2 F3, P-29)', async ({ page }) => {
+    await openHome(page);
+    await logLine(page, 'watered the plants');
+    await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+    await page.getByRole('link', { name: 'Search' }).click();
+    const search = page.getByRole('textbox', { name: 'Search' });
+    await setVisibility(page, 'hidden');
+    const restore = await cutWasm(page);
+    const failed = failedTry(page);
+    await setVisibility(page, 'visible');
+    await failed;
+    await search.fill('plants');
+    await search.press('Enter');
+    await page.getByText('watered the plants', { exact: true }).filter({ visible: true }).click();
+    await expect(page.getByRole('textbox', { name: 'Note' })).toBeVisible();
+    await expect(page.getByText('Just a moment — reconnecting.', { exact: true })).toHaveCount(0);
+    restore();
   });
 
   test('a transient failure taking the data back (the wasm out of reach for a try) recovers by itself, with the data shown and the draft kept (P-29)', async ({ page }) => {

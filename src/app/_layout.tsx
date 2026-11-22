@@ -5,6 +5,7 @@ import { ComponentRef, RefObject, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ToastTimer } from '@/components/Toast';
+import { shownDetails } from '@/domain/opening';
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { registerServiceWorker } from '@/pwa/serviceWorker';
 import { reloadKeepingDraft, startPersistence } from '@/storage/persistence';
@@ -127,7 +128,7 @@ function Blocked({ storage, messageRef }: { storage: Extract<StorageStatus, { st
       {/* Small print for bug reports: which step failed, and the browser's own words. */}
       {storage.details && (
         <Text selectable style={[s.meta, { textAlign: 'center' }]}>
-          {storage.details}
+          {shownDetails(storage.details)}
         </Text>
       )}
     </View>

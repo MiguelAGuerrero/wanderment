@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { decorative } from '@/components/a11y';
 import { search, SearchHit } from '@/domain/search';
 import { ageLabel } from '@/domain/selectors';
-import { useStore } from '@/store/useStore';
+import { rememberSearchQuietly, useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
 const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -15,7 +15,6 @@ const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 export default function Search() {
   const data = useStore((st) => st.data);
   const recent = useStore((st) => st.recentSearches);
-  const remember = useStore((st) => st.rememberSearch);
   const clearSearches = useStore((st) => st.clearSearches);
   const [query, setQuery] = useState('');
   const deferred = useDeferredValue(query);
@@ -23,7 +22,7 @@ export default function Search() {
   const count = groups.reduce((n, g) => n + g.hits.length, 0);
 
   const open = (path: string) => {
-    remember(query);
+    rememberSearchQuietly(query);
     router.push(path as never);
   };
   const label = (h: SearchHit) => (h.kind === 'next' ? 'Next step' : h.kind === 'note' ? 'In a note' : h.occurredAt ? ageLabel(h.occurredAt) : '');
@@ -39,7 +38,7 @@ export default function Search() {
             placeholder="Search activities, notes, next steps"
             placeholderTextColor={C.faint}
             returnKeyType="search"
-            onSubmitEditing={() => remember(query)}
+            onSubmitEditing={() => rememberSearchQuietly(query)}
             style={styles.input}
             accessibilityLabel="Search"
           />
