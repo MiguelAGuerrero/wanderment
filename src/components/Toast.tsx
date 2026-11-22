@@ -43,9 +43,11 @@ export function Toast() {
           {toast.detail && <Text style={styles.detail}>{toast.detail}</Text>}
           {toast.activityId && <Text style={styles.sub}>Tap for details</Text>}
         </Pressable>
-        <Pressable {...hold} onPress={undo} style={styles.undo} accessibilityRole="button" accessibilityLabel="Undo">
-          <Text style={styles.undoText}>Undo</Text>
-        </Pressable>
+        {!toast.notice && (
+          <Pressable {...hold} onPress={undo} style={styles.undo} accessibilityRole="button" accessibilityLabel="Undo">
+            <Text style={styles.undoText}>Undo</Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );

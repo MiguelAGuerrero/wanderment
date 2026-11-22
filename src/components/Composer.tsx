@@ -5,7 +5,7 @@ import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, Vi
 import { caretAfterEdit, mentionAt, mentionEnd, replaceActiveMention, suggestDoing, suggestThreads } from '@/domain/compose';
 import { findThreadByName } from '@/domain/model';
 import { Id } from '@/domain/types';
-import { recentThreadOrder, useStore } from '@/store/useStore';
+import { holdsData, recentThreadOrder, sameDraft, useStore } from '@/store/useStore';
 import { decorative } from '@/components/a11y';
 import { C, s } from '@/theme';
 
@@ -21,7 +21,9 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
   const setDraft = useStore((st) => st.setDraft);
   const log = useStore((st) => st.log);
   /** The page is taking the data back after being hidden (P-29): typing works, logging waits. */
-  const reconnecting = useStore((st) => st.storage.state === 'ready' && !!st.storage.reconnecting);
+  const reconnecting = !useStore(holdsData);
+  /** Return was pressed meanwhile, and the line is still the same: it logs once the data is back. */
+  const marked = useStore((st) => !!st.toLog && sameDraft(st.toLog.draft, st.draft));
   const createThread = useStore((st) => st.createThread);
   const setPullInOffer = useStore((st) => st.setPullInOffer);
   const logBoxFocus = useStore((st) => st.logBoxFocus);
@@ -126,12 +128,13 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
   const createAndPick = () => {
     if (!mention) return;
     const id = createThread(mention.query);
+    if (!id) return;
     pick(id, mention.query);
     // Offer (quietly, after logging) to pull in earlier activities that mention it.
     setPullInOffer(id);
   };
+  // While reconnecting, the store remembers the line and logs it once the data is back.
   const submit = () => {
-    if (reconnecting) return;
     if (log({ doingId }, { bridge })) inputRef.current?.focus();
   };
 
@@ -192,6 +195,12 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
       )}
 
       <View style={styles.box}>
+        {reconnecting && (
+          // Over the space above the box, so nothing moves while it shows.
+          <Text style={styles.reconnecting} numberOfLines={1}>
+            {marked ? 'Reconnecting… it’ll log as soon as it’s back' : 'Reconnecting…'}
+          </Text>
+        )}
         {(chips.length > 0 || step || suggestedDoing) && (
           <View style={styles.chipRow}>
             {chips.map((c, i) => (
@@ -271,13 +280,15 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
               accessibilityLabel={placeholder}
             />
           </View>
+          {/* The same "Log" (and width) while reconnecting, dimmed; pressing it still counts. */}
           <Pressable
             onPress={submit}
-            style={[s.primaryBtn, (!draft.text.trim() || reconnecting) && { opacity: 0.4 }]}
-            disabled={!draft.text.trim() || reconnecting}
+            style={[s.primaryBtn, !draft.text.trim() ? { opacity: 0.4 } : reconnecting && styles.logWaiting]}
+            disabled={!draft.text.trim()}
             accessibilityRole="button"
+            accessibilityLabel={reconnecting ? 'Log, reconnecting' : undefined}
           >
-            <Text style={s.primaryBtnText}>{reconnecting ? 'Reconnecting…' : 'Log'}</Text>
+            <Text style={s.primaryBtnText}>Log</Text>
           </Pressable>
         </View>
       </View>
@@ -312,4 +323,7 @@ const styles = StyleSheet.create({
   suggestionText: { fontSize: 16, color: C.ink },
   hint: { fontSize: 12, color: C.accentInk },
   srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 },
+  /** Dimmed, but still readable (it can be pressed: the line logs once the data is back). */
+  logWaiting: { backgroundColor: C.muted },
+  reconnecting: { position: 'absolute', left: 16, right: 16, bottom: '100%', marginBottom: 2, fontSize: 12, color: C.muted },
 });

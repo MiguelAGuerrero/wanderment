@@ -210,8 +210,9 @@ test('Home while the page doesn’t hold the data (“Reconnecting…” on Log)
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  // Named by its visible text; the data and the typed line stay.
-  await expect(page.getByRole('button', { name: 'Reconnecting…', exact: true })).toBeDisabled();
+  // Named by its visible text ("Log"), plus why it waits (rework after the audit, F12); the data and the typed line stay.
+  await expect(page.getByRole('button', { name: 'Log, reconnecting', exact: true })).toBeVisible();
+  await expect(page.getByText('Reconnecting…', { exact: true })).toBeVisible();
   await expect(logBox(page)).toHaveValue('typed while away');
   await expectNoSeriousViolations(page);
 });

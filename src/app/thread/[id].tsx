@@ -91,7 +91,7 @@ export default function ThreadPage() {
             onSubmitEditing={() => {
               const res = renameThread(thread.id, nameValue);
               if (res.ok) setRenaming(false);
-              else setNameTaken({ name: res.other.name, hidden: res.other.hidden });
+              else if (res.reason === 'taken') setNameTaken({ name: res.other.name, hidden: res.other.hidden });
             }}
             onKeyPress={(e) => {
               if (e.nativeEvent.key === 'Escape') cancelRename();
@@ -141,15 +141,14 @@ export default function ThreadPage() {
               placeholderTextColor={C.faint}
               style={{ flex: 1, fontSize: 15, minHeight: 44 }}
               onSubmitEditing={() => {
-                setNext(thread.id, nextValue);
-                setEditingNext(false);
+                // Refused while reconnecting: the typed step stays in the box.
+                if (setNext(thread.id, nextValue)) setEditingNext(false);
               }}
               accessibilityLabel={`Next step for ${thread.name}`}
             />
             <Pressable
               onPress={() => {
-                setNext(thread.id, nextValue);
-                setEditingNext(false);
+                if (setNext(thread.id, nextValue)) setEditingNext(false);
               }}
               style={s.primaryBtn}>
               <Text style={s.primaryBtnText}>Save</Text>
@@ -186,8 +185,7 @@ export default function ThreadPage() {
         </Pressable>
         <Pressable
           onPress={() => {
-            setHidden(thread.id, !thread.hidden);
-            if (!thread.hidden) router.back();
+            if (setHidden(thread.id, !thread.hidden) && !thread.hidden) router.back();
           }}
           style={s.chip}
           accessibilityRole="button">
@@ -220,7 +218,7 @@ export default function ThreadPage() {
       {swapShown && (
         <View style={styles.swap}>
           {whys.map((w) => (
-            <Pressable key={w.id} onPress={() => (swapWhy(w.id, thread.id), closeSwap())} style={styles.swapBtn} accessibilityRole="button">
+            <Pressable key={w.id} onPress={() => swapWhy(w.id, thread.id) && closeSwap()} style={styles.swapBtn} accessibilityRole="button">
               <Text style={s.chipText}>Swap with “{w.name}”</Text>
             </Pressable>
           ))}

@@ -35,6 +35,12 @@ describe('recognising “held by another copy” (P-29)', () => {
     expect(classifyOpenError(named('UnknownError', 'Invalid platform file handle'), 'open')).toBe('other');
   });
 
+  it('an UnknownError stays “not held” even when its text reads like a held file (the guard comes first)', () => {
+    expect(classifyOpenError(named('UnknownError', 'The object is in an invalid state.'), 'open')).toBe('other');
+    expect(classifyOpenError(named('UnknownError', 'Access Handles cannot be created: the file is locked'), 'open')).toBe('other');
+    expect(classifyOpenError(forwarded('Unknown transient reason: another open Access Handle'), 'open')).toBe('other');
+  });
+
   it('anything else is not held', () => {
     expect(classifyOpenError(forwarded('disk I/O error'), 'open')).toBe('other');
     expect(classifyOpenError(forwarded('Opening the database timed out'), 'open')).toBe('other');

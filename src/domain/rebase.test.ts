@@ -54,6 +54,15 @@ describe('taking the data back after another copy may have written to it (P-29)'
     expect(Object.keys(r.data.activities)).toEqual(['a1']);
   });
 
+  it('when all that differs is this page’s own changes (saved since from its journal), what’s shown doesn’t change', () => {
+    const base = data([act('a1', 'one'), act('a2', 'two')]);
+    const current = data([base.activities.a1, act('a3', 'added here')]); // a2 deleted here
+    const r = rebase(base, current, reloaded(current));
+    expect(r.changed).toBe(false);
+    expect(r.data).toBe(current);
+    expect(r.saved).toEqual(current);
+  });
+
   it('an optional field the database leaves out equals one that is undefined here', () => {
     const base = data([act('a1', 'one', { note: undefined, doingId: undefined })], [thread('t1', 'draw', { next: undefined })]);
     const loaded = data([act('a1', 'one')], [thread('t1', 'draw')]);
