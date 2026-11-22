@@ -188,10 +188,19 @@ function gated<F extends (...args: never[]) => unknown>(refused: ReturnType<F>, 
     const s = useStore.getState();
     if (holdsData(s)) return action(...args);
     if (onRefused) onRefused(...args);
-    else if (s.toast?.message !== RECONNECTING_NOTICE) useStore.setState({ toast: { message: RECONNECTING_NOTICE, notice: true } });
+    // A toast with Undo stays (its Undo works again once the data is back), saying why on its second line.
+    else if (s.toast && !s.toast.notice) {
+      if (s.toast.detail !== RECONNECTING_NOTICE) useStore.setState({ toast: { ...s.toast, detail: RECONNECTING_NOTICE } });
+    } else if (s.toast?.message !== RECONNECTING_NOTICE) useStore.setState({ toast: { message: RECONNECTING_NOTICE, notice: true } });
     return refused;
   }) as F;
 }
+
+/**
+ * Remembers a search (Search's results and Return). Not a change worth refusing out loud: while the
+ * page doesn't hold the data it's quietly skipped, and the result still opens (audit 2 F3).
+ */
+export const rememberSearchQuietly = (query: string): boolean => holdsData(useStore.getState()) && useStore.getState().rememberSearch(query);
 
 const refused: Refused = { ok: false, reason: 'reconnecting' };
 
@@ -420,6 +429,8 @@ export const useStore = create<State>()((set, get) => ({
       data,
       ...settings,
       ...(!keepUndo && { undo: undefined, toast: undefined }),
+      // Back: a toast kept through a refusal no longer says it's reconnecting.
+      ...(keepUndo && s.toast?.detail === RECONNECTING_NOTICE && { toast: { ...s.toast, detail: undefined } }),
       // Anything pointing at a record that's gone now goes too.
       ...(s.bridgeFor && !data.activities[s.bridgeFor] ? { bridgeFor: undefined } : {}),
       ...(s.promptNextFor && !data.threads[s.promptNextFor] ? { promptNextFor: undefined } : {}),

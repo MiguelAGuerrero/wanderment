@@ -49,3 +49,6 @@ example
 
 # /polish batch notes, logs and the verification stamp (local only)
 /.polish/
+
+# Other agents' git worktrees (isolated checkouts): never part of this tree
+/.claude/worktrees/

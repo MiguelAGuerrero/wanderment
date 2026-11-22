@@ -833,6 +833,70 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     expect(texts(next)).toEqual(['in flight', 'queued']);
   });
 
+  it('a change only in the journal when the page let go, replayed by another page that then edits the same record, isn’t put back over that edit when this page takes the data back', async () => {
+    fakeLocks();
+    const store = await load();
+    logText(store, 'alpha');
+    await tick(30);
+    const id = idOf(store, 'alpha');
+    writeGate = deferred();
+    store.getState().updateActivity(id, { note: 'n1' });
+    await tick(0);
+    store.getState().updateActivity(id, { note: 'from B' }); // queued behind the write in flight
+    await tick(0);
+    page.hide();
+    writeGate.open();
+    await tick(30);
+    // "from B" is only in the journal.
+    expect((await onDisk()).activities[id].note).toBe('n1');
+    expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertActivities).toEqual([expect.objectContaining({ note: 'from B' })]);
+    // Another page opens: it replays the journal (as persistence does), then edits the same record.
+    const { nodeDb } = await import('./nodeDb');
+    const { saveChanges, loadData } = await import('./repository');
+    const db = nodeDb(env.state.dbPath);
+    await saveChanges(db, JSON.parse(env.ls.get('wanderment:journal')!).changes);
+    env.ls.delete('wanderment:journal');
+    const there = await loadData(db);
+    await saveChanges(db, { upsertThreads: [], deleteThreads: [], upsertActivities: [{ ...there.activities[id], note: 'from B and A' }], deleteActivities: [] });
+    db.close();
+
+    page.show();
+    await tick(100);
+    expect(store.getState().storage).toEqual(READY);
+    expect(store.getState().data.activities[id].note).toBe('from B and A');
+    expect((await onDisk()).activities[id].note).toBe('from B and A');
+  });
+
+  it('a change only in the journal when the page let go, with nobody opening meanwhile: taking the data back replays it once — nothing lost, nothing twice', async () => {
+    fakeLocks();
+    const store = await load();
+    logText(store, 'alpha');
+    await tick(30);
+    const id = idOf(store, 'alpha');
+    writeGate = deferred();
+    logText(store, 'in flight');
+    await tick(0);
+    logText(store, 'queued');
+    store.getState().updateActivity(id, { note: 'edited' });
+    await tick(0);
+    page.hide();
+    writeGate.open();
+    await tick(30);
+    expect(await diskTexts()).toEqual(['alpha', 'in flight']);
+    expect(env.ls.has('wanderment:journal')).toBe(true);
+
+    page.show();
+    await tick(100);
+    expect(store.getState().storage).toEqual(READY);
+    expect(texts(store)).toEqual(['alpha', 'in flight', 'queued']);
+    expect(await diskTexts()).toEqual(['alpha', 'in flight', 'queued']);
+    expect(store.getState().data.activities[id].note).toBe('edited');
+    expect((await onDisk()).activities[id].note).toBe('edited');
+    expect(env.ls.has('wanderment:journal')).toBe(false);
+    // Its own change, so Undo (of the last change) is kept and still works.
+    expect(store.getState().undo).toBeDefined();
+  });
+
   // Rework after audit (F1, F6): a page that doesn't hold the data can't change it. These two
   // replaced "a change made while hidden waits in the journal and lands later".
   it('a change tried while hidden is refused: nothing changes, nothing is written or journaled; shown again, it works', async () => {
@@ -848,7 +912,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     expect(store.getState().updateActivity(idOf(store, 'before'), { note: 'while hidden' })).toBe(false);
     await tick(1000);
     expect(store.getState().data).toBe(data);
-    expect(store.getState().toast).toEqual({ message: 'Just a moment — reconnecting.', notice: true });
+    // Audit 2 F4: the "Logged" toast (with Undo) stays, and says why on its second line.
+    expect(store.getState().toast).toEqual({ message: 'Logged', activityId: idOf(store, 'before'), detail: 'Just a moment — reconnecting.' });
     expect(env.p29.writes).toEqual([]);
     expect(env.ls.has('wanderment:journal')).toBe(false);
 
@@ -1383,6 +1448,73 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(store.getState().storage).toEqual(READY);
       expect(store.getState().draft.text).toBe('a draft');
       expect(texts(store)).toEqual(['before']);
+    });
+
+    it('taking the data back that keeps failing (not held) says so over the app after 6 tries — never before — with the details; it keeps trying behind it, opens by itself, and the remembered Return logs once (audit 2 F1)', async () => {
+      fakeLocks();
+      const store = await load();
+      logText(store, 'before');
+      await tick(30);
+      page.hide();
+      await tick(30);
+      env.state.openError = new Error('Aborted(NetworkError: wasm)');
+      const seen: unknown[] = [];
+      store.subscribe((st, prev) => void (st.storage !== prev.storage && seen.push(st.storage)));
+      env.p29.writes = [];
+      const opens = env.p29.opens;
+      page.show();
+      await tick(10);
+      store.getState().setDraft({ text: 'pressed while it fails' });
+      expect(store.getState().log()).toBeUndefined();
+      // Tries at about 0, 0.25, 0.75, 1.75 and 3.75 s, then 7.75 s: five failures are still only "Reconnecting…".
+      await tick(7720);
+      expect(env.p29.opens).toBe(opens + 5);
+      expect(store.getState().storage).toEqual(RECONNECTING);
+      expect(seen).toEqual([]);
+      await tick(40);
+      expect(env.p29.opens).toBe(opens + 6);
+      expect(store.getState().storage).toEqual({
+        state: 'blocked',
+        waiting: true,
+        message: 'Wanderment can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept. If this stays, reload the page.',
+        details: 'Details: open · Aborted(NetworkError: wasm)',
+      });
+      // It keeps trying (every 5 s now), without saying it again on each try; the line and the data stay.
+      await tick(20_000);
+      expect(env.p29.opens).toBe(opens + 10);
+      expect(seen).toHaveLength(1);
+      expect(store.getState().toLog?.draft.text).toBe('pressed while it fails');
+      expect(texts(store)).toEqual(['before']);
+      expect(env.p29.writes.filter((q) => /INSERT|UPDATE|DELETE/i.test(q))).toEqual([]);
+      // Back: it opens by itself, and the line pressed meanwhile is logged once.
+      env.state.openError = undefined;
+      await tick(5000);
+      expect(store.getState().storage).toEqual(READY);
+      expect(texts(store)).toEqual(['before', 'pressed while it fails']);
+      expect(store.getState().draft.text).toBe('');
+      await tick(30);
+      expect(await diskTexts()).toEqual(['before', 'pressed while it fails']);
+    });
+
+    it('taking the data back that keeps failing slowly (each open timing out) says so after about 30 s, not before (audit 2 F1)', async () => {
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      page.hide();
+      await tick(30);
+      // Each try fails after 15 s (the migrate step never answering, then failing).
+      const wrap = handoff.wrapDb!;
+      handoff.wrapDb = (db) => ({ ...wrap(db), all: (() => new Promise((_, reject) => setTimeout(() => reject(new Error('disk I/O error')), 15_000))) as typeof db.all });
+      const opens = env.p29.opens;
+      page.show();
+      await tick(30_200);
+      expect(env.p29.opens).toBe(opens + 2);
+      expect(store.getState().storage).toEqual(RECONNECTING);
+      await tick(100);
+      expect(store.getState().storage).toMatchObject({ state: 'blocked', waiting: true, details: 'Details: migrate · disk I/O error' });
+      handoff.wrapDb = wrap;
+      await tick(500);
+      expect(store.getState().storage).toEqual(READY);
     });
 
     it('shown again (or back online), a try that’s waiting goes at once', async () => {

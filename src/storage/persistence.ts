@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 import { DataChanges, diffData, isEmptyDiff, missingFrom, pendingChanges, rebase } from '@/domain/diff';
 import { defaultSettings, LEGACY_STORAGE_KEY, parseLegacyState, sameSettings, Settings, toLegacyState } from '@/domain/migrate';
-import { classifyOpenError, detailsLine, OpenStep, RECONNECT_GRACE_MS, retryDelay, StepError } from '@/domain/opening';
+import { classifyOpenError, detailsLine, OpenStep, RECONNECT_GRACE_MS, retryDelay, StepError, takeBackStuck } from '@/domain/opening';
 import { Data, emptyData } from '@/domain/types';
 import { Draft, useStore } from '@/store/useStore';
 
@@ -127,6 +127,9 @@ async function step<T>(name: OpenStep, task: () => Promise<T>): Promise<T> {
 
 /** Shown while another copy holds the data. The page opens by itself once it's free. */
 const TAB_HELD = 'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
+/** Taking the data back keeps failing for another reason (audit 2 F1). It still opens by itself once it can. */
+const CANT_TAKE_BACK =
+  'Wanderment can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept. If this stays, reload the page.';
 const FILES_HELD =
   'Wanderment is still open somewhere else in this browser — maybe an old tab, or a page in a tab’s history. Close other Wanderment tabs; if this stays, quit the browser and reopen it. Your data is safe; this page will open by itself.';
 
@@ -639,9 +642,12 @@ async function acquire(signal: AbortSignal): Promise<void> {
       if (shown) {
         // Taking the data back failed for another reason (an open that timed out, the wasm out of
         // reach): the data stays on screen with "Reconnecting…", and it tries again (sooner when
-        // the network is back, or the page is shown again).
+        // the network is back, or the page is shown again). If it keeps failing, the person is
+        // told, over the app, with Reload and the details; it keeps trying behind that.
         if (failures === 0) console.warn('Could not take the data back; trying again', error);
-        await sleep(retryDelay(failures++), signal);
+        failures++;
+        if (takeBackStuck(failures, Date.now() - since) || useStore.getState().storage.state === 'blocked') showWaiting(CANT_TAKE_BACK, error);
+        await sleep(retryDelay(failures - 1), signal);
         continue;
       }
       const usedSqliteBefore = (await AsyncStorage.getItem(USES_SQLITE_KEY).catch(() => null)) === '1';
@@ -680,6 +686,13 @@ async function letGo(): Promise<void> {
   let kept = false;
   try {
     await flushed;
+    // What isn't written yet is in the journal, and whoever opens next (this page or another)
+    // replays it: from here on it counts as saved, so taking the data back never puts it back
+    // over a later edit made elsewhere. (The gate is closed: nothing changes after this.)
+    if (opened.kind === 'sqlite') {
+      const s = useStore.getState();
+      saved = { data: s.data, settings: settingsOf(s) };
+    }
     if (opened.db) {
       await Promise.resolve(opened.db.close?.()).catch((e) => console.warn('Could not close the database', e));
       await opened.db.shutdown?.().catch((e) => {

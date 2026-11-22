@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { classifyOpenError, detailsLine, OPEN_STEPS, retryDelay, StepError } from './opening';
+import { classifyOpenError, detailsLine, OPEN_STEPS, retryDelay, shownDetails, StepError, takeBackStuck } from './opening';
 
 /** What expo-sqlite's worker hands the page: only the message survives, as a plain Error. */
 const forwarded = (message: string) => new Error(message);
@@ -89,5 +89,26 @@ describe('saying what failed', () => {
   it('an error from outside the named steps still gets a line', () => {
     expect(detailsLine(forwarded('boom'))).toBe('Details: start · boom');
     expect(detailsLine('plain text')).toBe('Details: start · plain text');
+  });
+});
+
+describe('taking the data back that keeps failing (audit 2 F1)', () => {
+  it('is told after 6 failed tries, or after about 30 s of failing, whichever comes first — never before', () => {
+    expect(takeBackStuck(5, 29_999)).toBe(false);
+    expect(takeBackStuck(1, 0)).toBe(false);
+    expect(takeBackStuck(6, 8_000)).toBe(true);
+    expect(takeBackStuck(2, 30_000)).toBe(true);
+  });
+});
+
+describe('the details line as shown', () => {
+  it('keeps a short line as it is, and cuts a long one to 160 characters with “…”', () => {
+    expect(shownDetails('Details: open · disk I/O error')).toBe('Details: open · disk I/O error');
+    const long = `Details: open · Aborted(NetworkError: Failed to execute 'send' on 'XMLHttpRequest': Failed to load '${'x'.repeat(300)}'). Build with -sASSERTIONS for more info.`;
+    const shown = shownDetails(long);
+    expect([...shown]).toHaveLength(160);
+    expect(shown.endsWith('…')).toBe(true);
+    expect(long.startsWith(shown.slice(0, -1))).toBe(true);
+    expect(shownDetails('x'.repeat(160))).toBe('x'.repeat(160));
   });
 });

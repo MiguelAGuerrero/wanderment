@@ -62,3 +62,19 @@ export function detailsLine(e: unknown): string {
  * "Reconnecting…" on Log, before it says another copy holds it (about the first backoff steps).
  */
 export const RECONNECT_GRACE_MS = 4000;
+
+/**
+ * Taking the data back keeps failing for a reason other than another copy holding it (the wasm
+ * out of reach, a corrupt file): after this many failed tries, or this long, the page stops
+ * saying only "Reconnecting…" and shows the waiting screen with the details (audit 2 F1).
+ */
+export const TAKE_BACK_STUCK = { failures: 6, ms: 30_000 } as const;
+
+/** Whether `failures` failed tries over `elapsedMs` mean the person should be told (and offered Reload). */
+export const takeBackStuck = (failures: number, elapsedMs: number) => failures >= TAKE_BACK_STUCK.failures || elapsedMs >= TAKE_BACK_STUCK.ms;
+
+/** The details line as shown: at most about 160 characters, the rest cut with "…" (a browser's own text can run long). */
+export function shownDetails(details: string, max = 160): string {
+  const chars = [...details];
+  return chars.length <= max ? details : `${chars.slice(0, max - 1).join('').trimEnd()}…`;
+}

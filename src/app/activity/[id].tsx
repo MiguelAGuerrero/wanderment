@@ -8,6 +8,7 @@ import { lastTimeFor } from '@/domain/selectors';
 import { Id } from '@/domain/types';
 import { holdsData, recentThreadOrder, useStore } from '@/store/useStore';
 import { decorative } from '@/components/a11y';
+import { useSavedField } from '@/components/useSavedField';
 import { C, s } from '@/theme';
 
 const DAY = 864e5;
@@ -29,11 +30,13 @@ export default function ActivityDetails() {
   const a = id ? data.activities[id] : undefined;
   const owner = a ? nextOwner(a) : undefined;
   const ownerThread = owner ? data.threads[owner] : undefined;
-  const [text, setText] = useState(a?.text ?? '');
+  // Both follow edits made elsewhere (another page's, taken in when this one takes the data back).
+  const title = useSavedField(a?.text ?? '');
+  const text = title.value;
   const [original, setOriginal] = useState(a?.text ?? '');
   /** "Today" means the day this screen was opened. */
   const [openedAt] = useState(() => new Date());
-  const [note, setNote] = useState(a?.note ?? '');
+  const note = useSavedField(a?.note ?? '');
   const [next, setNextValue] = useState('');
   const [adding, setAdding] = useState<'doing' | 'to'>();
 
@@ -102,14 +105,18 @@ export default function ActivityDetails() {
         <TextInput
           value={text}
           onChangeText={(v) => {
-            setText(v);
+            title.setValue(v);
             if (v.trim()) updateActivity(a.id, { text: v });
           }}
-          onFocus={() => setOriginal(a.text)}
+          onFocus={() => {
+            title.onFocus();
+            setOriginal(a.text);
+          }}
           onBlur={() => {
+            title.onBlur();
             // Emptied by deleting key by key: put back what it said before this edit.
             if (!text.trim()) {
-              setText(original);
+              title.setValue(original);
               updateActivity(a.id, { text: original });
             }
           }}
@@ -210,11 +217,13 @@ export default function ActivityDetails() {
         <View style={{ gap: 6 }}>
           <Text style={s.meta}>Note</Text>
           <TextInput
-            value={note}
+            value={note.value}
             onChangeText={(v) => {
-              setNote(v);
+              note.setValue(v);
               updateActivity(a.id, { note: v });
             }}
+            onFocus={note.onFocus}
+            onBlur={note.onBlur}
             multiline
             editable={holding}
             placeholder="How did it go?"
