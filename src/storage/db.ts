@@ -14,4 +14,9 @@ export interface Db {
   transaction(task: () => Promise<void>): Promise<void>;
   /** Closes the connection (so a failed open can be tried again from the start). */
   close?(): Promise<void> | void;
+  /**
+   * Web, after `close`: lets go of the database files entirely, so another page can open them;
+   * opening again later in the same page works. Absent where that isn't possible.
+   */
+  shutdown?(): Promise<void>;
 }

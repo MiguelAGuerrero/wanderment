@@ -28,6 +28,9 @@ const env = vi.hoisted(() => {
   return { ls, state, localStorage, p29 };
 });
 
+/** P-29 part B: lets a test wrap each opened database (to log, hold writes, or add the worker shutdown). */
+const handoff = vi.hoisted(() => ({ wrapDb: undefined as undefined | ((db: import('./db').Db) => import('./db').Db) }));
+
 vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
 vi.mock('@react-native-async-storage/async-storage', () => ({
   default: {
@@ -50,7 +53,7 @@ vi.mock('./expoDb', async () => {
         if (write) env.p29.writes.push(q);
         return f(q, ...rest);
       };
-      return {
+      const opened = {
         ...db,
         exec: sql(true, db.exec),
         run: sql(true, db.run),
@@ -58,6 +61,7 @@ vi.mock('./expoDb', async () => {
         // "The tab dies mid-write": transactions opened while hangWrites is on never commit.
         transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)),
       };
+      return handoff.wrapDb?.(opened) ?? opened;
     },
   };
 });
@@ -642,5 +646,510 @@ describe('another copy of the app holds the data (P-29)', () => {
     expect(texts(store)).toEqual(['from the journal']);
     expect(store.getState().showShading).toBe(false);
     expect(env.ls.has('wanderment:journal')).toBe(false);
+  });
+});
+
+describe('holding the data only while the page is visible (P-29 part B)', () => {
+  type Store = Awaited<ReturnType<typeof load>>;
+  const tick = (ms: number) => vi.advanceTimersByTimeAsync(ms);
+  const TAB_HELD = 'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
+  const READY = { state: 'ready', kind: 'sqlite' };
+  const RECONNECTING = { state: 'ready', kind: 'sqlite', reconnecting: true };
+  /** What happened, in order: commits, the journal clearing, close, shutdown, the tab lock going. */
+  const log: string[] = [];
+  const deferred = () => {
+    let open = () => {};
+    const promise = new Promise<void>((r) => (open = r));
+    return { promise, open };
+  };
+  /** While set, writes wait for it (a write in flight); and the worker's shutdown waits for its own. */
+  let writeGate: ReturnType<typeof deferred> | undefined;
+  let shutdownGate: ReturnType<typeof deferred> | undefined;
+  /** False: the expo-sqlite worker wasn't found, so there's no shutdown. */
+  let canShutdown = true;
+
+  /** A web page's document and window: visibility, lifecycle events and other pages' storage events. */
+  function fakePage() {
+    const doc = Object.assign(new EventTarget(), { visibilityState: 'visible' as 'visible' | 'hidden' });
+    const win = new EventTarget();
+    vi.stubGlobal('document', doc);
+    vi.stubGlobal('window', win);
+    const set = (v: 'visible' | 'hidden') => {
+      doc.visibilityState = v;
+      doc.dispatchEvent(new Event('visibilitychange'));
+    };
+    return {
+      hide: () => set('hidden'),
+      show: () => set('visible'),
+      fire: (on: 'document' | 'window', type: string) => (on === 'document' ? doc : win).dispatchEvent(new Event(type)),
+      storageEvent: (key: string, newValue: string | null) => win.dispatchEvent(Object.assign(new Event('storage'), { key, newValue })),
+    };
+  }
+  let page: ReturnType<typeof fakePage>;
+
+  /** navigator.locks with one lock; requests queue; this page's releases are logged. */
+  function fakeLocks() {
+    let busy = false;
+    const queue: (() => void)[] = [];
+    const grant = async (cb: (lock: unknown) => unknown, mine: boolean) => {
+      busy = true;
+      try {
+        return await cb({ name: 'wanderment-data', mode: 'exclusive' });
+      } finally {
+        busy = false;
+        if (mine) log.push('lock released');
+        queue.shift()?.();
+      }
+    };
+    const request = (opts: { ifAvailable?: boolean; signal?: AbortSignal }, cb: (lock: unknown) => unknown, mine: boolean) => {
+      if (!busy) return grant(cb, mine);
+      if (opts.ifAvailable) return Promise.resolve(cb(null));
+      return new Promise((resolve, reject) => {
+        const go = () => resolve(grant(cb, mine));
+        queue.push(go);
+        opts.signal?.addEventListener('abort', () => {
+          if (queue.includes(go)) queue.splice(queue.indexOf(go), 1);
+          reject(new Error('AbortError'));
+        });
+      });
+    };
+    vi.stubGlobal('navigator', { locks: { request: (_name: string, opts: object, cb: (lock: unknown) => unknown) => request(opts, cb, true) } });
+    return {
+      /** Another page takes the lock (queueing if needed); call the result to let go. */
+      holdElsewhere: () => {
+        let release = () => {};
+        void request({}, () => new Promise<void>((r) => (release = r)), false);
+        return () => release();
+      },
+      free: () => !busy,
+      waiting: () => queue.length,
+    };
+  }
+
+  /** What's saved, read straight from the database file (as another page would). */
+  async function onDisk() {
+    const { nodeDb } = await import('./nodeDb');
+    const { loadData } = await import('./repository');
+    const db = nodeDb(env.state.dbPath);
+    try {
+      return await loadData(db);
+    } finally {
+      db.close();
+    }
+  }
+  /** Another page writes to the database while this one has let go. */
+  async function writeElsewhere(text: string) {
+    const { nodeDb } = await import('./nodeDb');
+    const { saveChanges } = await import('./repository');
+    const db = nodeDb(env.state.dbPath);
+    await saveChanges(db, { upsertThreads: [], deleteThreads: [], upsertActivities: [act(`x-${text}`, text)], deleteActivities: [] });
+    db.close();
+  }
+  const diskTexts = async () => Object.values((await onDisk()).activities).map((a) => a.text).sort();
+  const idOf = (store: Store, text: string) => Object.values(store.getState().data.activities).find((a) => a.text === text)!.id;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    log.length = 0;
+    writeGate = undefined;
+    shutdownGate = undefined;
+    canShutdown = true;
+    page = fakePage();
+    handoff.wrapDb = (db) => ({
+      ...db,
+      transaction: async (task) => {
+        if (writeGate) await writeGate.promise;
+        await db.transaction(task);
+        log.push('commit');
+      },
+      close: async () => {
+        log.push('close');
+        await db.close?.();
+      },
+      ...(canShutdown && {
+        shutdown: async () => {
+          if (shutdownGate) await shutdownGate.promise;
+          log.push('shutdown');
+        },
+      }),
+    });
+    vi.spyOn(env.localStorage, 'removeItem').mockImplementation((k: string) => {
+      if (k === 'wanderment:journal' && env.ls.has(k)) log.push('journal cleared');
+      env.ls.delete(k);
+    });
+  });
+  afterEach(() => {
+    handoff.wrapDb = undefined;
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('hidden with a write in flight: the write lands first and clears the journal, then close → shutdown → the tab lock goes', async () => {
+    const locks = fakeLocks();
+    const store = await load();
+    await tick(30);
+    log.length = 0;
+    writeGate = deferred();
+    logText(store, 'in flight');
+    await tick(0);
+    page.hide();
+    await tick(1000);
+    // Still writing: nothing closed, the change safe in the journal, the lock kept.
+    expect(log).toEqual([]);
+    expect(env.ls.has('wanderment:journal')).toBe(true);
+    expect(locks.free()).toBe(false);
+
+    writeGate.open();
+    await tick(0);
+    expect(log).toEqual(['commit', 'journal cleared', 'close', 'shutdown', 'lock released']);
+    expect(locks.free()).toBe(true);
+    expect(await diskTexts()).toEqual(['in flight']);
+    // The data stays on screen; logging waits until it's taken back.
+    expect(store.getState().storage).toEqual(RECONNECTING);
+    expect(texts(store)).toEqual(['in flight']);
+  });
+
+  it('a change queued behind the write in flight isn’t started once hidden: it waits in the journal, and survives the page never coming back', async () => {
+    fakeLocks();
+    const store = await load();
+    await tick(30);
+    log.length = 0;
+    writeGate = deferred();
+    logText(store, 'in flight');
+    await tick(0);
+    logText(store, 'queued');
+    await tick(0);
+    page.hide();
+    writeGate.open();
+    await tick(30);
+    // No new write started, and the journal (now holding only the queued change) wasn't cleared.
+    expect(log).toEqual(['commit', 'close', 'shutdown', 'lock released']);
+    expect(await diskTexts()).toEqual(['in flight']);
+    expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertActivities).toEqual([expect.objectContaining({ text: 'queued' })]);
+    page = fakePage();
+    const next = await load();
+    expect(texts(next)).toEqual(['in flight', 'queued']);
+  });
+
+  it('a change made while hidden writes nothing, waits in the journal, and lands when the page is shown again', async () => {
+    fakeLocks();
+    const store = await load();
+    logText(store, 'before');
+    await tick(30);
+    page.hide();
+    await tick(30);
+    expect(log.slice(-3)).toEqual(['close', 'shutdown', 'lock released']);
+    env.p29.writes = [];
+    store.getState().updateActivity(idOf(store, 'before'), { note: 'while hidden' });
+    await tick(1000);
+    expect(env.p29.writes).toEqual([]);
+    expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertActivities).toEqual([expect.objectContaining({ text: 'before', note: 'while hidden' })]);
+
+    page.show();
+    await tick(30);
+    expect(store.getState().storage).toEqual(READY);
+    expect(store.getState().data.activities[idOf(store, 'before')].note).toBe('while hidden');
+    expect(Object.values((await onDisk()).activities)[0].note).toBe('while hidden');
+    expect(env.ls.has('wanderment:journal')).toBe(false);
+  });
+
+  it('a change made while hidden survives the page never coming back (the journal)', async () => {
+    fakeLocks();
+    const store = await load();
+    logText(store, 'before');
+    await tick(30);
+    page.hide();
+    await tick(30);
+    store.getState().updateActivity(idOf(store, 'before'), { note: 'while hidden' });
+    await tick(30);
+    // The page is gone (iOS dropped it); another one opens.
+    page = fakePage();
+    const next = await load();
+    expect(next.getState().storage).toEqual(READY);
+    expect(next.getState().data.activities[idOf(next, 'before')].note).toBe('while hidden');
+  });
+
+  it('shown again, it shows what another page saved meanwhile, keeps the draft, and drops Undo', async () => {
+    fakeLocks();
+    const store = await load();
+    logText(store, 'mine');
+    await tick(30);
+    expect(store.getState().undo).toBeDefined();
+    page.hide();
+    await tick(30);
+    await writeElsewhere('from another tab');
+    store.getState().setDraft({ text: 'half-typed' });
+
+    page.show();
+    await tick(30);
+    expect(store.getState().storage).toEqual(READY);
+    expect(texts(store)).toEqual(['from another tab', 'mine']);
+    expect(store.getState().draft.text).toBe('half-typed');
+    expect(store.getState().undo).toBeUndefined();
+    // And it's this page's to write again.
+    logText(store, 'after');
+    await tick(30);
+    expect(await diskTexts()).toEqual(['after', 'from another tab', 'mine']);
+  });
+
+  it('shown again with nothing changed meanwhile, it keeps Undo and what’s on screen as it was', async () => {
+    fakeLocks();
+    const store = await load();
+    logText(store, 'mine');
+    await tick(30);
+    const { data, undo } = store.getState();
+    page.hide();
+    await tick(30);
+    page.show();
+    await tick(30);
+    expect(store.getState().storage).toEqual(READY);
+    expect(store.getState().data).toBe(data);
+    expect(store.getState().undo).toBe(undo);
+    store.getState().undoLast();
+    await tick(30);
+    expect(await diskTexts()).toEqual([]);
+  });
+
+  it('while another page holds the data it keeps showing its own, with “Reconnecting…”, then says so — once — and opens when it’s free', async () => {
+    const locks = fakeLocks();
+    const store = await load();
+    logText(store, 'mine');
+    await tick(30);
+    page.hide();
+    await tick(30);
+    const letGo = locks.holdElsewhere();
+    store.getState().setDraft({ text: 'typing' });
+    const seen: unknown[] = [];
+    store.subscribe((s, prev) => s.storage !== prev.storage && seen.push(s.storage));
+
+    page.show();
+    await tick(3990);
+    expect(store.getState().storage).toEqual(RECONNECTING);
+    expect(texts(store)).toEqual(['mine']);
+    await tick(10);
+    expect(store.getState().storage).toEqual({ state: 'blocked', waiting: true, message: TAB_HELD, details: 'Details: tab lock · another page holds it' });
+    await tick(60_000);
+    expect(seen).toHaveLength(1);
+
+    letGo();
+    await tick(0);
+    expect(store.getState().storage).toEqual(READY);
+    expect(texts(store)).toEqual(['mine']);
+    expect(store.getState().draft.text).toBe('typing');
+  });
+
+  it('two visible pages don’t take turns: the one holding the data never lets go because another asks', async () => {
+    const locks = fakeLocks();
+    const store = await load();
+    log.length = 0;
+    // Another page queues for the data, and pings as if it had let go of something.
+    locks.holdElsewhere();
+    page.storageEvent('wanderment:released', '1');
+    await tick(60_000);
+    expect(log).toEqual([]);
+    expect(store.getState().storage).toEqual(READY);
+  });
+
+  it('hidden while waiting: it stops queueing and lets go of the tab lock; shown again, it tries again', async () => {
+    const locks = fakeLocks();
+    const letGo = locks.holdElsewhere();
+    const store = await load();
+    expect(store.getState().storage).toMatchObject({ state: 'blocked', waiting: true, message: TAB_HELD });
+    expect(locks.waiting()).toBe(1);
+    page.hide();
+    await tick(0);
+    expect(locks.waiting()).toBe(0);
+    letGo();
+    await tick(60_000);
+    expect(locks.free()).toBe(true);
+    expect(env.p29.opens).toBe(0);
+    page.show();
+    await tick(0);
+    expect(store.getState().storage).toEqual(READY);
+    expect(env.p29.opens).toBe(1);
+  });
+
+  it('hidden while the files are busy: the tab lock it was keeping goes too', async () => {
+    const locks = fakeLocks();
+    env.p29.failOpens = Array.from({ length: 100 }, () => new Error('The object is in an invalid state.'));
+    const store = await load();
+    expect(store.getState().storage).toMatchObject({ state: 'blocked', waiting: true });
+    expect(locks.free()).toBe(false);
+    page.hide();
+    await tick(0);
+    expect(locks.free()).toBe(true);
+    const opens = env.p29.opens;
+    await tick(60_000);
+    expect(env.p29.opens).toBe(opens);
+    env.p29.failOpens = [];
+    page.show();
+    await tick(0);
+    expect(store.getState().storage).toEqual(READY);
+  });
+
+  it('another page letting go wakes a waiting page at once', async () => {
+    fakeLocks();
+    env.p29.failOpens = Array.from({ length: 6 }, () => new Error('The object is in an invalid state.'));
+    const store = await load();
+    // Through the quick tries (0.25 + 0.5 + 1 + 2 + 4 s) into the 5 s ones.
+    await tick(7750);
+    expect(env.p29.opens).toBe(6);
+    await tick(100);
+    page.storageEvent('wanderment:released', String(Date.now()));
+    await tick(0);
+    expect(env.p29.opens).toBe(7);
+    expect(store.getState().storage).toEqual(READY);
+  });
+
+  it('races: hidden while opening, it shows the data and lets go right after; shown while closing, it takes it back once closed', async () => {
+    const locks = fakeLocks();
+    vi.resetModules();
+    const { startPersistence } = await import('./persistence');
+    const { useStore: store } = await import('@/store/useStore');
+    const starting = startPersistence();
+    page.hide();
+    await starting;
+    await tick(30);
+    expect(env.p29.opens).toBe(1);
+    expect(store.getState().storage).toEqual(RECONNECTING);
+    expect(log.slice(-3)).toEqual(['close', 'shutdown', 'lock released']);
+    expect(locks.free()).toBe(true);
+
+    page.show();
+    await tick(30);
+    expect(store.getState().storage).toEqual(READY);
+    expect(env.p29.opens).toBe(2);
+
+    shutdownGate = deferred();
+    page.hide();
+    await tick(30);
+    page.show();
+    await tick(30);
+    // Still closing: it doesn't open over itself.
+    expect(env.p29.opens).toBe(2);
+    shutdownGate.open();
+    await tick(30);
+    const closed = log.lastIndexOf('shutdown');
+    expect(log.slice(closed, closed + 2)).toEqual(['shutdown', 'lock released']);
+    expect(env.p29.opens).toBe(3);
+    expect(store.getState().storage).toEqual(READY);
+    expect(locks.free()).toBe(false);
+  });
+
+  it('races: many quick hide/show toggles end with exactly what the last one asks for', async () => {
+    const locks = fakeLocks();
+    const store = await load();
+    for (let i = 0; i < 25; i++) {
+      page.hide();
+      page.show();
+      if (i % 5 === 0) await tick(0);
+    }
+    await tick(100);
+    expect(store.getState().storage).toEqual(READY);
+    expect(locks.free()).toBe(false);
+    const shutdowns = log.filter((e) => e === 'shutdown').length;
+    expect(env.p29.opens).toBe(shutdowns + 1);
+    for (let i = 0; i < 25; i++) {
+      page.show();
+      page.hide();
+    }
+    await tick(100);
+    expect(store.getState().storage).toEqual(RECONNECTING);
+    expect(locks.free()).toBe(true);
+    expect(log.filter((e) => e === 'shutdown').length).toBe(env.p29.opens);
+    logText(store, 'still saved');
+    page.show();
+    await tick(100);
+    expect(await diskTexts()).toEqual(['still saved']);
+  });
+
+  it('pagehide/pageshow and freeze/resume let go and take back too', async () => {
+    const locks = fakeLocks();
+    const store = await load();
+    for (const [away, back, on] of [
+      ['pagehide', 'pageshow', 'window'],
+      ['freeze', 'resume', 'document'],
+    ] as const) {
+      page.fire(on, away);
+      await tick(30);
+      expect(locks.free(), away).toBe(true);
+      expect(store.getState().storage, away).toEqual(RECONNECTING);
+      page.fire(on, back);
+      await tick(30);
+      expect(locks.free(), back).toBe(false);
+      expect(store.getState().storage, back).toEqual(READY);
+    }
+  });
+
+  it('starting hidden (a restored background tab), it waits to be shown before taking the data', async () => {
+    fakeLocks();
+    page.hide();
+    const store = await load();
+    await tick(1000);
+    expect(env.p29.opens).toBe(0);
+    expect(store.getState().storage).toEqual({ state: 'loading' });
+    page.show();
+    await tick(30);
+    expect(store.getState().storage).toEqual(READY);
+  });
+
+  it('before an update reload it lets go, waiting for the worker to let go of the files', async () => {
+    const locks = fakeLocks();
+    const store = await load();
+    log.length = 0;
+    shutdownGate = deferred();
+    const { releaseData } = await import('./persistence');
+    let released = false;
+    void releaseData().then(() => (released = true));
+    await tick(0);
+    expect(released).toBe(false);
+    shutdownGate.open();
+    await tick(0);
+    expect(released).toBe(true);
+    expect(log).toEqual(['close', 'shutdown', 'lock released']);
+    // About to reload: it doesn't take the data back.
+    page.show();
+    await tick(1000);
+    expect(locks.free()).toBe(true);
+    expect(store.getState().storage).toEqual(RECONNECTING);
+  });
+
+  it('where the database worker wasn’t found, the page keeps the data while hidden (as before)', async () => {
+    canShutdown = false;
+    const locks = fakeLocks();
+    const store = await load();
+    log.length = 0;
+    page.hide();
+    await tick(1000);
+    expect(log).toEqual([]);
+    expect(locks.free()).toBe(false);
+    expect(store.getState().storage).toEqual(READY);
+    logText(store, 'still saving');
+    await tick(30);
+    expect(await diskTexts()).toEqual(['still saving']);
+  });
+
+  it('the localStorage fallback lets go of the tab lock when hidden, and reads other pages’ changes when shown', async () => {
+    const locks = fakeLocks();
+    env.state.openError = new Error('no OPFS');
+    const store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+    logText(store, 'here');
+    await tick(30);
+    page.hide();
+    await tick(30);
+    expect(locks.free()).toBe(true);
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local', reconnecting: true });
+    // Another page (the same fallback) adds an entry.
+    const mine = store.getState().data.activities[idOf(store, 'here')];
+    env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { [mine.id]: mine, o1: act('o1', 'from another tab') } }));
+    page.show();
+    await tick(30);
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+    expect(locks.free()).toBe(false);
+    expect(texts(store)).toEqual(['from another tab', 'here']);
+    expect(env.p29.opens).toBe(1);
   });
 });

@@ -114,3 +114,40 @@ export function missingFrom(base: Data, incoming: Data): DataChanges {
     deleteActivities: [],
   };
 }
+
+/** A record's value, whatever its key order, with undefined fields left out (as loading drops them). */
+const valueOf = (record: object) =>
+  JSON.stringify(Object.entries(record).filter(([, v]) => v !== undefined).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+
+/** `loaded`, but with `base`'s object wherever the value is the same; and whether any record differs. */
+function keepSame<T extends object>(base: Record<Id, T>, loaded: Record<Id, T>): { records: Record<Id, T>; changed: boolean } {
+  let changed = Object.keys(base).some((id) => !loaded[id]);
+  const records: Record<Id, T> = {};
+  for (const [id, r] of Object.entries(loaded)) {
+    const same = base[id] !== undefined && valueOf(base[id]) === valueOf(r);
+    records[id] = same ? base[id] : r;
+    if (!same) changed = true;
+  }
+  return { records, changed };
+}
+
+/**
+ * Taking the data back after another copy of the app may have written to it (P-29). `base`: what
+ * this page last saved; `current`: what it shows (base plus its own changes since); `loaded`: what
+ * is saved now. Returns what to show — the saved data with this page's own changes on top — what
+ * is saved (`saved`, so the difference is this page's to write), and whether anything changed
+ * underneath. Records whose value didn't change keep this page's objects (no re-render, no rewrite).
+ */
+export function rebase(base: Data, current: Data, loaded: Data): { data: Data; saved: Data; changed: boolean } {
+  const threads = keepSame(base.threads, loaded.threads);
+  const activities = keepSame(base.activities, loaded.activities);
+  if (!threads.changed && !activities.changed) return { data: current, saved: base, changed: false };
+  const saved: Data = { ...loaded, threads: threads.records, activities: activities.records };
+  const own = diffData(base, current);
+  const data: Data = { ...saved, threads: { ...saved.threads }, activities: { ...saved.activities } };
+  for (const t of own.upsertThreads) data.threads[t.id] = t;
+  for (const id of own.deleteThreads) delete data.threads[id];
+  for (const a of own.upsertActivities) data.activities[a.id] = a;
+  for (const id of own.deleteActivities) delete data.activities[id];
+  return { data, saved, changed: true };
+}

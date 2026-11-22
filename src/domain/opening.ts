@@ -56,3 +56,9 @@ export function detailsLine(e: unknown): string {
   const message = messageOf(cause);
   return `Details: ${step} · ${name && name !== 'Error' && !message.startsWith(name) ? `${name}: ${message}` : message}`;
 }
+
+/**
+ * Coming back to a page that let go of the data (P-29): how long it keeps showing the data, with
+ * "Reconnecting…" on Log, before it says another copy holds it (about the first backoff steps).
+ */
+export const RECONNECT_GRACE_MS = 4000;

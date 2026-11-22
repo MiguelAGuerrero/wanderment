@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-import { DataChanges, diffData, isEmptyDiff, missingFrom, pendingChanges } from '@/domain/diff';
+import { DataChanges, diffData, isEmptyDiff, missingFrom, pendingChanges, rebase } from '@/domain/diff';
 import { defaultSettings, LEGACY_STORAGE_KEY, parseLegacyState, sameSettings, Settings, toLegacyState } from '@/domain/migrate';
-import { classifyOpenError, detailsLine, OpenStep, retryDelay, StepError } from '@/domain/opening';
+import { classifyOpenError, detailsLine, OpenStep, RECONNECT_GRACE_MS, retryDelay, StepError } from '@/domain/opening';
 import { Data, emptyData } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 
@@ -197,8 +197,11 @@ async function replayJournal(db: Db): Promise<void> {
 }
 
 interface Opened {
+  kind: 'sqlite' | 'local';
   backend: Backend;
   db?: Db;
+  /** Ids already taken in from the first release's format (sqlite only). */
+  absorbed?: Set<string>;
   data: Data;
   settings: Settings;
 }
@@ -211,7 +214,8 @@ async function openSqlite(): Promise<Opened> {
     await step('migrate', () => migrateSchema(db));
     await step('journal', () => replayJournal(db));
     await step('absorb', () => absorbLegacy(db));
-    return { backend: sqliteBackend(db), db, ...(await step('load', async () => ({ data: await loadData(db), settings: await loadSettings(db) }))) };
+    const loaded = await step('load', async () => ({ data: await loadData(db), settings: await loadSettings(db), absorbed: await loadAbsorbed(db) }));
+    return { kind: 'sqlite', backend: sqliteBackend(db), db, ...loaded };
   } catch (e) {
     // The next try opens it again.
     await Promise.resolve(db.close?.()).catch(() => {});
@@ -224,6 +228,8 @@ let tabLock: TabLock | null = null;
 
 type Attempt = { ok: true; opened: Opened } | { ok: false; error: StepError; held?: 'tab' | 'files' };
 
+const tabHeld = (): Attempt => ({ ok: false, held: 'tab', error: new StepError('tab lock', new Error('another page holds it')) });
+
 /**
  * One try at taking the data: the tab lock (unless this page has it), then SQLite — open,
  * migrate, replay the journal, take in old data, load. Shows nothing and never falls back:
@@ -231,7 +237,7 @@ type Attempt = { ok: true; opened: Opened } | { ok: false; error: StepError; hel
  */
 async function tryOpenSqlite(): Promise<Attempt> {
   if (!tabLock) tabLock = await takeTabLock();
-  if (!tabLock) return { ok: false, held: 'tab', error: new StepError('tab lock', new Error('another page holds it')) };
+  if (!tabLock) return tabHeld();
   try {
     return { ok: true, opened: await openSqlite() };
   } catch (e) {
@@ -240,12 +246,23 @@ async function tryOpenSqlite(): Promise<Attempt> {
   }
 }
 
-async function openLocal(): Promise<{ backend: Backend; data: Data; settings: Settings }> {
+/** The same for a page in the localStorage fallback taking the data back. */
+async function tryOpenLocal(): Promise<Attempt> {
+  if (!tabLock) tabLock = await takeTabLock();
+  if (!tabLock) return tabHeld();
+  try {
+    return { ok: true, opened: await step('load', openLocal) };
+  } catch (e) {
+    return { ok: false, error: e instanceof StepError ? e : new StepError('load', e) };
+  }
+}
+
+async function openLocal(): Promise<Opened> {
   const json = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
   const legacy = parseLegacyState(json);
   // Never start empty on top of data we couldn't read: the first save would overwrite it.
   if (json && !legacy) throw new BlockedError('Saved data in this browser couldn’t be read. Download it below before doing anything else.');
-  return { backend: localBackend, data: legacy?.data ?? emptyData(), settings: legacy?.settings ?? defaultSettings() };
+  return { kind: 'local', backend: localBackend, data: legacy?.data ?? emptyData(), settings: legacy?.settings ?? defaultSettings() };
 }
 
 let started = false;
@@ -257,7 +274,7 @@ let onWaiting = () => {};
 const block = (message: string, details: string) => useStore.setState({ storage: { state: 'blocked', message, details } });
 
 /** The waiting screen. Set only when its text changes, so a screen reader hears it once, not on every try. */
-function wait(message: string, error: StepError) {
+function showWaiting(message: string, error: StepError) {
   const details = detailsLine(error);
   const now = useStore.getState().storage;
   if (now.state !== 'blocked' || !now.waiting || now.message !== message || now.details !== details) {
@@ -266,15 +283,21 @@ function wait(message: string, error: StepError) {
   onWaiting();
 }
 
-/** Never resolves once stopped. */
-const sleep = (ms: number) =>
+/** Woken when another page lets go of the data (its "released" ping). */
+const wakers = new Set<() => void>();
+
+/** Waits `ms`, or less if `signal` aborts or another page lets go of the data meanwhile. */
+const sleep = (ms: number, signal: AbortSignal) =>
   new Promise<void>((resolve) => {
-    const cancel = () => clearTimeout(timer);
-    const timer = setTimeout(() => {
-      stop.signal.removeEventListener('abort', cancel);
+    const done = () => {
+      clearTimeout(timer);
+      signal.removeEventListener('abort', done);
+      wakers.delete(done);
       resolve();
-    }, ms);
-    stop.signal.addEventListener('abort', cancel, { once: true });
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener('abort', done, { once: true });
+    wakers.add(done);
   });
 
 /**
@@ -286,19 +309,22 @@ export async function startPersistence(): Promise<void> {
   if (started) return;
   started = true;
   const waiting = new Promise<void>((resolve) => (onWaiting = resolve));
-  const run = start().catch((e) => {
-    // Whatever happens, end in a state the person can act on — never an endless blank screen.
-    console.warn('Could not load data', e);
-    const cause = e instanceof StepError ? e.cause : e;
-    if (cause instanceof BlockedError) block(cause.message, cause.details ?? detailsLine(e));
-    else block(`Wanderment couldn’t load its data (${(cause as Error)?.message ?? cause}).`, detailsLine(e));
-  });
-  await Promise.race([run, waiting]);
+  watching = watchLifecycle();
+  await Promise.race([reconcile(), waiting]);
 }
 
 /** Stops a waiting page from trying again (a page going away; tests). */
 export function stopPersistence(): void {
   stop.abort();
+  acquiring?.abort();
+}
+
+/** Whatever happens, end in a state the person can act on — never an endless blank screen. */
+function fail(e: unknown) {
+  console.warn('Could not load data', e);
+  const cause = e instanceof StepError ? e.cause : e;
+  if (cause instanceof BlockedError) block(cause.message, cause.details ?? detailsLine(e));
+  else block(`Wanderment couldn’t load its data (${(cause as Error)?.message ?? cause}).`, detailsLine(e));
 }
 
 let journalFailed = false;
@@ -314,86 +340,86 @@ function quarantineJournal() {
   }
 }
 
-async function start(): Promise<void> {
-  let opened: Opened;
-  let kind: 'sqlite' | 'local' = 'sqlite';
-  for (let failures = 0; ; ) {
-    if (stop.signal.aborted) return;
-    const attempt = await tryOpenSqlite();
-    if (stop.signal.aborted) return;
-    if (attempt.ok) {
-      opened = attempt.opened;
-      break;
-    }
-    const { error, held } = attempt;
-    if (held === 'tab') {
-      // Queue for the lock rather than polling: it's granted the moment the other page lets go.
-      wait(TAB_HELD, error);
-      tabLock = await takeTabLock({ wait: true, signal: stop.signal });
-      failures = 0;
-      continue;
-    }
-    if (held === 'files') {
-      // Nothing is shown or written meanwhile; the same worker can simply try again.
-      wait(FILES_HELD, error);
-      await sleep(retryDelay(failures++));
-      continue;
-    }
-    if (error.cause instanceof BlockedError) throw error;
-    const usedSqliteBefore = (await AsyncStorage.getItem(USES_SQLITE_KEY).catch(() => null)) === '1';
-    if (Platform.OS !== 'web' || usedSqliteBefore) {
-      // Showing an empty or stale app here could overwrite real data, so stop and explain.
-      const message = (error.cause as Error)?.message ?? error.cause;
-      throw new StepError(
-        error.step,
-        new BlockedError(
-          `Wanderment couldn’t open its data (${message}). ${Platform.OS === 'web' ? 'Reload to try again.' : 'Close the app and open it again to retry.'}`,
-          detailsLine(error),
-        ),
-      );
-    }
-    // This browser can't run SQLite at all (e.g. no OPFS in a private window): keep the first release's format.
-    console.warn('SQLite unavailable, using localStorage', error.cause);
-    opened = await step('load', openLocal);
-    kind = 'local';
-    break;
+const RESTORE_FAILED = 'A change from your last visit couldn’t be restored. Check your latest entries.';
+
+/*
+ * Web: the page holds the data only while it's visible (P-29). OPFS files can be open in one
+ * page at a time, and a page the browser suspends or keeps in a tab's history holds them for as
+ * long as it lives — so a page lets go when it's hidden and takes the data back when it's shown.
+ * It never lets go because another page asks: of two visible windows, the second waits.
+ */
+
+/** Set, then removed at once, when a page lets go of the data: a waiting page tries again right away. */
+const RELEASED_KEY = `${LEGACY_STORAGE_KEY}:released`;
+
+/** True where the page's visibility is known (web); elsewhere the data is always held. */
+let watching = false;
+let frozen = false;
+let pageGone = false;
+/** The page is about to reload itself (an update). */
+let leaving = false;
+const wanted = () => !leaving && !frozen && !pageGone && !(watching && document.visibilityState === 'hidden');
+
+function watchLifecycle(): boolean {
+  if (Platform.OS !== 'web' || typeof document === 'undefined' || typeof window === 'undefined' || !document.addEventListener) return false;
+  const changed = () => void reconcile();
+  document.addEventListener('visibilitychange', changed);
+  // Backups for when visibilitychange doesn't come (or comes late).
+  document.addEventListener('freeze', () => ((frozen = true), changed()));
+  document.addEventListener('resume', () => ((frozen = false), changed()));
+  window.addEventListener('pagehide', () => ((pageGone = true), changed()));
+  window.addEventListener('pageshow', () => ((pageGone = false), changed()));
+  window.addEventListener('storage', (e) => {
+    if (e.key === RELEASED_KEY && e.newValue) wakers.forEach((w) => w());
+  });
+  return true;
+}
+
+/** What this page has open, while it holds the data. */
+let held: Opened | undefined;
+/** The storage this page settled on when it first opened; it takes back the same kind. */
+let kind: 'sqlite' | 'local' = 'sqlite';
+/** The data has been on screen (so a page taking it back keeps showing it meanwhile). */
+let shown = false;
+/** What's saved, as far as this page knows. */
+let saved: { data: Data; settings: Settings } = { data: emptyData(), settings: defaultSettings() };
+/** The data a write has been sent for but not yet confirmed. */
+let inflight: Data | undefined;
+/** Letting go: no new writes start (changes go to the journal), the one in flight finishes. */
+let letting = false;
+
+const settingsOf = (s: ReturnType<typeof useStore.getState>): Settings => ({
+  showShading: s.showShading,
+  recentSearches: s.recentSearches,
+  leftAsIs: s.leftAsIs,
+});
+const journal = (data: Data, settings: Settings) => kind === 'sqlite' && writeJournal({ changes: pendingChanges(saved.data, inflight, data), settings });
+
+// One write at a time; changes made meanwhile are folded into the next write.
+let running = false;
+let again = false;
+/** Settles when the current run of writes is over. */
+let flushed: Promise<void> = Promise.resolve();
+
+function flush(): Promise<void> {
+  if (running) {
+    again = true;
+    return flushed;
   }
-
-  let saved = { data: opened.data, settings: opened.settings };
-  /** The data a write has been sent for but not yet confirmed. */
-  let inflight: Data | undefined;
-  const journal = (data: Data, settings: Settings) =>
-    kind === 'sqlite' && writeJournal({ changes: pendingChanges(saved.data, inflight, data), settings });
-  const settingsOf = (s: ReturnType<typeof useStore.getState>): Settings => ({
-    showShading: s.showShading,
-    recentSearches: s.recentSearches,
-    leftAsIs: s.leftAsIs,
-  });
-  useStore.setState({
-    data: opened.data,
-    ...opened.settings,
-    storage: { state: 'ready', kind },
-    saveError: journalFailed ? 'A change from your last visit couldn’t be restored. Check your latest entries.' : undefined,
-  });
-
-  // One write at a time; changes made meanwhile are folded into the next write.
-  let running = false;
-  let again = false;
-  const flush = async () => {
-    if (running) {
-      again = true;
-      return;
-    }
-    running = true;
+  running = true;
+  flushed = (async () => {
     try {
       do {
         again = false;
+        // Not holding the data (hidden, or taking it back): the journal keeps the change until then.
+        const backend = held && !letting ? held.backend : undefined;
+        if (!backend) return;
         const s = useStore.getState();
         const target = { data: s.data, settings: settingsOf(s) };
         if (target.data === saved.data && sameSettings(target.settings, saved.settings)) continue;
         try {
           inflight = target.data;
-          await opened.backend.save(saved, target);
+          await backend.save(saved, target);
           saved = target;
           inflight = undefined;
           // The journal now only needs what changed after this write (if anything).
@@ -414,8 +440,12 @@ async function start(): Promise<void> {
     } finally {
       running = false;
     }
-  };
+  })();
+  return flushed;
+}
 
+/** Saves changes and takes in old-version tabs' records. Once, the first time the data is shown. */
+function wire() {
   useStore.subscribe((s, prev) => {
     if (s.data === prev.data && s.showShading === prev.showShading && s.recentSearches === prev.recentSearches && s.leftAsIs === prev.leftAsIs) return;
     journal(s.data, settingsOf(s));
@@ -423,18 +453,19 @@ async function start(): Promise<void> {
   });
 
   // A tab still running the first release keeps writing the old key. Take in records it creates
-  // (once), and say plainly that its edits to existing records won't carry over.
-  const db = opened.db;
-  if (kind === 'sqlite' && db && Platform.OS === 'web' && typeof window !== 'undefined') {
-    let absorbed = await loadAbsorbed(db);
+  // (once), and say plainly that its edits to existing records won't carry over. While this page
+  // doesn't hold the data, they wait in the old key for whichever page opens it next.
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
     window.addEventListener('storage', (e) => {
       if (e.key !== LEGACY_STORAGE_KEY || !e.newValue) return;
+      const opened = held;
+      if (!opened?.db || !opened.absorbed) return;
       const legacy = parseLegacyState(e.newValue);
       if (!legacy) return;
       const { data } = useStore.getState();
-      const fresh = unseen(legacy.data, data, absorbed);
-      absorbed = new Set([...absorbed, ...idsOf(legacy.data)]);
-      void saveMeta(db, ABSORBED, JSON.stringify([...absorbed])).catch(() => {});
+      const fresh = unseen(legacy.data, data, opened.absorbed);
+      for (const id of idsOf(legacy.data)) opened.absorbed.add(id);
+      void saveMeta(opened.db, ABSORBED, JSON.stringify([...opened.absorbed])).catch(() => {});
       useStore.setState({
         data: { ...data, threads: { ...data.threads, ...fresh.threads }, activities: { ...data.activities, ...fresh.activities } },
         saveError:
@@ -442,4 +473,191 @@ async function start(): Promise<void> {
       });
     });
   }
+}
+
+/** The data is this page's now: show it (the first time), or take it back keeping what's on screen. */
+function publish(opened: Opened) {
+  held = opened;
+  kind = opened.kind;
+  const restoreFailed = journalFailed;
+  journalFailed = false;
+  if (!shown) {
+    shown = true;
+    saved = { data: opened.data, settings: opened.settings };
+    useStore.setState({ data: opened.data, ...opened.settings, storage: { state: 'ready', kind }, saveError: restoreFailed ? RESTORE_FAILED : undefined });
+    wire();
+    return;
+  }
+  // Other pages' changes replace what's shown; this page's own changes since it let go (already
+  // in the journal it just replayed, if it could) stay on top. The draft is kept.
+  const s = useStore.getState();
+  const base = saved;
+  const r = rebase(base.data, s.data, opened.data);
+  const own = settingsOf(s);
+  saved = { data: r.saved, settings: opened.settings };
+  // Settings changed here since letting go win; otherwise the saved ones (the same objects if equal, so nothing re-saves).
+  const settings = !sameSettings(base.settings, own) || sameSettings(own, opened.settings) ? own : opened.settings;
+  s.refreshData(r.data, settings, !r.changed);
+  useStore.setState({ storage: { state: 'ready', kind }, ...(restoreFailed && { saveError: RESTORE_FAILED }) });
+  void flush();
+}
+
+/**
+ * Takes the data: the Part A tries (waiting while another copy holds it), then shows it. Ends
+ * early when the page is hidden meanwhile (`signal`). With data already on screen it stays
+ * there, with "Reconnecting…" on Log, for the first few tries before the waiting screen shows.
+ */
+async function acquire(signal: AbortSignal): Promise<void> {
+  const since = Date.now();
+  let later: (() => void) | undefined;
+  let graceTimer: ReturnType<typeof setTimeout> | undefined;
+  const wait = (message: string, error: StepError) => {
+    if (useStore.getState().storage.state === 'ready' && Date.now() - since < RECONNECT_GRACE_MS) {
+      later = () => showWaiting(message, error);
+      graceTimer ??= setTimeout(() => later?.(), since + RECONNECT_GRACE_MS - Date.now());
+      return;
+    }
+    showWaiting(message, error);
+  };
+  try {
+    for (let failures = 0; ; ) {
+      if (stop.signal.aborted || signal.aborted) return;
+      const attempt = shown && kind === 'local' ? await tryOpenLocal() : await tryOpenSqlite();
+      if (stop.signal.aborted) return;
+      // Even if hidden meanwhile: show it, then the loop lets go again.
+      if (attempt.ok) return publish(attempt.opened);
+      if (signal.aborted) return;
+      const { error, held: holder } = attempt;
+      if (holder === 'tab') {
+        // Queue for the lock rather than polling: it's granted the moment the other page lets go.
+        wait(TAB_HELD, error);
+        tabLock = await takeTabLock({ wait: true, signal });
+        failures = 0;
+        continue;
+      }
+      if (holder === 'files') {
+        // Nothing is shown or written meanwhile; the same worker can simply try again.
+        wait(FILES_HELD, error);
+        await sleep(retryDelay(failures++), signal);
+        continue;
+      }
+      if (error.cause instanceof BlockedError) throw error;
+      const usedSqliteBefore = (await AsyncStorage.getItem(USES_SQLITE_KEY).catch(() => null)) === '1';
+      if (shown || Platform.OS !== 'web' || usedSqliteBefore) {
+        // Showing an empty or stale app here could overwrite real data, so stop and explain.
+        const message = (error.cause as Error)?.message ?? error.cause;
+        throw new StepError(
+          error.step,
+          new BlockedError(
+            `Wanderment couldn’t open its data (${message}). ${Platform.OS === 'web' ? 'Reload to try again.' : 'Close the app and open it again to retry.'}`,
+            detailsLine(error),
+          ),
+        );
+      }
+      // This browser can't run SQLite at all (e.g. no OPFS in a private window): keep the first release's format.
+      console.warn('SQLite unavailable, using localStorage', error.cause);
+      return publish(await step('load', openLocal));
+    }
+  } finally {
+    clearTimeout(graceTimer);
+    later = undefined;
+  }
+}
+
+/**
+ * Lets go of the data, in this order: no new writes; the write in flight finishes (its commit
+ * clears the journal); the database closes and its worker lets go of the files; the tab lock is
+ * released; other pages hear about it. Changes made from here on wait in the journal.
+ */
+async function letGo(): Promise<void> {
+  const opened = held!;
+  letting = true;
+  try {
+    await flushed;
+    if (opened.db) {
+      await Promise.resolve(opened.db.close?.()).catch((e) => console.warn('Could not close the database', e));
+      await opened.db.shutdown?.().catch((e) => console.warn('The database worker didn’t let go', e));
+    }
+  } finally {
+    held = undefined;
+    letting = false;
+    tabLock?.release();
+    tabLock = null;
+    try {
+      webStorage()?.setItem(RELEASED_KEY, String(Date.now()));
+      webStorage()?.removeItem(RELEASED_KEY);
+    } catch {
+      // The other page still tries again by itself.
+    }
+  }
+  const now = useStore.getState().storage;
+  if (now.state === 'ready') useStore.setState({ storage: { state: 'ready', kind, reconnecting: true } });
+}
+
+/** SQLite on web can let go only if its worker was found (expoDb.ts); otherwise it keeps the data, as before. */
+const canLetGo = (o: Opened) => o.kind === 'local' || !!o.db?.shutdown;
+
+let failed = false;
+let looping = false;
+let recheck = false;
+/** Settles when the current run of the loop is over. */
+let reconciled: Promise<void> = Promise.resolve();
+/** Aborted when the page is hidden while it's still trying to take the data. */
+let acquiring: AbortController | undefined;
+
+/** Whether the page holds what it should: the data while wanted, nothing (not even the tab lock) while hidden. */
+function settled(): boolean {
+  if (stop.signal.aborted) return true;
+  if (!wanted()) return held ? !canLetGo(held) : !tabLock;
+  return failed || !!held;
+}
+
+/**
+ * The one place that takes and lets go of the data, one step at a time. After each step it looks
+ * again at what's wanted, so a page hidden while opening lets go right after, and a page shown
+ * while closing takes the data back once it's closed. Rapid toggling just re-runs it.
+ */
+function reconcile(): Promise<void> {
+  if (!wanted()) acquiring?.abort();
+  if (looping) {
+    recheck = true;
+    return reconciled;
+  }
+  looping = true;
+  // (A run with nothing to do ends synchronously, so the flag is set before it starts.)
+  reconciled = (async () => {
+    try {
+      do {
+        recheck = false;
+        if (settled()) continue;
+        if (!wanted()) {
+          if (held) await letGo();
+          else {
+            // Waiting, or stuck on a blocked screen: don't keep other pages out meanwhile.
+            tabLock?.release();
+            tabLock = null;
+          }
+        } else {
+          acquiring = new AbortController();
+          try {
+            await acquire(acquiring.signal);
+          } finally {
+            acquiring = undefined;
+          }
+        }
+      } while (recheck || !settled());
+    } catch (e) {
+      failed = true;
+      fail(e);
+    } finally {
+      looping = false;
+    }
+  })();
+  return reconciled;
+}
+
+/** Lets go of the data before the page reloads itself (an update), so the new page opens at once. */
+export async function releaseData(): Promise<void> {
+  leaving = true;
+  await Promise.race([reconcile(), new Promise((resolve) => setTimeout(resolve, 3000))]);
 }

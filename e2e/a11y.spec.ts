@@ -200,3 +200,18 @@ test('the waiting screen (another tab has the data) has no serious accessibility
   await second.keyboard.press('Tab');
   await expect(reload).toBeFocused();
 });
+
+test('Home while the page doesn’t hold the data (“Reconnecting…” on Log) has no serious accessibility violations (P-29)', async ({ page }) => {
+  await openHome(page);
+  await logLine(page, 'read a novel');
+  await logBox(page).fill('typed while away');
+  // Hidden (emulated: headless pages stay visible), the page lets go of the data.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  // Named by its visible text; the data and the typed line stay.
+  await expect(page.getByRole('button', { name: 'Reconnecting…', exact: true })).toBeDisabled();
+  await expect(logBox(page)).toHaveValue('typed while away');
+  await expectNoSeriousViolations(page);
+});
