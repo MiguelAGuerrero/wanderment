@@ -49,24 +49,6 @@ wording accepted in D-4. Includes B-01 panel refinements 1–4: names-not-number
 "to Y" log visibly feeds Y, never shrinks with time (all-time links; warmth only dims; no placeholder;
 fixed compact height; summary + "Open graph" at largest text), one accessible element.
 
-### P-29 Never locked out by another copy of the app `[data]` `[platform]` M
-*Status:* in-progress
-*Why:* owner, 2026-11-22 (Edge on iPhone, screenshot in `docs/product/evidence/`): "Wanderment
-couldn't open its data (The object is in an invalid state.)", and Reload keeps failing. On WebKit
-expo-sqlite's OPFS access handles are exclusive; another Wanderment page in the same browser (a
-suspended background tab, an update reload racing the old page) keeps them, and WebKit's
-`InvalidStateError` isn't recognised by our lock check, so the person is told to reload forever.
-*Done when:* contention errors on WebKit and Chromium (`InvalidStateError`, `NoModificationAllowedError`,
-"access handle") are recognised; a page holds the database (and the tab lock) only while it's visible
-— when hidden it finishes pending writes, closes the database and lets go, and when visible again it
-takes it back and reloads the data (so another tab's changes show and nothing is lost); a page that
-can't get the database says plainly that Wanderment is open elsewhere in this browser, how to free it
-(close other tabs, quit the browser), and opens by itself as soon as it's free — no reload needed;
-nothing is written or shown empty while waiting; the blocked screen names what failed (error name and
-step) for reports; unit + persistence tests (classification, retry, flush-before-close, reopen and
-reload, journal across a hide); e2e: a hidden page lets another open, a waiting page opens by itself
-when the other closes, an update reload never locks itself out; runs in WebKit in CI (with P-05).
-
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
@@ -84,6 +66,18 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
+
+### P-32 Take-back conflicts and leftovers `[data]` `[platform]` S
+*Status:* todo
+*Why:* P-29 audit 4 (shipped with these open; each needs another page's unusual failure plus a
+conflicting edit, and none loses typed text): F1 a set-aside journal's own edits win over another
+page's later delete/edit of the same record; F2 an old identical `journal-failed-*` entry triggers
+a rebase, and those entries are never pruned; F4 the "couldn't be saved" banner stays after a journal
+replay heals; F5 three surviving mutants (journal read-back, settings rebase, `syncField` own-save);
+F6 stale step in the D4 details line; F8 a remembered Return across Reload could log twice.
+*Done when:* own upserts apply only to records unchanged on disk since the base (tested with a
+delete and an edit from the other page); set-aside entries are matched by id, not text, and pruned
+after replay; the banner clears when the journal lands; each mutant is killed; tests for F6/F8.
 
 ### P-31 A cold start that can't open keeps trying `[data]` `[platform]` S
 *Status:* todo
@@ -317,6 +311,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-29 — never locked out by another copy of the app (owner's iPhone report): WebKit's held-file error recognised; a waiting screen that opens by itself; a page holds the data only while visible and takes it back when shown (reloading what other tabs saved, keeping the draft); a page that doesn't hold the data can't change it; Return while reconnecting logs once; take-back never drops unsaved changes · evidence: `opening.test.ts`, `rebase.test.ts`, `field.test.ts`, `persistence.test.ts` (P-29 describes, mutation-checked), `e2e/handoff.spec.ts`, `e2e/storage.spec.ts`, `e2e/a11y.spec.ts` · audit: 49 reported · 34 reproduced · 37 fixed · 12 deferred (4 rounds; a follow-up data item, the cold-start item, accepted edge cases) · `a4a8f7b`, `427e262`…`911588a`
 - 2026-11-21 · P-14 — a thread can be marked as what it's for (`declaredAt`, SQLite migration 2, additive; backups stay version 1 and carry it), at most three, a fourth offers a swap, hiding unmarks; plus the owner's no-keyboard-on-touch fix for the bridge · evidence: `whys.test.ts`, `storage.test.ts` (schema 2), `persistence.test.ts` (6 mutants red), `useStore.test.ts`, `e2e/why.spec.ts`, `e2e/bridge.spec.ts`, `e2e/a11y.spec.ts`, upgrade/downgrade probed in Chromium · audit: 14 reported · 9 reproduced · 7 fixed · 7 deferred (four to a new zoom item; Android double announce and coarse-pointer keyboard focus accepted; toast wording) · `04f6760`, `a5032c4` + audit fixes
 - 2026-11-21 · P-13, P-24 — after a log with no thread, Home asks "Toward something — or just itself?" (chips, + name it, Just itself; ignoring writes nothing); "Log this" keeps a line you've started and marks it as the step with a removable chip, and never clears a step edited since it was loaded · evidence: `bridge.test.ts`, `useStore.test.ts`, `loadNext.test.ts`, `persistence.test.ts`, `e2e/bridge.spec.ts`, `e2e/log-this.spec.ts`, `e2e/a11y.spec.ts`, screenshots · audit: 14 reported · 9 reproduced · 11 fixed · 3 deferred (iOS toast to a new item; keyboard-on-focus to the owner; two small test gaps) · `ac866f0`, `2a4b039` + audit fixes
 - 2026-11-21 · P-01, P-02, P-03 — the browser is asked to keep the data (Settings says whether it promised); renaming to a taken name is refused inline, with Cancel/Esc; `@` works at the cursor and a pick never deletes a typed word · evidence: `persistent.test.ts`, `compose.test.ts`, `domain.test.ts`, `e2e/persistence.spec.ts`, `e2e/mention-caret.spec.ts`, `e2e/editing.spec.ts` · audit: 13 reported · 8 reproduced · 10 fixed · 3 deferred (to new items and the import item) · `e2cdbb1`, `6a35eec`, `845724a` + audit fixes
