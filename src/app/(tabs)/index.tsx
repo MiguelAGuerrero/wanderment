@@ -1,8 +1,9 @@
 import { Link, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ComponentRef, useCallback, useMemo, useRef } from 'react';
+import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
+import { moveFocus, useFirstRun } from '@/components/FirstRun';
 import { ExploreIcon, homeContentWidth, LiveGraph, useGraphIcon } from '@/components/graph/HomeGraph';
 import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
@@ -38,11 +39,14 @@ export default function Home() {
   // zoom and more) the ⋔ icon goes, the title steps down a size, and as a last resort it truncates.
   const { width } = useWindowDimensions();
   const tightHeader = homeContentWidth(width) < 270;
+  // The first run (P-36), over the empty graph; when ③ goes, focus moves to the top of Home.
+  const title = useRef<ComponentRef<typeof Text>>(null);
+  const firstRun = useFirstRun(() => moveFocus(title.current));
 
   return (
     <Screen bridge aboveLog={<LogBridge style={styles.bridge} />}>
       <View style={styles.header}>
-        <Text style={[s.h1, styles.title, tightHeader && { fontSize: 24 }]} numberOfLines={1} accessibilityRole="header">
+        <Text ref={title} {...(Platform.OS === 'web' ? { tabIndex: -1 } : {})} style={[s.h1, styles.title, tightHeader && { fontSize: 24 }]} numberOfLines={1} accessibilityRole="header">
           Wanderment
         </Text>
         <View style={styles.icons}>
@@ -64,7 +68,7 @@ export default function Home() {
         </View>
       </View>
 
-      <LiveGraph data={data} surfacing={surfacing} />
+      <LiveGraph data={data} surfacing={surfacing} firstRun={firstRun} />
 
       {isEmpty && (
         <View style={{ gap: 18, marginTop: 12 }}>

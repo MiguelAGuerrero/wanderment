@@ -97,7 +97,7 @@ function clearJournal(raw: string) {
   }
 }
 
-const SETTING_KEYS = ['showShading', 'recentSearches', 'leftAsIs', 'whyOfferOff'] as const satisfies readonly (keyof Settings)[];
+const SETTING_KEYS = ['showShading', 'recentSearches', 'leftAsIs', 'whyOfferOff', 'firstRunDone'] as const satisfies readonly (keyof Settings)[];
 
 /** The settings in `now` that differ from `saved`. */
 function changedSettings(saved: Settings, now: Settings): Partial<Settings> | undefined {
@@ -514,6 +514,7 @@ const settingsOf = (s: ReturnType<typeof useStore.getState>): Settings => ({
   recentSearches: s.recentSearches,
   leftAsIs: s.leftAsIs,
   ...(s.whyOfferOff && { whyOfferOff: true as const }),
+  ...(s.firstRunDone && { firstRunDone: true as const }),
 });
 const journal = (data: Data, settings: Settings) =>
   kind === 'sqlite' && writeJournal({ changes: pendingChanges(saved.data, inflight, data), settings: changedSettings(saved.settings, settings) });
@@ -578,7 +579,7 @@ function flush(): Promise<void> {
 /** Saves changes and takes in old-version tabs' records. Once, the first time the data is shown. */
 function wire() {
   useStore.subscribe((s, prev) => {
-    if (s.data === prev.data && s.showShading === prev.showShading && s.recentSearches === prev.recentSearches && s.leftAsIs === prev.leftAsIs && s.whyOfferOff === prev.whyOfferOff) return;
+    if (s.data === prev.data && s.showShading === prev.showShading && s.recentSearches === prev.recentSearches && s.leftAsIs === prev.leftAsIs && s.whyOfferOff === prev.whyOfferOff && s.firstRunDone === prev.firstRunDone) return;
     journal(s.data, settingsOf(s));
     void flush();
   });

@@ -121,6 +121,7 @@ export async function loadSettings(db: Db): Promise<Settings> {
     if (r.key === 'recentSearches') settings.recentSearches = stringList(r.value);
     if (r.key === 'leftAsIs') settings.leftAsIs = stringList(r.value);
     if (r.key === 'whyOfferOff' && r.value === 'true') settings.whyOfferOff = true;
+    if (r.key === 'firstRunDone' && r.value === 'true') settings.firstRunDone = true;
   }
   return settings;
 }
@@ -132,6 +133,8 @@ export async function saveSettings(db: Db, settings: Settings): Promise<void> {
     await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['leftAsIs', JSON.stringify(settings.leftAsIs)]);
     // Additive (P-34): only ever turned on, so it's written once it is.
     if (settings.whyOfferOff) await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['whyOfferOff', 'true']);
+    // Additive (P-36), the same way.
+    if (settings.firstRunDone) await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['firstRunDone', 'true']);
   });
 }
 

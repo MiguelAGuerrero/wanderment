@@ -45,6 +45,8 @@ function withWhy() {
 
 test('a fresh app: the welcome and “+ What’s it all for?”, never “fills in once you’ve logged”', async ({ page }) => {
   await openHome(page);
+  // P-36: the first run comes first on a fresh app; skipped, the offer is there as before.
+  await page.getByRole('button', { name: /^Not sure yet\? Skip/ }).click();
   await expect(page.getByText('Log what you just did.')).toBeVisible();
   await expect(offer(page)).toBeVisible();
   await expect(page.getByText(/fills in/i)).toHaveCount(0);

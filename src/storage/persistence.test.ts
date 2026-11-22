@@ -1390,7 +1390,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     });
     const other = () => ({ version: 1 as const, threads: {}, activities: { i1: act('i1', 'imported') } });
     type S = ReturnType<Store['getState']>;
-    const settingsOf = (st: S) => ({ showShading: st.showShading, recentSearches: st.recentSearches, leftAsIs: st.leftAsIs, ...(st.whyOfferOff && { whyOfferOff: true }) });
+    const settingsOf = (st: S) => ({ showShading: st.showShading, recentSearches: st.recentSearches, leftAsIs: st.leftAsIs, ...(st.whyOfferOff && { whyOfferOff: true }), ...(st.firstRunDone && { firstRunDone: true }) });
 
     /** Every action that changes the data or the saved settings, with arguments that do change something. */
     const MUTATING: Record<string, { args: unknown[]; setup?: (store: Store) => void }> = {
@@ -1415,6 +1415,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       refreshData: { args: [other(), { showShading: false, recentSearches: [], leftAsIs: [] }, false] },
       setShowShading: { args: [false] },
       putOffWhy: { args: [] },
+      endFirstRun: { args: [] },
     };
     /** The draft, and what's only on screen this session: these never change the data. */
     const NOT_DATA: Record<string, unknown[]> = {
@@ -1981,5 +1982,47 @@ describe('P-34: “Not now” on “+ What’s it all for?” is kept for good',
     store = await load();
     expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
     expect(store.getState().whyOfferOff).toBe(true);
+  });
+});
+
+describe('P-36: the first run, once over, is over for good', () => {
+  it('survives a reload in SQLite, and is not over until it’s ended', async () => {
+    let store = await load();
+    expect(store.getState().firstRunDone).toBe(false);
+    store.getState().createThread('feel calmer');
+    await settle();
+    store = await load();
+    expect(store.getState().firstRunDone).toBe(false);
+    expect(store.getState().endFirstRun()).toBe(true);
+    await settle();
+    store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(store.getState().firstRunDone).toBe(true);
+    // Its own setting: "+ What’s it all for?" isn't put off by it.
+    expect(store.getState().whyOfferOff).toBe(false);
+  });
+
+  it('survives the tab closing before SQLite commits (journal)', async () => {
+    let store = await load();
+    env.state.hangWrites = true;
+    store.getState().endFirstRun();
+    await settle();
+    env.state.hangWrites = false;
+    store = await load();
+    expect(store.getState().firstRunDone).toBe(true);
+  });
+
+  it('in the old format (a browser that can’t run SQLite), and when it moves into SQLite', async () => {
+    env.state.openError = new Error('no OPFS');
+    let store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+    store.getState().endFirstRun();
+    await settle();
+    store = await load();
+    expect(store.getState().firstRunDone).toBe(true);
+    env.state.openError = undefined;
+    store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(store.getState().firstRunDone).toBe(true);
   });
 });

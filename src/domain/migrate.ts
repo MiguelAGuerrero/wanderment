@@ -78,6 +78,8 @@ export interface Settings {
   leftAsIs: Id[];
   /** Home's "+ What's it all for?" was put off with "Not now": it never shows again (P-34). Absent until then. */
   whyOfferOff?: true;
+  /** The first run (1-2-3, P-36) was finished, skipped or ended by a log: it never shows again. Absent until then. */
+  firstRunDone?: true;
 }
 
 export const defaultSettings = (): Settings => ({ showShading: true, recentSearches: [], leftAsIs: [] });
@@ -86,7 +88,8 @@ export const sameSettings = (a: Settings, b: Settings) =>
   a.showShading === b.showShading &&
   a.recentSearches.join('\n') === b.recentSearches.join('\n') &&
   a.leftAsIs.join('\n') === b.leftAsIs.join('\n') &&
-  !!a.whyOfferOff === !!b.whyOfferOff;
+  !!a.whyOfferOff === !!b.whyOfferOff &&
+  !!a.firstRunDone === !!b.firstRunDone;
 
 /**
  * Persisted format v1 → v2: reads the JSON blob the first release kept in AsyncStorage
@@ -94,7 +97,7 @@ export const sameSettings = (a: Settings, b: Settings) =>
  */
 export function parseLegacyState(json: string | null | undefined): { data: Data; settings: Settings } | undefined {
   if (!json) return undefined;
-  let parsed: { state?: { data?: unknown; showShading?: unknown; recentSearches?: unknown; leftAsIs?: unknown; whyOfferOff?: unknown }; version?: number };
+  let parsed: { state?: { data?: unknown; showShading?: unknown; recentSearches?: unknown; leftAsIs?: unknown; whyOfferOff?: unknown; firstRunDone?: unknown }; version?: number };
   try {
     parsed = JSON.parse(json);
   } catch {
@@ -116,6 +119,7 @@ export function parseLegacyState(json: string | null | undefined): { data: Data;
       recentSearches: strings(parsed.state.recentSearches),
       leftAsIs: strings(parsed.state.leftAsIs),
       ...(parsed.state.whyOfferOff === true && { whyOfferOff: true as const }),
+      ...(parsed.state.firstRunDone === true && { firstRunDone: true as const }),
     },
   };
 }

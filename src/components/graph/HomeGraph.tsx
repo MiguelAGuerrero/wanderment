@@ -68,15 +68,15 @@ function Shortcut({ onPress, testID, data, style, children }: { onPress: () => v
  * no wanders it's your recent logs on their own; while there are no whys it offers
  * "+ What's it all for?" (until "Not now"). Nothing at all logged: just the offer.
  */
-export const LiveGraph = memo(function LiveGraph({ data, surfacing }: { data: Data; surfacing: Id[] }) {
+export const LiveGraph = memo(function LiveGraph({ data, surfacing, firstRun }: { data: Data; surfacing: Id[]; /** The first run's step (P-36): in the offer's place, instead of it. */ firstRun?: ReactNode }) {
   const d = useDeferredValue(data);
   const sf = useDeferredValue(surfacing);
   const ov = useMemo(() => overview(d, sf) ?? looseOverview(d), [d, sf]);
   const offerOff = useStore((st) => st.whyOfferOff);
   const offer = !offerOff && ov?.mode !== 'whys';
   // Nothing logged yet (the welcome is showing): no "Not now" — there's nothing to put it off for.
-  if (!ov) return offer ? <WhyOffer canPutOff={false} /> : null;
-  return <HomeGraph ov={ov} offer={offer && <WhyOffer canPutOff />} />;
+  if (!ov) return firstRun || (offer ? <WhyOffer canPutOff={false} /> : null);
+  return <HomeGraph ov={ov} offer={firstRun || (offer && <WhyOffer canPutOff />)} />;
 });
 
 /**

@@ -113,6 +113,8 @@ interface State {
   leftAsIs: Id[];
   /** Home's "+ What's it all for?" was put off for good ("Not now", P-34). A saved setting. */
   whyOfferOff: boolean;
+  /** The first run (1-2-3, P-36) is over for good: finished, skipped or ended by a log. A saved setting. */
+  firstRunDone: boolean;
   /** A thread just created from the @ menu whose name appears in earlier activities. */
   pullInOffer?: Id;
   /** Threads whose "earlier activities mention this" line was dismissed (this session only). */
@@ -173,6 +175,8 @@ interface State {
   setShowShading: (on: boolean) => boolean;
   /** "Not now" on Home's "+ What's it all for?": it never shows again. */
   putOffWhy: () => boolean;
+  /** The first run is over (finished, skipped, or a log came in): it never shows again. */
+  endFirstRun: () => boolean;
 }
 
 const emptyDraft = (): Draft => ({ text: '', toIds: [] });
@@ -225,6 +229,7 @@ export const useStore = create<State>()((set, get) => ({
   recentSearches: [],
   leftAsIs: [],
   whyOfferOff: false,
+  firstRunDone: false,
   dismissedPullIn: [],
   storage: { state: 'loading' },
 
@@ -446,6 +451,7 @@ export const useStore = create<State>()((set, get) => ({
   ),
   setShowShading: gated<State['setShowShading']>(false, (on) => change({ showShading: on })),
   putOffWhy: gated<State['putOffWhy']>(false, () => change({ whyOfferOff: true })),
+  endFirstRun: gated<State['endFirstRun']>(false, () => change({ firstRunDone: true })),
 }));
 
 /** Threads ordered by most recent use, for autocomplete ranking. */
