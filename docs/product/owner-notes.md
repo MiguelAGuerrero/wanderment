@@ -18,6 +18,14 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-22 — "implement" (B-06)
+> /product implement
+
+Interpretation: go on B-06 at revision 12 (D-9), after the owner earlier said "not yet, keep
+refining" and revisions 11–12 followed. Build what the owner sees first: the graph's new look
+(P-48), then the two-face slot (P-49) and selection (P-50).
+Led to: P-48 to P-55.
+
 ## 2026-11-22 — Screens without explanations
 > Please eliminate most of the descriptions because the UI should be intuitive enough to realize
 > what's going on at best. You should have an information dialogue, but never it being part of the UI

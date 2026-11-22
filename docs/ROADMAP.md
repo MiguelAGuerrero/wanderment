@@ -37,6 +37,26 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-48 Home's graph: heat circles and branch lines `[feature]` `[ux]` `[a11y]` M
+*Status:* in-progress
+*Why:* B-06 slice 1 (D-9 → go, 2026-11-22; revision 12). The owner's picture of energy: circles
+coloured by heat that flows upward, branch lines that taper. Folds in P-47 (no count encodings,
+contrast).
+*Done when:*
+- Home's picture draws nodes as circles: whys and top-level nodes biggest, each level below one size
+  smaller; declared whys have a double ring; the label sits inside big circles and under small ones.
+- Each circle's fill is its heat: the warmth (14-day halving) of the most recent activity on it or
+  anything feeding it (cycle-safe), never a sum. Cool stone → amber → ember; neutral when shading is
+  off.
+- Links are tapered branch curves leaving each circle along its own direction (no shared end point),
+  coloured from the child's heat to the parent's. No width comes from a count (`linkWidth` goes).
+- No dots once wanders exist; logs-only mode is unchanged.
+- The selection (P-35) is one ink ring; the staged step stays as today's line until P-50.
+- Contrast: every label 4.5:1+, every mark 3:1+.
+- The accessible image and list are unchanged.
+- Unit tests for heat; e2e and screenshots at 390 px; the perf spec within budget or no worse than
+  base.
+
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
 *Why:* `e2e/home-graph-perf.spec.ts` swings 1.19–1.43× against its 1.25× budget with a 4,000-log
@@ -45,14 +65,6 @@ log is the cost; P-38 waits on this.
 *Done when:* profile the deferred picture render and its layout/paint after a log; bring the spec
 reliably under budget (10 runs in a row locally); then P-38 can land from `p38-keep-dots`.
 
-### P-47 The Home graph shows no counts, and stays readable `[ux]` `[a11y]` S
-*Status:* todo
-*Why:* adversarial audit 2026-11-22 (information designer): link width is drawn from all-time log
-counts (`linkWidth`), which breaks the no-counts rule; dimmed labels in the picture drop to about
-2:1 contrast.
-*Done when:* links are equal width; no mark's size or width comes from a count; every label is
-4.5:1 or more and every mark 3:1 or more in all states; unit + axe checks.
-
 ### P-05 Prove it in Safari and Firefox `[platform]` M
 *Status:* todo
 *Why:* storage relies on expo-sqlite's async API working without COOP/COEP and on OPFS; that's only
@@ -60,22 +72,58 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 *Done when:* CI runs the e2e suite on WebKit and Firefox too (or a documented subset where a browser
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
-### P-38 Logs never drop out of Home's picture `[ux]` `[a11y]` `[perf]` S
-*Status:* todo
-*Why:* found while capturing B-05 screens (owner, 2026-11-22): once any wander exists, only logs that
-name a shown wander are dots (`overview.ts`), so an unattached log ("Worked on wanderment") vanishes
-from the picture and from the spoken "Lately" line the moment you name a why. All six panel personas
-(B-05) called it a defect in every direction.
-*Done when:* with wanders or whys shown, your latest logs that name none of them still show as dots
-(no line) and are named in the summary's "Lately"; the cap and the newest marker work as before;
-unit tests in `overview-home.test.ts`; e2e: name a why from "+ What's it all for?" with one log, and
-the log's dot and words stay; **and `e2e/home-graph-perf.spec.ts` stays within its 1.25× budget**.
-Built 2026-11-22 (branch `p38-keep-dots`, with audit fixes F8/F11/F17) but pulled from the batch:
-every log as a dot redraws the picture on each log, 1.33–1.43× over 6 runs (old rule 1.21×). Two
-fixes didn't move it (recency-first check, dots keyed by spot). Profile the deferred picture render
-first.
-
 ## Next
+
+### P-49 What's next / Log: one slot, two faces `[feature]` `[capture]` M
+*Status:* todo
+*Why:* B-06 slice 2. Only one thing asks for a decision at a time.
+*Done when:* Home's bottom is one slot with a toggle. "What's next · <node>" shows the focused
+chain's step and ✓ (a clean tap; it logs the step and clears it), or "＋ add one" (inline). "Log"
+shows the log box with one ↑ send. It opens on What's next and flips back after a log; on web,
+typing switches to Log. DESIGN.md "capture is sacred" reworded (owner-approved, D-9).
+
+### P-50 Tap to focus, swipe to move, tap to narrow `[feature]` `[a11y]` M
+*Status:* todo
+*Why:* B-06 slice 3: scope, focus and attach each get one mark.
+*Done when:*
+- Tapping a circle focuses it: the ink ring, its step as the filled dot (a dashed ＋ if it has none;
+  only the focused step is drawn), and the card follows.
+- Swiping the card moves focus between leaf chains in the scope, in the graph's order, with slim
+  peeks.
+- Tapping a focused parent narrows and zooms; "‹ All · <node>" and Back go up.
+- On open, focus is on the chain last logged toward (shown, never attached).
+- Screen readers: the card names the full path with next/previous actions.
+
+### P-51 The Log face: attach by chip, words first, ✓ the step `[feature]` `[capture]` M
+*Status:* todo
+*Why:* B-06 slice 4. Logging toward anything, and completing a step in your own words.
+*Done when:*
+- The chip is dashed when offered and solid × when attached, for one log.
+- The suggestion follows the words, then the focus; @ / ▾ picks another target; tapping a circle
+  while typing attaches it.
+- An optional "✓ <step>" chip (off by default) makes the words complete that step.
+- Tapping the toast offers Move to… and ↺ Put the step back (Full tier: the activity records the
+  step it completed).
+
+### P-52 Edit a step: rewrite and set down `[feature]` S
+*Status:* todo
+*Why:* B-06 slice 5. Tap the step to edit it; Set down (Undo); ↓ Smaller once P-19 lands.
+
+### P-53 ＋ a node, with a pending home `[feature]` `[data]` M
+*Status:* todo
+*Why:* B-06 slice 6. A new node from Home, placed under its scope. A stored pending home (owner,
+D-9) reverses "links are never stored". Full tier: migration, export and import.
+
+### P-54 The node sheet and the ⌕ list `[feature]` `[a11y]` M
+*Status:* todo
+*Why:* B-06 slice 7. A long-press opens rename / what it's for / ＋ under / open / hide; ⌕ lists
+every node by why with its step, which is also the way through for screen readers.
+
+### P-55 Cold start: first node, first step `[feature]` S
+*Status:* todo
+*Why:* B-06 slice 8. It replaces P-36's card on an empty app (prototype
+https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB): name a direction, one step, then land on the new
+Home.
 
 ### P-44 Screens without explanations `[ux]` `[a11y]` M
 *Status:* todo
@@ -107,7 +155,7 @@ through the gated and journaled path; a crash between snapshot and swap leaves d
 persistence tests for reload, crash, second page and the local-storage fallback.
 
 ### P-40 Naming copy `[feature]` `[ux]` S
-*Status:* blocked (held for D-9: B-06 reshapes Home first)
+*Status:* todo
 *Why:* B-05 slice 2 (D-8): "nothing feeds it yet" reads false right after you did something and
 scolds a month later; the examples read as moods only.
 *Done when:* "nothing feeds it yet" is gone from the summary; the examples span a feeling, a value
@@ -115,25 +163,8 @@ and an end (keeping "feel productive"); placeholder "A feeling, a reason or an e
 words"; the step prompt reads "a next step, if one comes to mind · it can wait"; a why's list button
 names its staged step for screen readers, and the summary never repeats it; tests updated.
 
-### P-41 Name → step → link `[feature]` `[data]` M
-*Status:* blocked (held for D-9: B-06 reshapes Home first)
-*Why:* B-05 slice 3 (D-8): naming a why stops at the name; linking what you already did is the
-panel's most valued moment.
-*Done when:* after naming a why from any route, an optional step field and "Anything here toward
-it?" with your visible unattached logs as buttons (in the picture and in the list); a tap attaches
-the log to the why, with Undo; ignoring writes nothing; it ends on log, type or leaving Home; focus
-rules as the 1-2-3's; still under Reduce Motion; Full tier.
-
-### P-42 Home's offer starts from what you did `[feature]` M
-*Status:* blocked (held for D-9: B-06 reshapes Home first)
-*Why:* B-05 slice 4 (D-8): the pill floats apart from the picture and the logs.
-*Done when:* with logs and no whys, the offer reads "<latest log> — what was it toward?" with
-"+ name it", your wanders and "Just itself", merged with the post-log bridge (never two prompts for
-one log); naming there makes a why born fed (the log attached); "Not now" for good, and a tapped
-dot is the way back; the empty-app 1-2-3 is kept.
-
 ### P-43 A why's page `[feature]` M
-*Status:* blocked (held for D-9: B-06 reshapes Home first)
+*Status:* todo
 *Why:* B-05 slice 5 (D-8): a why's page is any wander's page.
 *Done when:* "What it's for" under the title; "Steps" becomes "What's fed it" (hidden when empty);
 "Anything else toward this?" lists recent unattached logs to link (a tap, with Undo); one verb,
@@ -366,7 +397,9 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   down; one home + mirror for two whys; the spotlight shows only what you pick; steps never age; rest
   after a pop; the anchor resets to All; screens without explanations. **Refined through revision 10** (circles, a
   trail of done steps, the wanderer, a quiet "What's next" card with log one tap behind, cold start).
-  **Owner, 2026-11-22: not yet — keep refining.**
+  Owner first said "not yet — keep refining" (revisions 11–12 followed). **Answered 2026-11-22
+  (`/product implement`): go, at revision 12.** → P-48 to P-55, with P-19 (chains) before ↓ Smaller.
+  P-47 folded into P-48; P-38, P-41 and P-42 superseded (see Cut).
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
@@ -416,5 +449,7 @@ Newest first. One line per batch: date · items · commit.
 ## Cut on purpose
 
 Merge threads, pinning. Don't build them.
+- P-38 (keep log dots) and P-41/P-42 (B-05's link and offer flows): superseded by B-06 revision 12
+  (energy shown as heat, no dots; Log face attach; ＋ node; the cold start), 2026-11-22.
 (Splitting next steps into hidden "then" pieces was cut here too; **D-5 reversed it** in a narrower
 form: one staged step that can hold a smaller step "toward" it — see B-02.)

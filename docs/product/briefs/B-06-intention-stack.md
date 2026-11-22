@@ -1,11 +1,11 @@
 # B-06 — The intention stack
 
-**Status:** proposed (asked) · **Decision:** D-9 · **Theme:** Seeing flow / Know the why / Warm return · **Date:** 2026-11-22
+**Status:** building · **Decision:** D-9 → go at revision 12, 2026-11-22 (→ P-48 to P-55) · **Theme:** Seeing flow / Know the why / Warm return · **Date:** 2026-11-22
 
 _Built up over one conversation: the sections below are in the order they were decided. The current design is the mockup page (7 frames) published 2026-11-22 and the owner's answers at the end; research: [discovery/2026-11-22-intention-stack](../discovery/2026-11-22-intention-stack.md)._
 
 
-## Current design (revision 12, 2026-11-22) — still being refined (D-9: not yet)
+## Current design (revision 12, 2026-11-22) — D-9: go (2026-11-22)
 Mockups (private to the owner): current design https://claude.ai/artifact/N4iPk2aqyzPdbf8LgWfFuK (11
 frames) · line drafts https://claude.ai/artifact/MsJ7WxEQJZjQj5msEYtCdY · cold start
 https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB. Fresh audit of revision 11 (scenarios, selection,
