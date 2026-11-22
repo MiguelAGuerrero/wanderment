@@ -1,36 +1,39 @@
 /**
- * The live graph at the top of Home (P-15): what it's for and what feeds it, at a glance.
+ * The live graph at the top of Home (P-15): what it's for, what feeds it, and your latest logs.
  *
- * With whys (declared first, oldest mark first, then earned values), each why is a column with up
- * to three feeders. With no whys, your most active threads and the links between them. Everything
- * is picked by all-time links, so the picture never shrinks because time passed; warmth only tints.
- * Positions come from when things first appeared, never from counts, so nothing moves as you log:
- * a new node is appended. Nothing here is stored.
+ * With whys (declared first, oldest mark first, then earned ones in the order of Home's headers),
+ * up to three whys and three threads beside them (their busiest feeders by all-time links, then your
+ * most active other threads). With no whys, your most active threads (all-time). Links between
+ * threads (doing → to) are lines; your most recent logs are small dots with a line to each thread
+ * they name, so threads you log toward together are visibly connected. Nothing here is stored.
+ *
+ * Positions never come from counts: a thread keeps its slot while it's in the picture, and one that
+ * enters takes a free slot (`overviewLayout` takes the previous slots). No numbers are drawn.
  */
-import { valueThreads } from './emergence';
-import { FlowIndex } from './graph';
+import { groupByValue, valueThreads } from './emergence';
 import { declaredWhys } from './model';
-import { Data, Id, Thread } from './types';
+import { homeThreads } from './selectors';
+import { Activity, Data, Id, Thread } from './types';
 
-/** Why columns shown (more become "+N" beside the last). */
+/** Whys shown at most. */
 export const MAX_COLUMNS = 3;
-/** Feeders shown under each why (more become "+N"). */
+/** With whys: threads shown beside them. */
 export const MAX_FEEDERS = 3;
 /** With no whys: the most active threads shown. */
 export const MAX_THREADS = 6;
-/** The graph's fixed height, whatever it holds. */
+/** Recent logs shown as dots (fewer when the width has fewer free spots). */
+export const MAX_DOTS = 8;
+/** Two rows of threads with two rows of dots between them, 44 px each. */
 export const GRAPH_H = 176;
-/** Narrower content than this (e.g. 200 % zoom) shows only the summary and "Open graph". */
-export const NARROW_W = 300;
+/** A single thread: its row and one row of dots (keeps the first card's crumb clear of the toast). */
+export const COMPACT_H = 88;
+/** Narrower content than this (three columns don't fit, e.g. 200 % zoom): summary and "Open graph". */
+export const NARROW_W = 240;
 /** Native text scaled this much or more: the same. */
 export const BIG_TEXT = 1.5;
 
 export interface OverviewNode {
   thread: Thread;
-  /** Plain "to this" logs (no doing thread): drawn as a soft fill. */
-  direct: number;
-  /** Touched in the last two weeks (a tint, never a reason to hide). */
-  recent: boolean;
 }
 export interface OverviewFeeder extends OverviewNode {
   /** All-time links from this thread into the why. */
@@ -38,8 +41,11 @@ export interface OverviewFeeder extends OverviewNode {
 }
 export interface OverviewWhy extends OverviewNode {
   declared: boolean;
-  /** In the order they first fed it (so a new one is appended). */
+  /** Plain "to this" logs (no doing thread). Only the summary uses it ("logged to directly"). */
+  direct: number;
+  /** Threads in the picture that link into it, most links first. */
   feeders: OverviewFeeder[];
+  /** Threads linking into it that aren't in the picture. */
   moreFeeders: number;
 }
 export interface OverviewLink {
@@ -47,70 +53,180 @@ export interface OverviewLink {
   to: Id;
   count: number;
 }
+export interface OverviewDot {
+  /** The activity. */
+  id: Id;
+  /** The threads in the picture it names: its doing thread first, then its "to"s. */
+  threads: Id[];
+  /** The first of `threads` is its doing thread. */
+  doing: boolean;
+}
+interface Shared {
+  /** Doing → to links between threads in the picture (all-time). */
+  links: OverviewLink[];
+  /** The most recent logs that name a thread in the picture, newest first. */
+  dots: OverviewDot[];
+  /** Visible threads left out of the picture ("and more →"). */
+  more: boolean;
+  summary: string;
+}
 export type Overview =
-  | { mode: 'whys'; whys: OverviewWhy[]; moreWhys: number; summary: string }
-  | { mode: 'threads'; threads: OverviewNode[]; links: OverviewLink[]; summary: string };
+  | ({ mode: 'whys'; whys: OverviewWhy[]; moreWhys: number; /** Beside the whys, feeding none of them. */ others: OverviewNode[] } & Shared)
+  | ({ mode: 'threads'; threads: OverviewNode[] } & Shared);
 
-const byName = (a: Thread, b: Thread) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+/** Ties go by name. One collator, not localeCompare per call: big histories sort hundreds of feeders. */
+const collator = new Intl.Collator();
+const byName = (a: Thread, b: Thread) => collator.compare(a.name, b.name) || collator.compare(a.id, b.id);
 const byCreated = (a: Thread, b: Thread) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+/** Newest first. Plain string order (ISO times), not localeCompare: this runs for every activity. */
+const cmp = (x: string, y: string) => (x < y ? -1 : x > y ? 1 : 0);
+const newer = (a: Activity, b: Activity) => cmp(b.createdAt, a.createdAt) || cmp(b.id, a.id);
+
+/** The threads an activity names: its doing thread, then its "to"s (each once). */
+function named(a: Activity): Id[] {
+  const ids = a.doingId ? [a.doingId] : [];
+  for (const to of a.toIds) if (!ids.includes(to)) ids.push(to);
+  return ids;
+}
+
+/** Earned whys in the order of Home's headers (the same rule, so the graph and the headers agree). */
+export function headerWhys(data: Data, now = new Date(), values = valueThreads(data, now)): Id[] {
+  const ids = homeThreads(data, now).current.map((c) => c.thread.id);
+  return groupByValue(data, ids, now, values).groups.map((g) => g.value.id);
+}
 
 /**
- * Whys and their busiest feeders, or (with no whys) the most active threads and their links.
- * `earned` is `valueThreads(data)`, passed in when the caller already has it. No visible threads:
- * undefined (no graph at all, never an empty box).
+ * What the graph shows. `surfacing` is the earned whys in header order (Home passes its own, so
+ * nothing is computed twice). No visible threads: undefined (no graph, never an empty box).
  */
-export function overview(data: Data, index: FlowIndex, earned: Set<Id> = valueThreads(data)): Overview | undefined {
+export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data)): Overview | undefined {
   const visible = (id: Id) => !!data.threads[id] && !data.threads[id].hidden;
-  const node = (thread: Thread): OverviewNode => ({
-    thread,
-    direct: index.direct.get(thread.id) ?? 0,
-    recent: (index.recentSteps.get(thread.id) ?? 0) > 0,
-  });
-  const inflow = (id: Id) => {
-    let n = 0;
-    for (const [from, e] of index.in.get(id) ?? []) if (visible(from)) n += e.count;
-    return n;
-  };
+  const all = Object.values(data.threads).filter((t) => !t.hidden);
+  if (!all.length) return undefined;
+  const acts = Object.values(data.activities);
 
   const declared = declaredWhys(data);
   const declaredIds = new Set(declared.map((t) => t.id));
-  const surfaced = [...earned]
-    .filter((id) => visible(id) && !declaredIds.has(id))
-    .map((id) => ({ t: data.threads[id], n: inflow(id) }))
-    .sort((a, b) => b.n - a.n || byName(a.t, b.t))
-    .map(({ t }) => t);
+  const whyList: Thread[] = [...declared];
+  for (const id of surfacing) if (visible(id) && !whyList.some((t) => t.id === id)) whyList.push(data.threads[id]);
+  const shownWhys = whyList.slice(0, MAX_COLUMNS);
+  const whyIds = new Set(shownWhys.map((t) => t.id));
+  // A why that doesn't fit is never drawn as a plain thread.
+  const eligible = (t: Thread) => !whyList.includes(t);
 
-  if (declared.length || surfaced.length) {
-    const shownDeclared = declared.slice(0, MAX_COLUMNS);
-    // Picked by inflow, then placed by age, so a busier one never swaps places with another.
-    const shownEarned = surfaced.slice(0, MAX_COLUMNS - shownDeclared.length).sort(byCreated);
-    const whys: OverviewWhy[] = [...shownDeclared, ...shownEarned].map((t) => {
-      const all = [...(index.in.get(t.id) ?? [])]
-        .filter(([from]) => visible(from))
-        .map(([from, e]) => ({ ...node(data.threads[from]), count: e.count, first: e.first }))
-        .sort((a, b) => b.count - a.count || byName(a.thread, b.thread));
-      const feeders = all
-        .slice(0, MAX_FEEDERS)
-        .sort((a, b) => a.first.localeCompare(b.first) || a.thread.id.localeCompare(b.thread.id))
-        .map(({ first: _first, ...f }) => f);
-      return { ...node(t), declared: declaredIds.has(t.id), feeders, moreFeeders: all.length - feeders.length };
-    });
-    const moreWhys = declared.length + surfaced.length - whys.length;
-    return { mode: 'whys', whys, moreWhys, summary: whysSummary(whys, moreWhys) };
+  // One pass (a big history has thousands of logs): all-time activity per thread, the newest log
+  // that names a visible thread, and links and plain "to" logs into the shown whys.
+  const steps = new Map<Id, number>();
+  const into = new Map<Id, Map<Id, number>>();
+  const direct = new Map<Id, number>();
+  let newest: Activity | undefined;
+  const seen = new Set(all.map((t) => t.id));
+  for (const a of acts) {
+    let any = false;
+    if (a.doingId) {
+      steps.set(a.doingId, (steps.get(a.doingId) ?? 0) + 1);
+      any = seen.has(a.doingId);
+    }
+    for (const to of a.toIds) {
+      if (to === a.doingId) continue;
+      steps.set(to, (steps.get(to) ?? 0) + 1);
+      any ||= seen.has(to);
+      if (!whyIds.has(to)) continue;
+      if (!a.doingId) direct.set(to, (direct.get(to) ?? 0) + 1);
+      else {
+        const m = into.get(to) ?? into.set(to, new Map()).get(to)!;
+        m.set(a.doingId, (m.get(a.doingId) ?? 0) + 1);
+      }
+    }
+    if (any && (!newest || a.createdAt > newest.createdAt || (a.createdAt === newest.createdAt && a.id > newest.id))) newest = a;
+  }
+  const byActivity = (a: Thread, b: Thread) => (steps.get(b.id) ?? 0) - (steps.get(a.id) ?? 0) || byName(a, b);
+
+  // The threads beside the whys (or, with none, all of the picture), best first.
+  let picked: Thread[];
+  let room: number;
+  if (whyIds.size) {
+    room = MAX_FEEDERS;
+    // Each why's busiest feeder first, then each one's next, so every why that has one shows one.
+    const queues = shownWhys.map((w) =>
+      [...(into.get(w.id) ?? [])]
+        .filter(([from]) => visible(from) && eligible(data.threads[from]))
+        .map(([from, n]) => ({ t: data.threads[from], n }))
+        .sort((a, b) => b.n - a.n || byName(a.t, b.t))
+        .map(({ t }) => t),
+    );
+    picked = [];
+    for (let grew = true; grew && picked.length < room; ) {
+      grew = false;
+      for (const q of queues) {
+        while (q.length && picked.includes(q[0])) q.shift();
+        if (q.length && picked.length < room) {
+          picked.push(q.shift()!);
+          grew = true;
+        }
+      }
+    }
+    // Then your most active other threads, so nothing you just said it's for empties the picture.
+    for (const t of all.filter((x) => eligible(x) && !picked.includes(x)).sort(byActivity)) {
+      if (picked.length >= room) break;
+      picked.push(t);
+    }
+  } else {
+    room = MAX_THREADS;
+    picked = all.filter(eligible).sort(byActivity).slice(0, room);
+  }
+  // Every log shows: if the newest one names nothing in the picture, its threads come in (in place
+  // of the last picked), so its dot and lines appear.
+  if (newest) {
+    const inPicture = (id: Id) => whyIds.has(id) || picked.some((t) => t.id === id);
+    const outside = named(newest).filter(visible).filter((id) => !inPicture(id));
+    if (outside.length === named(newest).filter(visible).length && outside.every((id) => eligible(data.threads[id]))) {
+      const incoming = outside.slice(0, room).map((id) => data.threads[id]);
+      picked = [...picked.filter((t) => !incoming.includes(t)).slice(0, room - incoming.length), ...incoming];
+    }
   }
 
-  const ranked = Object.values(data.threads)
-    .filter((t) => !t.hidden)
-    .sort((a, b) => (index.steps.get(b.id) ?? 0) - (index.steps.get(a.id) ?? 0) || byName(a, b));
-  if (!ranked.length) return undefined;
-  const threads = ranked.slice(0, MAX_THREADS).sort(byCreated).map(node);
-  const shown = new Set(threads.map((n) => n.thread.id));
+  const shown = new Set([...whyIds, ...picked.map((t) => t.id)]);
+  // Links between threads in the picture, and the most recent logs that name one of them.
+  const linkCount = new Map<Id, Map<Id, number>>();
+  const recent: Activity[] = [];
+  for (const a of acts) {
+    let any = !!a.doingId && shown.has(a.doingId);
+    for (const to of a.toIds) {
+      if (!shown.has(to)) continue;
+      any = true;
+      if (!a.doingId || to === a.doingId || !shown.has(a.doingId)) continue;
+      const m = linkCount.get(a.doingId) ?? linkCount.set(a.doingId, new Map()).get(a.doingId)!;
+      m.set(to, (m.get(to) ?? 0) + 1);
+    }
+    if (!any) continue;
+    if (recent.length === MAX_DOTS && newer(a, recent[MAX_DOTS - 1]) > 0) continue;
+    recent.push(a);
+    recent.sort(newer);
+    if (recent.length > MAX_DOTS) recent.pop();
+  }
   const links: OverviewLink[] = [];
-  for (const { thread } of threads)
-    for (const [to, e] of index.out.get(thread.id) ?? []) if (shown.has(to)) links.push({ from: thread.id, to, count: e.count });
-  const slot = new Map(threads.map((n, i) => [n.thread.id, i]));
-  links.sort((a, b) => slot.get(a.from)! - slot.get(b.from)! || slot.get(a.to)! - slot.get(b.to)!);
-  return { mode: 'threads', threads, links, summary: threadsSummary(threads, links, data) };
+  for (const [from, m] of linkCount) for (const [to, count] of m) links.push({ from, to, count });
+  links.sort((a, b) => byName(data.threads[a.from], data.threads[b.from]) || byName(data.threads[a.to], data.threads[b.to]));
+  const dots: OverviewDot[] = recent.map((a) => ({ id: a.id, threads: named(a).filter((id) => shown.has(id)), doing: !!a.doingId && shown.has(a.doingId) }));
+  const more = all.length > shown.size;
+
+  if (whyIds.size) {
+    const whys: OverviewWhy[] = shownWhys.map((t) => {
+      const feeders: OverviewFeeder[] = links
+        .filter((l) => l.to === t.id)
+        .map((l) => ({ thread: data.threads[l.from], count: l.count }))
+        .sort((a, b) => b.count - a.count || byName(a.thread, b.thread));
+      const allFeeders = [...(into.get(t.id) ?? [])].filter(([from]) => visible(from)).length;
+      return { thread: t, declared: declaredIds.has(t.id), direct: direct.get(t.id) ?? 0, feeders, moreFeeders: allFeeders - feeders.length };
+    });
+    const feeding = new Set(links.filter((l) => whyIds.has(l.to)).map((l) => l.from));
+    const others = picked.filter((t) => !feeding.has(t.id)).map((thread) => ({ thread }));
+    const moreWhys = whyList.length - whys.length;
+    return { mode: 'whys', whys, moreWhys, others, links, dots, more, summary: whysSummary(whys, others, dots, more, data) };
+  }
+  const threads = picked.map((thread) => ({ thread }));
+  return { mode: 'threads', threads, links, dots, more, summary: threadsSummary(threads, links, dots, more, data) };
 }
 
 /** "a", "a and b", "a, b and c" (and "…, c and others"). */
@@ -119,48 +235,67 @@ function list(names: string[], others = false) {
   return all.length <= 1 ? (all[0] ?? '') : `${all.slice(0, -1).join(', ')} and ${all[all.length - 1]}`;
 }
 
-/** In names, never numbers (B-01 refinement 1). */
-function whysSummary(whys: OverviewWhy[], moreWhys: number) {
+/** "Lately: knit; draw with make apparel; sew toward make apparel." — each different thing the recent logs name. */
+function latelySentence(dots: OverviewDot[], data: Data) {
+  const seen = new Set<string>();
+  const parts: string[] = [];
+  for (const d of dots) {
+    const names = d.threads.map((id) => data.threads[id].name);
+    const part = names.length === 1 ? names[0] : `${names[0]} ${d.doing ? 'toward' : 'with'} ${list(names.slice(1))}`;
+    const key = d.doing ? part : [...d.threads].sort().join('\n');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    parts.push(part);
+  }
+  return parts.length ? `Lately: ${parts.join('; ')}.` : '';
+}
+
+/** In names, never numbers (B-01 refinement 1); "toward", never an arrow, for screen readers. */
+function whysSummary(whys: OverviewWhy[], others: OverviewNode[], dots: OverviewDot[], more: boolean, data: Data) {
   const item = (w: OverviewWhy) => {
-    const fed = [...w.feeders].sort((a, b) => b.count - a.count || byName(a.thread, b.thread)).map((f) => f.thread.name);
+    const fed = w.feeders.map((f) => f.thread.name);
     if (fed.length) return `${w.thread.name}, fed by ${list(fed, w.moreFeeders > 0)}`;
     return `${w.thread.name}, ${w.direct ? 'logged to directly' : 'nothing feeds it yet'}`;
   };
-  const parts: string[] = [];
   const said = whys.filter((w) => w.declared).map(item);
   const surfaced = whys.filter((w) => !w.declared).map(item);
-  if (moreWhys > 0) (surfaced.length ? surfaced : said).push('and more');
+  const parts: string[] = [];
   if (said.length) parts.push(`What it’s for: ${said.join('; ')}.`);
   if (surfaced.length) parts.push(`Surfacing from what you do: ${surfaced.join('; ')}.`);
-  return parts.join(' ');
+  if (others.length) parts.push(`Also: ${list(others.map((o) => o.thread.name))}.`);
+  parts.push(latelySentence(dots, data));
+  if (more) parts.push('And more.');
+  return parts.filter(Boolean).join(' ');
 }
 
-function threadsSummary(threads: OverviewNode[], links: OverviewLink[], data: Data) {
+function threadsSummary(threads: OverviewNode[], links: OverviewLink[], dots: OverviewDot[], more: boolean, data: Data) {
   const linked = new Set(links.flatMap((l) => [l.from, l.to]));
   const parts = [
-    ...links.map((l) => `${data.threads[l.from].name} → ${data.threads[l.to].name}`),
-    ...threads.filter((n) => !linked.has(n.thread.id)).map((n) => n.thread.name),
-  ];
-  return `Lately: ${parts.join(', ')}.`;
+    ...links.map((l) => `${data.threads[l.from].name} toward ${data.threads[l.to].name}`),
+    list(threads.filter((n) => !linked.has(n.thread.id)).map((n) => n.thread.name)),
+  ].filter(Boolean);
+  return [`Your threads: ${parts.join('; ')}.`, latelySentence(dots, data), more ? 'And more.' : ''].filter(Boolean).join(' ');
 }
 
 // ─── Layout ────────────────────────────────────────────────────────────────
 
+/** Where things were last time, so nothing that stays moves. Thread slots 0–2 are the top row, 3–5 the bottom. */
+export interface Slots {
+  threads: Record<Id, number>;
+  dots: Record<Id, number>;
+}
 export interface LaidNode {
-  /** Unique per drawn node: a thread feeding two whys is drawn under both. */
   key: string;
   id: Id;
+  /** feeder = beside the whys and linking into one of them. */
   kind: 'why' | 'feeder' | 'thread';
-  /** For a feeder: the why it hangs under. */
-  under?: Id;
+  /** For a feeder: the whys it links into. */
+  under?: Id[];
   name: string;
   x: number;
   y: number;
   w: number;
   h: number;
-  /** 0 = no plain "to it" logs; 1–3 = a softly deeper fill (never a number). */
-  fill: 0 | 1 | 2 | 3;
-  recent: boolean;
 }
 export interface LaidLink {
   key: string;
@@ -169,12 +304,30 @@ export interface LaidLink {
   /** SVG path data. */
   path: string;
   width: number;
-  /** Arrowhead polygon points (no whys: links can point either way). */
-  arrow?: string;
+  /** Arrowhead polygon points, at the "to" end. */
+  arrow: string;
 }
-export interface LaidMore {
+export interface LaidDot {
   key: string;
-  label: string;
+  /** The activity. */
+  id: Id;
+  threads: Id[];
+  /** The pointer target (44 × 44); the dot is drawn at its centre. */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+export interface LaidDotLine {
+  key: string;
+  dot: Id;
+  thread: Id;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+export interface LaidBox {
   x: number;
   y: number;
   w: number;
@@ -186,105 +339,178 @@ export interface OverviewLayout {
   height: number;
   nodes: LaidNode[];
   links: LaidLink[];
-  more: LaidMore[];
+  dots: LaidDot[];
+  dotLines: LaidDotLine[];
+  /** "and more →" (opens the Graph tab). */
+  more?: LaidBox;
+  /** Pass back as `prev` next time. */
+  slots: Slots;
 }
 
 const GAP = 8;
 const ROW = 44;
-/** Feeders sit right of a spine that runs down the column's left edge. */
-const INDENT = 14;
-const SPINE = 6;
-const MORE_W = 34;
-/** No whys: two rows of three; links curve through the band between them. */
-const TOP_Y = 8;
-const BOTTOM_Y = GRAPH_H - 8 - ROW;
+/** The visible chip inside its 44 px row. */
+const CHIP_INSET = 4;
+const SLOTS = MAX_THREADS;
+/** With no whys, threads fill the slots top-left, bottom-middle, top-right…, so the dots between them use the whole box. */
+const ZIGZAG = [0, 4, 2, 3, 1, 5];
+const MORE_SLOTS = 2;
 
-export const fillLevel = (direct: number): LaidNode['fill'] => (direct <= 0 ? 0 : direct === 1 ? 1 : direct < 5 ? 2 : 3);
 /** Coarse on purpose: three widths, from all-time links (thickening is the only quantity shown). */
 export const linkWidth = (count: number) => (count <= 1 ? 1.5 : count < 5 ? 2.5 : 3.5);
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
 
 /**
- * Where everything goes, in a box `width` wide and GRAPH_H tall. Pure, and it only depends on the
- * overview's order, so counts never move anything. `focusId` is reserved for focusing a node
- * (P-26) and does nothing yet.
+ * Where everything goes, `width` wide. Pure. Given `prev` (the last layout's `slots`), every thread
+ * and dot still shown keeps its slot; one that enters takes a free slot (a why prefers the top row,
+ * a thread beside the whys the bottom one, and with no whys they alternate rows); a dot takes the
+ * free spot nearest the threads it names.
+ * The picture's centre is never a target, so a screen reader activating it opens nothing.
+ * `focusId` is reserved for focusing a node (P-26) and does nothing yet.
  */
-export function overviewLayout(ov: Overview, width: number, fontScale = 1, focusId?: Id): OverviewLayout {
-  void focusId;
-  if (width < NARROW_W || fontScale >= BIG_TEXT) return { summaryOnly: true, height: 0, nodes: [], links: [], more: [] };
-  const colW = (width - GAP * (MAX_COLUMNS - 1)) / MAX_COLUMNS;
-  const colX = (i: number) => i * (colW + GAP);
-  const nodes: LaidNode[] = [];
-  const links: LaidLink[] = [];
-  const more: LaidMore[] = [];
-  const base = (n: OverviewNode) => ({ id: n.thread.id, name: n.thread.name, fill: fillLevel(n.direct), recent: n.recent });
+export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: number; prev?: Slots; focusId?: Id } = {}): OverviewLayout {
+  const { fontScale = 1, prev } = opts;
+  if (width < NARROW_W || fontScale >= BIG_TEXT) return { summaryOnly: true, height: 0, nodes: [], links: [], dots: [], dotLines: [], slots: prev ?? { threads: {}, dots: {} } };
 
-  if (ov.mode === 'whys') {
-    ov.whys.forEach((w, c) => {
-      const x = colX(c);
-      // More whys than columns: a "+N" right of the last one (the summary says "and more").
-      const lastWhy = c === ov.whys.length - 1 && ov.moreWhys > 0;
-      nodes.push({ ...base(w), key: w.thread.id, kind: 'why', x, y: 0, w: colW - (lastWhy ? MORE_W : 0), h: ROW });
-      if (lastWhy) more.push({ key: 'more-whys', label: `+${ov.moreWhys}`, x: x + colW - MORE_W, y: 0, w: MORE_W, h: ROW });
-      w.feeders.forEach((f, r) => {
-        const y = ROW * (r + 1);
-        const last = r === w.feeders.length - 1 && w.moreFeeders > 0;
-        nodes.push({ ...base(f), key: `${w.thread.id}>${f.thread.id}`, kind: 'feeder', under: w.thread.id, x: x + INDENT, y, w: colW - INDENT - (last ? MORE_W : 0), h: ROW });
-        links.push({
-          key: `${f.thread.id}>${w.thread.id}`,
-          from: f.thread.id,
-          to: w.thread.id,
-          path: `M${r1(x + INDENT)} ${r1(y + ROW / 2)}H${r1(x + SPINE)}V${ROW}`,
-          width: linkWidth(f.count),
-        });
-        if (last) more.push({ key: `more>${w.thread.id}`, label: `+${w.moreFeeders}`, x: x + colW - MORE_W, y, w: MORE_W, h: ROW });
-      });
-    });
-    return { summaryOnly: false, height: GRAPH_H, nodes, links, more };
-  }
-
-  const slot = new Map<Id, { x: number; row: 0 | 1; col: number }>();
-  ov.threads.forEach((n, i) => {
-    const row = i < MAX_COLUMNS ? 0 : 1;
-    const col = i % MAX_COLUMNS;
-    slot.set(n.thread.id, { x: colX(col) + colW / 2, row, col });
-    nodes.push({ ...base(n), key: n.thread.id, kind: 'thread', x: colX(col), y: row ? BOTTOM_Y : TOP_Y, w: colW, h: ROW });
-  });
-  const anchorY = (row: 0 | 1) => (row ? BOTTOM_Y : TOP_Y + ROW);
-  for (const l of ov.links) {
-    const a = slot.get(l.from)!;
-    const b = slot.get(l.to)!;
-    const p0 = { x: a.x, y: anchorY(a.row) };
-    const p1 = { x: b.x, y: anchorY(b.row) };
-    let c: { x: number; y: number };
-    if (a.row === b.row) {
-      // Same row: bow into the band; the way back bows deeper, so A → B and B → A stay apart.
-      const bow = 18 * Math.abs(a.col - b.col) + (a.col < b.col ? 0 : 14);
-      c = { x: (p0.x + p1.x) / 2, y: p0.y + (a.row ? -bow : bow) };
-    } else {
-      // Across: bend to the left of the direction of travel, so the two directions stay apart.
-      const dx = p1.x - p0.x;
-      const dy = p1.y - p0.y;
-      const len = Math.hypot(dx, dy) || 1;
-      c = { x: (p0.x + p1.x) / 2 + (dy / len) * 14, y: (p0.y + p1.y) / 2 - (dx / len) * 14 };
+  // Threads: whys first, then the rest by when they were made (first appearance).
+  const whyIds = new Set(ov.mode === 'whys' ? ov.whys.map((w) => w.thread.id) : []);
+  const members = ov.mode === 'whys' ? [...ov.whys.map((w) => w.thread), ...[...feedersAndOthers(ov)].sort(byCreated)] : ov.threads.map((n) => n.thread).sort(byCreated);
+  const slot: Record<Id, number> = {};
+  const taken = new Set<number>();
+  for (const t of members) {
+    const p = prev?.threads[t.id];
+    if (p !== undefined && p >= 0 && p < SLOTS && !taken.has(p)) {
+      slot[t.id] = p;
+      taken.add(p);
     }
-    // Arrowhead at the "to" end, along the curve's last tangent.
-    const tx = p1.x - c.x;
-    const ty = p1.y - c.y;
-    const tl = Math.hypot(tx, ty) || 1;
-    const ux = tx / tl;
-    const uy = ty / tl;
-    const back = { x: p1.x - ux * 7, y: p1.y - uy * 7 };
-    const arrow = [p1, { x: back.x - uy * 4, y: back.y + ux * 4 }, { x: back.x + uy * 4, y: back.y - ux * 4 }].map((p) => `${r1(p.x)},${r1(p.y)}`).join(' ');
-    links.push({
-      key: `${l.from}>${l.to}`,
-      from: l.from,
-      to: l.to,
-      path: `M${r1(p0.x)} ${r1(p0.y)}Q${r1(c.x)} ${r1(c.y)} ${r1(p1.x)} ${r1(p1.y)}`,
-      width: linkWidth(l.count),
-      arrow,
-    });
   }
-  return { summaryOnly: false, height: GRAPH_H, nodes, links, more };
+  for (const t of members) {
+    if (slot[t.id] !== undefined) continue;
+    const order = ov.mode === 'threads' ? ZIGZAG : whyIds.has(t.id) ? [0, 1, 2, 3, 4, 5] : [3, 4, 5, 0, 1, 2];
+    const p = order.find((i) => !taken.has(i))!;
+    slot[t.id] = p;
+    taken.add(p);
+  }
+  const compact = members.length === 1 && slot[members[0].id] < MAX_COLUMNS;
+  const height = compact ? COMPACT_H : GRAPH_H;
+
+  const colW = (width - GAP * (MAX_COLUMNS - 1)) / MAX_COLUMNS;
+  const box = (i: number) => ({ x: (i % MAX_COLUMNS) * (colW + GAP), y: i < MAX_COLUMNS ? 0 : GRAPH_H - ROW });
+  /** Where lines meet a node: the middle of its chip's edge facing the dots. */
+  const anchor = (id: Id) => {
+    const b = box(slot[id]);
+    const top = slot[id] < MAX_COLUMNS;
+    return { x: b.x + colW / 2, y: top ? b.y + ROW - CHIP_INSET : b.y + CHIP_INSET, top };
+  };
+
+  const feeds = new Map<Id, Id[]>();
+  if (ov.mode === 'whys') for (const l of ov.links) if (whyIds.has(l.to) && !whyIds.has(l.from)) feeds.set(l.from, [...(feeds.get(l.from) ?? []), l.to]);
+  const nodes: LaidNode[] = members
+    .map((t) => {
+      const b = box(slot[t.id]);
+      const kind: LaidNode['kind'] = whyIds.has(t.id) ? 'why' : feeds.has(t.id) ? 'feeder' : 'thread';
+      return { key: t.id, id: t.id, kind, ...(feeds.has(t.id) && { under: feeds.get(t.id) }), name: t.name, x: b.x, y: b.y, w: colW, h: ROW };
+    })
+    .sort((a, b) => slot[a.id] - slot[b.id]);
+
+  const links = ov.links.map((l) => linkPath(l, anchor(l.from), anchor(l.to)));
+
+  // Dots: one or two rows of 44 px spots between the thread rows, never at the centre, and the
+  // bottom row's right end kept for "and more →".
+  const perRow = Math.max(1, Math.floor(width / ROW));
+  const pitch = width / perRow;
+  const mid = width / 2;
+  const centre = (c: number) => c * pitch < mid + 0.5 && (c + 1) * pitch > mid - 0.5;
+  const rows = compact ? 1 : 2;
+  const more = ov.more && !compact;
+  const spots = new Map<number, { x: number; y: number }>();
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < perRow; c++) {
+      if (centre(c) || (more && r === 1 && c >= perRow - MORE_SLOTS)) continue;
+      spots.set(r * perRow + c, { x: c * pitch + (pitch - ROW) / 2, y: ROW * (r + 1) });
+    }
+  const shownDots = ov.dots.slice(0, Math.min(MAX_DOTS, spots.size));
+  const dotSlot: Record<Id, number> = {};
+  const used = new Set<number>();
+  for (const d of shownDots) {
+    const p = prev?.dots[d.id];
+    if (p !== undefined && spots.has(p) && !used.has(p)) {
+      dotSlot[d.id] = p;
+      used.add(p);
+    }
+  }
+  for (const d of shownDots) {
+    if (dotSlot[d.id] !== undefined) continue;
+    const pts = d.threads.map(anchor);
+    const want = { x: pts.reduce((n, p) => n + p.x, 0) / pts.length, y: pts.reduce((n, p) => n + p.y, 0) / pts.length };
+    let best = -1;
+    let bestD = Infinity;
+    for (const [i, s] of spots) {
+      if (used.has(i)) continue;
+      const dd = (s.x + ROW / 2 - want.x) ** 2 + (s.y + ROW / 2 - want.y) ** 2;
+      if (dd < bestD - 0.01) {
+        best = i;
+        bestD = dd;
+      }
+    }
+    dotSlot[d.id] = best;
+    used.add(best);
+  }
+  const dots: LaidDot[] = shownDots.map((d) => ({ key: d.id, id: d.id, threads: d.threads, ...spots.get(dotSlot[d.id])!, w: ROW, h: ROW }));
+  const dotLines: LaidDotLine[] = dots.flatMap((d) =>
+    d.threads.map((t) => {
+      const a = anchor(t);
+      return { key: `${d.id}>${t}`, dot: d.id, thread: t, x1: r1(d.x + ROW / 2), y1: r1(d.y + ROW / 2), x2: r1(a.x), y2: r1(a.y) };
+    }),
+  );
+  return {
+    summaryOnly: false,
+    height,
+    nodes,
+    links,
+    dots,
+    dotLines,
+    ...(more && { more: { x: width - MORE_SLOTS * pitch, y: ROW * 2, w: MORE_SLOTS * pitch, h: ROW } }),
+    slots: { threads: slot, dots: dotSlot },
+  };
+}
+
+function feedersAndOthers(ov: Extract<Overview, { mode: 'whys' }>): Thread[] {
+  const whyIds = new Set(ov.whys.map((w) => w.thread.id));
+  const seen = new Map<Id, Thread>();
+  for (const w of ov.whys) for (const f of w.feeders) if (!whyIds.has(f.thread.id)) seen.set(f.thread.id, f.thread);
+  for (const o of ov.others) seen.set(o.thread.id, o.thread);
+  return [...seen.values()];
+}
+
+/** A curve from one node to another, bowing into the band between the rows, with an arrowhead. */
+function linkPath(l: OverviewLink, p0: { x: number; y: number; top: boolean }, p1: { x: number; y: number; top: boolean }): LaidLink {
+  let c: { x: number; y: number };
+  if (p0.top === p1.top) {
+    // Same row: bow into the band; the way back bows deeper, so A → B and B → A stay apart.
+    const bow = 0.15 * Math.abs(p1.x - p0.x) + (p0.x < p1.x ? 0 : 14);
+    c = { x: (p0.x + p1.x) / 2, y: p0.y + (p0.top ? bow : -bow) };
+  } else {
+    // Across: bend to the left of the direction of travel, so the two directions stay apart.
+    const dx = p1.x - p0.x;
+    const dy = p1.y - p0.y;
+    const len = Math.hypot(dx, dy) || 1;
+    c = { x: (p0.x + p1.x) / 2 + (dy / len) * 14, y: (p0.y + p1.y) / 2 - (dx / len) * 14 };
+  }
+  const tx = p1.x - c.x;
+  const ty = p1.y - c.y;
+  const tl = Math.hypot(tx, ty) || 1;
+  const ux = tx / tl;
+  const uy = ty / tl;
+  const back = { x: p1.x - ux * 7, y: p1.y - uy * 7 };
+  const arrow = [p1, { x: back.x - uy * 4, y: back.y + ux * 4 }, { x: back.x + uy * 4, y: back.y - ux * 4 }].map((p) => `${r1(p.x)},${r1(p.y)}`).join(' ');
+  return {
+    key: `${l.from}>${l.to}`,
+    from: l.from,
+    to: l.to,
+    path: `M${r1(p0.x)} ${r1(p0.y)}Q${r1(c.x)} ${r1(c.y)} ${r1(p1.x)} ${r1(p1.y)}`,
+    width: linkWidth(l.count),
+    arrow,
+  };
 }
