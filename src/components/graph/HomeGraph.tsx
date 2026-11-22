@@ -1,12 +1,14 @@
 import { Link, router, useIsFocused } from 'expo-router';
-import { memo, ReactNode, useDeferredValue, useMemo, useState } from 'react';
-import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import Svg, { Defs, Line, LinearGradient, Polygon, Stop } from 'react-native-svg';
+import { memo, ReactNode, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import Svg, { Defs, Line, LinearGradient, Path, Polygon, Stop } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
-import { pickId } from '@/components/graph/NodeContext';
+import { goUp, useReduceMotion } from '@/components/graph/scopeNav';
+import { FocusMap, scopeIds, STEP_ADD_R, STEP_DOT_R, stepMark, validScope } from '@/domain/focus';
 import { heatFill, heatInk, heatLabel } from '@/domain/heat';
-import { BIG_TEXT, LABEL_FONT, LABEL_LINE, LaidDot, LaidDotLine, LaidLink, LaidNode, looseOverview, NARROW_W, overview, Overview, overviewLayout, OverviewLayout, pictureItems } from '@/domain/overview';
+import { BIG_TEXT, LABEL_FONT, LABEL_LINE, LaidDot, LaidDotLine, LaidLink, LaidNode, looseOverview, NARROW_W, overview, Overview, overviewLayout, OverviewLayout, pictureItems, scopeLayout } from '@/domain/overview';
+import { whatsNextNode } from '@/domain/slot';
 import { Data, Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
@@ -78,13 +80,16 @@ export const LiveGraph = memo(function LiveGraph({ data, surfacing, firstRun }: 
   const ov = useMemo(() => overview(d, sf, { shading }) ?? looseOverview(d), [d, sf, shading]);
   const offerOff = useStore((st) => st.whyOfferOff);
   const offer = !offerOff && ov?.mode !== 'whys';
+  // P-50: the node the What's next card is on carries the ring (the default too: shown, never attached).
+  const focus = useStore((st) => st.focus);
+  const focusId = useMemo(() => whatsNextNode(d, focus), [d, focus]);
   // Below the picture: when it goes (a why is named), nothing above it moves. It keeps one place in
   // the tree whether or not there's a picture yet, so the first run's step isn't mounted again (its
   // typed words and focus lost) when the deferred picture catches up with the data. Nothing logged
   // yet (the welcome is showing): no "Not now" — there's nothing to put it off for.
   return (
     <>
-      {ov && <HomeGraph ov={ov} />}
+      {ov && <HomeGraph ov={ov} focusId={focusId} />}
       {firstRun || (offer && <WhyOffer canPutOff={!!ov} />)}
     </>
   );
@@ -152,7 +157,7 @@ function WhyOffer({ canPutOff }: { canPutOff: boolean }) {
  * pointing). A wander or dot that stays keeps its place: the last layout's slots are passed back in.
  * Narrow screens and the largest text get the summary, "Explore" and the list, without the picture.
  */
-export function HomeGraph({ ov }: { ov: Overview; /** Reserved for focusing a node (P-26). */ focusId?: Id }) {
+export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's next card's node: one ink ring, and its step. */ focusId?: Id }) {
   const { width: windowWidth, fontScale } = useWindowDimensions();
   const narrow = useGraphNarrow();
   const icon = useGraphIcon();
@@ -165,21 +170,46 @@ export function HomeGraph({ ov }: { ov: Overview; /** Reserved for focusing a no
   // Laid out again only when something changes, from where things were last time (kept while Home
   // is mounted, never stored): React's "adjust state while rendering" pattern.
   const select = useStore((st) => st.select);
-  const selected = useStore((st) => st.selected?.id);
+  const tapNode = useStore((st) => st.tapNode);
+  const storedScope = useStore((st) => st.scope);
   const [laid, setLaid] = useState<{ ov: Overview; width: number; fontScale: number; layout: OverviewLayout }>();
-  let layout = laid?.layout;
+  let all = laid?.layout;
   if (!laid || laid.ov !== ov || laid.width !== width || laid.fontScale !== fontScale) {
-    layout = overviewLayout(ov, width, { fontScale, prev: laid?.layout.slots, roomy: true });
-    setLaid({ ov, width, fontScale, layout });
+    all = overviewLayout(ov, width, { fontScale, prev: laid?.layout.slots, roomy: true });
+    setLaid({ ov, width, fontScale, layout: all });
   }
-  if (!layout) return null;
+  // P-50: what's drawn is the scope (All, or a node and what feeds it, narrowed and zoomed).
+  const items = useMemo(() => pictureItems(ov), [ov]);
+  const allMap = useMemo(() => all && focusMap(ov, all, items), [ov, all, items]);
+  const scope = useMemo(() => (allMap ? validScope(allMap, storedScope) : []), [allMap, storedScope]);
+  const root = scope[scope.length - 1];
+  const layout = useMemo(() => all && (root ? scopeLayout(ov, all, root, width, fontScale) : all), [ov, all, root, width, fontScale]);
+  // With no picture, the list's order is the order a swipe walks.
+  const hidden = narrow || !!layout?.summaryOnly;
+  const map = useMemo(() => layout && allMap && (hidden ? listOrder(allMap) : withPlaces(allMap, layout)), [allMap, layout, hidden]);
+  // Published for the card (its path, what a swipe walks), only when it changes; gone with the graph.
+  const setFocusMap = useStore((st) => st.setFocusMap);
+  const published = useRef('');
+  useEffect(() => {
+    const key = JSON.stringify(map);
+    if (key === published.current) return;
+    published.current = key;
+    setFocusMap(map);
+  }, [map, setFocusMap]);
+  useEffect(() => () => setFocusMap(undefined), [setFocusMap]);
+  const zoom = useZoom(root, layout, width);
+  if (!layout || !allMap) return null;
   const summaryOnly = layout.summaryOnly || narrow;
-  const items = pictureItems(ov);
+  const inScope = scopeIds(allMap, scope);
+  const listed = items.filter((it) => inScope.has(it.id));
+  const ringed = layout.nodes.find((n) => n.id === focusId);
 
   return (
     <View onLayout={onLayout} testID="home-graph" style={styles.graph}>
+      {ov.mode !== 'logs' && <ScopeChip scope={scope} names={allMap} picture={!summaryOnly} />}
       {!summaryOnly && (
         <View accessible accessibilityRole="image" accessibilityLabel={ov.summary} onAccessibilityTap={() => {}} style={{ height: layout.height }} testID="home-graph-picture">
+          <Animated.View style={[StyleSheet.absoluteFill, zoom]} {...({ dataSet: { zoom: 'true' } } as object)}>
           <Svg width={width} height={layout.height} style={StyleSheet.absoluteFill} pointerEvents="none" {...decorative}>
             {/* Newest first in the layout; drawn last, so its lines are on top. */}
             {[...layout.dotLines].reverse().map((l) => (
@@ -188,12 +218,14 @@ export function HomeGraph({ ov }: { ov: Overview; /** Reserved for focusing a no
             {layout.links.map((l) => (
               <LinkLine key={l.key} link={l} />
             ))}
+            {ringed?.circle && <StepBranch node={ringed} width={width} height={layout.height} />}
           </Svg>
-          {/* A tap on empty canvas clears the selection (P-35); nodes and dots take their own taps. */}
+          {/* A tap on empty canvas clears the attach (P-35; focus stays, P-50); nodes take their own taps. */}
           <Pressable onPress={() => select(undefined)} focusable={false} tabIndex={-1} {...noFocus} style={StyleSheet.absoluteFill} {...decorative}>
             {layout.nodes.map((n) => (
-              <Node key={n.key} node={n} stepH={layout.stepH} selected={n.id === selected} />
+              <Node key={n.key} node={n} focused={n.id === focusId} />
             ))}
+            {ringed?.circle && <StepMarkView node={ringed} width={width} height={layout.height} />}
             {layout.dots.map((d) => (
               <Dot key={d.key} dot={d} />
             ))}
@@ -206,6 +238,7 @@ export function HomeGraph({ ov }: { ov: Overview; /** Reserved for focusing a no
               </Shortcut>
             )}
           </Pressable>
+          </Animated.View>
         </View>
       )}
       {/* The summary in one line (two where the picture is hidden), with "Explore" beside it whenever
@@ -224,12 +257,16 @@ export function HomeGraph({ ov }: { ov: Overview; /** Reserved for focusing a no
           )}
         </View>
       )}
-      {focused && items.length > 0 && (
+      {focused && listed.length > 0 && (
         <View style={styles.items} role="list" aria-label="What’s in the picture">
-          {items.map((it) => (
+          {listed.map((it) => (
             <View key={it.id} role="listitem" style={styles.listItem}>
-              {/* Selects, like a node, and focus moves to the context row above the log box (P-35). */}
-              <Pressable nativeID={pickId(it.id)} onPress={() => select(it.id, { focus: true })} style={[styles.item, it.why && styles.itemWhy, it.id === selected && styles.itemSelected]} accessibilityRole="button">
+              {/* Like a tap on its circle (P-50): focuses and attaches it, or (focused, with something feeding it) narrows to it. */}
+              <Pressable
+                onPress={() => tapNode(it.id)}
+                style={[styles.item, it.why && styles.itemWhy, it.id === focusId && styles.itemSelected]}
+                accessibilityRole="button"
+                {...(it.id === focusId && ({ 'aria-current': true } as object))}>
                 <Text style={styles.itemText} numberOfLines={2}>
                   <Text style={[styles.itemName, it.why && styles.whyText]}>{it.name}</Text>
                   <Text style={styles.itemRole}>{it.why ? ', what it’s for' : ', a wander'}</Text>
@@ -303,11 +340,10 @@ const Dot = memo(
 );
 
 const Node = memo(
-  function Node({ node: n, stepH, selected }: { node: LaidNode; stepH: number; selected: boolean }) {
-    return <NodeView node={n} stepH={stepH} selected={selected} />;
+  function Node({ node: n, focused }: { node: LaidNode; focused: boolean }) {
+    return <NodeView node={n} focused={focused} />;
   },
-  ({ node: a, stepH: sa, selected: xa }, { node: b, stepH: sb, selected: xb }) =>
-    sa === sb &&
+  ({ node: a, focused: xa }, { node: b, focused: xb }) =>
     xa === xb &&
     a.id === b.id &&
     a.kind === b.kind &&
@@ -327,7 +363,7 @@ const Node = memo(
     a.circle?.labelW === b.circle?.labelW,
 );
 
-/** A ring around a circle, `gap` px beyond its edge (P-48: a declared why's second ring, the selection). */
+/** A ring around a circle, `gap` px beyond its edge (P-48: a declared why's second ring; P-50: the focus). */
 function Ring({ n, gap, width, color, testID }: { n: LaidNode; gap: number; width: number; color: string; testID: string }) {
   const c = n.circle!;
   const R = c.r + gap;
@@ -336,19 +372,20 @@ function Ring({ n, gap, width, color, testID }: { n: LaidNode; gap: number; widt
 
 /**
  * A node as a circle coloured by its heat (P-48), its label inside when it fits, else under it. A
- * declared why has a second thin ring; the selection (P-35) is one ink ring. A tap selects the wander
- * (P-35): the log box takes its context. "Open" in that row opens its page.
+ * declared why has a second thin ring; the focus (P-50: the What's next card's node) is one ink ring.
+ * A tap focuses and attaches it, or, focused already, narrows to it (`tapNode`). Its page opens from
+ * the card's name.
  */
-function NodeView({ node: n, stepH, selected }: { node: LaidNode; stepH: number; selected: boolean }) {
+function NodeView({ node: n, focused }: { node: LaidNode; focused: boolean }) {
   const c = n.circle;
   if (!c) return null;
   const why = n.kind === 'why';
   return (
     <>
       <Shortcut
-        onPress={() => useStore.getState().select(n.id)}
+        onPress={() => useStore.getState().tapNode(n.id)}
         testID={`graph-node-${n.id}`}
-        data={{ kind: n.kind, ...(n.under && { under: n.under.join('|') }), ...(selected && { selected: 'true' }), heat: c.heat.toFixed(2), label: c.inside ? 'inside' : 'under' }}
+        data={{ kind: n.kind, ...(n.under && { under: n.under.join('|') }), ...(focused && { focused: 'true' }), heat: c.heat.toFixed(2), label: c.inside ? 'inside' : 'under' }}
         style={[styles.hit, styles.nodeHit, { left: n.x, top: n.y, width: n.w, height: n.h }]}>
         <View style={[styles.circle, { marginTop: c.cy - n.y - c.r, width: 2 * c.r, height: 2 * c.r, borderRadius: c.r, backgroundColor: heatFill(c.heat), borderColor: heatInk(c.heat) }]}>
           {c.inside && (
@@ -363,18 +400,124 @@ function NodeView({ node: n, stepH, selected }: { node: LaidNode; stepH: number;
           </Text>
         )}
         {c.declared && <Ring n={n} gap={4} width={1} color={heatInk(c.heat)} testID={`graph-why-ring-${n.id}`} />}
-        {selected && <Ring n={n} gap={c.declared ? 8 : 5} width={2} color={C.ink} testID={`graph-selected-${n.id}`} />}
+        {focused && <Ring n={n} gap={c.declared ? 8 : 5} width={2} color={C.ink} testID={`graph-selected-${n.id}`} />}
       </Shortcut>
-      {/* Its staged next step: one quiet line, no age, no count (P-50 changes it). */}
-      {n.step && (
-        <View pointerEvents="none" style={[styles.stepRow, { left: n.x, top: n.y + n.h, width: n.w, height: stepH }]}>
-          <Text testID={`graph-step-${n.id}`} style={[styles.step, styles.mask, { lineHeight: stepH }]} numberOfLines={1}>
-            ↳ {n.step}
-          </Text>
-        </View>
-      )}
     </>
   );
+}
+
+/** The focused node's step branch (P-50), under the circles: tapered to the dot, or dashed to the ＋. */
+function StepBranch({ node: n, width, height }: { node: LaidNode; width: number; height: number }) {
+  const m = stepMark(n.circle!, width, height);
+  return n.step ? <Polygon points={m.branch} fill={C.body} /> : <Path d={m.path} fill="none" stroke={C.faint} strokeWidth={1.2} strokeDasharray="2 3" />;
+}
+
+/**
+ * Only the focused node's staged step is drawn (P-50): a small filled ink dot beside and below it
+ * with the step's words, or, with none, a dashed ＋ that opens the card's "＋ add one". The card is
+ * the way to both without pointing.
+ */
+function StepMarkView({ node: n, width, height }: { node: LaidNode; width: number; height: number }) {
+  const m = stepMark(n.circle!, width, height);
+  if (!n.step) {
+    return (
+      <Shortcut onPress={() => useStore.getState().askAddStep(n.id)} testID={`graph-add-step-${n.id}`} style={[styles.hit, styles.center, { left: m.x - 22, top: m.y - 22, width: 44, height: 44 }]}>
+        <View style={styles.addStep}>
+          <Text style={styles.addStepText}>＋</Text>
+        </View>
+      </Shortcut>
+    );
+  }
+  return (
+    <>
+      <View pointerEvents="none" testID={`graph-step-dot-${n.id}`} style={[styles.stepDot, { left: m.x - STEP_DOT_R, top: m.y - STEP_DOT_R }]} />
+      <View pointerEvents="none" style={[styles.stepLabel, { left: m.label.x, top: m.y - LABEL_LINE / 2 - 1, width: m.label.w, alignItems: m.label.align === 'left' ? 'flex-start' : 'flex-end' }]}>
+        <Text testID={`graph-step-${n.id}`} style={[styles.step, styles.mask]} numberOfLines={1}>
+          {n.step}
+        </Text>
+      </View>
+    </>
+  );
+}
+
+/**
+ * P-50: the scope as a chip above the picture. At All, a quiet "All" (a heading, not a button), only
+ * while the picture shows; in a scope, "‹ <where up goes> · <here>", which goes up one level (as do
+ * Esc and Back).
+ */
+function ScopeChip({ scope, names, picture }: { scope: Id[]; names: FocusMap; picture: boolean }) {
+  const name = (id: Id) => names.nodes.find((n) => n.id === id)?.name ?? '';
+  if (!scope.length) {
+    return picture ? (
+      <View style={styles.chipRow}>
+        <Text style={styles.chipAll} accessibilityRole="header" testID="scope-chip">
+          All
+        </Text>
+      </View>
+    ) : null;
+  }
+  const here = name(scope[scope.length - 1]);
+  const up = scope.length > 1 ? name(scope[scope.length - 2]) : 'All';
+  return (
+    <View style={styles.chipRow}>
+      <Pressable onPress={goUp} accessibilityRole="button" accessibilityLabel={`${up} · ${here}, back to ${up}`} style={styles.chip} testID="scope-chip">
+        <Text style={styles.chipText} numberOfLines={1}>
+          <Text {...decorative}>‹ </Text>
+          {up} · {here}
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/** The picture as the card needs it (P-50): every node in it, its circle's centre (or, with no picture, its place in the list), and the links. */
+function focusMap(ov: Overview, layout: OverviewLayout, items: ReturnType<typeof pictureItems>): FocusMap {
+  const at = new Map(layout.nodes.map((n) => [n.id, n.circle]));
+  const why = new Set(ov.mode === 'whys' ? ov.whys.map((w) => w.thread.id) : []);
+  const nodes = items.map((it, i) => {
+    const c = at.get(it.id);
+    return { id: it.id, name: it.name, x: c ? c.cx : i, y: c ? c.cy : 0, why: why.has(it.id) };
+  });
+  return { nodes, links: ov.links.filter((l) => l.from !== l.to && nodes.some((n) => n.id === l.from) && nodes.some((n) => n.id === l.to)).map((l) => ({ from: l.from, to: l.to })) };
+}
+
+/** The map in the list's order (no picture). */
+const listOrder = (map: FocusMap): FocusMap => ({ ...map, nodes: map.nodes.map((n, i) => ({ ...n, x: i, y: 0 })) });
+
+/** The map with each drawn node where it's drawn now (the narrowed layout's places, for a swipe's order). */
+function withPlaces(map: FocusMap, layout: OverviewLayout): FocusMap {
+  if (layout.summaryOnly) return map;
+  const at = new Map(layout.nodes.map((n) => [n.id, n.circle]));
+  return { ...map, nodes: map.nodes.map((n) => (at.get(n.id) ? { ...n, x: at.get(n.id)!.cx, y: at.get(n.id)!.cy } : n)) };
+}
+
+/**
+ * Narrowing zooms (P-50): when the scope changes, the picture starts with the node it turns on (the
+ * one narrowed to, or the one left) where and how big it was, and eases to the new layout in 250 ms.
+ * Under Reduce Motion it just changes.
+ */
+function useZoom(root: Id | undefined, layout: OverviewLayout | undefined, width: number) {
+  const reduce = useReduceMotion();
+  const [z] = useState(() => ({ s: new Animated.Value(1), x: new Animated.Value(0), y: new Animated.Value(0) }));
+  const last = useRef<{ root?: Id; layout?: OverviewLayout }>({ root, layout });
+  useLayoutEffect(() => {
+    const prev = last.current;
+    last.current = { root, layout };
+    if (prev.root === root || reduce || !prev.layout || !layout || prev.layout.summaryOnly || layout.summaryOnly) return;
+    // Narrowing turns on the new scope's node; going up, on the one left.
+    const pivot = root && prev.layout.nodes.some((n) => n.id === root) ? root : prev.root;
+    const a = prev.layout.nodes.find((n) => n.id === pivot)?.circle;
+    const b = layout.nodes.find((n) => n.id === pivot)?.circle;
+    if (!a || !b) return;
+    const s = a.r / b.r;
+    const [cx, cy] = [width / 2, layout.height / 2];
+    z.s.setValue(s);
+    z.x.setValue(a.cx - cx - s * (b.cx - cx));
+    z.y.setValue(a.cy - cy - s * (b.cy - cy));
+    const to = (v: Animated.Value, value: number) => Animated.timing(v, { toValue: value, duration: 250, easing: Easing.out(Easing.cubic), useNativeDriver: Platform.OS !== 'web' });
+    Animated.parallel([to(z.s, 1), to(z.x, 0), to(z.y, 0)]).start();
+  }, [root, layout, width, reduce, z]);
+  return { transform: [{ translateX: z.x }, { translateY: z.y }, { scale: z.s }] };
 }
 
 const styles = StyleSheet.create({
@@ -391,8 +534,17 @@ const styles = StyleSheet.create({
   underWhy: { fontWeight: '600' },
   // Text the branches pass behind: the page colour under it, so a line never runs through words.
   mask: { backgroundColor: C.bg },
-  stepRow: { position: 'absolute', alignItems: 'center' },
-  step: { fontSize: 12, color: C.muted, textAlign: 'center', paddingHorizontal: 4, maxWidth: '100%' },
+  // P-50: the focused node's step, as a filled ink dot with its words, or a dashed ＋.
+  stepDot: { position: 'absolute', width: 2 * STEP_DOT_R, height: 2 * STEP_DOT_R, borderRadius: STEP_DOT_R, backgroundColor: C.ink },
+  stepLabel: { position: 'absolute' },
+  step: { fontSize: LABEL_FONT, lineHeight: LABEL_LINE + 2, fontWeight: '600', color: C.ink, paddingHorizontal: 2, maxWidth: '100%' },
+  addStep: { width: 2 * STEP_ADD_R, height: 2 * STEP_ADD_R, borderRadius: STEP_ADD_R, borderWidth: 1.2, borderStyle: 'dashed', borderColor: C.faint, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' },
+  addStepText: { fontSize: 12, lineHeight: 14, color: C.muted },
+  // P-50: the scope chip.
+  chipRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28 },
+  chipAll: { fontSize: 13, fontWeight: '500', color: C.muted },
+  chip: { minHeight: 44, marginVertical: -8, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: C.ink, justifyContent: 'center', maxWidth: '100%', backgroundColor: C.surface },
+  chipText: { fontSize: 14, fontWeight: '600', color: C.ink },
   whyText: { fontWeight: '600', color: C.accentInk },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.muted },
   // Your latest log: larger, in the accent colour, until the next one (so every log visibly lands).
@@ -408,7 +560,8 @@ const styles = StyleSheet.create({
   listItem: { maxWidth: '100%' },
   item: { minHeight: 44, maxWidth: '100%', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, justifyContent: 'center' },
   itemWhy: { borderColor: C.accent },
-  itemSelected: { borderWidth: 2, borderColor: C.accent, backgroundColor: C.accentTint },
+  // P-50: the focused node's button carries the focus as the ring does: ink.
+  itemSelected: { borderWidth: 2, borderColor: C.ink },
   itemText: { fontSize: 14, flexShrink: 1 },
   itemName: { fontWeight: '500', color: C.ink },
   itemRole: { color: C.muted },

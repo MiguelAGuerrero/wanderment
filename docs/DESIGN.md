@@ -34,7 +34,12 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   colour is its **heat**: the warmth of the most recent activity on it or anything feeding it, never a
   sum (owner, D-9, 2026-11-22). Doing → to links are tapered branches, and no width comes from a
   count. Once wanders exist there are no dots.
-  A staged next step is one quiet line under its node. There's no
+  **Focus and scope** (owner, D-9): tapping a circle focuses it (one ink ring; only its staged step
+  is drawn, as a dot beside it, or a dashed ＋) and attaches it to the next log (a visible, removable
+  chip, one log). Swiping the What's next card moves focus between chains without attaching; tapping a
+  focused parent narrows the picture to it ("‹ All · <node>", Esc or Back go up). Focus persists after
+  a log; heat never changes with focus or scope. On open the card shows the wander last logged
+  toward, never attached. There's no
   threshold: with no wanders your recent logs show as dots on their own, and while there are no whys
   a gentle "+ What's it all for?" offers to name one ("Not now" hides it for good). Under the picture,
   its summary in one line, then the whys and wanders as buttons (the way through without pointing,

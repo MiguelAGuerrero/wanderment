@@ -69,7 +69,8 @@ test('the full path: what it’s all for → one next step → the graph with bo
   expect(summary).toContain('feel productive');
   await expect(three(page)).toHaveAccessibleName(`There it is. ${summary}`);
   await expect(three(page)).toContainText('It’s here whenever you get to it');
-  await expect(page.getByTestId('graph-step-' + (await nodes(page).first().getAttribute('data-testid'))!.replace('graph-node-', ''))).toHaveText('↳ read a book');
+  // P-50: the one node is focused (the ring) and its step is drawn beside its dot, without "↳".
+  await expect(page.getByTestId('graph-step-' + (await nodes(page).first().getAttribute('data-testid'))!.replace('graph-node-', ''))).toHaveText('read a book');
   await expect(logBox(page)).toBeEditable();
   expect(await noFieldFocused(page)).toBe(true);
   await targetsAre44(page);

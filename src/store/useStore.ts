@@ -20,10 +20,11 @@ import {
   undeclareThread,
   updateThread,
 } from '@/domain/model';
+import { canNarrow, FocusMap, stepFocus, validScope } from '@/domain/focus';
 import { Settings } from '@/domain/migrate';
 import { rememberSearch } from '@/domain/search';
 import { Selection, selectToward, unselect } from '@/domain/select';
-import { HomeFace, restingFace } from '@/domain/slot';
+import { cardLabel, HomeFace, restingFace, whatsNextNode } from '@/domain/slot';
 import { lastActivities } from '@/domain/selectors';
 import { Data, emptyData, Id } from '@/domain/types';
 
@@ -115,6 +116,20 @@ interface State {
   selectFocus: number;
   /** Which face Home's bottom slot shows (P-49): "What's next" or "Log". Session only. */
   homeFace: HomeFace;
+  /**
+   * The node Home's What's next card is on (P-50: one ink ring), once tapped, swiped to or kept by a
+   * log; undefined until then (the card shows the wander last logged toward, `whatsNextNode`).
+   * Session only. Focus is never an attach: only a tap attaches (`selected`).
+   */
+  focus?: Id;
+  /** What part of Home's graph is drawn (P-50): [] is All, else the nodes narrowed to, outermost first. Session only. */
+  scope: Id[];
+  /** Home's picture as drawn (P-50), published by the graph: the card's path and what a swipe walks. */
+  focusMap?: FocusMap;
+  /** The picture's dashed ＋ (P-50) asked the What's next card to open its "＋ add one" field for this node; the card takes it. */
+  addStepFor?: Id;
+  /** The last focus or scope change, said politely to screen readers (P-50). */
+  focusSaid: { text: string; n: number };
   /** Activity Home's bridge asks about ("Toward something — or just itself?"). Session only. */
   bridgeFor?: Id;
   /** Thread that shows the quiet "+ What's next? (optional)" line after a log. */
@@ -150,6 +165,19 @@ interface State {
   focusLogBox: () => void;
   /** Selects a wander on Home (its "to" chip goes on the line), or clears the selection (`undefined`). */
   select: (threadId: Id | undefined, opts?: { focus?: boolean }) => void;
+  /**
+   * A tap on a circle on Home, or its button in the list (P-50): focuses it and attaches it for the
+   * next log (the tap is the consent). Tapped again while focused, a node with something feeding it
+   * inside the scope narrows to it (focus stays on it).
+   */
+  tapNode: (threadId: Id) => void;
+  /** A swipe on the card (P-50): focus to the next (1) or previous (-1) chain in the scope. Never attaches. False at an end. */
+  moveFocus: (dir: 1 | -1) => boolean;
+  /** Up one scope level (P-50): the chip, Esc, Back. */
+  scopeUp: () => void;
+  setFocusMap: (map: FocusMap | undefined) => void;
+  /** The picture's dashed ＋ under a node with no step: the What's next card opens its "＋ add one" (`undefined`: taken). */
+  askAddStep: (threadId: Id | undefined) => void;
   /*
    * Data-changing actions (everything that touches `data` or the saved settings) go through one
    * gate: while the page doesn't hold the data (`holdsData`) they change nothing and show
@@ -254,6 +282,8 @@ export const useStore = create<State>()((set, get) => ({
   logBoxFocus: 0,
   selectFocus: 0,
   homeFace: 'log',
+  scope: [],
+  focusSaid: { text: '', n: 0 },
   showShading: true,
   toastHeld: false,
   recentSearches: [],
@@ -295,10 +325,46 @@ export const useStore = create<State>()((set, get) => ({
       return { draft, selected: selection, ...(opts?.focus && { selectFocus: s.selectFocus + 1 }) };
     }),
 
+  tapNode: (threadId) =>
+    set((s) => {
+      const t = s.data.threads[threadId];
+      if (!t || t.hidden) return {};
+      const current = whatsNextNode(s.data, s.focus);
+      const map = s.focusMap;
+      const scope = map ? validScope(map, s.scope) : [];
+      const narrow = current === threadId && !!map && canNarrow(map, scope, threadId);
+      const { draft, selection } = selectToward(s.draft, s.selected, threadId);
+      // Said either way, so a press always answers (the card's name, or the new scope).
+      const said = narrow ? `Showing ${t.name}` : cardLabel(s.data, map, threadId);
+      return { focus: threadId, draft, selected: selection, ...(narrow && { scope: [...scope, threadId] }), focusSaid: { text: said, n: s.focusSaid.n + 1 } };
+    }),
+
+  moveFocus: (dir) => {
+    const s = get();
+    if (!s.focusMap) return false;
+    const current = whatsNextNode(s.data, s.focus);
+    const to = stepFocus(s.focusMap, validScope(s.focusMap, s.scope), current, dir);
+    if (!to || to === current || !s.data.threads[to] || s.data.threads[to].hidden) return false;
+    set({ focus: to, focusSaid: { text: cardLabel(s.data, s.focusMap, to), n: s.focusSaid.n + 1 } });
+    return true;
+  },
+
+  scopeUp: () =>
+    set((s) => {
+      const scope = s.focusMap ? validScope(s.focusMap, s.scope) : s.scope;
+      if (!scope.length) return s.scope.length ? { scope: [] } : {};
+      const up = scope.slice(0, -1);
+      const name = up.length ? s.data.threads[up[up.length - 1]]?.name : undefined;
+      return { scope: up, focusSaid: { text: name ? `Showing ${name}` : 'Showing all', n: s.focusSaid.n + 1 } };
+    }),
+
+  setFocusMap: (map) => set({ focusMap: map }),
+  askAddStep: (threadId) => set(threadId ? { focus: threadId, homeFace: 'next', addStepFor: threadId } : { addStepFor: undefined }),
+
   log: gated<State['log']>(
     undefined,
     (extra, opts) => {
-      const { data, draft, selected } = get();
+      const { data, draft, selected, focus } = get();
       const text = (extra?.text ?? draft.text).trim();
       if (!text) return undefined;
       const res = logActivity(data, {
@@ -316,8 +382,10 @@ export const useStore = create<State>()((set, get) => ({
       const bridge = !!opts?.bridge && !owner;
       set({
         bridgeFor: bridge ? res.activity.id : undefined,
-        // A selection lasts one log.
+        // A selection (the attach) lasts one log; focus stays where it was (P-50), even when it was
+        // only the default: the log never moves it.
         selected: undefined,
+        focus: whatsNextNode(data, focus),
         data: res.data,
         undo: undoEntry(data, res.data),
         // A one-tap log from outside the box keeps its line (without the selection's chip).
@@ -484,7 +552,7 @@ export const useStore = create<State>()((set, get) => ({
   dismissToast: () => set({ toast: undefined, toastHeld: false }),
   holdToast: (held) => set({ toastHeld: held }),
   dismissPrompt: () => set({ promptNextFor: undefined }),
-  replaceData: gated<State['replaceData']>(false, (data) => change({ data, undo: undefined, toast: undefined, draft: emptyDraft(), bridgeFor: undefined, selected: undefined })),
+  replaceData: gated<State['replaceData']>(false, (data) => change({ data, undo: undefined, toast: undefined, draft: emptyDraft(), bridgeFor: undefined, selected: undefined, focus: undefined, scope: [] })),
   refreshData: gated<State['refreshData']>(false, (data, settings, keepUndo) =>
     change((s) => ({
       data,

@@ -12,6 +12,7 @@
  * enters takes a free slot (`overviewLayout` takes the previous slots). No numbers are drawn.
  */
 import { groupByValue, valueThreads } from './emergence';
+import { STEP_ROOM, subtree } from './focus';
 import { emptyHeatIndex, indexHeat, nodeHeat } from './heat';
 import { declaredWhys } from './model';
 import { homeThreads } from './selectors';
@@ -708,6 +709,70 @@ function circleLayout(ov: Overview, width: number, members: Thread[], slot: Reco
     stepH: STEP_H,
     ...(ov.more && { more: { x: width - MORE_SLOTS * pitch, y: MORE_Y, w: MORE_SLOTS * pitch, h: ROW } }),
     slots: { threads: slot, dots: {} },
+  };
+}
+
+/** P-50, narrowed: the scope's node, then each row down (by how many steps it is from it); deeper rows use the last. */
+export const SCOPE_R = [44, 30, 22];
+/** Between a row's targets and the next row's, room for the branches to curve. */
+const SCOPE_GAP = 28;
+
+/**
+ * Home narrowed to a node (P-50): only that node and everything feeding it, the node on top and
+ * centred as the biggest circle, the rest in rows by depth (the fewest links from it), each row
+ * smaller, left to right as at All. Heat, roles and steps are All's (`all`), never re-worked; the
+ * branches are drawn the same way. Never shorter than All, and with room under the lowest row for
+ * the step mark. All's slots are kept, so going back up moves nothing. A node not in the picture:
+ * All as it is.
+ */
+export function scopeLayout(ov: Overview, all: OverviewLayout, rootId: Id, width: number, fontScale = 1): OverviewLayout {
+  const byId = new Map(all.nodes.map((n) => [n.id, n]));
+  if (!byId.has(rootId) || all.summaryOnly) return all;
+  const links = ov.links.filter((l) => byId.has(l.from) && byId.has(l.to));
+  const inside = subtree({ nodes: all.nodes.map((n) => ({ id: n.id, name: n.name, x: 0, y: 0, why: false })), links }, rootId);
+  const depth = new Map<Id, number>([[rootId, 0]]);
+  for (let frontier = [rootId]; frontier.length; ) {
+    const next: Id[] = [];
+    for (const p of frontier)
+      for (const l of links)
+        if (l.to === p && inside.has(l.from) && !depth.has(l.from)) {
+          depth.set(l.from, depth.get(p)! + 1);
+          next.push(l.from);
+        }
+    frontier = next;
+  }
+  const rows: LaidNode[][] = [];
+  for (const [id, d] of depth) (rows[d] ??= []).push(byId.get(id)!);
+  const colW = (width - GAP * (MAX_COLUMNS - 1)) / MAX_COLUMNS;
+  const nodes: LaidNode[] = [];
+  let top = 0;
+  let room = 0;
+  rows.forEach((row, d) => {
+    row.sort((a, b) => a.circle!.cx - b.circle!.cx || a.circle!.cy - b.circle!.cy);
+    const r = SCOPE_R[Math.min(d, SCOPE_R.length - 1)];
+    const slotW = width / row.length;
+    let rowH = 0;
+    row.forEach((n, i) => {
+      const cx = slotW * (i + 0.5);
+      const w = Math.max(44, Math.min(slotW, Math.max(colW, 2 * r + 16)));
+      const fit = insideWidth(n.name, r, fontScale);
+      const h = RING_PAD + 2 * r + (fit === undefined ? LABEL_H : 0);
+      rowH = Math.max(rowH, h);
+      const circle: LaidCircle = { ...n.circle!, cx: r1(cx), cy: top + RING_PAD + r, r, inside: fit !== undefined, labelW: fit ?? Math.floor(w) };
+      room = Math.max(room, circle.cy + STEP_ROOM);
+      nodes.push({ ...n, x: r1(cx - w / 2), y: top, w: r1(w), h, circle });
+    });
+    top += rowH + SCOPE_GAP;
+  });
+  return {
+    summaryOnly: false,
+    height: Math.max(ROOMY_H, Math.ceil(room), top - SCOPE_GAP),
+    nodes,
+    links: branches(links.filter((l) => inside.has(l.from) && inside.has(l.to)), nodes),
+    dots: [],
+    dotLines: [],
+    stepH: STEP_H,
+    slots: all.slots,
   };
 }
 

@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-22 — Logs with no context; pull-out views
+> [Screenshot: their Home with two logs and no wanders: two bare dots and "Lately: Watched an video
+> on AI acceptance; Worke…"] This view is very confusing with the truncated "lately" and the dots
+> hovering with no context. They should at least show their text … Let's make activities and wanders
+> just pull out views from the home page.
+> (Answers: one sheet from the bottom; remove the tab bar; dots with their text.)
+
+Interpretation: the owner's real data is logs-only, so Home showed nothing readable. Wanders and
+Activities become one pull-up sheet; Home is the only screen.
+Led to: D-10, P-57, P-58.
+
 ## 2026-11-22 — "implement" (B-06)
 > /product implement
 

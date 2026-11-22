@@ -143,10 +143,14 @@ test('circles by level, coloured by heat that flows upward; no dots; tapered bra
   const sew = branches.find((b) => b.testId === 'graph-link-sew-make apparel')!;
   expect(sew.stops[0]).not.toBe(sew.stops[1]);
 
-  // The staged step is still one line under its node.
-  const step = (await page.getByTestId('graph-step-draw').boundingBox())!;
-  const draw = (await node(page, 'draw').boundingBox())!;
-  expect(step.y).toBeGreaterThanOrEqual(draw.y + draw.height - 1);
+  // P-50 (was: the staged step is one line under its node): only the focused node's step is drawn.
+  // hands was logged toward last but isn't in the picture, so nothing is; focused, draw's shows below it.
+  await expect(page.locator('[data-testid^="graph-step-"]').filter({ visible: true })).toHaveCount(0);
+  await node(page, 'draw').click();
+  const step = (await page.getByTestId('graph-step-dot-draw').boundingBox())!;
+  const draw = (await node(page, 'draw').locator('> div').first().boundingBox())!;
+  expect(step.y).toBeGreaterThan(draw.y + draw.height / 2);
+  await expect(page.getByTestId('graph-step-draw')).toHaveText('sketch a hand');
 
   // Targets stay 44 px or more.
   for (const n of await nodes(page).all()) {

@@ -110,13 +110,15 @@ test('with wanders: the graph, the staged step under its node, the summary line 
   await page.addInitScript(seedScript, withWhy());
   await openHome(page);
   await expect(nodes(page)).toHaveCount(5);
-  // Only draw has a staged step: one quiet line under its node, no age, no count.
-  await expect(page.getByTestId('graph-step-draw')).toHaveText('↳ sketch a hand');
-  await expect(page.locator('[data-testid^="graph-step-"]').filter({ visible: true })).toHaveCount(1);
-  const step = (await page.getByTestId('graph-step-draw').boundingBox())!;
+  // P-50 (was: one quiet "↳" line under its node): draw was logged toward last, so it's focused (the
+  // ring) and its step is the one drawn: a dot below and beside it, with its words; no age, no count.
+  await expect(page.getByTestId('graph-selected-draw')).toBeVisible();
+  await expect(page.getByTestId('graph-step-draw')).toHaveText('sketch a hand');
+  await expect(page.locator('[data-testid^="graph-step-"]:not([data-testid^="graph-step-dot-"])').filter({ visible: true })).toHaveCount(1);
+  const step = (await page.getByTestId('graph-step-dot-draw').boundingBox())!;
   const draw = (await page.getByTestId('graph-node-draw').boundingBox())!;
-  expect(step.y).toBeGreaterThanOrEqual(draw.y + draw.height - 1);
-  expect(Math.abs(step.x + step.width / 2 - (draw.x + draw.width / 2))).toBeLessThan(2);
+  expect(step.y).toBeGreaterThan(draw.y);
+  expect(Math.abs(step.x + step.width / 2 - (draw.x + draw.width / 2))).toBeGreaterThan(24);
   // Node targets have room to breathe: taller than 44 px.
   expect(draw.height).toBeGreaterThan(44);
   // The summary is visible, in one line.
@@ -128,7 +130,7 @@ test('with wanders: the graph, the staged step under its node, the summary line 
   for (const b of await items.all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await expectNoSeriousViolations(page);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/p34-with-wanders.png` });
-  // Activating one selects the wander (P-35); its page opens from the row's "Open".
+  // Activating one focuses the wander (P-50); its page opens from the card's name ("Open draw").
   await items.nth(1).click();
   await page.getByRole('link', { name: 'Open draw', exact: true }).click();
   await expect(page).toHaveURL(/\/thread\/draw$/);

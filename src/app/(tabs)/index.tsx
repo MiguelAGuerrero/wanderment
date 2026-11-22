@@ -1,11 +1,12 @@
-import { Link, useFocusEffect } from 'expo-router';
+import { Link, useFocusEffect, useIsFocused } from 'expo-router';
 import { ComponentRef, useCallback, useMemo, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
 import { moveFocus, useFirstRun } from '@/components/FirstRun';
 import { ExploreIcon, homeContentWidth, LiveGraph, useGraphIcon } from '@/components/graph/HomeGraph';
-import { HomeAboveLog } from '@/components/graph/NodeContext';
+import { useScopeNav } from '@/components/graph/scopeNav';
+import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
 import { headerWhys } from '@/domain/overview';
 import { restingFace } from '@/domain/slot';
@@ -26,9 +27,9 @@ export default function Home() {
   const select = useStore((st) => st.select);
   const showHomeFace = useStore((st) => st.showHomeFace);
   const ready = useStore((st) => st.storage.state === 'ready');
-  // The bridge and a selected wander (P-35) are one moment on Home: they go when Home is left. Home
-  // stays mounted in the tabs, so this runs on blur, and on focus too (in case anything set them
-  // while Home was in the background).
+  // The bridge and an attached wander (P-35's selection) are one moment on Home: they go when Home is
+  // left (focus and scope stay, P-50). Home stays mounted in the tabs, so this runs on blur, and on
+  // focus too (in case anything set them while Home was in the background).
   useFocusEffect(
     useCallback(() => {
       const leave = () => {
@@ -58,9 +59,11 @@ export default function Home() {
   // The first run (P-36), over the empty graph; when ③ goes, focus moves to the top of Home.
   const title = useRef<ComponentRef<typeof Text>>(null);
   const firstRun = useFirstRun(() => moveFocus(title.current));
+  // P-50: Esc, Back and the browser's Back go up a scope level (Esc at All clears an attach).
+  useScopeNav(useIsFocused());
 
   return (
-    <Screen bridge slot aboveLog={<HomeAboveLog style={styles.bridge} />}>
+    <Screen bridge slot aboveLog={<LogBridge style={styles.bridge} />}>
       <View style={styles.header}>
         <Text ref={title} {...(Platform.OS === 'web' ? { tabIndex: -1 } : {})} style={[s.h1, styles.title, tightHeader && { fontSize: 24 }]} numberOfLines={1} accessibilityRole="header">
           Wanderment

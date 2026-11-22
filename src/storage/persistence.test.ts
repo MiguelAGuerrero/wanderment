@@ -1433,6 +1433,12 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       // P-49: which face Home's slot shows, and handing focus to the log box.
       showHomeFace: ['next'],
       focusLogBox: [],
+      // P-50: Home's focus and scope (session only; a tap's attach is the draft's chip, like select).
+      tapNode: ['t1'],
+      moveFocus: [1],
+      scopeUp: [],
+      setFocusMap: [undefined],
+      askAddStep: ['t1'],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>

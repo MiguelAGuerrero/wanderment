@@ -1,4 +1,8 @@
-/** P-35: act from a node — a tap selects a wander and the log box takes its context. */
+/**
+ * P-35: act from a node — a tap attaches a wander to the next log (the "to" chip). P-50: the tap also
+ * focuses it (the ring and the What's next card); the "Toward X" row above the log box is gone: the
+ * card carries the step (✓, "＋ add one") and the name that opens the page, the chip carries the attach.
+ */
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
@@ -8,7 +12,8 @@ import { legacyBlob, seedScript } from './graphFixture';
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
 
 const node = (page: Page, id: string) => page.getByTestId(`graph-node-${id}`).filter({ visible: true });
-const row = (page: Page) => page.getByRole('group', { name: /^Toward / });
+const card = (page: Page) => page.getByRole('region', { name: /^What’s next/ });
+const ring = (page: Page) => page.locator('[data-testid^="graph-selected-"]').filter({ visible: true });
 const list = (page: Page) => page.getByRole('list', { name: 'What’s in the picture' });
 const toast = (page: Page, text: string) => page.getByText(text, { exact: true }).filter({ visible: true });
 const toChip = (page: Page, name: string) => page.getByRole('button', { name: `To: ${name}. Remove`, exact: true });
@@ -39,150 +44,147 @@ test.beforeEach(async ({ page }) => {
   await openHome(page);
 });
 
-test('a tap selects a node: “Toward X” above the log box, its step one tap away, the “to” chip inside the box, no keyboard', async ({ page }) => {
-  await expect(row(page)).toHaveCount(0);
+// P-50: was "…: “Toward X” above the log box, its step one tap away, …" — the row is gone; the card shows it.
+test('a tap focuses a node and attaches it: the card shows it, its step one tap away, the “to” chip inside the box, no keyboard', async ({ page }) => {
+  await expect(page.getByRole('group', { name: /^Toward / })).toHaveCount(0);
   await node(page, 'draw').click();
-  await expect(node(page, 'draw')).toHaveAttribute('data-selected', 'true');
-  await expect(row(page)).toHaveAccessibleName('Toward draw');
-  await expect(row(page)).toContainText('Toward draw');
-  const next = row(page).getByRole('button', { name: 'Log next step: sketch a hand', exact: true });
-  await expect(next).toBeVisible();
-  await expect(row(page).getByRole('link', { name: 'Open draw', exact: true })).toBeVisible();
-  await expect(row(page).getByRole('button', { name: 'Clear selection', exact: true })).toBeVisible();
-  // The row sits right above the log box; the "to" chip is inside it.
-  const r = (await row(page).boundingBox())!;
-  expect(r.y + r.height).toBeLessThanOrEqual((await logBox(page).boundingBox())!.y);
-  await expect(toChip(page, 'draw')).toBeVisible();
+  await expect(node(page, 'draw')).toHaveAttribute('data-focused', 'true');
+  await expect(card(page)).toHaveAccessibleName('What’s next, draw, for make apparel: sketch a hand');
+  const did = card(page).getByRole('button', { name: 'Did it: sketch a hand', exact: true });
+  await expect(did).toBeVisible();
+  await expect(card(page).getByRole('link', { name: 'Open draw', exact: true })).toBeVisible();
+  // The "to" chip is inside the box (on the Log face).
+  await expect(page.getByTestId('home-slot').getByRole('button', { name: 'To: draw. Remove', exact: true, includeHidden: true })).toHaveCount(1);
   // A tap never raises the keyboard: the log box isn't focused.
   await expect(logBox(page)).not.toBeFocused();
-  for (const b of await row(page).getByRole('button').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  for (const b of await card(page).getByRole('button').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await expectNoSeriousViolations(page);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/p35-selected.png` });
 
-  // With an empty box, one tap logs the step (owner: "quickly log … the next step"), in draw, and
-  // clears the step; Undo is in the toast.
-  await next.click();
+  // One tap logs the step (owner: "quickly log … the next step"), in draw, and clears the step; Undo is in the toast.
+  await did.click();
   await expect(toast(page, 'Logged in draw')).toBeVisible();
   await expect(logBox(page)).toHaveValue('');
   await expect(page.getByTestId('graph-step-draw')).toHaveCount(0);
-  // The selection lasted one log.
-  await expect(row(page)).toHaveCount(0);
-  await expect(node(page, 'draw')).not.toHaveAttribute('data-selected', 'true');
+  // The attach lasted one log; focus stays (P-50).
+  await expect(toChip(page, 'draw')).toHaveCount(0);
+  await expect(node(page, 'draw')).toHaveAttribute('data-focused', 'true');
 });
 
-test('typing logs toward the selection, as typed; the toast names it; the next line goes nowhere', async ({ page }) => {
+test('typing logs toward the attached node, as typed; the toast names it; the next line goes nowhere', async ({ page }) => {
   await node(page, 'sew').click();
   await logLine(page, 'pinned a hem');
   await expect(toast(page, 'Logged → to sew')).toBeVisible();
-  await expect(row(page)).toHaveCount(0);
   await expect(toChip(page, 'sew')).toHaveCount(0);
+  // P-50: focus stays after the log (was: the row went).
+  await expect(ring(page)).toHaveAttribute('data-testid', 'graph-selected-sew');
   await logLine(page, 'cooked dinner');
   await expect(toast(page, 'Logged')).toBeVisible();
 });
 
-test('removing the “to” chip clears the selection and the line goes nowhere', async ({ page }) => {
+test('removing the “to” chip clears the attach and the line goes nowhere', async ({ page }) => {
   await node(page, 'sew').click();
   await logBox(page).fill('pinned a hem');
   await toChip(page, 'sew').click();
-  await expect(row(page)).toHaveCount(0);
+  await expect(toChip(page, 'sew')).toHaveCount(0);
   await logBox(page).press('Enter');
   await expect(toast(page, 'Logged')).toBeVisible();
 });
 
-test('×, Esc and a tap on empty canvas clear the selection, keeping what’s typed', async ({ page }) => {
+// P-50: the row's × is gone (the chip's × is the test above); focus stays when the attach goes.
+test('Esc and a tap on empty canvas clear the attach, keeping what’s typed', async ({ page }) => {
   await node(page, 'sew').click();
   await logBox(page).fill('half a seam');
-  await row(page).getByRole('button', { name: 'Clear selection' }).click();
-  await expect(row(page)).toHaveCount(0);
+  await logBox(page).press('Escape');
   await expect(toChip(page, 'sew')).toHaveCount(0);
   await expect(logBox(page)).toHaveValue('half a seam');
 
-  await node(page, 'sew').click();
-  await logBox(page).press('Escape');
-  await expect(row(page)).toHaveCount(0);
-  await expect(logBox(page)).toHaveValue('half a seam');
-
-  await node(page, 'sew').click();
+  await node(page, 'draw').click();
+  await expect(toChip(page, 'draw')).toBeVisible();
   const pic = (await page.getByTestId('home-graph-picture').boundingBox())!;
   // The picture's centre is never a node (P-15): empty canvas.
   const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[data-testid]')?.getAttribute('data-testid'), [pic.x + pic.width / 2, pic.y + pic.height / 2]);
   expect(hit).toBe('home-graph-picture');
   await page.mouse.click(pic.x + pic.width / 2, pic.y + pic.height / 2);
-  await expect(row(page)).toHaveCount(0);
+  await expect(toChip(page, 'draw')).toHaveCount(0);
   await expect(logBox(page)).toHaveValue('half a seam');
+  await expect(ring(page)).toHaveAttribute('data-testid', 'graph-selected-draw');
 });
 
 // P-48: no dots once wanders exist (was "…; dots still open their log; …"); logs on their own still do (home-is-graph.spec.ts).
-test('selecting another node moves the context; Open goes to the wander', async ({ page }) => {
+// P-50: "Open" is the card's name (was: in the row).
+test('tapping another node moves the focus and the attach; Open goes to the wander', async ({ page }) => {
   await node(page, 'sew').click();
   await node(page, 'draw').click();
-  await expect(row(page)).toHaveAccessibleName('Toward draw');
+  await expect(card(page)).toHaveAccessibleName('What’s next, draw, for make apparel: sketch a hand');
   // P-49: the chips are in the box, on the Log face of Home's slot (Home opens on What's next).
   await showLogFace(page);
   await expect(toChip(page, 'sew')).toHaveCount(0);
   await expect(toChip(page, 'draw')).toBeVisible();
-  await row(page).getByRole('link', { name: 'Open draw' }).click();
+  await page.getByRole('tab', { name: 'What’s next', exact: true }).click();
+  await card(page).getByRole('link', { name: 'Open draw' }).click();
   await expect(page).toHaveURL(/\/thread\/draw$/);
-  // Leaving Home cleared it.
+  // Leaving Home cleared the attach; focus stays.
   await page.goBack();
   await expect(logBox(page)).toBeVisible();
-  await expect(row(page)).toHaveCount(0);
   await expect(toChip(page, 'draw')).toHaveCount(0);
+  await expect(ring(page)).toHaveAttribute('data-testid', 'graph-selected-draw');
   await expect(page.getByTestId('graph-dot-a1')).toHaveCount(0); // P-48: no dots once wanders exist (was: it opens /activity/a1).
 });
 
-test('“+ next step” sets one inline, then it’s one tap to log', async ({ page }) => {
+// P-50: the row's "+ next step" is the card's "＋ add one" (was: "“+ next step” sets one inline, then it’s one tap to log").
+test('“＋ add one” on a tapped node sets its step inline, then it’s one tap to log', async ({ page }) => {
   await node(page, 'sew').click();
-  await row(page).getByRole('button', { name: '+ next step', exact: true }).click();
-  const field = page.getByRole('textbox', { name: 'Next step for sew' });
+  await card(page).getByRole('button', { name: 'add one: a next step for sew', exact: true }).click();
+  const field = page.getByRole('textbox', { name: 'What’s next for sew' });
   await expect(field).toBeFocused();
   await field.fill('cut the pattern');
   await field.press('Enter');
-  await expect(page.getByTestId('graph-step-sew')).toHaveText('↳ cut the pattern');
-  await expect(row(page).getByRole('button', { name: 'Log next step: cut the pattern', exact: true })).toBeVisible();
+  await expect(page.getByTestId('graph-step-sew')).toHaveText('cut the pattern');
+  await expect(card(page).getByRole('button', { name: 'Did it: cut the pattern', exact: true })).toBeVisible();
   // Esc in the step field closes only the field.
   await node(page, 'make apparel').click();
-  await row(page).getByRole('button', { name: '+ next step' }).click();
-  await page.getByRole('textbox', { name: 'Next step for make apparel' }).press('Escape');
-  await expect(row(page)).toHaveAccessibleName('Toward make apparel');
-  await expect(row(page).getByRole('button', { name: '+ next step' })).toBeVisible();
+  await card(page).getByRole('button', { name: 'add one: a next step for make apparel' }).click();
+  await page.getByRole('textbox', { name: 'What’s next for make apparel' }).press('Escape');
+  await expect(card(page)).toHaveAccessibleName('What’s next, make apparel');
+  await expect(card(page).getByRole('button', { name: 'add one: a next step for make apparel' })).toBeVisible();
 });
 
-test('without pointing: the list selects, focus moves to the row; Esc returns focus to the list', async ({ page }) => {
+// P-50: was "…, focus moves to the row; Esc returns focus to the list" — no row: focus stays on the list's button, and the change is said.
+test('without pointing: the list focuses and attaches, focus stays on it; Esc clears the attach', async ({ page }) => {
   const item = list(page).getByRole('button', { name: 'draw, a wander', exact: true });
   await item.focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/\/wanderment\/$/);
-  await expect(row(page)).toHaveAccessibleName('Toward draw');
-  await expect(row(page).getByRole('button', { name: 'Log next step: sketch a hand' })).toBeFocused();
+  await expect(card(page)).toHaveAccessibleName('What’s next, draw, for make apparel: sketch a hand');
+  await expect(page.getByTestId('home-focus-said')).toHaveText('What’s next, draw, for make apparel: sketch a hand');
+  await expect(item).toBeFocused();
   // P-49: the chip is in the box, on the Log face of Home's slot, out of sight on What's next (and
   // switching faces would move focus): it's on the line all the same.
   await expect(page.getByTestId('home-slot').getByRole('button', { name: 'To: draw. Remove', exact: true, includeHidden: true })).toHaveCount(1);
   await expectNoSeriousViolations(page);
   await page.keyboard.press('Escape');
-  await expect(row(page)).toHaveCount(0);
+  await expect(page.getByTestId('home-slot').getByRole('button', { name: 'To: draw. Remove', exact: true, includeHidden: true })).toHaveCount(0);
   await expect(item).toBeFocused();
 });
 
-test('the context row replaces the bridge above the log box instead of stacking on it', async ({ page }) => {
+// P-50: was "the context row replaces the bridge …" — there's no row, so the bridge always shows.
+test('the bridge stays above the slot when a node is tapped', async ({ page }) => {
   await logLine(page, 'read a novel');
   const bridge = page.getByRole('group', { name: 'Attach what you just logged' });
   await expect(bridge).toBeVisible();
   await node(page, 'draw').click();
-  await expect(row(page)).toBeVisible();
-  await expect(bridge).toHaveCount(0);
-  await row(page).getByRole('button', { name: 'Clear selection' }).click();
   await expect(bridge).toBeVisible();
 });
 
-test('a line already typed is kept: “Log next step” makes it count as the step, and Return logs it', async ({ page }) => {
+// P-50: the row's "Log next step" (which made a typed line count as the step) is gone; P-51 brings
+// that back as the Log face's "✓ <step>" chip. Meanwhile ✓ logs the step and keeps the typed line.
+test('a line already typed is kept: ✓ logs the step on its own, and the line stays in the box', async ({ page }) => {
   await node(page, 'draw').click();
   await logBox(page).fill('half a hand, then coffee');
-  await row(page).getByRole('button', { name: 'Log next step: sketch a hand', exact: true }).click();
-  // Nothing logged yet, the words stay; the step chip says the line counts as it.
-  await expect(logBox(page)).toHaveValue('half a hand, then coffee');
-  await expect(page.getByRole('button', { name: /sketch a hand, next step in draw/ })).toBeVisible();
-  await logBox(page).press('Enter');
+  await page.getByRole('tab', { name: 'What’s next', exact: true }).click();
+  await card(page).getByRole('button', { name: 'Did it: sketch a hand', exact: true }).click();
   await expect(toast(page, 'Logged in draw')).toBeVisible();
   await expect(page.getByTestId('graph-step-draw')).toHaveCount(0);
+  await expect(logBox(page)).toHaveValue('half a hand, then coffee');
 });

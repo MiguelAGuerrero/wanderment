@@ -68,7 +68,8 @@ test.describe('with wanders', () => {
     await expect(tab(page, 'What’s next')).toHaveAttribute('aria-selected', 'true');
     await expect(tab(page, 'Log')).toHaveAttribute('aria-selected', 'false');
     await expect(page.getByTestId('home-slot').getByRole('tablist', { name: 'What’s next or Log' })).toBeVisible();
-    await expect(card(page)).toHaveAccessibleName('What’s next, draw better hands: sketch a hand');
+    // P-50: the card's name says its path (draw better hands feeds make apparel).
+    await expect(card(page)).toHaveAccessibleName('What’s next, draw better hands, for make apparel: sketch a hand');
     await expect(card(page)).toContainText('What’s next · draw better hands');
     await expect(card(page)).toContainText('sketch a hand');
     await expect(check(page, 'sketch a hand')).toBeVisible();
@@ -100,7 +101,7 @@ test.describe('with wanders', () => {
     await check(page, 'sketch a hand').click();
     await expect(toast(page, 'Logged in draw better hands')).toBeVisible();
     await expect(page.getByTestId('graph-step-draw better hands')).toHaveCount(0);
-    await expect(card(page)).toHaveAccessibleName('What’s next, draw better hands');
+    await expect(card(page)).toHaveAccessibleName('What’s next, draw better hands, for make apparel'); // P-50: with its path.
     await expect(addOne(page)).toBeVisible();
     await expect(tab(page, 'What’s next')).toHaveAttribute('aria-selected', 'true');
     await tab(page, 'Log').click();
@@ -118,9 +119,9 @@ test.describe('with wanders', () => {
   });
 
   test('“＋ add one” saves a step for the card’s wander; Esc or leaving it empty cancels', async ({ page }) => {
-    // The P-35 selection is the card's node.
+    // A tap on a node focuses it: the card's node (P-50, with its path).
     await node(page, 'sew').click();
-    await expect(card(page)).toHaveAccessibleName('What’s next, sew');
+    await expect(card(page)).toHaveAccessibleName('What’s next, sew, for make apparel');
     await expect(card(page)).toContainText('What’s next · sew');
     await expect((await addOne(page).boundingBox())!.height).toBeGreaterThanOrEqual(44);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/p49-add-one.png` });
@@ -131,8 +132,8 @@ test.describe('with wanders', () => {
     await field.press('Escape');
     await expect(field).toHaveCount(0);
     await expect(addOne(page)).toBeVisible();
-    // Esc in the field closed only the field: sew is still selected.
-    await expect(card(page)).toHaveAccessibleName('What’s next, sew');
+    // Esc in the field closed only the field: sew is still focused.
+    await expect(card(page)).toHaveAccessibleName('What’s next, sew, for make apparel');
 
     await addOne(page).click();
     await field.blur();
@@ -141,15 +142,16 @@ test.describe('with wanders', () => {
     await addOne(page).click();
     await field.fill('cut the pattern');
     await field.press('Enter');
-    await expect(card(page)).toHaveAccessibleName('What’s next, sew: cut the pattern');
+    await expect(card(page)).toHaveAccessibleName('What’s next, sew, for make apparel: cut the pattern');
     await expect(check(page, 'cut the pattern')).toBeVisible();
-    await expect(page.getByTestId('graph-step-sew')).toHaveText('↳ cut the pattern');
+    // P-50: the focused node's step is the one drawn, beside its dot (no "↳" line under it).
+    await expect(page.getByTestId('graph-step-sew')).toHaveText('cut the pattern');
     // Nothing was logged.
     await expect(page.getByText(/^Logged/).filter({ visible: true })).toHaveCount(0);
   });
 
   test('the card’s node is only shown: a line from the Log face goes nowhere unless chosen, then the slot flips back', async ({ page }) => {
-    await expect(card(page)).toHaveAccessibleName('What’s next, draw better hands: sketch a hand');
+    await expect(card(page)).toHaveAccessibleName('What’s next, draw better hands, for make apparel: sketch a hand'); // P-50: with its path.
     await tab(page, 'Log').click();
     // A tap on the toggle focuses the field; no chip came with the card.
     await expect(box(page)).toBeFocused();
@@ -206,14 +208,16 @@ test.describe('with wanders', () => {
     await expect(tab(page, 'What’s next')).toHaveAttribute('aria-selected', 'true');
   });
 
-  test('Esc on the empty Log face keeps a selection; the Log face keeps the P-35 “to” chip', async ({ page }) => {
+  // P-50: the "Toward sew" row is gone (was: "…keeps a selection; …"); focus and the attach chip carry it.
+  test('Esc on the empty Log face keeps the focus and the attach; the Log face keeps the P-35 “to” chip', async ({ page }) => {
     await node(page, 'sew').click();
     await tab(page, 'Log').click();
     await expect(page.getByRole('button', { name: 'To: sew. Remove', exact: true })).toBeVisible();
     await box(page).press('Escape');
     await expect(tab(page, 'What’s next')).toHaveAttribute('aria-selected', 'true');
-    await expect(card(page)).toHaveAccessibleName('What’s next, sew');
-    await expect(page.getByRole('group', { name: 'Toward sew' })).toBeVisible();
+    await expect(card(page)).toHaveAccessibleName('What’s next, sew, for make apparel');
+    await expect(page.getByTestId('graph-selected-sew')).toBeVisible();
+    await expect(page.getByTestId('home-slot').getByRole('button', { name: 'To: sew. Remove', exact: true, includeHidden: true })).toHaveCount(1);
   });
 
   test('while the page doesn’t hold the data (P-29), What’s next says so: ✓ is refused out loud, the step stays, and it clears once back', async ({ page }) => {
@@ -223,8 +227,8 @@ test.describe('with wanders', () => {
     await expect(line).toBeVisible();
     await check(page, 'sketch a hand').click();
     await expect(toast(page, 'Just a moment — reconnecting.')).toBeVisible();
-    await expect(card(page)).toHaveAccessibleName('What’s next, draw better hands: sketch a hand');
-    await expect(page.getByTestId('graph-step-draw better hands')).toHaveText('↳ sketch a hand');
+    await expect(card(page)).toHaveAccessibleName('What’s next, draw better hands, for make apparel: sketch a hand'); // P-50: with its path.
+    await expect(page.getByTestId('graph-step-draw better hands')).toHaveText('sketch a hand'); // P-50: beside its dot, no "↳".
     await setVisibility(page, 'visible');
     await expect(line).toHaveCount(0);
     // Back: ✓ works, once.

@@ -1,3 +1,4 @@
+import { FocusMap, pathName } from './focus';
 import { Data, Id } from './types';
 
 /** Home's bottom slot (P-49): one face at a time, "What's next" or "Log". */
@@ -26,4 +27,15 @@ export function whatsNextNode(data: Data, selectedId?: Id): Id | undefined {
   let newest: { id: Id; at: string } | undefined;
   for (const t of Object.values(data.threads)) if (!t.hidden && (!newest || t.createdAt > newest.at)) newest = { id: t.id, at: t.createdAt };
   return newest?.id;
+}
+
+/**
+ * The What's next card's name (P-50): "What’s next, <its node and the path up from it>: <its step>",
+ * e.g. "What’s next, draw better hands, toward draw, for make apparel: sketch a hand". Also what's
+ * said when focus moves to it.
+ */
+export function cardLabel(data: Data, map: FocusMap | undefined, id: Id): string {
+  const t = data.threads[id];
+  if (!t) return 'What’s next';
+  return `What’s next, ${pathName(map, id, t.name)}${t.next ? `: ${t.next}` : ''}`;
 }
