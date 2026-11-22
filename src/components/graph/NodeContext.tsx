@@ -44,6 +44,7 @@ function NodeContext({ id, name, rowRef, style }: { id: Id; name: string; rowRef
   const loaded = useStore((st) => st.draft.fromNextOf === id && st.draft.fromNextText === next && st.draft.text.trim() !== '');
   const select = useStore((st) => st.select);
   const loadNext = useStore((st) => st.loadNext);
+  const log = useStore((st) => st.log);
   const setNext = useStore((st) => st.setNext);
   const [naming, setNaming] = useState(false);
   const [step, setStep] = useState('');
@@ -89,7 +90,17 @@ function NodeContext({ id, name, rowRef, style }: { id: Id; name: string; rowRef
       </View>
       {next ? (
         !loaded && (
-          <Pressable onPress={() => loadNext(id)} accessibilityRole="button" style={styles.action} testID="node-context-action">
+          <Pressable
+            onPress={() => {
+              // Owner: "quickly log … the next step". An empty box: one tap logs it (Undo in the toast).
+              // A line already typed: it's kept and counts as the step (P-24); Return logs it.
+              const typed = useStore.getState().draft.text.trim() !== '';
+              loadNext(id);
+              if (!typed) log();
+            }}
+            accessibilityRole="button"
+            style={styles.action}
+            testID="node-context-action">
             <Text style={styles.actionText} numberOfLines={2}>
               <Text {...decorative}>↳ </Text>Log next step: {next}
             </Text>

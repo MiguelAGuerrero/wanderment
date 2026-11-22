@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, openWanders, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openWanders, test, toHome } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const COPY = 'Logged. Toward something — or just itself?';
@@ -148,7 +148,7 @@ test('leaving Home clears the bridge; a log from Activities neither shows nor an
   await expect(bridge(page)).toBeVisible();
 
   await page.getByRole('tab', { name: 'Activities' }).click();
-  await page.getByRole('tab', { name: 'Home' }).click();
+  await toHome(page);
   await expect(logBox(page)).toBeVisible();
   await expect(bridge(page)).toHaveCount(0);
 
@@ -158,7 +158,7 @@ test('leaving Home clears the bridge; a log from Activities neither shows nor an
   await expect(page.getByText('watered the plants', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText(QUESTION)).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Home' }).click();
+  await toHome(page);
   await expect(logBox(page)).toBeVisible();
   await expect(page.getByText(QUESTION)).toHaveCount(0);
 });

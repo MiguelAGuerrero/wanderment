@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, openWanders, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openWanders, test, toHome } from './fixtures';
 
 const visibleText = (page: Page, text: string) => page.getByText(text, { exact: true }).filter({ visible: true });
 
@@ -87,7 +87,7 @@ test('search finds activities, notes and next steps, and remembers the search', 
   await logLine(page, 'jam night');
 
   // P-34: Search is in Home's header.
-  await page.getByRole('tab', { name: 'Home' }).click();
+  await toHome(page);
   await page.getByRole('link', { name: 'Search' }).click();
   await page.getByRole('textbox', { name: 'Search' }).fill('scales');
   await expect(page.getByText('2 results')).toBeVisible();

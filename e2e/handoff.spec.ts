@@ -1,7 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, test, toHome } from './fixtures';
 
 /**
  * P-29 part B: a page holds the data only while it's visible. Headless Chromium keeps every page
@@ -23,7 +23,7 @@ const reconnecting = (page: Page) => page.getByRole('button', { name: 'Log, reco
 async function seeActivity(page: Page, text: string) {
   await page.getByRole('tab', { name: 'Activities' }).click();
   await expect(page.getByText(text, { exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'Home' }).click();
+  await toHome(page);
 }
 
 /**

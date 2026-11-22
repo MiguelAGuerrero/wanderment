@@ -59,11 +59,11 @@ test('a tap selects a node: “Toward X” above the log box, its step one tap a
   await expectNoSeriousViolations(page);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/p35-selected.png` });
 
-  // One tap loads the step (the crumb's "Log this"); Return logs it, in draw, and clears the step.
+  // With an empty box, one tap logs the step (owner: "quickly log … the next step"), in draw, and
+  // clears the step; Undo is in the toast.
   await next.click();
-  await expect(logBox(page)).toHaveValue('sketch a hand');
-  await logBox(page).press('Enter');
   await expect(toast(page, 'Logged in draw')).toBeVisible();
+  await expect(logBox(page)).toHaveValue('');
   await expect(page.getByTestId('graph-step-draw')).toHaveCount(0);
   // The selection lasted one log.
   await expect(row(page)).toHaveCount(0);
@@ -169,4 +169,16 @@ test('the context row replaces the bridge above the log box instead of stacking 
   await expect(bridge).toHaveCount(0);
   await row(page).getByRole('button', { name: 'Clear selection' }).click();
   await expect(bridge).toBeVisible();
+});
+
+test('a line already typed is kept: “Log next step” makes it count as the step, and Return logs it', async ({ page }) => {
+  await node(page, 'draw').click();
+  await logBox(page).fill('half a hand, then coffee');
+  await row(page).getByRole('button', { name: 'Log next step: sketch a hand', exact: true }).click();
+  // Nothing logged yet, the words stay; the step chip says the line counts as it.
+  await expect(logBox(page)).toHaveValue('half a hand, then coffee');
+  await expect(page.getByRole('button', { name: /sketch a hand, next step in draw/ })).toBeVisible();
+  await logBox(page).press('Enter');
+  await expect(toast(page, 'Logged in draw')).toBeVisible();
+  await expect(page.getByTestId('graph-step-draw')).toHaveCount(0);
 });

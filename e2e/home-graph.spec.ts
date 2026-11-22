@@ -2,7 +2,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, test, toHome } from './fixtures';
 import { bigBlob, legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -305,7 +305,7 @@ test('with no whys: the most active threads, axe-clean, and the cards keep their
   const next = page.getByRole('textbox', { name: 'Optional next step for play guitar' });
   await next.fill('learn the F chord');
   await next.press('Enter');
-  await page.getByRole('tab', { name: 'Home' }).click();
+  await toHome(page);
   await logLine(page, 'read a novel');
   await expect(graph(page)).toBeVisible();
   await expect(picture(page)).toHaveAccessibleName('Your wanders: play guitar. Lately: play guitar.');

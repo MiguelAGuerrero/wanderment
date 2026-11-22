@@ -32,7 +32,9 @@ export const test = base.extend<{ errors: Error[]; swScope: string }>({
 
 export { expect };
 
-export const logBox = (page: Page) => page.getByRole('textbox', { name: 'What did you just do?' });
+// Visible only: tabs stay mounted, so right after a tab switch the other tab's (hidden) log box can
+// still match first.
+export const logBox = (page: Page) => page.getByRole('textbox', { name: 'What did you just do?' }).filter({ visible: true });
 
 /** Types into the log box and presses Return. */
 export async function logLine(page: Page, text: string) {
@@ -51,4 +53,11 @@ export async function openHome(page: Page) {
 export async function openWanders(page: Page) {
   await page.goto('./wanders');
   await expect(logBox(page)).toBeVisible();
+}
+
+/** Switches to the Home tab and waits until the previous tab's screen (and its log box) is gone. */
+export async function toHome(page: Page) {
+  await page.getByRole('tab', { name: 'Home' }).click();
+  await expect(page.getByRole('heading', { name: 'Wanderment', level: 1 }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'What did you just do?' }).filter({ visible: true })).toHaveCount(1);
 }

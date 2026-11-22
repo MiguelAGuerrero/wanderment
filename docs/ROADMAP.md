@@ -37,24 +37,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-35 Act from a node `[feature]` `[capture]` M
-*Status:* todo
-*Why:* B-04 slice 2: quickly log the next step from any wander, or log fresh toward it, without
-leaving the graph.
-*Done when:* tapping a node selects it and shows a context row above the log box ("Toward X"; "↳ Log
-next step: …" one tap when staged; "+ next step"; Open; ×); typing then logs toward it via a
-visible, removable "to" chip; Return still logs as typed; clearing by ×/Esc/empty tap; screen reader
-reaches the same actions from the Wanders list; e2e; axe.
-
-### P-36 First run: 1-2-3 `[feature]` M
-*Status:* todo
-*Why:* B-04 slice 3 (replaces P-18): a quick onboarding — declare an intention, plan its next step,
-see it in the graph.
-*Done when:* first open shows ① "What's it all for?" (examples are feelings/reasons in plain words:
-"feel productive", "feel calmer" — no targets, dates, numbers or "goal" wording) ② "One next step
-toward it?" (mundane is welcome: "read a book") ③ the graph with both, log box ready; every step skippable in one tap; nothing required; logging at any point ends it
-for good; e2e for full path, skips, and log-during; axe.
-
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
@@ -313,6 +295,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-35, P-36 — act from a node: tap a wander → "Toward X" above the log box, "↳ Log next step" logs it in one tap (a typed line is kept and counts as the step), typing logs toward it via a visible chip, Open/×; the selection lasts one log; the list under the graph selects too · first run 1-2-3 on an empty app: a feeling or reason ("feel productive"), one next step ("read a book", it can wait), then see it — one Skip ends it, logging ends it for good · a flaky tab-switch race fixed in e2e (`toHome`) · evidence: `select.test.ts` ×2, `firstRun.test.ts`, `persistence.test.ts` (P-36), `e2e/act-from-node.spec.ts` (9), `e2e/first-run.spec.ts` (7) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · `3da27dc`, `e4e0b88`
 - 2026-11-22 · P-34, P-37 — the graph is Home (owner D-7): whys, wanders and recent logs fill the first screen, with no threshold (logs alone show as dots, "+ What's it all for?" with "Not now"), staged steps as a quiet line, the summary visible, a list of what's in the picture for keyboard/screen reader/large text; the list moved to a Wanders tab; Graph → Explore; threads are called wanders everywhere you read or hear them · evidence: `e2e/home-is-graph.spec.ts` (50/50 ×5), `overview-home.test.ts`, `persistence.test.ts` ("Not now", 4 mutants red), perf 1.10×, screenshots · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, no audit) · `be7ad65`
 - 2026-11-22 · P-33 — graph follow-ups: the newest log's dot is marked so every log visibly lands; Search/Settings fit the header at 280–320 px; whys keep the picture full; an honest, serial perf check (limit 1.25×, a 15 ms-slower mutant reads 1.49×); test-only switch and unused flow-index fields removed; DESIGN.md says what ships · evidence: `overview.test.ts` (28/28 mutants killed), `e2e/home-graph.spec.ts`, `e2e/home-graph-perf.spec.ts`, full suite ×10 = 1410 passed · audit: 10 reported · 10 reproduced · 9 fixed · 1 deferred (200 % zoom: the first crumb ends 6 px under the log box — superseded by the graph-as-Home layout) · `c83282c`
 - 2026-11-22 · P-30 — a refresh shows the new version: right after opening, refreshing or returning, a newer version loads by itself (data released first, draft kept); after typing or 10 s the banner asks; one automatic update per version; Settings shows the version and "Check for updates" · evidence: `update.test.ts`, `e2e/update.spec.ts` (9), `e2e/pwa.spec.ts`, `e2e/handoff.spec.ts` update tests ×5 · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (light tier: the batch audit runs with P-33, fixed forward) · `fcf7014`
