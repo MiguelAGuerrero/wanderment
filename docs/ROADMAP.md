@@ -1,12 +1,13 @@
 # Roadmap
 
-A living, **polish-first** roadmap. The features from the original plan (M1–M4) are built; from here
-the work is mostly making what exists trustworthy, smooth and kind at the edges, and only then adding
-more. Two skills work from this file:
-- `/product` (`.claude/skills/product/`) decides what's next: it turns your notes and research into
-  items and briefs (`docs/product/`), ships small features, and asks you about big ones.
-- `/polish` (`.claude/skills/polish/`) builds items well, in small audited batches — on its own, or
-  called by `/product` for features and the rough spots around them.
+A living roadmap with two lanes (owner, 2026-11-22), each owned by a skill that runs only when
+you start it:
+- **Grow** — items tagged `[feature]`, from your ideas and approved briefs. `/product`
+  (`.claude/skills/product/`) builds them, a visible slice per cycle, and asks you about big ones.
+- **Refine** — every other item: making existing features feel right (similar apps' UI/UX
+  conventions, quality of life, edge cases, accessibility). `/polish` (`.claude/skills/polish/`)
+  benchmarks a feature area, turns the gaps into items here, and builds them in small audited
+  batches. Reliability and data issues (the **Fix** lane) go first, at full rigor, in either.
 
 You steer both by editing this file and by telling `/product` how you use the app.
 
@@ -14,7 +15,8 @@ You steer both by editing this file and by telling `/product` how you use the ap
 
 - **Inbox** — drop anything here, in any form: an annoyance, a bug, an idea, a screenshot path.
   Each `/polish` run triages the Inbox first: it turns entries into items below, or asks you.
-- **Now** — the next batch candidates, in priority order. Reorder freely; `/polish` takes from the top.
+- **Now** — the next candidates, in priority order. Reorder freely; `/product` takes the top
+  `[feature]` items, `/polish` the top others.
 - **Next / Later** — queued, roughly ordered.
 - **Decisions needed 🙋** — things only you can decide. Items that depend on one wait for it.
 - Each item has an id (`P-##`), a *status* (`todo` · `in-progress` · `blocked` · `done`), a one-line
@@ -39,8 +41,8 @@ _Empty. Write here — one line is enough._
 *Status:* in-progress
 *Why:* B-01 slice 3b, moved earlier by the owner: see what it's for and what feeds it the moment
 you declare or log.
-*Done when:* domain `overview(data, index)` (whys + most active feeders, cap with "+N", placeholder
-when empty) with tests; compact graph above the cards; tapping a node opens the thread; one
+*Done when:* domain `overview(data, index)` (whys + most active feeders, cap with "+N"; no graph — and no
+placeholder — when there are no threads; most active threads when there are no whys) with tests; compact graph above the cards; tapping a node opens the thread; one
 screen-reader summary line; e2e: a node appears right after declaring, a link right after logging;
 axe; 390 px and 200 % zoom; Home stays fast with `bigBlob`. Ships with the DESIGN.md Interaction
 wording accepted in D-4. Includes B-01 panel refinements 1–4: names-not-numbers summary, a plain
@@ -285,6 +287,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 ## Known edge cases (accepted for now)
 
+- Web, desktop: reloading the window in use while a second visible window waits hands the data to
+  that window; the reloaded one waits and says so (P-29, audit F7).
+- Web: a first launch whose open keeps failing with WebKit's held-file error waits and never falls
+  back to localStorage, since falling back over held files could fork the data (P-29, audit F17).
 - The thread page's crumb shows no "loaded" state when its step is staged in the log box (the
   Composer's step chip does); its accessible name says what a tap will do.
 - Picking an `@` suggestion joins the two sides with exactly one space, so extra spaces typed around

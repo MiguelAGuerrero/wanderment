@@ -2,12 +2,15 @@ Read [`AGENTS.md`](AGENTS.md) (Expo rules), [`docs/DESIGN.md`](docs/DESIGN.md) (
 [`docs/ROADMAP.md`](docs/ROADMAP.md) (what's next, polish-first) before changing anything.
 [`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) is the completed plan for M1–M4.
 
-Two skills drive the work (both run only when the owner types them):
-- `/product` (`.claude/skills/product/`) — the product orchestrator: reads `docs/product/` (strategy,
-  owner notes, briefs, discovery) and the roadmap, ships small features, writes briefs for big ones,
-  and keeps cycling until a product decision needs the owner.
-- `/polish` (`.claude/skills/polish/`) — builds roadmap items well: scout, contract, build, one fresh
-  audit, scripted verify and land.
+Two skills drive the work, and each runs only when the owner types it:
+- `/product` (`.claude/skills/product/`) — **grows** the app: new capabilities from the owner's ideas
+  and approved briefs (`docs/product/`), a visible slice per cycle; briefs for big ones.
+- `/polish` (`.claude/skills/polish/`) — **refines** what exists: benchmarks a feature area against
+  similar apps' UI/UX conventions and quality of life, then fixes the gaps in small audited batches;
+  also the Fix lane (data loss, lockouts) at full rigor.
+
+Both build through one pipeline (scout → contract → build → audit → verify → land) with **rigor by
+risk**: Light for UI-only work (one audit per batch), Full for stored data and storage.
 
 Definition of done — run all, all must pass:
 
