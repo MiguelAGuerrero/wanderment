@@ -51,7 +51,7 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "build:web": "expo export -p web && workbox generateSW workbox-config.js && cp dist/index.html dist/404.html && touch dist/.nojekyll",
+    "build:web": "EXPO_PUBLIC_BUILD_ID=$(git rev-parse --short HEAD 2>/dev/null || echo dev) EXPO_PUBLIC_BUILD_DATE=$(date -u +%F) expo export -p web && workbox generateSW workbox-config.js && cp dist/index.html dist/404.html && touch dist/.nojekyll",
     "e2e": "playwright test"
   },
   "private": true

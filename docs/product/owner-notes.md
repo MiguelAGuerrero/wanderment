@@ -18,6 +18,26 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-22 — The graph should be first, from the start, and a place to act
+> [Screenshot: the Graph tab after a log: "This fills in once you've logged for a while…"] I'm not
+> quite satisfied with the idea of having to log a while in order to access the graph view. The graph
+> view should be first and foremost to see at face value your intentions, values, and what you're
+> doing at a high level, with a way to quickly initiate or quickly log any pre-planned or the next
+> step from any given wander (whatever you want to call a node) in its subtree, or log it fresh, a
+> new activity.
+
+Interpretation (by /product): three asks. (1) No threshold: the graph exists from the first moment,
+including with no threads or no whys (an intention can be named right there). (2) The graph is the
+primary view of intentions/values and what you're doing, at a high level. (3) Nodes are actionable:
+from any node, quickly log its staged next step, log something fresh toward it, or set a next step,
+for it or anything in its subtree. Big (changes the primary screen and capture), touches B-01 (P-16,
+P-18), B-02 (steps, P-19) and B-03 (focus, P-26). Clarifying questions in this run.
+Screenshot: `docs/product/evidence/2026-11-22-graph-tab-empty.png`.
+Answers (D-7): the graph IS Home (list → its own tab, Graph tab goes); first run is a quick 1-2-3 —
+"declare an intentional value or something upfront and then plan the next step towards that, very
+simple 1-2-3, and you get to see the output"; node tap → quick actions at the log box; call nodes
+"wanders". Led to: brief B-04, P-34–P-37 (P-18 superseded by P-36).
+
 ## 2026-11-22 — "It still looks like the same one"
 > So I refresh the app. It still looks like the same one. I expected the graph first … at least what
 > was shipped and deployed.

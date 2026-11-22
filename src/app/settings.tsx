@@ -3,7 +3,9 @@ import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { VERSION_LABEL } from '@/build';
 import { fromBackup, toBackup } from '@/domain/backup';
+import { canCheckForUpdates, checkForUpdates, UpdateCheck } from '@/pwa/serviceWorker';
 import { backupsLocation, shareBackup } from '@/storage/nativeBackup';
 import { askToKeepData, onPersistenceAnswered, PersistenceStatus, persistenceStatus } from '@/storage/persistent';
 import { useStore } from '@/store/useStore';
@@ -25,6 +27,13 @@ export default function Settings() {
   const refusals = useRef(0);
   const keptRef = useRef<ComponentRef<typeof View>>(null);
   const hidden = Object.values(data.threads).filter((t) => t.hidden);
+  /** What the last "Check for updates" found; a new version shows as the update banner. */
+  const [update, setUpdate] = useState<UpdateCheck | 'checking'>();
+
+  const checkUpdates = async () => {
+    setUpdate('checking');
+    setUpdate(await checkForUpdates());
+  };
 
   useEffect(() => {
     let live = true;
@@ -167,6 +176,19 @@ export default function Settings() {
             </View>
           </>
         )}
+        <Text style={s.quietLabel}>This app</Text>
+        <View style={[s.card, { gap: 10 }]}>
+          <Text style={s.meta}>{VERSION_LABEL}</Text>
+          {canCheckForUpdates() && (
+            <>
+              <Pressable onPress={checkUpdates} disabled={update === 'checking'} style={s.chip} accessibilityRole="button">
+                <Text style={s.chipText}>Check for updates</Text>
+              </Pressable>
+              <View accessibilityLiveRegion="polite">{update && updateLine[update] && <Text style={s.meta}>{updateLine[update]}</Text>}</View>
+            </>
+          )}
+        </View>
+
         <Text style={s.meta}>There are no notifications — nothing to turn off.</Text>
       </View>
     </SafeAreaView>
@@ -180,6 +202,15 @@ const keptLine: Record<PersistenceStatus, string | undefined> = {
   'not-granted':
     'This browser may clear your data if you don’t visit for a while. Install the app (Share → Add to Home Screen) or export regularly to be safe.',
   unknown: undefined,
+};
+
+const updateLine: Record<UpdateCheck | 'checking', string | undefined> = {
+  checking: 'Checking…',
+  'up-to-date': 'You’re up to date.',
+  // The update banner says it, with "Update now".
+  ready: undefined,
+  failed: 'Couldn’t check right now. Try again when you’re online.',
+  unavailable: 'This browser can’t check for updates here; reloading the page gets the latest version.',
 };
 
 const styles = StyleSheet.create({

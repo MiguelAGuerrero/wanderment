@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, test } from './fixtures';
 
 async function waitForServiceWorkerControl(page: Page) {
   await page.waitForFunction(async () => {
@@ -52,9 +52,11 @@ test('works offline after the first visit, with data intact', async ({ page, con
   await expect(page.getByText('1 activities · 0 threads')).toBeVisible();
 });
 
-test('a new version shows a reload banner and never reloads by itself', async ({ page, request }) => {
+test('a new version shows a reload banner and never reloads by itself once the person has typed (or after 10 s, see update.spec.ts)', async ({ page, request }) => {
   await openHome(page);
   await waitForServiceWorkerControl(page);
+  // P-30: right after a load, untouched, a new version applies by itself; typing means it waits.
+  await logBox(page).fill('typing');
 
   // Pretend a new build was deployed: the next sw.js differs by a comment (see e2e/serve.mjs).
   await request.post('/__e2e/bump-sw');

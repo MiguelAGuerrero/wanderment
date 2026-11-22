@@ -1,7 +1,24 @@
 import { expect, Page, test as base } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 
 /** Every test fails if the page throws an uncaught error. */
-export const test = base.extend<{ errors: Error[] }>({
+export const test = base.extend<{ errors: Error[]; swScope: string }>({
+  // A test's simulated deploys (`request.post('/__e2e/bump-sw')`, e2e/serve.mjs) reach only its own
+  // pages: its context and its `request` share one cookie.
+  swScope: [
+    async ({ context }, use) => {
+      const scope = randomUUID();
+      await context.addCookies([{ name: 'e2e-scope', value: scope, domain: 'localhost', path: '/' }]);
+      await use(scope);
+    },
+    { auto: true },
+  ],
+  request: [
+    async ({ context }, use) => {
+      await use(context.request);
+    },
+    { scope: 'test' },
+  ],
   errors: [
     async ({ page }, use) => {
       const errors: Error[] = [];

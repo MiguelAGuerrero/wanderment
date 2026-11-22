@@ -37,6 +37,39 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-34 The graph is Home `[feature]` M
+*Status:* todo
+*Why:* B-04 slice 1 (owner D-7, 2026-11-22): "the graph view should be first and foremost"; today it
+waits until you've "logged for a while" and shows nothing with no threads.
+*Done when:* Home is a full-screen graph (P-15's model) with the log box at the bottom; with no
+wanders, recent logs show as dots plus a "+ What's it all for?" node (no threshold, no "fills in"
+message); the list moves to a "Wanders" tab; the Graph tab is removed and its view opens from
+"Explore" on Home; e2e flows updated; axe; 390 px and 200 %; Home not slower.
+
+### P-35 Act from a node `[feature]` `[capture]` M
+*Status:* todo
+*Why:* B-04 slice 2: quickly log the next step from any wander, or log fresh toward it, without
+leaving the graph.
+*Done when:* tapping a node selects it and shows a context row above the log box ("Toward X"; "↳ Log
+next step: …" one tap when staged; "+ next step"; Open; ×); typing then logs toward it via a
+visible, removable "to" chip; Return still logs as typed; clearing by ×/Esc/empty tap; screen reader
+reaches the same actions from the Wanders list; e2e; axe.
+
+### P-36 First run: 1-2-3 `[feature]` M
+*Status:* todo
+*Why:* B-04 slice 3 (replaces P-18): a quick onboarding — declare an intention, plan its next step,
+see it in the graph.
+*Done when:* first open shows ① "What's it all for?" ② "One next step toward it?" ③ the graph with
+both, log box ready; every step skippable in one tap; nothing required; logging at any point ends it
+for good; e2e for full path, skips, and log-during; axe.
+
+### P-37 Threads are "wanders" `[ux]` S
+*Status:* todo
+*Why:* B-04 slice 4 (owner): name the app's nodes "wanders".
+*Done when:* UI copy, accessible names, toasts, empty states, README/DESIGN wording say "wander(s)"
+(code and stored data keep `thread`); e2e locators updated; no "thread" left in rendered text
+(grep test).
+
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
@@ -77,7 +110,7 @@ the three Part A assertions are updated with the reason; the remembered Return a
 persistence + e2e tests. Patch ready: session scratchpad `U1-cold-start-retry.patch`.
 
 ### P-30 A refresh shows the new version `[platform]` `[ux]` S
-*Status:* todo
+*Status:* in-progress
 *Why:* owner, 2026-11-22: refreshed and "it still looks like the same one" — the installed PWA keeps
 serving the old version on a plain refresh until the update banner is tapped or every tab closes.
 *Done when:* a refresh (or reopening) after a deploy loads the new version when it's safe (no unsaved
@@ -135,8 +168,8 @@ to a quiet line and returns on new inflow; remove from the header; real sentence
 `prefers-reduced-motion`), e2e with reduced motion emulated; no layout shift for the cards below;
 only what's new animates, once (thickening is instant); the toast carries the same moment in words.
 
-### P-18 An optional first step: what's it all for? `[feature]` M
-*Status:* todo
+### P-18 An optional first step: what's it all for? `[feature]` M — superseded by P-36
+*Status:* blocked
 *Why:* B-01 slice 4: on first open, name up to three whys — or skip in one tap; the log box is
 live throughout.
 *Done when:* first-open card with one field + "+ another" (up to 3), "You can change these any
@@ -273,6 +306,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   **Answered 2026-11-21: go, with the panel's refinements; one-offs via "All results →"; a kept
   line counts as the step (visible chip).** → P-24 (Now), P-25, P-26 (Next, after P-15). B-03 is
   `building`.
+- **D-7 The graph is Home** — [B-04](product/briefs/B-04-graph-is-home.md). **Answered 2026-11-22 in
+  conversation:** the graph is Home (list → "Wanders" tab, Graph tab removed); first run is a 1-2-3
+  (declare an intention → plan its next step → see it); tapping a node gives quick actions at the log
+  box; threads are called "wanders". → P-34, P-35, P-36, P-37 (Now).
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 

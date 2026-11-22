@@ -8,7 +8,8 @@ module.exports = {
   // Every in-app path (e.g. /wanderment/activities) is served the app shell when offline.
   navigateFallback: '/wanderment/index.html',
   navigateFallbackAllowlist: [/^\/wanderment\//],
-  // A new version waits until the person taps "Reload" in the update banner (no surprise reloads).
+  // A new version waits until the page asks it to take over: by itself right after a load or return,
+  // else when "Update now" is tapped in the update banner (src/pwa/serviceWorker.ts, P-30).
   skipWaiting: false,
   clientsClaim: true,
   cleanupOutdatedCaches: true,

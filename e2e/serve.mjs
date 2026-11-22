@@ -26,15 +26,20 @@ function send(res, status, file) {
   createReadStream(file).pipe(res);
 }
 
-// Tests can simulate a new deploy: after POST /__e2e/bump-sw, sw.js changes by a comment.
-let swBuild = 0;
+// Tests can simulate a new deploy: after POST /__e2e/bump-sw, sw.js changes by a comment. Each test
+// carries its own `e2e-scope` cookie (e2e/fixtures.ts), so its "deploys" reach only its own pages:
+// a new version may apply by itself (P-30), which must not reload another test's page.
+const swBuilds = new Map();
+const scopeOf = (req) => /(?:^|;\s*)e2e-scope=([^;]+)/.exec(req.headers.cookie ?? '')?.[1] ?? '';
 
 createServer((req, res) => {
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   if (path === '/__e2e/bump-sw') {
-    swBuild += 1;
-    return res.end(String(swBuild));
+    const scope = scopeOf(req);
+    swBuilds.set(scope, (swBuilds.get(scope) ?? 0) + 1);
+    return res.end(String(swBuilds.get(scope)));
   }
+  const swBuild = swBuilds.get(scopeOf(req)) ?? 0;
   if (path === `${base}/sw.js` && swBuild > 0) {
     res.writeHead(200, { 'Content-Type': types['.js'], 'Cache-Control': 'no-cache' });
     return res.end(`${readFileSync(join(root, 'sw.js'), 'utf8')}\n// e2e build ${swBuild}\n`);
