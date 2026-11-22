@@ -5,36 +5,66 @@
 _Built up over one conversation: the sections below are in the order they were decided. The current design is the mockup page (7 frames) published 2026-11-22 and the owner's answers at the end; research: [discovery/2026-11-22-intention-stack](../discovery/2026-11-22-intention-stack.md)._
 
 
-## Current design (revision 11, 2026-11-22) — still being refined (D-9: not yet)
-Mockups (private to the owner): current design https://claude.ai/artifact/N4iPk2aqyzPdbf8LgWfFuK ·
-line drafts https://claude.ai/artifact/MsJ7WxEQJZjQj5msEYtCdY · cold start
-https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB.
-- **The graph is the picture of your energy: heat flows upward.**
-  - Every circle is coloured by heat, from cool stone through amber to ember. A circle's heat is the
-    most recent activity anywhere beneath it, never a sum, and it halves every 14 days.
-  - Circles are sized relative to the anchor; declared whys keep a double ring.
-  - Lines are **branches**: each leaves its circle along its own direction (no shared point), curves,
-    and tapers as it rises; its colour runs from the child's heat to its own.
-  - The current step is a small labelled dot. No wanderer, no trail beads.
-- **Nodes and steps.** A node (a wander or a why) is never done: routines log toward it again and
-  again, and each log warms it. Only a written step completes: ✓ logs it and archives it, and the
-  next written step rises; with none left, "＋ add one". Done steps show only as warmth on their node
-  and everything above it.
-- **The bottom: one slot, two faces (toggle).**
-  - *What's next* shows the step and ✓; swiping selects another leaf chain, in the graph's order.
-  - *Log* shows the log box, with a dashed "→ chain" suggestion that attaches with one tap; with
-    words typed, ✓ logs them as the step.
-  - It opens on What's next and flips back after a log; on web, typing switches to Log. This rewords
-    DESIGN.md's "capture is sacred" when it ships.
-- **Select:**
-  - the graph narrows to the why's whole subtree and zooms;
-  - "‹ All" / Back to return;
-  - on open, the card shows the chain last logged toward (not attached).
-- **Edit:** tap the step to rewrite it; a smaller one stacks on top; clearing it sets it down (Undo).
-- **Cold start:** an empty app only. It names a first node (vague welcome), then its next step, and
-  lands on Home.
-- **Later:** an all-chains view; a swipe-up drawer of every chain.
-- **Data:** P-19 chains; each completing activity records which step it completed (history/Undo).
+## Current design (revision 12, 2026-11-22) — still being refined (D-9: not yet)
+Mockups (private to the owner): current design https://claude.ai/artifact/N4iPk2aqyzPdbf8LgWfFuK (11
+frames) · line drafts https://claude.ai/artifact/MsJ7WxEQJZjQj5msEYtCdY · cold start
+https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB. Fresh audit of revision 11 (scenarios, selection,
+planning): `discovery/2026-11-22-intention-stack/audit-r11-*.md`.
+
+**One mark per job.**
+- **Scope** = what's drawn. Shown by the chip ("All", or "‹ All · make apparel"). Tapping a focused
+  parent circle narrows and zooms; the chip or Back goes up.
+- **Focus** = the card's chain. Shown by one ink ring, only ever on the card's node, with that chain's
+  step as a filled dot beneath it (a dashed ＋ when it has none). Only the focused chain's step is
+  drawn. Move it by tapping a circle or swiping the card within the scope; the graph never re-zooms
+  on a swipe.
+- **Attach** = where the next log goes. Shown by the chip in the Log face: dashed = offered, solid
+  with × = attached. It lasts one log.
+- **Heat** = energy. It never changes with selection.
+
+**The graph.**
+- Circles are coloured by heat, which flows upward: the most recent activity beneath a circle, never
+  a sum, halving every 14 days.
+- Circles are sized relative to the anchor. Declared whys keep a double ring.
+- Lines are branches: each leaves along its own direction, curves, and tapers as it rises. A dashed
+  branch means a pending home (below). A hollow dashed circle has never been logged toward.
+
+**The bottom: one slot, two faces (toggle).**
+- *What's next · <node>*: the step and ✓ (a clean tap only), or "＋ add one". Tapping the step edits
+  it, with ↓ Smaller (a smaller step goes on top; the layer beneath shows only while editing) and Set
+  down (Undo). Return saves; tapping outside cancels.
+- *Log*: the field with one send button ↑.
+  - The suggestion follows the words first, then the focus. @ or ▾ picks another target; tapping a
+    circle while typing attaches it.
+  - When the attached node has a step, an optional "✓ <step>" chip lets your words complete it (off
+    by default, so a routine never uses up a step).
+  - Your words are kept as typed.
+- Tapping the toast fixes a log: move it, or "↺ Put the step back".
+
+**Planning.**
+- ＋ beside the scope chip creates a node in the current scope. It's a hollow circle under its parent
+  by a dashed branch: a **stored pending home** (owner, 2026-11-22; this reverses "links are never
+  stored", as a small explicit field). The first log toward it makes it solid.
+- Long-press a circle (or tap the focused one) for its sheet: Rename, ◎ What it's for (the swap at
+  three), ＋ Under it, Open, Hide.
+- ⌕ opens a list of every node grouped by why, each with its step. Picking one focuses it. It's also
+  the way through for screen readers.
+- Refused: step queues, reordering, dated steps (no plans for the how).
+
+**Nodes are never done** (routines). Only a written step completes, and its effect is heat.
+
+**Unchanged:** the cold start (empty app only; it lands on this layout); on open, focus is on the
+chain last logged toward (shown, not attached); later, the all-chains view.
+
+**Data (Full tier):**
+- P-19 chains;
+- the activity records the step it completed (for history and "put the step back");
+- the node's pending home (a new optional stored field; export/import and migration).
+
+**DESIGN.md rewording when this ships:**
+- "capture is sacred" (logging is two taps on native);
+- "links are never stored" (except a pending home);
+- P-35's "the selection lasts one log" (focus persists; attach lasts one log).
 
 ## The problem, in the owner's terms
 > "I should be able to see my pursuits … relative to the actions and activities that I put towards
@@ -597,3 +627,19 @@ Answers:
   It opens on What's next and flips back to it after a log; on web, typing switches to Log by
   itself. This supersedes option A. Logging is still two taps from Home, so "capture is sacred" gets
   reworded when this ships.
+
+## Owner, 2026-11-22: fresh audit of revision 11 → revision 12
+> Given the current design do another fresh audit and ensure logging and planning is seamless and
+> intuitive, provide different scenarios of use … specific attention to how selection changes the
+> scope of interaction: what gets highlighted and shown on screen and what does that information look
+> like.
+- **Three reviewers** (scenarios, selection/scope, planning). The core finding: "select" meant
+  scope, focus and attach at once, and one ring meant four things. The graph couldn't be tapped,
+  planning had no access paths, and you couldn't log toward anything but the focus.
+- **Owner's answers:**
+  - **Tap narrows, swipe focuses** (a swipe moves the ring inside the scope; the graph doesn't
+    re-zoom).
+  - **Creating a node under another stores a pending home** (a dashed branch until a log earns it).
+  - **The card names its node:** "What's next · draw better hands".
+  - **⌕ opens the list of every node now** (brought forward from Later).
+- **Revision 12** applies these plus the converged fixes (see "Current design" above).
