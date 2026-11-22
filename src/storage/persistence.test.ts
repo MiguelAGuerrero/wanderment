@@ -2027,3 +2027,125 @@ describe('P-36: the first run, once over, is over for good', () => {
     expect(store.getState().firstRunDone).toBe(true);
   });
 });
+
+describe('P-04: import checks, then previews; only Replace changes the data', () => {
+  const thread = (id: string, name: string, extra: Record<string, unknown> = {}) => ({ id, name, hidden: false, createdAt: at, ...extra });
+  const file = (data: unknown) => JSON.stringify({ app: 'wanderment', exportedAt: at, data });
+  const incoming = { version: 1 as const, threads: { t9: thread('t9', 'sew') }, activities: { i1: { ...act('i1', 'imported'), doingId: 't9' }, i2: act('i2', 'also') } };
+  const journal = () => env.ls.get('wanderment:journal');
+  async function withMine() {
+    const store = await load();
+    logText(store, 'mine');
+    store.getState().createThread('draw');
+    await settle();
+    return store;
+  }
+  const helpers = () => import('@/store/importBackup');
+
+  it('a damaged or refused file throws before anything is shown: the data stays the same object, nothing is saved', async () => {
+    let store = await withMine();
+    const { previewImport } = await helpers();
+    const before = store.getState().data;
+    const writes = env.p29.writes.length;
+    const refused = {
+      'not JSON': '{not json',
+      'not a backup': JSON.stringify({ hello: 1 }),
+      'a newer version': file({ version: 2, threads: {}, activities: {} }),
+      'a malformed record': file({ version: 1, threads: {}, activities: { a: { text: 1 } } }),
+      'lists for records': file({ version: 1, threads: [], activities: [] }),
+      'a duplicate id': file({ version: 1, threads: {}, activities: { a: act('q', 'one'), b: act('q', 'two') } }),
+      'a duplicate name': file({ version: 1, threads: { t1: thread('t1', 'draw'), t2: thread('t2', 'Draw', { hidden: true }) }, activities: {} }),
+    };
+    for (const [what, json] of Object.entries(refused)) {
+      expect(() => previewImport(json), what).toThrow();
+      expect(store.getState().data, what).toBe(before);
+    }
+    await settle();
+    expect(env.p29.writes.length).toBe(writes);
+    expect(journal()).toBeUndefined();
+    store = await load();
+    expect(texts(store)).toEqual(['mine']);
+  });
+
+  it('a preview that’s cancelled (never confirmed) changes nothing and saves nothing', async () => {
+    let store = await withMine();
+    const { previewImport } = await helpers();
+    const before = store.getState().data;
+    const writes = env.p29.writes.length;
+    const preview = previewImport(file(incoming));
+    expect(preview.plan.activities).toEqual({ added: 2, removed: 1, changed: 0, unchanged: 0 });
+    expect(preview.plan.threads).toEqual({ added: 1, removed: 1, changed: 0, unchanged: 0 });
+    expect(store.getState().data).toBe(before);
+    await settle();
+    expect(env.p29.writes.length).toBe(writes);
+    expect(journal()).toBeUndefined();
+    store = await load();
+    expect(texts(store)).toEqual(['mine']);
+  });
+
+  it('Replace saves the backup, and it survives a reload (and the tab closing before SQLite commits)', async () => {
+    let store = await withMine();
+    const { previewImport, confirmImport } = await helpers();
+    expect(confirmImport(previewImport(file(incoming)))).toEqual({ ok: true, activities: 2 });
+    expect(store.getState().data).toEqual(incoming);
+    await settle();
+    store = await load();
+    expect(store.getState().data).toEqual(incoming);
+
+    // Again with a tab that dies mid-write: the journal brings it back.
+    store = await withMine();
+    const again = await helpers(); // this page load's modules
+    env.state.hangWrites = true;
+    expect(again.confirmImport(again.previewImport(file({ version: 1, threads: {}, activities: { j1: act('j1', 'journaled') } }))).ok).toBe(true);
+    await settle();
+    env.state.hangWrites = false;
+    store = await load();
+    expect(texts(store)).toEqual(['journaled']);
+  });
+
+  it('the same file again says it’s identical and changes nothing', async () => {
+    const store = await withMine();
+    const { previewImport, confirmImport } = await helpers();
+    const { toBackup } = await import('@/domain/backup');
+    const before = store.getState().data;
+    const writes = env.p29.writes.length;
+    const preview = previewImport(toBackup(before));
+    expect(preview.plan.identical).toBe(true);
+    expect(confirmImport(preview)).toEqual({ ok: false, reason: 'identical' });
+    expect(store.getState().data).toBe(before);
+    await settle();
+    expect(env.p29.writes.length).toBe(writes);
+  });
+
+  it('never replaces from a stale preview: a change since then shows the new comparison first', async () => {
+    let store = await withMine();
+    const { previewImport, confirmImport } = await helpers();
+    const preview = previewImport(file(incoming));
+    logText(store, 'later');
+    const result = confirmImport(preview);
+    expect(result).toMatchObject({ ok: false, reason: 'changed' });
+    expect(texts(store)).toEqual(['later', 'mine']);
+    const fresh = (result as { preview: typeof preview }).preview;
+    expect(fresh.plan.activities.removed).toBe(2);
+    expect(fresh.basis).toBe(store.getState().data);
+    expect(confirmImport(fresh).ok).toBe(true);
+    await settle();
+    store = await load();
+    expect(store.getState().data).toEqual(incoming);
+  });
+
+  it('while reconnecting, Replace is refused with the quiet note and nothing changes; it works once the data is back', async () => {
+    const store = await withMine();
+    const { previewImport, confirmImport } = await helpers();
+    const before = store.getState().data;
+    const preview = previewImport(file(incoming));
+    store.getState().dismissToast(); // the "Logged" toast (with a toast up, the note goes on its second line)
+    store.setState({ storage: { state: 'ready', kind: 'sqlite', reconnecting: true } });
+    expect(confirmImport(preview)).toEqual({ ok: false, reason: 'reconnecting' });
+    expect(store.getState().data).toBe(before);
+    expect(store.getState().toast).toEqual({ message: 'Just a moment — reconnecting.', notice: true });
+    store.setState({ storage: { state: 'ready', kind: 'sqlite' } });
+    expect(confirmImport(preview).ok).toBe(true);
+    expect(store.getState().data).toEqual(incoming);
+  });
+});

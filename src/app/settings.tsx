@@ -1,19 +1,20 @@
 import { router } from 'expo-router';
-import { ComponentRef, useEffect, useRef, useState } from 'react';
+import { ComponentRef, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { VERSION_LABEL } from '@/build';
-import { fromBackup, toBackup } from '@/domain/backup';
+import { ImportPreviewCard } from '@/components/ImportPreview';
+import { toBackup } from '@/domain/backup';
 import { canCheckForUpdates, checkForUpdates, UpdateCheck } from '@/pwa/serviceWorker';
 import { backupsLocation, shareBackup } from '@/storage/nativeBackup';
 import { askToKeepData, onPersistenceAnswered, PersistenceStatus, persistenceStatus } from '@/storage/persistent';
-import { useStore } from '@/store/useStore';
+import { confirmImport, ImportPreview, previewImport, rebasePreview } from '@/store/importBackup';
+import { RECONNECTING_NOTICE, useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
 export default function Settings() {
   const data = useStore((st) => st.data);
-  const replaceData = useStore((st) => st.replaceData);
   const setHidden = useStore((st) => st.setHidden);
   const showShading = useStore((st) => st.showShading);
   const storage = useStore((st) => st.storage);
@@ -21,6 +22,11 @@ export default function Settings() {
   const [message, setMessage] = useState<string>();
   const [pasting, setPasting] = useState(false);
   const [pasted, setPasted] = useState('');
+  /** A checked backup waiting for Replace or Cancel; a new one takes its place (`previews` remounts it). */
+  const [preview, setPreview] = useState<ImportPreview>();
+  const [previews, setPreviews] = useState(0);
+  /** Always compared with what's here now. */
+  const shown = useMemo(() => preview && rebasePreview(preview, data), [preview, data]);
   const [kept, setKept] = useState<PersistenceStatus>();
   /** What the last "Ask the browser to keep it" got; separate from import/export messages. */
   const [keepNote, setKeepNote] = useState<string>();
@@ -78,16 +84,37 @@ export default function Settings() {
     setMessage('Exported.');
   };
 
+  /** Checks the file and shows what it would do; nothing changes until Replace. */
   const importJson = (json: string) => {
     try {
-      const imported = fromBackup(json);
-      // Refused while reconnecting (it says so): the pasted text stays, to try again.
-      if (!replaceData(imported)) return;
-      setMessage(`Imported ${Object.keys(imported.activities).length} activities.`);
-      setPasting(false);
+      setPreview(previewImport(json));
+      setPreviews((n) => n + 1);
+      setMessage(undefined);
     } catch (e) {
+      setPreview(undefined);
       setMessage((e as Error).message);
     }
+  };
+
+  const replace = () => {
+    if (!shown) return;
+    const result = confirmImport(shown);
+    if (result.ok) {
+      setPreview(undefined);
+      setPasting(false);
+      setMessage(`Imported ${result.activities} activities.`);
+    } else if (result.reason === 'changed') {
+      setPreview(result.preview);
+      setMessage('What’s here just changed — check the comparison again.');
+    } else if (result.reason === 'reconnecting') {
+      // Refused: the preview and the pasted text stay, to try again.
+      setMessage(RECONNECTING_NOTICE);
+    }
+  };
+
+  const cancel = () => {
+    setPreview(undefined);
+    setMessage(undefined);
   };
 
   const importData = () => {
@@ -143,13 +170,14 @@ export default function Settings() {
           {pasting && (
             <View style={{ gap: 8 }}>
               <TextInput value={pasted} onChangeText={setPasted} multiline placeholder="Paste backup JSON" style={styles.paste} accessibilityLabel="Backup JSON" />
-              <Pressable onPress={() => importJson(pasted)} style={s.primaryBtn}>
+              <Pressable onPress={() => importJson(pasted)} style={s.primaryBtn} accessibilityRole="button">
                 <Text style={s.primaryBtnText}>Import</Text>
               </Pressable>
             </View>
           )}
-          <Text style={s.meta}>Importing replaces what’s on this device. Export first if unsure.</Text>
-          {message && <Text style={{ color: C.accentInk }}>{message}</Text>}
+          {shown && <ImportPreviewCard key={previews} plan={shown.plan} onReplace={replace} onCancel={cancel} />}
+          <Text style={s.meta}>Importing replaces what’s on this device. You’ll see what the backup holds and what would change before anything does.</Text>
+          <View accessibilityLiveRegion="polite">{message && <Text style={{ color: C.accentInk }}>{message}</Text>}</View>
         </View>
 
         <Text style={s.quietLabel}>Feel</Text>

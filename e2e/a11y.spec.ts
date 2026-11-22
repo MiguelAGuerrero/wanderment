@@ -117,6 +117,22 @@ test('Settings, with the “may clear your data” line and its button, has no s
   await expectNoSeriousViolations(page);
 });
 
+test('the import preview (P-04) has no serious accessibility violations; its buttons are 44 px', async ({ page }) => {
+  await page.addInitScript(seedScript, legacyBlob(['draw'], [{ from: 'draw', text: 'sketched', daysAgo: 1 }]));
+  await page.goto('./settings');
+  await expect(page.getByText('1 activities · 1 wanders', { exact: true })).toBeVisible();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Import from a backup' }).click();
+  const data = { version: 1, threads: {}, activities: { i1: { id: 'i1', text: 'imported', occurredAt: '2026-01-03T12:00:00.000Z', createdAt: '2026-01-03T12:00:00.000Z', toIds: [] } } };
+  await (await chooser).setFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ app: 'wanderment', exportedAt: '2026-01-04T00:00:00.000Z', data })) });
+  await expect(page.getByRole('group', { name: 'Replace what’s here with this backup?' })).toBeFocused();
+  for (const name of ['Replace', 'Cancel']) {
+    const box = await page.getByRole('button', { name, exact: true }).boundingBox();
+    expect(box!.height, name).toBeGreaterThanOrEqual(44);
+  }
+  await expectNoSeriousViolations(page);
+});
+
 test('the bridge after a log, and its name field, have no serious accessibility violations at 390 px', async ({ page }) => {
   const long = 'practise the long slow patient art of baking sourdough every single weekend morning';
   await openWanders(page);

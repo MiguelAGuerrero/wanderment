@@ -176,6 +176,8 @@ test('export → import round-trips the mark; a backup without it imports unmark
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import from a backup' }).click();
   await (await chooser).setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(json) });
+  // P-04: choosing a file shows a preview first; Replace imports it.
+  await page.getByRole('button', { name: 'Replace', exact: true }).click();
   await expect(page.getByText('Imported 0 activities.')).toBeVisible();
   await page.goto('./thread/t1');
   await expect(undeclareBtn(page)).toBeVisible();
@@ -188,6 +190,8 @@ test('export → import round-trips the mark; a backup without it imports unmark
   const chooser2 = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Import from a backup' }).click();
   await (await chooser2).setFiles({ name: 'old.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
+  // P-04: choosing a file shows a preview first; Replace imports it.
+  await page.getByRole('button', { name: 'Replace', exact: true }).click();
   await expect(page.getByText('Imported 0 activities.')).toBeVisible();
   await page.goto('./thread/t1');
   await expect(declareBtn(page)).toBeVisible();

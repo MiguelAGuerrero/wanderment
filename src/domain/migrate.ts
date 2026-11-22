@@ -1,3 +1,4 @@
+import { normalizeName } from './model';
 import { Activity, Data, Id, Thread } from './types';
 
 /**
@@ -9,14 +10,22 @@ import { Activity, Data, Id, Thread } from './types';
  */
 export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}): Data {
   /** Strict (imports): one bad record rejects the file. Lenient (saved data): skip it, keep the rest. */
+  const strict = !opts.skipInvalid;
   const bad = (msg: string) => {
-    if (!opts.skipInvalid) throw new Error(msg);
+    if (strict) throw new Error(msg);
   };
   const d = raw as Partial<Data> | undefined;
   if (!d || typeof d !== 'object') throw new Error('The backup is missing its data.');
+  if (typeof d.version === 'number' && d.version > 1) {
+    throw new Error('That Wanderment backup was made by a newer version of the app. Update Wanderment, then import it again.');
+  }
   if (d.version !== 1) throw new Error('That file isn’t a Wanderment backup.');
   if (!d.threads || typeof d.threads !== 'object' || !d.activities || typeof d.activities !== 'object') {
     throw new Error('The backup is missing wanders or activities.');
+  }
+  // The checks below are for imports only: saved data loads as it always has (P-04).
+  if (strict && (Array.isArray(d.threads) || Array.isArray(d.activities))) {
+    throw new Error('The backup’s wanders or activities aren’t in the right shape.');
   }
 
   const threads: Record<Id, Thread> = {};
@@ -26,6 +35,7 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
       continue;
     }
     const id = typeof t.id === 'string' && t.id ? t.id : key;
+    if (strict && threads[id]) throw new Error(`Two wanders in the backup have the same id (“${id}”).`);
     threads[id] = {
       id,
       name: t.name.trim().replace(/\s+/g, ' '),
@@ -47,6 +57,7 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
     }
     const rawTo = Array.isArray(a.toIds) ? a.toIds : (bad('An activity in the backup is malformed.'), []);
     const id = typeof a.id === 'string' && a.id ? a.id : key;
+    if (strict && activities[id]) throw new Error(`Two activities in the backup have the same id (“${id}”).`);
     const doingId = typeof a.doingId === 'string' && a.doingId ? a.doingId : undefined;
     const createdAt = isIso(a.createdAt) ? utc(a.createdAt) : isIso(a.occurredAt) ? utc(a.occurredAt) : new Date(0).toISOString();
     activities[id] = {
@@ -59,7 +70,33 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
       note: typeof a.note === 'string' && a.note.trim() ? a.note : undefined,
     };
   }
+  if (strict) refuseSameNames(threads);
   return { version: 1, threads, activities };
+}
+
+/**
+ * An import may not bring two wanders (hidden ones too) whose names `@` can't tell apart: refused,
+ * naming them, so nothing is renamed behind the person's back (owner, 2026-11-22).
+ */
+function refuseSameNames(threads: Record<Id, Thread>) {
+  const byName = new Map<string, Thread[]>();
+  for (const t of Object.values(threads)) {
+    const n = normalizeName(t.name);
+    byName.set(n, [...(byName.get(n) ?? []), t]);
+  }
+  const groups = [...byName.values()].filter((g) => g.length > 1);
+  if (!groups.length) return;
+  const SHOWN = 3;
+  const named = (t: Thread) => `“${t.name}”${t.hidden ? ' (hidden)' : ''}`;
+  const list = (g: Thread[]) => `${g.slice(0, -1).map(named).join(', ')} and ${named(g[g.length - 1])}`;
+  const one = groups.length === 1 && groups[0].length === 2;
+  const shown = groups.slice(0, SHOWN).map(list).join('; ');
+  const more = groups.length > SHOWN ? `; and ${groups.length - SHOWN} more` : '';
+  throw new Error(
+    one
+      ? `Two wanders have the same name: ${shown}. Rename one in the file, then import it again.`
+      : `Some wanders have the same name: ${shown}${more}. Rename them in the file, then import it again.`,
+  );
 }
 
 const isIso = (v: unknown): v is string => typeof v === 'string' && !Number.isNaN(Date.parse(v));
