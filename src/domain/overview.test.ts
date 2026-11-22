@@ -36,7 +36,7 @@ const declare = (data: Data, id: Id, daysAgo: number) => {
   if (!r.ok) throw new Error('declare failed');
   return r.data;
 };
-const ov = (data: Data, now = NOW, earned?: Set<Id>) => overview(data, earned ? [...earned] : headerWhys(data, now));
+const ov = (data: Data, now = NOW, earned?: Set<Id>) => overview(data, earned ? [...earned] : headerWhys(data, now), { now });
 const whys = (o: Overview | undefined) => (o?.mode === 'whys' ? o.whys : []);
 const whyNames = (o: Overview | undefined) => whys(o).map((w) => w.thread.name);
 const feederNames = (o: Overview | undefined, why: string) => whys(o).find((w) => w.thread.name === why)?.feeders.map((f) => f.thread.name);
@@ -307,8 +307,13 @@ describe('what the picture shows over time', () => {
     data = plain(data, id.sew, 250);
     const now = ov(data)!;
     const later = ov(data, new Date(NOW.getTime() + 400 * 864e5))!;
-    expect(later).toEqual(now);
-    expect(lay(later)).toEqual(lay(now));
+    // P-48: heat is the one thing meant to change with time (it cools); everything else stays put.
+    const { heat: heatNow, ...restNow } = now;
+    const { heat: heatLater, ...restLater } = later;
+    expect(restLater).toEqual(restNow);
+    for (const [id, h] of Object.entries(heatLater)) expect(h).toBeLessThanOrEqual(heatNow[id]);
+    const still = (o: OverviewLayout) => ({ ...o, nodes: o.nodes.map((n) => (n.circle ? { ...n, circle: { ...n.circle, heat: 0 } } : n)), links: o.links.map((l) => (l.branch ? { ...l, branch: { ...l.branch, fromHeat: 0, toHeat: 0 } } : l)) });
+    expect(still(lay(later))).toEqual(still(lay(now)));
   });
 
   it('earned whys follow Home’s headers exactly (the same rule, in the same order)', () => {
