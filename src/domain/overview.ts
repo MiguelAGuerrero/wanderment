@@ -63,7 +63,7 @@ export interface OverviewDot {
 interface Shared {
   /** Doing → to links between threads in the picture (all-time). */
   links: OverviewLink[];
-  /** The most recent logs that name a thread in the picture, newest first. */
+  /** The most recent logs that name a thread in the picture or none at all, newest first. */
   dots: OverviewDot[];
   /** Visible threads left out of the picture ("and more →"). */
   more: boolean;
@@ -187,19 +187,19 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data))
   }
 
   const shown = new Set([...whyIds, ...picked.map((t) => t.id)]);
-  // Links between threads in the picture, and the most recent logs that name one of them.
+  // Links between threads in the picture, and the most recent logs that name one of them or name no
+  // thread at all (P-38: an unattached log never drops out; it's a dot with no line). A log naming
+  // only threads that aren't drawn (beyond the six, or hidden) stays out: "and more →" stands for it.
   const linkCount = new Map<Id, Map<Id, number>>();
   const recent: Activity[] = [];
   for (const a of acts) {
-    let any = !!a.doingId && shown.has(a.doingId);
     for (const to of a.toIds) {
-      if (!shown.has(to)) continue;
-      any = true;
-      if (!a.doingId || to === a.doingId || !shown.has(a.doingId)) continue;
+      if (!shown.has(to) || !a.doingId || to === a.doingId || !shown.has(a.doingId)) continue;
       const m = linkCount.get(a.doingId) ?? linkCount.set(a.doingId, new Map()).get(a.doingId)!;
       m.set(to, (m.get(to) ?? 0) + 1);
     }
-    if (!any) continue;
+    const names = named(a);
+    if (!names.some((id) => shown.has(id)) && names.some((id) => data.threads[id])) continue;
     if (recent.length === MAX_DOTS && newer(a, recent[MAX_DOTS - 1]) > 0) continue;
     recent.push(a);
     recent.sort(newer);
@@ -271,11 +271,21 @@ function list(names: string[], others = false) {
   return all.length <= 1 ? (all[0] ?? '') : `${all.slice(0, -1).join(', ')} and ${all[all.length - 1]}`;
 }
 
-/** "Lately: knit; draw with make apparel; sew toward make apparel." — each different thing the recent logs name. */
+/**
+ * "Lately: knit; draw with make apparel; sew toward make apparel." — each different thing the recent
+ * logs name; a log naming no thread by its words (P-38), as with no wanders.
+ */
 function latelySentence(dots: OverviewDot[], data: Data) {
   const seen = new Set<string>();
   const parts: string[] = [];
   for (const d of dots) {
+    if (!d.threads.length) {
+      const text = data.activities[d.id]?.text.trim().replace(/\s+/g, ' ');
+      if (!text || seen.has(`\0${text}`)) continue;
+      seen.add(`\0${text}`);
+      parts.push(text);
+      continue;
+    }
     const names = d.threads.map((id) => data.threads[id].name);
     const part = names.length === 1 ? names[0] : `${names[0]} ${d.doing ? 'toward' : 'with'} ${list(names.slice(1))}`;
     const key = d.doing ? part : [...d.threads].sort().join('\n');

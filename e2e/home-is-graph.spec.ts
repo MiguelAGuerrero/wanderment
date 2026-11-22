@@ -95,6 +95,26 @@ test('“+ What’s it all for?” names a wander and marks it what it’s for; 
   await expect(offer(page)).toBeVisible();
 });
 
+test('P-38: one log, then a why named from “+ What’s it all for?”: the log’s dot and its words stay', async ({ page }) => {
+  await page.addInitScript(seedScript, legacyBlob([], [{ text: 'Worked on wanderment', daysAgo: 0.1 }]));
+  await openHome(page);
+  await expect(dots(page)).toHaveCount(1);
+  await offer(page).click();
+  const field = page.getByRole('textbox', { name: 'What it’s all for' });
+  await field.fill('feel productive');
+  await field.press('Enter');
+  await expect(nodes(page).filter({ hasText: /^feel productive$/ })).toHaveAttribute('data-kind', 'why');
+  // The log is still a dot, still the newest, with no line (it names no wander).
+  await expect(dots(page)).toHaveCount(1);
+  await expect(page.getByTestId('graph-dot-a0')).toHaveAttribute('data-newest', 'true');
+  await expect(page.locator('[data-testid^="graph-dotline-"]')).toHaveCount(0);
+  const summary = 'What it’s for: feel productive, nothing feeds it yet. Lately: Worked on wanderment.';
+  await expect(line(page)).toHaveText(summary);
+  await expect(picture(page)).toHaveAccessibleName(summary);
+  await expectNoSeriousViolations(page);
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/p38-log-and-why.png` });
+});
+
 test('“Not now” hides the offer for good, across a reload', async ({ page }) => {
   await page.addInitScript(seedScript, ownerLike());
   await openHome(page);
