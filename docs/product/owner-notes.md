@@ -34,6 +34,8 @@ the guided 1-2-3. Naming from the pill ends there: no next step is offered, and 
 capturing screens) the unattached log dot drops out of the picture once a why exists, so the one
 thing you'd connect it to vanishes. "Goals" here is loose wording; targets/progress stay refused.
 Led to: brief B-05, persona panel, D-8.
+Decision (D-8, same day, after the panel): **go with the panel's combination**, no "because…" for
+now. → P-38 (polish), P-40–P-43.
 
 ## 2026-11-22 — Onboarding: a feeling, not a goal
 > For example, maybe the onboarding thing is I get to declare something as simple as "I just wanna

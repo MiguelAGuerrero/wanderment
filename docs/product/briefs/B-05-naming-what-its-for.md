@@ -1,6 +1,6 @@
 # B-05 — Naming what it's for, and the first step toward it
 
-**Status:** proposed · **Decision:** D-8 · **Theme:** Know the why / Seeing flow · **Date:** 2026-11-22
+**Status:** building · **Decision:** D-8 — go with the panel's combination, 2026-11-22 (→ P-38, P-40–P-43) · **Theme:** Know the why / Seeing flow · **Date:** 2026-11-22
 
 ## The problem, in the owner's terms
 > "This 'what's it all for?' view doesn't look very intuitive. I want … a more engaging way to
@@ -30,8 +30,9 @@ How much a why holds is open (name only, a "because…" line, or a kind). The pa
   - `2-home-offer-naming.png`: tapping the pill swaps it for a bare one-line field ("A feeling or a
     reason, e.g. feel calmer"). There are no examples and no explanation.
   - `3-home-after-naming.png`: after Return, a small "feel productive" node sits top-left, with
-    "nothing feeds it yet" and a toast. **The "Worked on wanderment" dot is gone**: a why switches
-    the picture to "whys and what feeds them", and unattached logs drop out. **No next step is
+    "nothing feeds it yet" and a toast. **The "Worked on wanderment" dot is gone**: once any wander
+    exists, only logs that name a shown wander are dots (`overview.ts`), so unattached logs drop out
+    of the picture and of the spoken "Lately" line (→ P-38, being fixed as polish). **No next step is
     offered.** Most of the screen is empty.
   - `4-firstrun-1.png` to `6-firstrun-3.png`: the 1-2-3 is a dashed card above the welcome, with
     example chips and Skip. ② asks for one next step. ③ "There it is." shows a single pill with a
@@ -106,10 +107,123 @@ The why is reached *through* your logs (deduce first, declare second).
 - **Not doing:** goals, targets, progress, deadlines, checklists, a multi-screen onboarding tour.
 
 ## Persona panel
-_Pending._
+_Simulated perspectives from `docs/product/PERSONAS.md`, run 2026-11-22 before asking. This is a
+thinking tool, not user research. Full reports: `.polish/product/panel-B-05-{1,2,3}.md`._
+
+| Persona | Picks | Reaction to their pick | A why holds | What it hinges on |
+|---|---|---|---|---|
+| A — Impulsive Dabbler | 3 (+ 1's dot linking) | fine | name only | "Just itself" stays valid; the seed never sits there as homework; asked once per log |
+| B — Intentional Builder | 1 | delighted | name + "because…" | Linking past logs draws the lines; no false "nothing feeds it yet"; an end-shaped example |
+| C — Pressure-Sensitive Returner | 3 | fine → yes | name only | A why born fed; the step never worded as a promise or repeated in the summary |
+| D — Reflective Meaning-Seeker | 3 + 2's "because…" | delighted | name + "because…" | A place for the reason; "What's fed it"; a way back after "Not now" |
+| E — Skeptical Minimalist | 3 | fine | name only | Reuses the bridge's shape; never two prompts for one log; "Not now" for good |
+| F — Assistive-Tech User | 2, then 3; 1 last | fine → delighted | either; no kind | Everything in the picture also as words; the step heard on Home; the 1-2-3's focus rules |
+
+**Trade-offs.**
+- **Direction 1 (seed in the picture)** favours picture-first, end-first people (B, and the owner's
+  "intents first"). It costs:
+  - A, who reads an empty seed as standing homework;
+  - C, who reads it as an absence placed on purpose;
+  - F most of all: the picture is one image to a screen reader, and at the largest text it doesn't
+    exist.
+- **Direction 2 (one sentence)** favours linear, verbal users (F). It costs:
+  - C, because "so next I'll read a book" is an unkept promise in their own words a month later;
+  - D, whose reasons don't fit the grammar;
+  - B, because it never links past logs, so they get clarity with no feedback.
+- **Direction 3 (start from what you did)** favours deduce-first, low-pressure and low-novelty
+  people (A, C, D, E), and it works for F. It costs the owner's "intents first" only on Home with
+  logs; the empty app can stay intents-first.
+
+**Strong, lean on it** (named by several personas):
+- **Keep the dots.** All six call the vanishing dot a defect → P-38.
+- **Link what you already did.** Direction 1's "Did any of these lead here?" and Direction 3's "Is
+  anything else toward this?" are the same act. It's B's and D's favourite moment, and its list form
+  is what F needs.
+- **"Just itself"** stays a valid answer (A, C, D).
+- **Naming leads straight to an offered step** that can wait (A, B, D; C and E as long as it's
+  optional).
+- **Example chips beat a bare field** (A, B, D).
+- **A why born fed** (C): one attached at the moment you name it is never "untouched".
+
+**Refinements.**
+
+*Folded in (fit DESIGN.md):*
+1. Unattached logs stay as dots, and stay in "Lately" (P-38).
+2. Drop "nothing feeds it yet". It's false right after you've done something toward the why, and it
+   reads as a scold on day 40 (B, C, E).
+3. The chips span a feeling, a value and an end, keeping "feel productive". The placeholder becomes
+   "A feeling, a reason or an end, in your own words" (B, D).
+4. The step prompt reads as an offer, not a promise: "↳ a next step, if one comes to mind · it can
+   wait". It is never repeated in Home's summary (C). It is heard on the why's button in the list
+   ("feel productive, what it's for, next: read a book"), so F hears it without pointing.
+5. Every way to name a why ends in one short-lived moment:
+   - "Anything here toward it?" puts your visible unattached logs on screen as buttons, in the
+     picture and in the list.
+   - A tap draws the line (attaches the log "to" it), with Undo.
+   - Ignoring it writes nothing.
+   - It ends when you log, type or leave Home (A, B, D, E, F).
+6. With no whys, Home's offer and the post-log bridge are one prompt, never two for the same log
+   (A, E, F).
+7. On a why's page:
+   - "What it's for" shows under the title (F);
+   - "Steps" becomes "What's fed it", and is hidden when it's empty (C, D);
+   - "Anything else toward this?" lists recent unattached logs to link;
+   - there's one verb, Rename (E).
+8. The 1-2-3's focus rules apply everywhere: nothing autofocuses by itself, and focus moves to each
+   new step. Under Reduce Motion, "fills in" and "line draws" stay still (F).
+
+*Offered as options (the owner decides):*
+- **Where the offer sits on Home with logs.** Direction 3's "*Worked on wanderment* — what was it
+  toward?" (A, C, D, E, F), or Direction 1's seed at the head of the picture (B; the owner's
+  graph-first image). The seed needs a word twin and a card fallback at large text (F).
+- **"Because…"** (an optional reason line, on the why's page only, never prompted, never on Home).
+  B and D want it; A, C and E prefer a name only; F doesn't mind. It's a stored-data change.
+- **"Not now"** hides the offer for good (E). The way back is then pull-only: tap a log's dot or its
+  list button → "Toward something?" (A, C, D).
+
+*Refused, with the rule:*
+- a kind (feeling / value / end) as a field: all six declined it, and a kind that changes behaviour
+  starts building goal semantics;
+- B's progress, a second staged step, dates and a "done" state: the never list and D-5 (one staged
+  step);
+- a suggested why from your logs, unprompted (A): "nothing created without a tap", and it reads as a
+  nudge;
+- a why's earlier wordings (D): a stored-data want, noted for later.
+
+**Against the owner's notes (P0).**
+- "A feeling, not a goal … as much specificity as I allow myself": this matches the folded-in
+  refinements (feelings and ends both welcome, a step that can wait, "because…" opt-in).
+- "Intents first" (2026-11-21) and "graph first" (2026-11-22) pull toward Direction 1's seed. The
+  panel's combination keeps intents first on the empty app (the 1-2-3, refined) and anywhere you
+  choose to name one. On Home with logs it starts from what you did, unless the owner picks the seed.
+- The owner's "stops at the name" and "looks like a stray button" are both answered: naming now
+  flows into a step and linking, and the offer is anchored to a real log (or to the picture).
 
 ## Slices
-_Pending the decision._
+Recommended order; each S or M.
+1. **P-38 Logs never drop out of Home's picture** `[ux]` S — shipping now as polish (any answer
+   needs it).
+2. **Naming copy** `[ux]` S:
+   - "nothing feeds it yet" is gone;
+   - the chips span a feeling, a value and an end;
+   - the new placeholder;
+   - the step wording "if one comes to mind · it can wait";
+   - the step is heard on the why's list button.
+3. **Name → step → link** `[feature]` `[data]` M: after naming a why from any route, an optional
+   step field and "Anything here toward it?":
+   - your visible unattached logs as buttons (picture and list);
+   - a tap attaches the log to the why, with Undo;
+   - it ends on log, type or leave;
+   - Full tier (it writes `toIds`).
+4. **Home's offer starts from what you did** `[feature]` M:
+   - with logs and no whys, the pill becomes "*<latest log>* — what was it toward?" with "+ name it",
+     your wanders and "Just itself", merged with the post-log bridge;
+   - naming there makes a why that's born fed;
+   - "Not now" for good, and a tapped dot is the way back.
+
+   (Or Direction 1's seed, if the owner picks it.)
+5. **A why's page** `[feature]` M: "What it's for" under the title, "What's fed it", "Anything else
+   toward this?", Rename. Optionally a "because…" line (`[data]`, Full tier).
 
 ## Data and risk
 - A name only: no stored-format change.
@@ -124,4 +238,16 @@ _Pending the decision._
   dots.
 
 ## Decision requested
-_Pending the panel._
+**D-8 — How should naming what it's for work?**
+
+**Recommended: Go with the panel's combination:**
+- slices 2–5, with Direction 3 for Home's offer once you have logs;
+- the refined 1-2-3 for an empty app;
+- no "because…" for now. It can be added later without changing anything else.
+
+Or:
+- **Go, but with the seed in the picture** for Home's offer (Direction 1, with a word twin and a
+  large-text fallback);
+- **Go, and add "because…"** (slice 5 becomes Full tier);
+- **Copy only** (slices 1–2);
+- **Not now**.

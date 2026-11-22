@@ -37,14 +37,19 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-04 Import you can trust `[data]` M
-*Status:* todo
+### P-04 Import you can trust: check, then preview `[data]` M
+*Status:* in-progress
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
-*Done when:* import shows a preview (counts, date range, how it differs from what's here) before
-replacing; the current data is kept as an automatic snapshot that one Undo restores; a damaged file
-never touches existing data; tests for preview, undo and a malformed file. Also: a backup whose threads share a name ("draw" and "Draw") is imported
-without creating ambiguous `@` matches (refuse, or suffix with the user's say), with a test (audit B
-of batch P-01–P-03).
+Split 2026-11-22 (scout: about 2 days whole); the snapshot is P-39.
+*Done when:* a file is checked strictly before anything is shown: duplicate ids, arrays where
+records belong, and a newer version (with an accurate message) are refused; a backup whose wanders
+share a name once normalized as `@` does ("draw"/"Draw", NFC pairs, hidden included) is refused,
+naming them (owner, 2026-11-22: refuse); the legacy loader stays lenient. Import then shows a
+preview (counts, date range, how it differs from what's here: added, removed, changed) that you
+confirm or cancel; an empty backup over existing data is allowed with a plain warning in the preview
+(owner, 2026-11-22); the same file again says it's identical and changes nothing; cancel and a
+damaged file never touch data; works on the native paste path and while reconnecting (refused, text
+kept); tests for each, and why.spec.ts updated.
 
 ### P-05 Prove it in Safari and Firefox `[platform]` M
 *Status:* todo
@@ -53,7 +58,61 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 *Done when:* CI runs the e2e suite on WebKit and Firefox too (or a documented subset where a browser
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
+### P-38 Logs never drop out of Home's picture `[ux]` `[a11y]` S
+*Status:* in-progress
+*Why:* found while capturing B-05 screens (owner, 2026-11-22): once any wander exists, only logs that
+name a shown wander are dots (`overview.ts`), so an unattached log ("Worked on wanderment") vanishes
+from the picture and from the spoken "Lately" line the moment you name a why. All six panel personas
+(B-05) called it a defect in every direction.
+*Done when:* with wanders or whys shown, your latest logs that name none of them still show as dots
+(no line) and are named in the summary's "Lately"; the cap and the newest marker work as before;
+unit tests in `overview-home.test.ts`; e2e: name a why from "+ What's it all for?" with one log, and
+the log's dot and words stay.
+
 ## Next
+
+### P-39 Import keeps a snapshot one Undo restores `[data]` M
+*Status:* todo
+*Why:* P-04's third part (owner, 2026-11-22: next batch). Undo is memory-only and field-wise, and the
+native dated backup is overwritten the same day, so nothing protects you from a wrong import.
+*Done when:* the data from before an import is committed as one snapshot (SQLite settings row, by the
+page that holds the data) before the swap; the toast's Undo and a Settings "Restore what you had
+before the import" line (surviving reload, until the next import or dismissed) restore it exactly,
+through the gated and journaled path; a crash between snapshot and swap leaves data intact;
+persistence tests for reload, crash, second page and the local-storage fallback.
+
+### P-40 Naming copy `[feature]` `[ux]` S
+*Status:* todo
+*Why:* B-05 slice 2 (D-8): "nothing feeds it yet" reads false right after you did something and
+scolds a month later; the examples read as moods only.
+*Done when:* "nothing feeds it yet" is gone from the summary; the examples span a feeling, a value
+and an end (keeping "feel productive"); placeholder "A feeling, a reason or an end, in your own
+words"; the step prompt reads "a next step, if one comes to mind · it can wait"; a why's list button
+names its staged step for screen readers, and the summary never repeats it; tests updated.
+
+### P-41 Name → step → link `[feature]` `[data]` M
+*Status:* todo
+*Why:* B-05 slice 3 (D-8): naming a why stops at the name; linking what you already did is the
+panel's most valued moment.
+*Done when:* after naming a why from any route, an optional step field and "Anything here toward
+it?" with your visible unattached logs as buttons (in the picture and in the list); a tap attaches
+the log to the why, with Undo; ignoring writes nothing; it ends on log, type or leaving Home; focus
+rules as the 1-2-3's; still under Reduce Motion; Full tier.
+
+### P-42 Home's offer starts from what you did `[feature]` M
+*Status:* todo
+*Why:* B-05 slice 4 (D-8): the pill floats apart from the picture and the logs.
+*Done when:* with logs and no whys, the offer reads "<latest log> — what was it toward?" with
+"+ name it", your wanders and "Just itself", merged with the post-log bridge (never two prompts for
+one log); naming there makes a why born fed (the log attached); "Not now" for good, and a tapped
+dot is the way back; the empty-app 1-2-3 is kept.
+
+### P-43 A why's page `[feature]` M
+*Status:* todo
+*Why:* B-05 slice 5 (D-8): a why's page is any wander's page.
+*Done when:* "What it's for" under the title; "Steps" becomes "What's fed it" (hidden when empty);
+"Anything else toward this?" lists recent unattached logs to link (a tap, with Undo); one verb,
+Rename.
 
 ### P-32 Take-back conflicts and leftovers `[data]` `[platform]` S
 *Status:* todo
@@ -269,6 +328,11 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   conversation:** the graph is Home (list → "Wanders" tab, Graph tab removed); first run is a 1-2-3
   (declare an intention → plan its next step → see it); tapping a node gives quick actions at the log
   box; threads are called "wanders". → P-34, P-35, P-36, P-37 (Now).
+- **D-8 Naming what it's for** — [B-05](product/briefs/B-05-naming-what-its-for.md): how to name a
+  why, link what you already did, and offer a first step (Home with logs, the empty-app 1-2-3, and
+  a why's page). Panel run 2026-11-22. **Answered 2026-11-22: go with the panel's combination**
+  (start from what you did on Home, the refined 1-2-3, name → step → link everywhere, a why's page; no
+  "because…" for now). → P-38 (polish, Now), P-40, P-41, P-42, P-43 (Next).
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
