@@ -897,6 +897,149 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     expect(store.getState().undo).toBeDefined();
   });
 
+  // Audit 3 D1: letting go may count unwritten changes as saved only when the journal verifiably
+  // holds them; otherwise (or when the journal is set aside) taking the data back puts them back.
+  describe('unsaved changes are never dropped by letting go (audit 3 D1)', () => {
+    const io = () => new Error('disk I/O error');
+    const failWrites = () => (env.p29.failSql = { match: /^(INSERT|DELETE|UPDATE)/i, error: io() });
+    const SAVE_FAILED = 'Your last change couldn’t be saved. Export a backup from Settings to be safe.';
+
+    it('1. a save that keeps failing, then a tab switch: the change stays on screen with a banner, and lands once writes work', async () => {
+      fakeLocks();
+      const store = await load();
+      logText(store, 'alpha');
+      await tick(30);
+      failWrites();
+      logText(store, 'unsaved');
+      await tick(30);
+      expect(store.getState().saveError).toBe(SAVE_FAILED);
+      page.hide();
+      await tick(30);
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      // Its own replay failed the same way (set aside): the change is still on screen, and a banner says so.
+      expect(texts(store)).toEqual(['alpha', 'unsaved']);
+      expect(store.getState().saveError).toBeDefined();
+      // Writes work again: the next save carries it.
+      env.p29.failSql = undefined;
+      logText(store, 'later');
+      await tick(30);
+      expect(await diskTexts()).toEqual(['alpha', 'later', 'unsaved']);
+      expect(store.getState().saveError).toBeUndefined();
+    });
+
+    it('2. the journal can’t be written (quota) and a change is queued behind the write in flight when the page lets go: it’s kept, on screen and on disk', async () => {
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      env.state.quotaKey = 'wanderment:journal';
+      writeGate = deferred();
+      logText(store, 'in flight');
+      await tick(0);
+      logText(store, 'queued');
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(await diskTexts()).toEqual(['in flight']);
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(texts(store)).toEqual(['in flight', 'queued']);
+      expect(await diskTexts()).toEqual(['in flight', 'queued']);
+    });
+
+    it('3. the journal can’t be written and a note is still being typed when the page lets go: every character is kept', async () => {
+      fakeLocks();
+      const store = await load();
+      logText(store, 'alpha');
+      await tick(30);
+      const id = idOf(store, 'alpha');
+      env.state.quotaKey = 'wanderment:journal';
+      writeGate = deferred();
+      let typed = '';
+      for (const c of 'abcdefghijkl') {
+        typed += c;
+        store.getState().updateActivity(id, { note: typed });
+        await tick(0);
+      }
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      page.show();
+      await tick(100);
+      expect(store.getState().data.activities[id].note).toBe('abcdefghijkl');
+      expect((await onDisk()).activities[id].note).toBe('abcdefghijkl');
+    });
+
+    it('4. another page set this page’s journal aside (its replay failed there): taking the data back puts the change back, and saves it', async () => {
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      writeGate = deferred();
+      logText(store, 'in flight');
+      await tick(0);
+      logText(store, 'queued');
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      // The other page's replay failed: it set the journal aside, as persistence does.
+      const raw = env.ls.get('wanderment:journal')!;
+      expect(JSON.parse(raw).changes.upsertActivities).toEqual([expect.objectContaining({ text: 'queued' })]);
+      env.ls.set('wanderment:journal-failed-1', raw);
+      env.ls.delete('wanderment:journal');
+      page.show();
+      await tick(100);
+      expect(texts(store)).toEqual(['in flight', 'queued']);
+      expect(await diskTexts()).toEqual(['in flight', 'queued']);
+    });
+
+    it('5. a write error that lasts across one hide/show, then heals: nothing is lost', async () => {
+      fakeLocks();
+      const store = await load();
+      logText(store, 'alpha');
+      await tick(30);
+      const id = idOf(store, 'alpha');
+      failWrites();
+      store.getState().updateActivity(id, { note: 'kept note' });
+      logText(store, 'unsaved');
+      await tick(30);
+      page.hide();
+      await tick(30);
+      page.show();
+      await tick(100);
+      env.p29.failSql = undefined;
+      expect(texts(store)).toEqual(['alpha', 'unsaved']);
+      expect(store.getState().data.activities[id].note).toBe('kept note');
+      store.getState().setShowShading(false); // any next change saves everything pending
+      await tick(30);
+      expect(await diskTexts()).toEqual(['alpha', 'unsaved']);
+      expect((await onDisk()).activities[id].note).toBe('kept note');
+    });
+
+    it('a save that writes nothing (taking the data back) doesn’t clear the “couldn’t be restored” banner', async () => {
+      fakeLocks();
+      const store = await load();
+      logText(store, 'alpha');
+      await tick(30);
+      page.hide();
+      await tick(30);
+      // Another page wrote meanwhile, and left a journal that can't be replayed: set aside when this page takes the data back.
+      await writeElsewhere('from elsewhere');
+      env.ls.set('wanderment:journal', JSON.stringify({ changes: { upsertThreads: [], deleteThreads: [], upsertActivities: [{ id: 'bad' }], deleteActivities: [] } }));
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(texts(store)).toEqual(['alpha', 'from elsewhere']);
+      expect(store.getState().saveError).toBe('A change from your last visit couldn’t be restored. Check your latest entries.');
+    });
+  });
+
   // Rework after audit (F1, F6): a page that doesn't hold the data can't change it. These two
   // replaced "a change made while hidden waits in the journal and lands later".
   it('a change tried while hidden is refused: nothing changes, nothing is written or journaled; shown again, it works', async () => {
@@ -1476,7 +1619,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(store.getState().storage).toEqual({
         state: 'blocked',
         waiting: true,
-        message: 'Wanderment can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept. If this stays, reload the page.',
+        // Audit 3 U1: no advice to reload (it opens by itself; Reload stays as a second way).
+        message: 'Wanderment can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept.',
         details: 'Details: open · Aborted(NetworkError: wasm)',
       });
       // It keeps trying (every 5 s now), without saying it again on each try; the line and the data stay.
@@ -1517,6 +1661,39 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(store.getState().storage).toEqual(READY);
     });
 
+    it('taking the data back where a step never answers is told over the app 30 s on, not before, naming the step (audit 3 D4)', async () => {
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      page.hide();
+      await tick(30);
+      const wrap = handoff.wrapDb!;
+      handoff.wrapDb = (db) => ({ ...wrap(db), all: (() => new Promise(() => {})) as typeof db.all });
+      page.show();
+      await tick(29_900);
+      expect(store.getState().storage).toEqual(RECONNECTING);
+      await tick(200);
+      expect(store.getState().storage).toMatchObject({ state: 'blocked', waiting: true, details: 'Details: migrate · No answer for 30 s' });
+    });
+
+    it('stuck and shown again, the waiting screen says what fails now at the first failed try (audit 3 T1)', async () => {
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      page.hide();
+      await tick(30);
+      env.state.openError = new Error('Aborted(NetworkError: wasm)');
+      page.show();
+      await tick(8000);
+      expect(store.getState().storage).toMatchObject({ state: 'blocked', details: 'Details: open · Aborted(NetworkError: wasm)' });
+      page.hide();
+      await tick(30);
+      env.state.openError = new Error('disk I/O error');
+      page.show();
+      await tick(10);
+      expect(store.getState().storage).toMatchObject({ state: 'blocked', waiting: true, details: 'Details: open · disk I/O error' });
+    });
+
     it('shown again (or back online), a try that’s waiting goes at once', async () => {
       fakeLocks();
       const store = await load();
@@ -1555,6 +1732,40 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       fakeLocks();
       store = await load();
       expect(store.getState().draft.text).toBe('');
+    });
+
+    it('Return pressed while reconnecting survives Reload like the draft: it’s logged once when the data shows again (audit 3 U1)', async () => {
+      const session = new Map<string, string>();
+      vi.stubGlobal('sessionStorage', { getItem: (k: string) => session.get(k) ?? null, setItem: (k: string, v: string) => void session.set(k, v), removeItem: (k: string) => void session.delete(k) });
+      vi.stubGlobal('location', { reload: vi.fn(), href: 'http://localhost/wanderment/' });
+      const locks = fakeLocks();
+      let store = await load();
+      await tick(30);
+      page.hide();
+      await tick(30);
+      locks.holdElsewhere();
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(RECONNECTING);
+      store.getState().setDraft({ text: 'pressed before Reload' });
+      expect(store.getState().log()).toBeUndefined();
+      (await import('./persistence')).reloadKeepingDraft();
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      store = await load();
+      await tick(30);
+      expect(texts(store)).toEqual(['pressed before Reload']);
+      expect(store.getState().draft.text).toBe('');
+      expect(await diskTexts()).toEqual(['pressed before Reload']);
+      // Once: another reload logs nothing more.
+      (await import('./persistence')).reloadKeepingDraft();
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      store = await load();
+      await tick(30);
+      expect(texts(store)).toEqual(['pressed before Reload']);
     });
 
     it('a shutdown that fails (or times out) leaves the page the holder: it keeps the tab lock, tells no one, and lets go properly the next time it’s hidden — two pages never wait on each other', async () => {

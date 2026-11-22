@@ -206,6 +206,46 @@ test('the audit’s F1 with two real pages: the page that doesn’t hold the dat
   for (const text of ['alpha', 'beta']) await expect(page.getByText(text, { exact: true }).filter({ visible: true })).toHaveCount(1);
 });
 
+test('a save that keeps failing, then a tab switch and back: nothing vanishes, and it lands once saving works (audit 3 D1, P-29)', async ({ page }) => {
+  // While window.failWrites is set, every write the database worker is asked for fails (like a full disk).
+  await page.addInitScript(() => {
+    const post = Worker.prototype.postMessage;
+    Worker.prototype.postMessage = function (this: Worker, message: unknown, ...rest: unknown[]) {
+      const m = message as { type?: string; data?: { source?: string } } | null;
+      if ((window as unknown as { failWrites?: boolean }).failWrites && m?.type === 'prepare' && /^\s*(INSERT|DELETE|UPDATE)/i.test(m.data?.source ?? '')) {
+        message = { ...m, data: { ...m.data, source: `FAIL ${m.data?.source}` } };
+      }
+      return (post as (...a: unknown[]) => void).call(this, message, ...rest);
+    } as Worker['postMessage'];
+  });
+  await openHome(page);
+  await logLine(page, 'alpha');
+  await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+  await page.evaluate(() => ((window as unknown as { failWrites: boolean }).failWrites = true));
+  await logLine(page, 'unsaved');
+  const banner = page.getByText('Your last change couldn’t be saved. Export a backup from Settings to be safe.');
+  await expect(banner).toBeVisible();
+
+  await setVisibility(page, 'hidden');
+  await expect(reconnecting(page)).toBeVisible();
+  await setVisibility(page, 'visible');
+  await expect(logButton(page)).toBeVisible({ timeout: 15_000 });
+  // Still on screen, and still saying it isn't saved.
+  await expect(page.getByText(/couldn’t be (saved|restored)/)).toBeVisible();
+  await page.getByRole('tab', { name: 'Activities' }).click();
+  for (const text of ['alpha', 'unsaved']) await expect(page.getByText(text, { exact: true }).filter({ visible: true })).toHaveCount(1);
+
+  // Saving works again: the next change carries it, and it survives a reload.
+  await page.evaluate(() => ((window as unknown as { failWrites: boolean }).failWrites = false));
+  const box = logBox(page).filter({ visible: true });
+  await box.fill('later');
+  await box.press('Enter');
+  await expect(page.getByText(/couldn’t be (saved|restored)/)).toHaveCount(0);
+  await page.reload();
+  await page.getByRole('tab', { name: 'Activities' }).click();
+  for (const text of ['alpha', 'unsaved', 'later']) await expect(page.getByText(text, { exact: true }).filter({ visible: true })).toHaveCount(1, { timeout: 15_000 });
+});
+
 test('the activity sheet shows what another page changed once it takes the data back, and typing adds to that (audit 2 F2, P-29)', async ({ page, context }) => {
   await openHome(page);
   await logLine(page, 'alpha');
@@ -243,6 +283,74 @@ test('the activity sheet shows what another page changed once it takes the data 
   await expect(b.getByText('Saved automatically', { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(b.getByRole('textbox', { name: 'Note' })).toHaveValue('from B and A');
   await expect(b.getByRole('textbox', { name: 'What you did' })).toHaveValue('alpha, edited in B');
+});
+
+test('a note ending in a space (as phone keyboards leave it) still shows another page’s edit once the data is back, so typing adds to it (audit 3 D2, P-29)', async ({ page, context }) => {
+  await openHome(page);
+  await logLine(page, 'alpha');
+  await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+  await page.getByText('Tap for details').click();
+  const note = page.getByRole('textbox', { name: 'Note' });
+  await note.fill('went well ');
+  const b = await context.newPage();
+  await handTo(page, b);
+  await b.getByRole('tab', { name: 'Activities' }).click();
+  await b.getByText('alpha', { exact: true }).filter({ visible: true }).click();
+  await expect(b.getByRole('textbox', { name: 'Note' })).toHaveValue('went well');
+  await b.getByRole('textbox', { name: 'Note' }).fill('B wrote a long careful note');
+
+  await setVisibility(b, 'hidden');
+  await setVisibility(page, 'visible');
+  await expect(page.getByText('Saved automatically', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(note).toHaveValue('B wrote a long careful note');
+  await note.focus();
+  await note.press('End');
+  await note.pressSequentially(', and A');
+  await setVisibility(page, 'hidden');
+  await setVisibility(b, 'visible');
+  await expect(b.getByText('Saved automatically', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(b.getByRole('textbox', { name: 'Note' })).toHaveValue('B wrote a long careful note, and A');
+});
+
+test('a title emptied in one page doesn’t put back its old text over another page’s edit when it’s left (audit 3 D3, P-29)', async ({ page, context }) => {
+  await openHome(page);
+  await logLine(page, 'alpha');
+  await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+  await page.getByText('Tap for details').click();
+  const title = page.getByRole('textbox', { name: 'What you did' });
+  await title.fill('');
+  const b = await context.newPage();
+  await handTo(page, b);
+  await b.getByRole('tab', { name: 'Activities' }).click();
+  await b.getByText('alpha', { exact: true }).filter({ visible: true }).click();
+  await b.getByRole('textbox', { name: 'What you did' }).fill('alpha, edited in B');
+
+  await setVisibility(b, 'hidden');
+  await setVisibility(page, 'visible');
+  await expect(page.getByText('Saved automatically', { exact: true })).toBeVisible({ timeout: 15_000 });
+  // Leaving the emptied title puts back what's saved now: B's edit.
+  await page.getByRole('textbox', { name: 'Note' }).click();
+  await expect(title).toHaveValue('alpha, edited in B');
+  await setVisibility(page, 'hidden');
+  await setVisibility(b, 'visible');
+  await expect(b.getByText('Saved automatically', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(b.getByRole('textbox', { name: 'What you did' })).toHaveValue('alpha, edited in B');
+});
+
+test('a title emptied key by key and left goes back to what it said before (P-29 D3 keeps this)', async ({ page }) => {
+  await openHome(page);
+  await logLine(page, 'alpha');
+  await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+  await page.getByText('Tap for details').click();
+  const title = page.getByRole('textbox', { name: 'What you did' });
+  await title.focus();
+  await title.press('End');
+  for (let i = 0; i < 5; i++) await title.press('Backspace');
+  await expect(title).toHaveValue('');
+  await page.getByRole('textbox', { name: 'Note' }).click();
+  await expect(title).toHaveValue('alpha');
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: 'What you did' })).toHaveValue('alpha', { timeout: 15_000 });
 });
 
 test.describe('without the service worker (the wasm comes from the network)', () => {
@@ -314,6 +422,10 @@ test.describe('without the service worker (the wasm comes from the network)', ()
     await expect(details).toBeVisible();
     // A browser's own words can run long: the line is cut to about 160 characters.
     expect([...((await details.textContent()) ?? '')].length).toBeLessThanOrEqual(160);
+    // …and wraps inside the screen, even one long unbroken word (a URL) (audit 3 U3).
+    const box = (await details.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(page.viewportSize()!.width);
     const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
     expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
 

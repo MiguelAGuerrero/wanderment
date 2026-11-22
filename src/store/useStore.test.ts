@@ -261,4 +261,16 @@ describe('while the page doesn’t hold the data (audit 2 F3, F4)', () => {
     expect(st().setNext('none', 'x')).toBe(false);
     expect(st().toast).toEqual({ message: NOTICE, notice: true });
   });
+
+  it('a refusal never replaces a line the toast already has (the bridge question): it stays, through taking the data back (audit 3 U2)', () => {
+    const id = logText('read a novel', { bridge: true });
+    const asked = { message: 'Logged', detail: QUESTION, activityId: id };
+    expect(st().toast).toEqual(asked);
+    reconnect();
+    expect(st().removeActivity(id)).toBe(false);
+    expect(st().undoLast()).toBe(false);
+    expect(st().toast).toEqual(asked);
+    takeBack();
+    expect(st().toast).toEqual(asked);
+  });
 });

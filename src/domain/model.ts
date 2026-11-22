@@ -172,14 +172,17 @@ export interface ActivityPatch {
   toIds?: Id[];
 }
 
+/** An activity's text or note as it's saved (empty: no change to the text, no note). */
+export const savedForm = (typed: string) => typed.trim();
+
 /** Edits an activity. Text can't become empty; "to" never repeats the doing thread. */
 export function editActivity(data: Data, id: Id, patch: ActivityPatch): Data {
   const a = data.activities[id];
   if (!a) return data;
-  const text = patch.text !== undefined ? patch.text.trim() || a.text : a.text;
+  const text = patch.text !== undefined ? savedForm(patch.text) || a.text : a.text;
   const doingId = patch.doingId === null ? undefined : patch.doingId !== undefined && data.threads[patch.doingId] ? patch.doingId : a.doingId;
   const toIds = [...new Set((patch.toIds ?? a.toIds).filter((t) => t !== doingId && (data.threads[t] || a.toIds.includes(t))))];
-  const note = patch.note !== undefined ? patch.note.trim() || undefined : a.note;
+  const note = patch.note !== undefined ? savedForm(patch.note) || undefined : a.note;
   const occurredAt = patch.occurredAt ?? a.occurredAt;
   return { ...data, activities: { ...data.activities, [id]: { ...a, text, doingId, toIds, note, occurredAt } } };
 }

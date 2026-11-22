@@ -127,7 +127,7 @@ function Blocked({ storage, messageRef }: { storage: Extract<StorageStatus, { st
       )}
       {/* Small print for bug reports: which step failed, and the browser's own words. */}
       {storage.details && (
-        <Text selectable style={[s.meta, { textAlign: 'center' }]}>
+        <Text selectable style={[s.meta, styles.details]}>
           {shownDetails(storage.details)}
         </Text>
       )}
@@ -154,5 +154,7 @@ const styles = StyleSheet.create({
   app: { flex: 1 },
   over: { zIndex: 20 },
   center: { alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24 },
+  // A browser's message can hold one long unbroken word (a URL): it wraps anywhere, inside the screen.
+  details: { textAlign: 'center', maxWidth: '100%', ...(Platform.OS === 'web' && ({ wordBreak: 'break-all' } as object)) },
   error: { position: 'absolute', left: 12, right: 12, top: 12, padding: 12, borderRadius: 12, backgroundColor: C.accentTint },
 });

@@ -188,9 +188,11 @@ function gated<F extends (...args: never[]) => unknown>(refused: ReturnType<F>, 
     const s = useStore.getState();
     if (holdsData(s)) return action(...args);
     if (onRefused) onRefused(...args);
-    // A toast with Undo stays (its Undo works again once the data is back), saying why on its second line.
+    // A toast with Undo stays (its Undo works again once the data is back), saying why on its second
+    // line — unless that line already says something (the bridge question): the Log button's
+    // "Reconnecting…" line says it then.
     else if (s.toast && !s.toast.notice) {
-      if (s.toast.detail !== RECONNECTING_NOTICE) useStore.setState({ toast: { ...s.toast, detail: RECONNECTING_NOTICE } });
+      if (!s.toast.detail) useStore.setState({ toast: { ...s.toast, detail: RECONNECTING_NOTICE } });
     } else if (s.toast?.message !== RECONNECTING_NOTICE) useStore.setState({ toast: { message: RECONNECTING_NOTICE, notice: true } });
     return refused;
   }) as F;
