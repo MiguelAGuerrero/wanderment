@@ -161,6 +161,29 @@ test('logging at ③ ends the run', async ({ page }) => {
   await expect(step(page)).toHaveCount(0);
 });
 
+test('② stays put as the picture catches up: words typed the moment it appears are kept', async ({ page }) => {
+  await openHome(page);
+  // Types into ②'s field as soon as it's on the page: before the picture (drawn a moment after the
+  // data, `useDeferredValue`) shows the new why. ② used to be mounted again then, emptying its field.
+  await page.evaluate(() => {
+    new MutationObserver((_, observer) => {
+      const field = document.querySelector<HTMLInputElement>('input[aria-label="One next step toward feel calmer"]');
+      if (!field) return;
+      observer.disconnect();
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, 'read a book');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  await whyField(page).fill('feel calmer');
+  await whyField(page).press('Enter');
+  // The picture has caught up: it shows the why.
+  await expect(page.getByRole('img', { name: /feel calmer/ })).toBeVisible();
+  const stepField = page.getByRole('textbox', { name: 'One next step toward feel calmer' });
+  await expect(stepField).toHaveValue('read a book');
+  await stepField.press('Enter');
+  await expect(three(page)).toBeVisible();
+});
+
 test('only on an empty app: logs or wanders already there, no first run', async ({ page }) => {
   await page.addInitScript(seedScript, legacyBlob([], [{ text: 'read a chapter', daysAgo: 1 }]));
   await openHome(page);

@@ -307,6 +307,10 @@ export function Composer({
               style={[styles.input, styles.field]}
               returnKeyType="done"
               submitBehavior="submit"
+              // react-native-web ignores submitBehavior and blurs on Enter, a moment later (a 0 ms
+              // timer): that took focus from the box after a log, even once it was back in it and
+              // a new line had begun. Where focus goes after a log is `submit`'s call alone.
+              blurOnSubmit={false}
               onSubmitEditing={submit}
               onKeyPress={onKeyPress as never}
               accessibilityLabel={placeholder}

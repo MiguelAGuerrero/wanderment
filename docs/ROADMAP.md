@@ -97,13 +97,6 @@ every node by why with its step, which is also the way through for screen reader
 https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB): name a direction, one step, then land on the new
 Home.
 
-### P-56 A flaky keyboard-suggestion test `[ux]` S
-*Status:* todo
-*Why:* CI on 2026-11-22 (P-48's run) went red on `e2e/editing.spec.ts:14` (↑/↓ move through
-suggestions, Tab picks, Esc closes, Enter logs), which passed on retry; CI fails on flaky tests.
-*Done when:* the race is found and fixed (in the test's waiting or in the app), and the spec passes
-20 runs in a row locally.
-
 ### P-44 Screens without explanations `[ux]` `[a11y]` M
 *Status:* todo
 *Why:* owner, 2026-11-22: "the UI should be intuitive enough … you should have an information
@@ -407,6 +400,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-56 + CI fix — CI red since P-48: the build job's overview time test read the wall clock for heat (fixed in 9906c09, which also unblocked P-49's deploy); two e2e flakes were real app bugs: the first-run step mounted twice for a moment as the picture caught up, wiping anything typed (HomeGraph now renders the step/offer in one fixed place), and on web a stray blur after Return could send the next line nowhere (`blurOnSubmit={false}` on the log field) · evidence: new tests in `e2e/first-run.spec.ts` and `e2e/capture.spec.ts` (each failed 5/5 before), the two flaky specs 360/360 repeats under load, verify --full · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Fix lane, Light) · this commit
 - 2026-11-22 · P-49 — Home's bottom is one slot with two faces (B-06 slice 2, D-9): a [What’s next | Log] toggle; What’s next · <node> shows its step and ✓ (logs it as typed, Undo) or “＋ add one” (inline); the node is the selection, else the wander last logged toward, and is never attached; Log is the box with one ↑ send; it opens on What’s next, flips back after a log, starts on Log with no wanders; on web typing switches to Log and Esc goes back; “Reconnecting…” shows on both faces; DESIGN.md capture rule updated (owner-approved, D-9) · evidence: `slot.test.ts` (8), store `slot.test.ts` (4), `e2e/home-slot.spec.ts` (10), fixtures switch Home to Log before logging; perf 1.08–1.20× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-22 · P-48 — Home's graph as heat circles and branch lines (B-06 slice 1, D-9): circles sized by level, declared whys double-ringed, each circle coloured by heat (the warmth of the newest activity on it or anything feeding it, cycle-safe, never a sum; neutral with shading off), tapered gradient branches that never share an end point, no widths from counts (`linkWidth` gone, P-47 folded in), no dots once wanders exist, labels ≥ 4.5:1; DESIGN.md's graph rule updated (owner-approved, D-9) · evidence: `heat.test.ts` (13), `overview-circles.test.ts` (13), `e2e/home-heat.spec.ts` (4), six old-visual assertions updated with P-48 notes; perf 1.18–1.19× vs base 1.15–1.25× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · this commit
 - 2026-11-22 · P-04 — import checks the file strictly (arrays, duplicate ids incl. "constructor", a newer version, wanders whose names `@` can't tell apart — refused, naming them), then shows a preview (what it holds, what changes, empty-backup warning with Cancel first, "matches what's here", "can't be undone yet"); Replace re-checks against what's here; reachable on native; focus and announcements; the keep-the-dots item was built but pulled for the perf budget (branch `p38-keep-dots`) · evidence: `import.test.ts` (21), `persistence.test.ts` P-04 (6, 5 mutants), `useStore.test.ts` (replace clears the toast), `e2e/import.spec.ts` (10), `e2e/a11y.spec.ts` (preview) · audit: 17 reported · 10 reproduced · 13 fixed · 5 deferred · `144e12e`, `df9351d`, `9b2d459`

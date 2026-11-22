@@ -17,6 +17,18 @@ test('@ + "New thread" creates the first thread', async ({ page }) => {
   await expect(page.getByText('Your first wander.')).toBeVisible();
 });
 
+test('Return logs and the log box keeps focus: the next line can be typed straight away', async ({ page }) => {
+  await openWanders(page);
+  await logBox(page).fill('practiced scales');
+  await logBox(page).press('Enter');
+  await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
+  // Typed as a person would, into whatever has focus (react-native-web used to blur the box a moment
+  // after Return, so these keys went nowhere).
+  await page.keyboard.type('tuned up');
+  await expect(logBox(page)).toBeFocused();
+  await expect(logBox(page)).toHaveValue('tuned up');
+});
+
 test('an unpicked @word is saved as typed and never creates a thread', async ({ page }) => {
   await openHome(page);
   await logLine(page, 'leg day @gymm');

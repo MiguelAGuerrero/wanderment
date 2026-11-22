@@ -78,9 +78,16 @@ export const LiveGraph = memo(function LiveGraph({ data, surfacing, firstRun }: 
   const ov = useMemo(() => overview(d, sf, { shading }) ?? looseOverview(d), [d, sf, shading]);
   const offerOff = useStore((st) => st.whyOfferOff);
   const offer = !offerOff && ov?.mode !== 'whys';
-  // Nothing logged yet (the welcome is showing): no "Not now" — there's nothing to put it off for.
-  if (!ov) return firstRun || (offer ? <WhyOffer canPutOff={false} /> : null);
-  return <HomeGraph ov={ov} offer={firstRun || (offer && <WhyOffer canPutOff />)} />;
+  // Below the picture: when it goes (a why is named), nothing above it moves. It keeps one place in
+  // the tree whether or not there's a picture yet, so the first run's step isn't mounted again (its
+  // typed words and focus lost) when the deferred picture catches up with the data. Nothing logged
+  // yet (the welcome is showing): no "Not now" — there's nothing to put it off for.
+  return (
+    <>
+      {ov && <HomeGraph ov={ov} />}
+      {firstRun || (offer && <WhyOffer canPutOff={!!ov} />)}
+    </>
+  );
 });
 
 /**
@@ -145,7 +152,7 @@ function WhyOffer({ canPutOff }: { canPutOff: boolean }) {
  * pointing). A wander or dot that stays keeps its place: the last layout's slots are passed back in.
  * Narrow screens and the largest text get the summary, "Explore" and the list, without the picture.
  */
-export function HomeGraph({ ov, offer }: { ov: Overview; /** "+ What's it all for?", over the picture. */ offer?: ReactNode; /** Reserved for focusing a node (P-26). */ focusId?: Id }) {
+export function HomeGraph({ ov }: { ov: Overview; /** Reserved for focusing a node (P-26). */ focusId?: Id }) {
   const { width: windowWidth, fontScale } = useWindowDimensions();
   const narrow = useGraphNarrow();
   const icon = useGraphIcon();
@@ -232,8 +239,6 @@ export function HomeGraph({ ov, offer }: { ov: Overview; /** "+ What's it all fo
           ))}
         </View>
       )}
-      {/* Below everything else: when it goes (a why is named), nothing above it moves. */}
-      {offer}
     </View>
   );
 }
