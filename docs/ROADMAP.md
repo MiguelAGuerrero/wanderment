@@ -37,18 +37,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-15 A live graph at the top of Home `[feature]` M
-*Status:* in-progress
-*Why:* B-01 slice 3b, moved earlier by the owner: see what it's for and what feeds it the moment
-you declare or log.
-*Done when:* domain `overview(data, index)` (whys + most active feeders, cap with "+N"; no graph — and no
-placeholder — when there are no threads; most active threads when there are no whys) with tests; compact graph above the cards; tapping a node opens the thread; one
-screen-reader summary line; e2e: a node appears right after declaring, a link right after logging;
-axe; 390 px and 200 % zoom; Home stays fast with `bigBlob`. Ships with the DESIGN.md Interaction
-wording accepted in D-4. Includes B-01 panel refinements 1–4: names-not-numbers summary, a plain
-"to Y" log visibly feeds Y, never shrinks with time (all-time links; warmth only dims; no placeholder;
-fixed compact height; summary + "Open graph" at largest text), one accessible element.
-
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
 *Why:* importing replaces everything at once. "Export first if unsure" puts the burden on the person.
@@ -311,6 +299,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-15 — Home opens with a live graph: your threads, recent logs as dots linked to every thread they name (owner: activities as dots), doing → to links as lines, declared whys first, nodes that stay put, "and more" instead of numbers, one accessible summary · evidence: `overview.test.ts` (38, 25/25 mutants killed), `e2e/home-graph.spec.ts` (incl. owner-style logging, perf ≤ 1.10× without the graph), `e2e/a11y.spec.ts`, screenshots · audit: 16 reported · 12 reproduced · 14 fixed · 2 deferred (long-name ellipsis, unused flow-index fields; re-audit of the rework still running — findings fixed forward) · `d2423fe`, `c55e96d`
 - 2026-11-22 · P-29 — never locked out by another copy of the app (owner's iPhone report): WebKit's held-file error recognised; a waiting screen that opens by itself; a page holds the data only while visible and takes it back when shown (reloading what other tabs saved, keeping the draft); a page that doesn't hold the data can't change it; Return while reconnecting logs once; take-back never drops unsaved changes · evidence: `opening.test.ts`, `rebase.test.ts`, `field.test.ts`, `persistence.test.ts` (P-29 describes, mutation-checked), `e2e/handoff.spec.ts`, `e2e/storage.spec.ts`, `e2e/a11y.spec.ts` · audit: 49 reported · 34 reproduced · 37 fixed · 12 deferred (4 rounds; a follow-up data item, the cold-start item, accepted edge cases) · `a4a8f7b`, `427e262`…`911588a`
 - 2026-11-21 · P-14 — a thread can be marked as what it's for (`declaredAt`, SQLite migration 2, additive; backups stay version 1 and carry it), at most three, a fourth offers a swap, hiding unmarks; plus the owner's no-keyboard-on-touch fix for the bridge · evidence: `whys.test.ts`, `storage.test.ts` (schema 2), `persistence.test.ts` (6 mutants red), `useStore.test.ts`, `e2e/why.spec.ts`, `e2e/bridge.spec.ts`, `e2e/a11y.spec.ts`, upgrade/downgrade probed in Chromium · audit: 14 reported · 9 reproduced · 7 fixed · 7 deferred (four to a new zoom item; Android double announce and coarse-pointer keyboard focus accepted; toast wording) · `04f6760`, `a5032c4` + audit fixes
 - 2026-11-21 · P-13, P-24 — after a log with no thread, Home asks "Toward something — or just itself?" (chips, + name it, Just itself; ignoring writes nothing); "Log this" keeps a line you've started and marks it as the step with a removable chip, and never clears a step edited since it was loaded · evidence: `bridge.test.ts`, `useStore.test.ts`, `loadNext.test.ts`, `persistence.test.ts`, `e2e/bridge.spec.ts`, `e2e/log-this.spec.ts`, `e2e/a11y.spec.ts`, screenshots · audit: 14 reported · 9 reproduced · 11 fixed · 3 deferred (iOS toast to a new item; keyboard-on-focus to the owner; two small test gaps) · `ac866f0`, `2a4b039` + audit fixes
