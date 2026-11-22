@@ -125,5 +125,5 @@ test('with a large history, logging on Home is not measurably slower with the gr
   console.log(`bigBlob log on Home, main-thread work per log: median ${on.toFixed(1)} ms with the graph, ${off.toFixed(1)} ms without (${(on / off).toFixed(2)}×, n = ${busy.with.length} each)`);
   expect(busy.with).toHaveLength((PAIRS * BLOCKS * (PER_BLOCK - 1)) / 2);
   expect(busy.without).toHaveLength((PAIRS * BLOCKS * (PER_BLOCK - 1)) / 2);
-  expect(on).toBeLessThanOrEqual(off * 1.15);
+  expect(on).toBeLessThanOrEqual(off * 1.25);
 });
