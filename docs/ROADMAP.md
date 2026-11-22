@@ -85,6 +85,15 @@ genuinely lacks a feature); any browser that can't run SQLite lands in the fallb
 
 ## Next
 
+### P-31 A cold start that can't open keeps trying `[data]` `[platform]` S
+*Status:* todo
+*Why:* P-29 audit 3 (U1): when the browser has used SQLite before and an open fails for a reason
+other than "held elsewhere", the cold-start screen is a dead end ("Reload to try again") and Reload
+lands on it again. Deferred from P-29 because it reverses three Part A tests on main.
+*Done when:* on web, that case shows the waiting screen and retries with backoff (native unchanged);
+the three Part A assertions are updated with the reason; the remembered Return and draft survive;
+persistence + e2e tests. Patch ready: session scratchpad `U1-cold-start-retry.patch`.
+
 ### P-30 A refresh shows the new version `[platform]` `[ux]` S
 *Status:* todo
 *Why:* owner, 2026-11-22: refreshed and "it still looks like the same one" — the installed PWA keeps
