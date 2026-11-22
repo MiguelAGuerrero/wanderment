@@ -105,8 +105,7 @@ export default function PullIn() {
         {candidates.length > 0 ? (
           <Pressable
             onPress={() => {
-              pullIn(thread.id, [...picked]);
-              goBack();
+              if (pullIn(thread.id, [...picked])) goBack();
             }}
             disabled={!picked.size}
             style={[s.primaryBtn, !picked.size && { opacity: 0.4 }]}

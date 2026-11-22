@@ -72,7 +72,8 @@ export default function Settings() {
   const importJson = (json: string) => {
     try {
       const imported = fromBackup(json);
-      replaceData(imported);
+      // Refused while reconnecting (it says so): the pasted text stays, to try again.
+      if (!replaceData(imported)) return;
       setMessage(`Imported ${Object.keys(imported.activities).length} activities.`);
       setPasting(false);
     } catch (e) {
@@ -148,7 +149,7 @@ export default function Settings() {
             <Text style={{ fontSize: 16, color: C.ink }}>Recency shading</Text>
             <Text style={s.meta}>The fading bar on threads</Text>
           </View>
-          <Switch value={showShading} onValueChange={setShowShading} accessibilityLabel="Recency shading" />
+          <Switch value={showShading} onValueChange={(on) => void setShowShading(on)} accessibilityLabel="Recency shading" />
         </View>
 
         {hidden.length > 0 && (

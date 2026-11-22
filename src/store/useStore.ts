@@ -42,6 +42,8 @@ export interface Toast {
   /** A quiet second line under the message (text only, never an action). */
   detail?: string;
   activityId?: Id;
+  /** A note with nothing to undo (no Undo button). */
+  notice?: boolean;
 }
 
 /** Asked (in the toast, and on Home's bridge) after a log on Home that went to no thread. */
@@ -69,6 +71,29 @@ export type StorageStatus =
    */
   | { state: 'blocked'; message: string; details?: string; waiting?: boolean };
 
+/**
+ * Whether this page holds the data, so it may change it (P-29). A page that is taking the data
+ * back ("Reconnecting…") or waiting for another copy of the app to let go of it doesn't: what it
+ * shows may be out of date, and anything it changed could be overwritten or lost.
+ */
+export const holdsData = (s: { storage: StorageStatus }) => s.storage.state !== 'blocked' && !(s.storage.state === 'ready' && s.storage.reconnecting);
+
+/** Shown (once, quietly) when a change is refused because the page doesn't hold the data. */
+export const RECONNECTING_NOTICE = 'Just a moment — reconnecting.';
+
+/** Every data-changing action returns this (or `false`, or undefined) when it's refused. */
+export type Refused = { ok: false; reason: 'reconnecting' };
+
+/** Return (or Log) pressed while reconnecting: logged once the data is back, if the line is unchanged. */
+export interface ToLog {
+  draft: Draft;
+  extra?: Partial<LogInput>;
+  opts?: LogOptions;
+}
+
+/** The same line, chips and step as when it was marked "to log". */
+export const sameDraft = (a: Draft, b: Draft) => JSON.stringify(a) === JSON.stringify(b);
+
 interface State {
   data: Data;
   draft: Draft;
@@ -93,45 +118,57 @@ interface State {
   storage: StorageStatus;
   /** Set when a save failed; cleared by the next successful save. */
   saveError?: string;
+  /** Return pressed while reconnecting (P-29). */
+  toLog?: ToLog;
 
   setDraft: (patch: Partial<Draft>) => void;
   clearDraft: () => void;
   loadNext: (threadId: Id) => void;
+  /*
+   * Data-changing actions (everything that touches `data` or the saved settings) go through one
+   * gate: while the page doesn't hold the data (`holdsData`) they change nothing and show
+   * RECONNECTING_NOTICE. Those that return nothing else return false then (true otherwise).
+   */
+  /** Refused while reconnecting: the line is remembered instead (`toLog`), and logged by `logMarked`. */
   log: (extra?: Partial<LogInput>, opts?: LogOptions) => Id | undefined;
+  /** The data is back: logs the remembered line once, if it's still what's in the box. */
+  logMarked: () => void;
+  /** The thread's id; '' when refused. */
   createThread: (name: string) => Id;
   /** Attaches the chosen past activities to a thread; one Undo reverts all of them. */
-  pullIn: (threadId: Id, activityIds: Id[]) => void;
+  pullIn: (threadId: Id, activityIds: Id[]) => boolean;
   setPullInOffer: (threadId: Id | undefined) => void;
-  rememberSearch: (query: string) => void;
-  clearSearches: () => void;
-  leaveAsIs: (activityId: Id) => void;
+  rememberSearch: (query: string) => boolean;
+  clearSearches: () => boolean;
+  leaveAsIs: (activityId: Id) => boolean;
   dismissPullIn: (threadId: Id) => void;
-  setNext: (threadId: Id, next: string) => void;
+  setNext: (threadId: Id, next: string) => boolean;
   /** Refused (nothing changes) when another thread already has the name. */
-  renameThread: (threadId: Id, name: string) => RenameResult;
-  setHidden: (threadId: Id, hidden: boolean) => void;
+  renameThread: (threadId: Id, name: string) => RenameResult | Refused;
+  setHidden: (threadId: Id, hidden: boolean) => boolean;
   /** Marks the thread as what it's for; when MAX_WHYS are already marked, nothing changes (offer a swap). */
-  declareThread: (threadId: Id) => DeclareResult;
-  undeclareThread: (threadId: Id) => void;
+  declareThread: (threadId: Id) => DeclareResult | Refused;
+  undeclareThread: (threadId: Id) => boolean;
   /** Gives up `outId` as what it's for and marks `inId`; one Undo reverts both. */
-  swapWhy: (outId: Id, inId: Id) => void;
-  attach: (activityId: Id, threadId: Id) => void;
+  swapWhy: (outId: Id, inId: Id) => boolean;
+  attach: (activityId: Id, threadId: Id) => boolean;
   /** Attaches "to" the thread with this name, creating it if needed; one Undo reverts both. */
   attachToNew: (activityId: Id, name: string) => Id | undefined;
   dismissBridge: () => void;
-  updateActivity: (activityId: Id, patch: ActivityPatch) => void;
-  removeActivity: (activityId: Id) => void;
-  undoLast: () => void;
+  updateActivity: (activityId: Id, patch: ActivityPatch) => boolean;
+  removeActivity: (activityId: Id) => boolean;
+  undoLast: () => boolean;
   dismissToast: () => void;
   holdToast: (held: boolean) => void;
   dismissPrompt: () => void;
-  replaceData: (data: Data) => void;
+  replaceData: (data: Data) => boolean;
   /**
    * Shows the saved data again after another copy of the app may have changed it (P-29), keeping
    * the draft. `keepUndo`: false when the data changed underneath, so Undo (and its toast) go.
+   * Persistence calls it once the page holds the data again.
    */
-  refreshData: (data: Data, settings: Settings, keepUndo: boolean) => void;
-  setShowShading: (on: boolean) => void;
+  refreshData: (data: Data, settings: Settings, keepUndo: boolean) => boolean;
+  setShowShading: (on: boolean) => boolean;
 }
 
 const emptyDraft = (): Draft => ({ text: '', toIds: [] });
@@ -140,6 +177,30 @@ const emptyDraft = (): Draft => ({ text: '', toIds: [] });
  * App state. Saving to disk is handled by src/storage/persistence.ts, which loads the data,
  * then writes every change to SQLite in the background.
  */
+/**
+ * The one gate for data-changing actions (P-29). A page that doesn't hold the data refuses: nothing
+ * changes (so nothing is journaled or written, and there's nothing to undo), and one quiet note
+ * says why — or `onRefused` does something else instead. The draft isn't data: typing and chips
+ * keep working.
+ */
+function gated<F extends (...args: never[]) => unknown>(refused: ReturnType<F>, action: F, onRefused?: (...args: Parameters<F>) => void): F {
+  return ((...args: Parameters<F>) => {
+    const s = useStore.getState();
+    if (holdsData(s)) return action(...args);
+    if (onRefused) onRefused(...args);
+    else if (s.toast?.message !== RECONNECTING_NOTICE) useStore.setState({ toast: { message: RECONNECTING_NOTICE, notice: true } });
+    return refused;
+  }) as F;
+}
+
+const refused: Refused = { ok: false, reason: 'reconnecting' };
+
+/** `set`, for the gated actions that return whether they ran (always, once past the gate). */
+function change(patch: Partial<State> | ((s: State) => Partial<State>)): true {
+  useStore.setState(patch);
+  return true;
+}
+
 export const useStore = create<State>()((set, get) => ({
   data: emptyData(),
   draft: emptyDraft(),
@@ -171,46 +232,62 @@ export const useStore = create<State>()((set, get) => ({
     });
   },
 
-  log: (extra, opts) => {
-    const { data, draft } = get();
-    const text = (extra?.text ?? draft.text).trim();
-    if (!text) return undefined;
-    const res = logActivity(data, {
-      text,
-      doingId: extra?.doingId ?? draft.doingId ?? undefined,
-      toIds: extra?.toIds ?? draft.toIds,
-      fromNextOf: extra?.fromNextOf ?? draft.fromNextOf,
-      fromNextText: extra?.fromNextOf ? extra.fromNextText : draft.fromNextText,
-      occurredAt: extra?.occurredAt,
-      note: extra?.note,
-    });
-    const owner = nextOwner(res.activity);
-    const ownerName = owner ? res.data.threads[owner]?.name : undefined;
-    const firstTo = res.activity.toIds[0] ? res.data.threads[res.activity.toIds[0]]?.name : undefined;
-    const bridge = !!opts?.bridge && !owner;
-    set({
-      bridgeFor: bridge ? res.activity.id : undefined,
-      data: res.data,
-      undo: undoEntry(data, res.data),
-      draft: emptyDraft(),
-      promptNextFor: owner && !res.data.threads[owner]?.next ? owner : undefined,
-      toast: {
-        message: firstTo ? `Logged → to ${firstTo}` : ownerName ? `Logged in ${ownerName}` : 'Logged',
-        ...(bridge && { detail: BRIDGE_QUESTION }),
-        activityId: res.activity.id,
-      },
-    });
-    return res.activity.id;
+  log: gated<State['log']>(
+    undefined,
+    (extra, opts) => {
+      const { data, draft } = get();
+      const text = (extra?.text ?? draft.text).trim();
+      if (!text) return undefined;
+      const res = logActivity(data, {
+        text,
+        doingId: extra?.doingId ?? draft.doingId ?? undefined,
+        toIds: extra?.toIds ?? draft.toIds,
+        fromNextOf: extra?.fromNextOf ?? draft.fromNextOf,
+        fromNextText: extra?.fromNextOf ? extra.fromNextText : draft.fromNextText,
+        occurredAt: extra?.occurredAt,
+        note: extra?.note,
+      });
+      const owner = nextOwner(res.activity);
+      const ownerName = owner ? res.data.threads[owner]?.name : undefined;
+      const firstTo = res.activity.toIds[0] ? res.data.threads[res.activity.toIds[0]]?.name : undefined;
+      const bridge = !!opts?.bridge && !owner;
+      set({
+        bridgeFor: bridge ? res.activity.id : undefined,
+        data: res.data,
+        undo: undoEntry(data, res.data),
+        draft: emptyDraft(),
+        promptNextFor: owner && !res.data.threads[owner]?.next ? owner : undefined,
+        toast: {
+          message: firstTo ? `Logged → to ${firstTo}` : ownerName ? `Logged in ${ownerName}` : 'Logged',
+          ...(bridge && { detail: BRIDGE_QUESTION }),
+          activityId: res.activity.id,
+        },
+        toLog: undefined,
+      });
+      return res.activity.id;
+    },
+    // Return pressed while reconnecting: remembered, and logged once the data is back.
+    (extra, opts) => {
+      if ((extra?.text ?? get().draft.text).trim()) set({ toLog: { draft: get().draft, extra, opts } });
+    },
+  ),
+
+  logMarked: () => {
+    const { toLog, draft } = get();
+    if (!toLog || !holdsData(get())) return;
+    set({ toLog: undefined });
+    // Changed since Return was pressed: it waits for the next Return.
+    if (sameDraft(toLog.draft, draft)) get().log(toLog.extra, toLog.opts);
   },
 
-  createThread: (name) => {
+  createThread: gated<State['createThread']>('', (name) => {
     const res = ensureThread(get().data, name);
     set({ data: res.data });
     return res.thread.id;
-  },
+  }),
 
-  pullIn: (threadId, activityIds) =>
-    set((s) => {
+  pullIn: gated<State['pullIn']>(false, (threadId, activityIds) =>
+    change((s) => {
       const name = s.data.threads[threadId]?.name;
       if (!name || !activityIds.length) return {};
       const n = activityIds.length;
@@ -222,27 +299,29 @@ export const useStore = create<State>()((set, get) => ({
         toast: { message: `Pulled ${n} ${n === 1 ? 'activity' : 'activities'} into ${name}` },
       };
     }),
+  ),
 
   setPullInOffer: (threadId) => set({ pullInOffer: threadId }),
-  rememberSearch: (query) => set((s) => ({ recentSearches: rememberSearch(s.recentSearches, query) })),
-  clearSearches: () => set({ recentSearches: [] }),
+  rememberSearch: gated<State['rememberSearch']>(false, (query) => change((s) => ({ recentSearches: rememberSearch(s.recentSearches, query) }))),
+  clearSearches: gated<State['clearSearches']>(false, () => change({ recentSearches: [] })),
   dismissPullIn: (threadId) => set((s) => ({ dismissedPullIn: [...s.dismissedPullIn, threadId] })),
-  leaveAsIs: (activityId) => set((s) => (s.leftAsIs.includes(activityId) ? {} : { leftAsIs: [...s.leftAsIs, activityId] })),
+  leaveAsIs: gated<State['leaveAsIs']>(false, (activityId) => change((s) => (s.leftAsIs.includes(activityId) ? {} : { leftAsIs: [...s.leftAsIs, activityId] }))),
 
-  setNext: (threadId, next) =>
-    set((s) => ({
+  setNext: gated<State['setNext']>(false, (threadId, next) =>
+    change((s) => ({
       data: updateThread(s.data, threadId, { next }),
       promptNextFor: s.promptNextFor === threadId ? undefined : s.promptNextFor,
     })),
+  ),
 
-  renameThread: (threadId, name) => {
+  renameThread: gated<State['renameThread']>(refused, (threadId, name) => {
     const res = renameThread(get().data, threadId, name);
     if (res.ok) set({ data: res.data });
     return res;
-  },
+  }),
 
-  setHidden: (threadId, hidden) =>
-    set((s) => {
+  setHidden: gated<State['setHidden']>(false, (threadId, hidden) =>
+    change((s) => {
       const t = s.data.threads[threadId];
       if (!t) return {};
       const data = updateThread(s.data, threadId, { hidden });
@@ -251,8 +330,9 @@ export const useStore = create<State>()((set, get) => ({
       const message = hidden ? (t.declaredAt ? 'Hidden · not what it’s for right now' : `Hid “${t.name}”`) : `“${t.name}” is back`;
       return { undo: undoEntry(s.data, data), data, toast: { message } };
     }),
+  ),
 
-  declareThread: (threadId) => {
+  declareThread: gated<State['declareThread']>(refused, (threadId) => {
     const s = get();
     const res = declareThread(s.data, threadId);
     // Already marked (a double tap): keep the real Undo entry and toast instead of a no-op one.
@@ -260,33 +340,36 @@ export const useStore = create<State>()((set, get) => ({
       set({ data: res.data, undo: undoEntry(s.data, res.data), toast: { message: `“${s.data.threads[threadId].name}” is what it’s for` } });
     }
     return res;
-  },
+  }),
 
-  undeclareThread: (threadId) =>
-    set((s) => {
+  undeclareThread: gated<State['undeclareThread']>(false, (threadId) =>
+    change((s) => {
       const data = undeclareThread(s.data, threadId);
       if (data === s.data) return {};
       return { data, undo: undoEntry(s.data, data), toast: { message: 'Not what it’s for right now' } };
     }),
+  ),
 
-  swapWhy: (outId, inId) =>
-    set((s) => {
+  swapWhy: gated<State['swapWhy']>(false, (outId, inId) =>
+    change((s) => {
       const data = swapWhy(s.data, outId, inId);
       if (data === s.data) return {};
       const message = `“${data.threads[inId].name}” is what it’s for · “${data.threads[outId].name}” isn’t right now`;
       return { data, undo: undoEntry(s.data, data), toast: { message } };
     }),
+  ),
 
-  attach: (activityId, threadId) =>
-    set((s) => {
+  attach: gated<State['attach']>(false, (activityId, threadId) =>
+    change((s) => {
       const a = s.data.activities[activityId];
       const t = s.data.threads[threadId];
       if (!a || !t) return {};
       const data = attachActivity(s.data, activityId, threadId);
       return { undo: undoEntry(s.data, data), data, bridgeFor: undefined, toast: { message: `Attached → to ${t.name}`, activityId } };
     }),
+  ),
 
-  attachToNew: (activityId, name) => {
+  attachToNew: gated<State['attachToNew']>(undefined, (activityId, name) => {
     const s = get();
     const res = attachToNewThread(s.data, activityId, name);
     if (!res.thread) return undefined;
@@ -301,7 +384,7 @@ export const useStore = create<State>()((set, get) => ({
       toast: { message: `Attached → to ${res.thread.name}`, activityId },
     });
     return res.thread.id;
-  },
+  }),
 
   // The toast's question line goes with it: it was asking about the bridge.
   dismissBridge: () =>
@@ -311,27 +394,29 @@ export const useStore = create<State>()((set, get) => ({
         : {},
     ),
 
-  updateActivity: (activityId, patch) => set((s) => ({ data: editActivity(s.data, activityId, patch) })),
+  updateActivity: gated<State['updateActivity']>(false, (activityId, patch) => change((s) => ({ data: editActivity(s.data, activityId, patch) }))),
 
-  removeActivity: (activityId) =>
-    set((s) => {
+  removeActivity: gated<State['removeActivity']>(false, (activityId) =>
+    change((s) => {
       const a = s.data.activities[activityId];
       if (!a) return {};
       const data = deleteActivity(s.data, activityId);
       return { undo: undoEntry(s.data, data), data, toast: { message: `Deleted “${a.text}”` } };
     }),
+  ),
 
-  undoLast: () => {
+  undoLast: gated<State['undoLast']>(false, () => {
     const { undo, data } = get();
     if (undo) set({ data: applyUndo(data, undo), undo: undefined, toast: undefined, promptNextFor: undefined });
-  },
+    return true;
+  }),
 
   dismissToast: () => set({ toast: undefined, toastHeld: false }),
   holdToast: (held) => set({ toastHeld: held }),
   dismissPrompt: () => set({ promptNextFor: undefined }),
-  replaceData: (data) => set({ data, undo: undefined, draft: emptyDraft(), bridgeFor: undefined }),
-  refreshData: (data, settings, keepUndo) =>
-    set((s) => ({
+  replaceData: gated<State['replaceData']>(false, (data) => change({ data, undo: undefined, draft: emptyDraft(), bridgeFor: undefined })),
+  refreshData: gated<State['refreshData']>(false, (data, settings, keepUndo) =>
+    change((s) => ({
       data,
       ...settings,
       ...(!keepUndo && { undo: undefined, toast: undefined }),
@@ -340,7 +425,8 @@ export const useStore = create<State>()((set, get) => ({
       ...(s.promptNextFor && !data.threads[s.promptNextFor] ? { promptNextFor: undefined } : {}),
       ...(s.pullInOffer && !data.threads[s.pullInOffer] ? { pullInOffer: undefined } : {}),
     })),
-  setShowShading: (on) => set({ showShading: on }),
+  ),
+  setShowShading: gated<State['setShowShading']>(false, (on) => change({ showShading: on })),
 }));
 
 /** Threads ordered by most recent use, for autocomplete ranking. */

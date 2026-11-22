@@ -175,11 +175,13 @@ function NewThread() {
 
   const submit = () => {
     const n = name.trim();
+    const existed = n ? findThreadByName(data, n) : undefined;
+    const id = n ? createThread(n) : '';
+    // Refused while reconnecting (it says so): the typed name stays.
+    if (n && !id) return;
     setNaming(false);
     setName('');
     if (!n) return;
-    const existed = findThreadByName(data, n);
-    const id = createThread(n);
     if (existed) router.push(`/thread/${id}`);
     else if (candidatesForThread(data, n).length) router.push(`/pull-in/${id}`);
   };

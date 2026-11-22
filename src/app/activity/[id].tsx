@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { nextOwner } from '@/domain/model';
 import { lastTimeFor } from '@/domain/selectors';
 import { Id } from '@/domain/types';
-import { recentThreadOrder, useStore } from '@/store/useStore';
+import { holdsData, recentThreadOrder, useStore } from '@/store/useStore';
 import { decorative } from '@/components/a11y';
 import { C, s } from '@/theme';
 
@@ -24,6 +24,8 @@ export default function ActivityDetails() {
   const updateActivity = useStore((st) => st.updateActivity);
   const removeActivity = useStore((st) => st.removeActivity);
   const setNext = useStore((st) => st.setNext);
+  /** While the page doesn't hold the data (P-29) the fields that save as you type are read-only. */
+  const holding = useStore(holdsData);
   const a = id ? data.activities[id] : undefined;
   const owner = a ? nextOwner(a) : undefined;
   const ownerThread = owner ? data.threads[owner] : undefined;
@@ -46,15 +48,15 @@ export default function ActivityDetails() {
     );
   }
 
+  /** False when it couldn't be saved yet (reconnecting): the typed step stays. */
   const saveNext = () => {
-    if (owner && next.trim()) {
-      setNext(owner, next);
-      setNextValue('');
-    }
+    if (!owner || !next.trim()) return true;
+    if (!setNext(owner, next)) return false;
+    setNextValue('');
+    return true;
   };
   const close = () => {
-    saveNext();
-    goBack();
+    if (saveNext()) goBack();
   };
 
   // Relative to today, keeping the time of day it happened at.
@@ -90,7 +92,8 @@ export default function ActivityDetails() {
     <SafeAreaView style={s.screen}>
       <ScrollView contentContainerStyle={[s.content, { gap: 16 }]} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <Text style={s.meta}>Saved automatically</Text>
+          {/* While it can't save (P-29), the fields are read-only and this says why. */}
+          <Text style={s.meta}>{holding ? 'Saved automatically' : 'Reconnecting…'}</Text>
           <Pressable onPress={close} style={styles.headerBtn} accessibilityRole="button">
             <Text style={styles.done}>Done</Text>
           </Pressable>
@@ -111,6 +114,7 @@ export default function ActivityDetails() {
             }
           }}
           multiline
+          editable={holding}
           style={styles.title}
           accessibilityLabel="What you did"
         />
@@ -194,6 +198,7 @@ export default function ActivityDetails() {
               onChangeText={setNextValue}
               onSubmitEditing={saveNext}
               onBlur={saveNext}
+              editable={holding}
               placeholder={ownerThread.next ?? 'Leave empty if nothing’s next'}
               placeholderTextColor={C.faint}
               style={styles.field}
@@ -211,6 +216,7 @@ export default function ActivityDetails() {
               updateActivity(a.id, { note: v });
             }}
             multiline
+            editable={holding}
             placeholder="How did it go?"
             placeholderTextColor={C.faint}
             style={[styles.field, { minHeight: 88, textAlignVertical: 'top', paddingTop: 10 }]}
@@ -220,8 +226,7 @@ export default function ActivityDetails() {
 
         <Pressable
           onPress={() => {
-            removeActivity(a.id);
-            goBack();
+            if (removeActivity(a.id)) goBack();
           }}
           style={styles.delete}
           accessibilityRole="button"

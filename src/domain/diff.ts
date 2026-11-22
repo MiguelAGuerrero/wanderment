@@ -135,8 +135,9 @@ function keepSame<T extends object>(base: Record<Id, T>, loaded: Record<Id, T>):
  * Taking the data back after another copy of the app may have written to it (P-29). `base`: what
  * this page last saved; `current`: what it shows (base plus its own changes since); `loaded`: what
  * is saved now. Returns what to show — the saved data with this page's own changes on top — what
- * is saved (`saved`, so the difference is this page's to write), and whether anything changed
- * underneath. Records whose value didn't change keep this page's objects (no re-render, no rewrite).
+ * is saved (`saved`, so the difference is this page's to write), and whether what's shown changes
+ * (not when all that differs is this page's own changes, saved since by its journal). Records whose
+ * value didn't change keep this page's objects (no re-render, no rewrite).
  */
 export function rebase(base: Data, current: Data, loaded: Data): { data: Data; saved: Data; changed: boolean } {
   const threads = keepSame(base.threads, loaded.threads);
@@ -149,5 +150,8 @@ export function rebase(base: Data, current: Data, loaded: Data): { data: Data; s
   for (const id of own.deleteThreads) delete data.threads[id];
   for (const a of own.upsertActivities) data.activities[a.id] = a;
   for (const id of own.deleteActivities) delete data.activities[id];
+  const shownThreads = keepSame(current.threads, data.threads);
+  const shownActivities = keepSame(current.activities, data.activities);
+  if (!shownThreads.changed && !shownActivities.changed) return { data: current, saved, changed: false };
   return { data, saved, changed: true };
 }

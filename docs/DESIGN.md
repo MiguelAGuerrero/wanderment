@@ -28,6 +28,20 @@ These came out of the design sessions and several rounds of persona reviews. Cha
 - Home shows a plain **YOUR THREADS** list until value headers are earned (see roadmap).
 - Never: goals, streaks, % complete, timers, notifications.
 
+## One copy at a time (web, P-29)
+- A page holds the data only while it's visible. A page that doesn't hold it (coming back to a tab,
+  "Reconnecting…", or waiting for another copy) **can't change it**: changes are refused with one
+  quiet "Just a moment — reconnecting.", while the log box keeps working and a Return pressed meanwhile
+  logs once the data is back (if the line is unchanged). Typed text is never dropped.
+- Known edge cases (accepted):
+  - Desktop, two visible windows: reloading (or updating) the window in use while the other is waiting
+    hands the data to that window; the reloaded one waits, saying so, until the other is in the
+    background or closed.
+  - A first launch whose open keeps failing with WebKit's bare "The object is in an invalid state."
+    waits, telling the person another copy may be open, and never falls back to local storage: falling
+    back over files another copy holds could fork the data. If WebKit uses that text for another reason,
+    the advice is wrong until the WebKit lane (P-05) shows it.
+
 ## Design canvas
 The full set of explorations and the final screens (with the reference behind each decision) live in the
 "Orbit — Mobile UI draft" design canvas (working name before Wanderment).
