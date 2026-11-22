@@ -70,7 +70,10 @@ Everything else is **small**. Small ships autonomously; big gets a brief and wai
 Take the first of these that exists:
 1. **Breakage or data risk**: a red CI run, or a data-loss item. Run a polish batch for it.
 2. **An approved brief**: a decision answered *go* (or *go with changes*). Slice it (Step D, *go*),
-   then build its next unbuilt slice (Step E).
+   then build its next unbuilt slice (Step E). **Build the slice the owner will see first** (the
+   decision's headline outcome, e.g. "the live graph on Home" for "graph earlier") before groundwork
+   they won't notice, unless the headline needs that groundwork to exist; then say so in the report.
+   (Owner, 2026-11-22: "I refresh the app. It still looks like the same one.")
 3. **Owner-driven work**: anything new from the owner (this run's argument, new notes, or Inbox
    entries that became items).
 4. **The top of Now**:
@@ -196,7 +199,11 @@ those, and write the decision in `run.md` and in the commit or roadmap.
 ## End of run: report to the owner
 
 Keep it short:
-- What shipped this run (P-## and what they'll notice).
+- What shipped this run (P-## and what they'll notice), and **for each owner decision this run or
+  before, whether its headline outcome is live yet** ("D-4 live graph: not built yet, next"). Never
+  let groundwork read as the feature.
+- If the web app changed: how to get the new version (a plain refresh of the installed app may keep
+  the old one until the update banner is tapped).
 - What was researched, and the best ideas found.
 - Briefs and decisions waiting on them.
 - What the next run will pick up.

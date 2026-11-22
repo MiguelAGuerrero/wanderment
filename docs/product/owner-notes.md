@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-22 — "It still looks like the same one"
+> So I refresh the app. It still looks like the same one. I expected the graph first … at least what
+> was shipped and deployed.
+
+Interpretation (by /product): the owner expected the graph-first Home (D-4, "graph earlier") to be
+live; it was queued (P-15) but never built — the run shipped groundwork and polish around it, and
+the end-of-run report didn't say so plainly. Also: a plain refresh of the installed PWA keeps the
+old version until the update banner is tapped or all tabs close. Lesson for /product: an owner
+decision's headline outcome should be built first (or the report must say it isn't shipped yet).
+Led to: P-15 started now; the update-on-refresh confusion noted for P-30 below.
+
 ## 2026-11-22 — Locked out on iPhone: "couldn't open its data (The object is in an invalid state.)"
 > [Screenshot: Edge on iPhone, the blocked screen "Wanderment couldn't open its data (The object is
 > in an invalid state.). Reload to try again."] Ensure something like this doesn't happen again.
