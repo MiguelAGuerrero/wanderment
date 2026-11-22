@@ -36,7 +36,7 @@ Read all of them, plus `CLAUDE.md`, `AGENTS.md` and `docs/DESIGN.md`, before wri
   - 44 px targets;
   - decorative glyphs spread `decorative` from `src/components/a11y.ts`;
   - the axe checks in `e2e/a11y.spec.ts` stay green.
-- **Verify** with `scripts/polish/verify.sh --repeat-changed=5`. If it fails, read the log it points
+- **Verify** with `scripts/polish/verify.sh` (`--full` if the brief says Full tier). If it fails, read the log it points
   to. Save screenshots of changed screens at 390×844 in your scratchpad.
 - **Record decisions.** Append any decision a later builder needs to know (naming, a helper you
   added, a behaviour you chose) to `.polish/current/decisions.md`, one line each.
@@ -45,7 +45,7 @@ Read all of them, plus `CLAUDE.md`, `AGENTS.md` and `docs/DESIGN.md`, before wri
 
 <output>
 Start your reply with one status line: `STATUS: DONE`, `STATUS: BLOCKED — <why>` or
-`STATUS: FAIL — <what's still broken>`. Then:
+`STATUS: FAIL — <what's still broken>`. Then, in **250 words or less**:
 - Files changed, and why.
 - Tests added, each mapped to the done-when line it proves, with the red-before / green-after
   evidence (and the mutation check for `[data]`).

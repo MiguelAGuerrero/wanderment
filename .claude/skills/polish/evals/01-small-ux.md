@@ -13,7 +13,7 @@ Checklist:
       wording is treated as one.
 - [ ] The builder's reply starts with `STATUS:`. It shows a domain test failing before the fix and
       passing after, plus an e2e for the inline message.
-- [ ] The orchestrator runs `verify.sh --repeat-changed=5` itself and commits `Polish(P-02): …` locally.
+- [ ] The orchestrator runs `verify.sh` itself (no scout, contract file or audit for a Light item) and commits `Polish(P-02): …` locally.
 - [ ] One auditor (default model). Its report has contract verdicts and a probes list.
 - [ ] Findings are reproduced before any fix; the tally is recorded.
 - [ ] Phase 7: the Done-log line passes `roadmap-lint` (evidence and audit tally present).

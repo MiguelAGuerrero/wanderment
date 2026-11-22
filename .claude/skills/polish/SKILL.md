@@ -31,33 +31,31 @@ reword their Inbox entries.
 
 ## What's enforced by code, not by this text
 
-- `scripts/polish/verify.sh` is the definition of done. It runs test integrity, unit, typecheck,
-  lint, roadmap lint, build and e2e, writes logs to `.polish/logs/` and prints a short summary. On a
-  full pass it stamps the exact tree it verified.
+- `scripts/polish/verify.sh` is the definition of done: unit, typecheck, lint, roadmap lint, build,
+  and the changed + smoke e2e specs (`--full`: the whole suite). It stamps the tree it verified.
 - The git guard hook (`.claude/settings.json` → `scripts/polish/guard-git.mjs`) blocks pushes of
   anything but the stamped tree, force-pushes and `--no-verify`.
 - `scripts/polish/land.sh` commits, re-checks the stamp, pushes and archives the batch folder.
-- CI re-runs everything on `main` before deploying. Playwright fails CI on flaky tests.
-- `scripts/polish/check-tests.sh` lists every weakened, edited or deleted test, and fails on `.only`.
+- CI deploys `main` in about a minute and a half and runs the whole e2e suite in a parallel job; a red
+  e2e job means fix forward at once.
+- `scripts/polish/check-tests.sh` lists weakened, edited or deleted tests (for Full-tier audits).
 
 Run these scripts as they are; don't re-implement their steps by hand. Read their summaries, and
 open a log file only when a step fails.
 
-## Rigor by risk (owner, 2026-11-22)
+## Rigor by risk (owner, 2026-11-22: "the code base is too small to take that amount of analysis")
 
-Every item gets one of two tiers. Write the tier in `batch.md` next to the item.
-
-| | **Light** — UI, copy, layout, interaction | **Full** — `[data]`, storage, sync/lifecycle, migrations, anything that could lose or lock out data |
+| | **Light** — UI, copy, layout, interaction (the default) | **Full** — `[data]`, storage, sync/lifecycle, migrations: anything that could lose or lock out data |
 |---|---|---|
-| Scout | Only if the cause is unclear; otherwise localize it yourself | One `polish-scout` (plus research when the platform behaviour is unknown) |
-| Contract | Short: the roadmap's *Done when* plus decisions (5–15 lines) | Full contract |
-| Build | Builders in parallel when files are disjoint (`isolation: "worktree"`, each with its own `E2E_PORT`) | One writer at a time |
-| Verify per item | `verify.sh` once | `verify.sh --repeat-changed=5` + the mutation checks the contract lists |
-| Audit | **One per batch**, default model | One per batch, a **different model**; re-audit after a rework |
-| Budget | Up to 5 S/M items per batch | Up to 3 items or one L |
+| Scout | None. Read the code yourself or let the builder do it | One `polish-scout` |
+| Contract | None: the roadmap item's *Done when* is the contract; add decisions to its line or `decisions.md` | `contract.md` |
+| Build | Builders in parallel when files are disjoint (`isolation: "worktree"`, own `E2E_PORT`) | One writer at a time |
+| Verify | `scripts/polish/verify.sh` (fast: changed + smoke e2e) | `scripts/polish/verify.sh --full` (+ `--repeat-changed=5` for timing-sensitive specs) |
+| Audit | **None.** CI runs the whole e2e suite after deploy; the owner's use is the audit | One, on a **different model**; re-audit only after a design change |
+| Time box | ~45 min per item; cut the item smaller rather than wait | as needed |
 
-When in doubt, it's Full. A Light item that turns out to touch stored data is re-tiered, and that's
-written down.
+When in doubt it's Light; a Light item that turns out to touch stored data is re-tiered (write it
+down). Light-tier batches skip Phases 3, 4 and 6 below.
 
 ## Ground rules
 
@@ -77,8 +75,8 @@ written down.
    `.polish/current/batch.md` if a batch is already in progress. Resume from its phase checklist
    instead of starting over.
 3. `export POLISH_BASE=<base commit from batch.md>` for every later script call.
-4. Baseline: `scripts/polish/verify.sh`, the full run. If it's red, the batch is "make it green"
-   and nothing else. Don't inherit breakage.
+4. Baseline: only if the last CI run on `main` is red — then the batch is "make it green" and
+   nothing else. Otherwise skip it (the last land was verified).
 
 Tick the phase checklist in `batch.md` as you go. Record every decision and every failed approach
 there as well: it's how a fresh session (or a later builder) picks up without guessing.
@@ -171,7 +169,7 @@ Parallel builders are allowed only for items with disjoint files. Each runs with
 After each builder:
 1. Check its status line: DONE, BLOCKED or FAIL.
 2. Look at the diff yourself (`git diff --stat`, then the risky parts).
-3. Run `scripts/polish/verify.sh` (Light) or `scripts/polish/verify.sh --repeat-changed=5` (Full).
+3. Run `scripts/polish/verify.sh` (Light) or `scripts/polish/verify.sh --full` (Full).
 4. Look at the screenshots the builder saved, at 390×844, plus 200 % zoom for `[a11y]`.
 5. Commit the item locally: `git commit -m "Polish(P-##): …"`. This gives one revertable commit per
    item. Don't push yet.
@@ -181,7 +179,7 @@ a fresh builder with a rewritten brief that names what went wrong. A third round
 rarely recovers. If an item is BLOCKED or fails twice from scratch, set it to `blocked` with the
 reason, and drop it from the batch.
 
-## Phase 6 — One independent audit
+## Phase 6 — One independent audit (Full tier only)
 
 Exactly one `polish-auditor`, after all items are built. Its prompt is `audit-brief.md` with the
 blanks filled: the contract paths, the batch base commit, and the output path
@@ -212,7 +210,7 @@ Triage the findings (the auditor reports everything; filtering is your job):
    - Add the Done-log line in the format the roadmap describes, including evidence (test and spec
      names, screenshot paths) and the audit tally.
    - Add newly discovered items and set the statuses.
-2. `scripts/polish/verify.sh --repeat-changed=5`, which must end with `RESULT: PASS`.
+2. `scripts/polish/verify.sh` (`--full` for a Full-tier batch), which must end with `RESULT: PASS`.
 3. Write the commit message to `.polish/current/commit.txt`:
    - subject "Polish: <theme> (P-##, …)";
    - a body listing what changed per item, the audit findings fixed and deferred, and the tests added;
