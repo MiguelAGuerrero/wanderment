@@ -3,11 +3,14 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
+import { HomeGraph, OpenGraphIcon, useGraphNarrow } from '@/components/graph/HomeGraph';
 import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
 import { ThreadCard } from '@/components/ThreadCard';
-import { candidatesForThread, groupByValue, valueHeader, whyValue } from '@/domain/emergence';
+import { candidatesForThread, groupByValue, valueHeader, valueThreads, whyValue } from '@/domain/emergence';
+import { buildFlowIndex } from '@/domain/graph';
 import { findThreadByName } from '@/domain/model';
+import { overview } from '@/domain/overview';
 import { ageLabel, homeThreads, ThreadSummary } from '@/domain/selectors';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
@@ -33,6 +36,12 @@ export default function Home() {
   const isEmpty = Object.keys(data.activities).length === 0 && Object.keys(data.threads).length === 0;
   const firstThread = Object.keys(data.activities).length <= 2 && current.length === 1 ? current[0] : undefined;
 
+  // Earned values, computed once: the headers and the graph at the top both use them.
+  const earned = useMemo(() => valueThreads(data), [data]);
+  // The live graph: a pure function of the data, so it simply re-renders as you declare or log.
+  const graph = useMemo(() => overview(data, buildFlowIndex(data), earned), [data, earned]);
+  const graphNarrow = useGraphNarrow();
+
   // Plain "YOUR THREADS" until a value has clearly emerged; then group under "TO …" headers.
   const byId = new Map(current.map((c) => [c.thread.id, c]));
   const { groups, rest } = useMemo(
@@ -40,8 +49,10 @@ export default function Home() {
       groupByValue(
         data,
         current.map((c) => c.thread.id),
+        undefined,
+        earned,
       ),
-    [data, current],
+    [data, current, earned],
   );
 
   return (
@@ -51,6 +62,7 @@ export default function Home() {
           Wanderment
         </Text>
         <View style={{ flexDirection: 'row' }}>
+          {graph && !graphNarrow && <OpenGraphIcon style={styles.icon} />}
           <Link href="/search" asChild>
             <Pressable accessibilityRole="button" accessibilityLabel="Search" style={styles.icon}>
               <Text style={{ fontSize: 26, lineHeight: 30, color: C.muted }} {...decorative}>
@@ -67,6 +79,8 @@ export default function Home() {
           </Link>
         </View>
       </View>
+
+      {graph && <HomeGraph ov={graph} />}
 
       <LogBridge />
 

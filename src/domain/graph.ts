@@ -11,6 +11,8 @@ export interface Edge {
   count: number;
   /** Count weighted by recency: each link is worth between 0.5 (old) and 1 (just now). */
   weight: number;
+  /** When the first of these links was logged (the activity's createdAt), so new links sort last. */
+  first: string;
 }
 
 /** from → to → edge, plus per-thread step counts. Build once per data change. */
@@ -19,16 +21,19 @@ export interface FlowIndex {
   in: Map<Id, Map<Id, Edge>>;
   steps: Map<Id, number>;
   recentSteps: Map<Id, number>;
+  /** Plain "to Y" logs (no doing thread) per Y: they feed Y without linking anything. In memory only. */
+  direct: Map<Id, number>;
 }
 
 export function buildFlowIndex(data: Data, now = new Date()): FlowIndex {
-  const index: FlowIndex = { out: new Map(), in: new Map(), steps: new Map(), recentSteps: new Map() };
+  const index: FlowIndex = { out: new Map(), in: new Map(), steps: new Map(), recentSteps: new Map(), direct: new Map() };
   const recentSince = now.getTime() - RING_DAYS * DAY;
-  const add = (m: Map<Id, Map<Id, Edge>>, a: Id, b: Id, w: number) => {
+  const add = (m: Map<Id, Map<Id, Edge>>, a: Id, b: Id, w: number, at: string) => {
     const inner = m.get(a) ?? m.set(a, new Map()).get(a)!;
-    const e = inner.get(b) ?? { count: 0, weight: 0 };
+    const e = inner.get(b) ?? { count: 0, weight: 0, first: at };
     e.count += 1;
     e.weight += w;
+    if (at < e.first) e.first = at;
     inner.set(b, e);
   };
   for (const act of Object.values(data.activities)) {
@@ -38,12 +43,15 @@ export function buildFlowIndex(data: Data, now = new Date()): FlowIndex {
       index.steps.set(id, (index.steps.get(id) ?? 0) + 1);
       if (when.getTime() >= recentSince) index.recentSteps.set(id, (index.recentSteps.get(id) ?? 0) + 1);
     }
-    if (!act.doingId) continue;
+    if (!act.doingId) {
+      for (const to of new Set(act.toIds)) index.direct.set(to, (index.direct.get(to) ?? 0) + 1);
+      continue;
+    }
     const w = 0.5 + 0.5 * warmth(when, now);
     for (const to of act.toIds) {
       if (to === act.doingId) continue;
-      add(index.out, act.doingId, to, w);
-      add(index.in, to, act.doingId, w);
+      add(index.out, act.doingId, to, w, act.createdAt);
+      add(index.in, to, act.doingId, w, act.createdAt);
     }
   }
   return index;
