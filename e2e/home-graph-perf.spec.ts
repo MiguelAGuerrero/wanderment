@@ -108,10 +108,11 @@ test('with a large history, logging on Home is not measurably slower with the gr
         await page.waitForFunction((c) => (window as unknown as { __busyMs: number[] }).__busyMs.length >= c, count, { polling: 10 });
         if (k > 0) busy[arm].push(await measured(page));
       }
-      // The logs went in (the box is clear, the toast is up) and, with the graph, the newest dot is marked.
+      // The logs went in (the box is clear, the toast is up) and, with the graph, the picture is there.
       await expect(logBox(page)).toHaveValue('');
       await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
-      if (arm === 'with') await expect(page.locator(`[data-testid^="graph-dot-"][data-newest]`)).toHaveCount(1);
+      // P-48: no dots once wanders exist (was: the newest dot is marked), so the picture itself is checked.
+      if (arm === 'with') await expect(page.getByTestId('home-graph-picture')).toHaveCount(1);
     }
     for (const { context, errors } of [first, second]) {
       await context.close();

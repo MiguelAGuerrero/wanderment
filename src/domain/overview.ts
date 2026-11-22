@@ -12,6 +12,7 @@
  * enters takes a free slot (`overviewLayout` takes the previous slots). No numbers are drawn.
  */
 import { groupByValue, valueThreads } from './emergence';
+import { emptyHeatIndex, indexHeat, nodeHeat } from './heat';
 import { declaredWhys } from './model';
 import { homeThreads } from './selectors';
 import { Activity, Data, Id, Thread } from './types';
@@ -68,6 +69,8 @@ interface Shared {
   /** Visible threads left out of the picture ("and more →"). */
   more: boolean;
   summary: string;
+  /** P-48: each thread in the picture's heat (`nodeHeat`), 0–1. Empty with no wanders. */
+  heat: Record<Id, number>;
 }
 export type Overview =
   | ({ mode: 'whys'; whys: OverviewWhy[]; moreWhys: number; /** Beside the whys, feeding none of them. */ others: OverviewNode[] } & Shared)
@@ -99,8 +102,9 @@ export function headerWhys(data: Data, now = new Date(), values = valueThreads(d
 /**
  * What the graph shows. `surfacing` is the earned whys in header order (Home passes its own, so
  * nothing is computed twice). No visible threads: undefined (no graph, never an empty box).
+ * `heat` (P-48) is as of `now`; with `shading` off every node is neutral.
  */
-export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data)): Overview | undefined {
+export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data), opts: { now?: Date; shading?: boolean } = {}): Overview | undefined {
   const visible = (id: Id) => !!data.threads[id] && !data.threads[id].hidden;
   const all = Object.values(data.threads).filter((t) => !t.hidden);
   if (!all.length) return undefined;
@@ -122,7 +126,10 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data))
   const direct = new Map<Id, number>();
   let newest: Activity | undefined;
   const seen = new Set(all.map((t) => t.id));
+  // P-48: heat is worked out from this same pass (not a pass of its own: Home redraws after every log).
+  const heatIndex = opts.shading === false ? undefined : emptyHeatIndex();
   for (const a of acts) {
+    if (heatIndex) indexHeat(heatIndex, a);
     let any = false;
     if (a.doingId) {
       steps.set(a.doingId, (steps.get(a.doingId) ?? 0) + 1);
@@ -210,6 +217,7 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data))
   links.sort((a, b) => byName(data.threads[a.from], data.threads[b.from]) || byName(data.threads[a.to], data.threads[b.to]));
   const dots: OverviewDot[] = recent.map((a) => ({ id: a.id, threads: named(a).filter((id) => shown.has(id)), doing: !!a.doingId && shown.has(a.doingId) }));
   const more = all.length > shown.size;
+  const heat = nodeHeat(data, shown, opts, heatIndex);
 
   if (whyIds.size) {
     const whys: OverviewWhy[] = shownWhys.map((t) => {
@@ -223,10 +231,10 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data))
     const feeding = new Set(links.filter((l) => whyIds.has(l.to)).map((l) => l.from));
     const others = picked.filter((t) => !feeding.has(t.id)).map((thread) => ({ thread }));
     const moreWhys = whyList.length - whys.length;
-    return { mode: 'whys', whys, moreWhys, others, links, dots, more, summary: whysSummary(whys, others, dots, more, data) };
+    return { mode: 'whys', whys, moreWhys, others, links, dots, more, heat, summary: whysSummary(whys, others, dots, more, data) };
   }
   const threads = picked.map((thread) => ({ thread }));
-  return { mode: 'threads', threads, links, dots, more, summary: threadsSummary(threads, links, dots, more, data) };
+  return { mode: 'threads', threads, links, dots, more, heat, summary: threadsSummary(threads, links, dots, more, data) };
 }
 
 /**
@@ -238,7 +246,7 @@ export function looseOverview(data: Data): Overview | undefined {
   if (!recent.length) return undefined;
   const dots: OverviewDot[] = recent.map((a) => ({ id: a.id, threads: [], doing: false }));
   const texts = [...new Set(recent.map((a) => a.text.trim().replace(/\s+/g, ' ')).filter(Boolean))];
-  return { mode: 'logs', links: [], dots, more: false, summary: texts.length ? `Lately: ${texts.join('; ')}.` : '' };
+  return { mode: 'logs', links: [], dots, more: false, heat: {}, summary: texts.length ? `Lately: ${texts.join('; ')}.` : '' };
 }
 
 /** Longest staged step drawn under its node (P-34); longer ones end in "…". */
@@ -334,16 +342,34 @@ export interface LaidNode {
   y: number;
   w: number;
   h: number;
+  /** Home with wanders (P-48): the node drawn as a circle at the top of its target. */
+  circle?: LaidCircle;
+}
+export interface LaidCircle {
+  /** Its centre, in the picture's coordinates. */
+  cx: number;
+  cy: number;
+  r: number;
+  /** 0–1 (`nodeHeat`, to the hundredth): the fill. */
+  heat: number;
+  /** A declared why: a second, thin ring. */
+  declared: boolean;
+  /** The label fits inside (in a text box `labelW` wide, one or two lines), or goes under the circle. */
+  inside: boolean;
+  labelW: number;
 }
 export interface LaidLink {
   key: string;
   from: Id;
   to: Id;
-  /** SVG path data. */
+  /** SVG path data: the curve (on Home, its centre line). */
   path: string;
+  /** The same for every link: never from a count (P-48). On Home, the branch's width at the parent end. */
   width: number;
-  /** Arrowhead polygon points, at the "to" end. */
+  /** Arrowhead polygon points, at the "to" end ('' on Home, where the branch's taper shows the way). */
   arrow: string;
+  /** Home with wanders (P-48): the tapered branch, a filled polygon coloured from the child's heat at (x1, y1) to the parent's at (x2, y2). */
+  branch?: { points: string; x1: number; y1: number; x2: number; y2: number; fromHeat: number; toHeat: number };
 }
 export interface LaidDot {
   key: string;
@@ -400,19 +426,69 @@ const SLOTS = MAX_THREADS;
 const ZIGZAG = [0, 4, 2, 3, 1, 5];
 const MORE_SLOTS = 2;
 
-/** Roomy (Home, P-34): node targets this tall (a 44 px chip), with a staged-step line under each row. */
-export const ROOMY_NODE = 52;
+/** Home's circles (P-48): the top row (the whys) biggest, the row beneath one size smaller. */
+export const TOP_R = 34;
+export const BOTTOM_R = 24;
+/** Room above a top-row circle for its rings (a why's second ring, the selection). */
+const RING_PAD = 8;
+/** Labels: 12 px text in 14 px lines, at most two, inside the circle or (when they don't fit) under it. */
+export const LABEL_FONT = 12;
+export const LABEL_LINE = 14;
+const LABEL_H = 2 + 2 * LABEL_LINE;
+/** Roomy (Home, P-34): a top-row node's target with its label inside (taller than 44 px); a staged-step line goes under each node. */
+export const ROOMY_NODE = RING_PAD + 2 * TOP_R;
 export const STEP_H = 20;
 const ROOMY_GAP = 12;
-/** Roomy, with threads: two node rows, each with its step line, and two dot rows between them. */
-export const ROOMY_H = 2 * (ROOMY_NODE + STEP_H) + 2 * ROW + 3 * ROOMY_GAP;
+/** Where "and more →" goes on Home: under the top row, its label and its step line. */
+const MORE_Y = ROOMY_NODE + LABEL_H + STEP_H;
+/** Home's bottom row of circles. */
+const BOTTOM_Y = MORE_Y + ROW;
+/** Roomy, with wanders: the top row, a 44 px band, the bottom row, each row with its labels and step line. */
+export const ROOMY_H = BOTTOM_Y + 2 * BOTTOM_R + LABEL_H + STEP_H;
 /** Roomy, no wanders: just the two rows of dots. */
 export const LOGS_H = 2 * ROW + ROOMY_GAP;
-
-/** Coarse on purpose: three widths, from all-time links (thickening is the only quantity shown). */
-export const linkWidth = (count: number) => (count <= 1 ? 1.5 : count < 5 ? 2.5 : 3.5);
+/** Compact layout: every link the same width (P-48: no width comes from a count). */
+const LINK_W = 1.5;
 
 const r1 = (n: number) => Math.round(n * 10) / 10;
+
+/** A conservative guess at a label's width (bold-ish sans): wide enough that a label said to fit, fits. */
+export function textWidth(text: string, size: number): number {
+  let em = 0;
+  for (const ch of text) {
+    if (ch === ' ') em += 0.3;
+    else if (/[ijlftrI.,:;'’!|()[\]]/.test(ch)) em += 0.38;
+    else if (/[mwMW@%&]/.test(ch)) em += 1.05;
+    else if (/[A-Z]/.test(ch)) em += 0.75;
+    else if (/[a-z0-9-]/.test(ch)) em += 0.62;
+    else em += ch.codePointAt(0)! < 0x2e80 ? 0.75 : 1.25;
+  }
+  return em * size;
+}
+
+/**
+ * Whether `name` fits inside a circle of radius `r` (P-48): on one line, or on two (wrapped at
+ * spaces), within the circle's chord at the line's outer edge. The text box's width, or undefined
+ * when it doesn't fit (the label goes under the circle).
+ */
+export function insideWidth(name: string, r: number, fontScale = 1): number | undefined {
+  const size = LABEL_FONT * fontScale;
+  const line = LABEL_LINE * fontScale;
+  // Inside the outline (1 px) with a little air.
+  const inner = r - 3;
+  const chord = (edge: number) => (edge >= inner ? 0 : 2 * Math.sqrt(inner * inner - edge * edge));
+  const one = chord(line / 2);
+  if (textWidth(name, size) <= one) return Math.floor(one);
+  const two = chord(line);
+  const words = name.trim().split(/\s+/);
+  const lines: string[] = [];
+  for (const w of words) {
+    const last = lines.length ? `${lines[lines.length - 1]} ${w}` : w;
+    if (lines.length && textWidth(last, size) <= two) lines[lines.length - 1] = last;
+    else lines.push(w);
+  }
+  return lines.length <= 2 && lines.every((l) => textWidth(l, size) <= two) ? Math.floor(two) : undefined;
+}
 
 /**
  * Where everything goes, `width` wide. Pure. Given `prev` (the last layout's `slots`), every thread
@@ -451,6 +527,8 @@ export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: 
   }
   const compact = !roomy && members.length === 1 && slot[members[0].id] < MAX_COLUMNS;
   const logsOnly = roomy && !members.length;
+  // Home with wanders (P-48): circles and branches, no dots.
+  if (roomy && !logsOnly) return circleLayout(ov, width, members, slot, fontScale);
   // Vertical geometry: node rows (each with its step line when roomy) and the two rows of dots.
   const nodeH = roomy ? ROOMY_NODE : ROW;
   const stepH = roomy ? STEP_H : 0;
@@ -585,7 +663,166 @@ function linkPath(l: OverviewLink, p0: { x: number; y: number; top: boolean }, p
     from: l.from,
     to: l.to,
     path: `M${r1(p0.x)} ${r1(p0.y)}Q${r1(c.x)} ${r1(c.y)} ${r1(p1.x)} ${r1(p1.y)}`,
-    width: linkWidth(l.count),
+    width: LINK_W,
     arrow,
   };
+}
+
+/**
+ * Home with wanders (P-48): each node a circle at the top of its target, keeping its slot (the same
+ * columns and rows as before). The top row (the whys) is biggest, the row beneath one size smaller.
+ * A label sits inside when it fits on two lines, else under the circle. Links are tapered branches;
+ * there are no dots (they stay for logs on their own).
+ */
+function circleLayout(ov: Overview, width: number, members: Thread[], slot: Record<Id, number>, fontScale: number): OverviewLayout {
+  const whyIds = new Set(ov.mode === 'whys' ? ov.whys.map((w) => w.thread.id) : []);
+  const declared = new Set(ov.mode === 'whys' ? ov.whys.filter((w) => w.declared).map((w) => w.thread.id) : []);
+  const feeds = new Map<Id, Id[]>();
+  if (ov.mode === 'whys') for (const l of ov.links) if (whyIds.has(l.to) && !whyIds.has(l.from)) feeds.set(l.from, [...(feeds.get(l.from) ?? []), l.to]);
+  const colW = (width - GAP * (MAX_COLUMNS - 1)) / MAX_COLUMNS;
+  const nodes: LaidNode[] = members
+    .map((t) => {
+      const i = slot[t.id];
+      const top = i < MAX_COLUMNS;
+      const r = top ? TOP_R : BOTTOM_R;
+      const x = (i % MAX_COLUMNS) * (colW + GAP);
+      const y = top ? 0 : BOTTOM_Y;
+      const pad = top ? RING_PAD : 0;
+      const fit = insideWidth(t.name, r, fontScale);
+      const step = stagedStep(t);
+      const kind: LaidNode['kind'] = whyIds.has(t.id) ? 'why' : feeds.has(t.id) ? 'feeder' : 'thread';
+      // Heat to the hundredth: a log a moment later doesn't redraw every circle and branch.
+      const circle: LaidCircle = { cx: r1(x + colW / 2), cy: y + pad + r, r, heat: Math.round((ov.heat[t.id] ?? 0) * 100) / 100, declared: declared.has(t.id), inside: fit !== undefined, labelW: fit ?? Math.floor(colW) };
+      return { key: t.id, id: t.id, kind, ...(feeds.has(t.id) && { under: feeds.get(t.id) }), ...(step && { step }), name: t.name, x, y, w: colW, h: pad + 2 * r + (fit === undefined ? LABEL_H : 0), circle };
+    })
+    .sort((a, b) => slot[a.id] - slot[b.id]);
+  const perRow = Math.max(1, Math.floor(width / ROW));
+  const pitch = width / perRow;
+  return {
+    summaryOnly: false,
+    height: ROOMY_H,
+    nodes,
+    links: branches(ov.links, nodes),
+    dots: [],
+    dotLines: [],
+    stepH: STEP_H,
+    ...(ov.more && { more: { x: width - MORE_SLOTS * pitch, y: MORE_Y, w: MORE_SLOTS * pitch, h: ROW } }),
+    slots: { threads: slot, dots: {} },
+  };
+}
+
+const TAU = 2 * Math.PI;
+/** Each branch leans a little to the left of its direction of travel, so A → B and B → A stay apart. */
+const SIDE = 0.18;
+/** The least angle between two branch ends on one circle, so no two share an end point. */
+export const MIN_END_ANGLE = 0.32;
+
+/**
+ * Spreads angles (radians) on a circle to at least `min` apart, each run of too-close ones centred on
+ * where it wanted to be. Returns them in the order given.
+ */
+function spread(angles: number[], min: number): number[] {
+  const n = angles.length;
+  if (n < 2) return angles;
+  const norm = (a: number) => ((a % TAU) + TAU) % TAU;
+  const sorted = angles.map((a, i) => ({ a: norm(a), i })).sort((x, y) => x.a - y.a || x.i - y.i);
+  // Start just after the widest gap, so no run wraps around.
+  let cut = 0;
+  let widest = -1;
+  for (let k = 0; k < n; k++) {
+    const gap = (k === n - 1 ? sorted[0].a + TAU : sorted[k + 1].a) - sorted[k].a;
+    if (gap > widest) [widest, cut] = [gap, (k + 1) % n];
+  }
+  const order = [...sorted.slice(cut), ...sorted.slice(0, cut).map((x) => ({ a: x.a + TAU, i: x.i }))];
+  const runs: { sum: number; n: number; first: number }[] = [];
+  const start = (r: { sum: number; n: number }) => r.sum / r.n - ((r.n - 1) * min) / 2;
+  order.forEach((x, k) => {
+    runs.push({ sum: x.a, n: 1, first: k });
+    while (runs.length > 1) {
+      const [p, c] = [runs[runs.length - 2], runs[runs.length - 1]];
+      if (start(p) + p.n * min <= start(c) + 1e-9) break;
+      p.sum += c.sum;
+      p.n += c.n;
+      runs.pop();
+    }
+  });
+  const out = new Array<number>(n);
+  for (const r of runs) for (let j = 0; j < r.n; j++) out[order[r.first + j].i] = start(r) + j * min;
+  return out;
+}
+
+/**
+ * Tapered branches (P-48), child (doing) → parent (to). Each leaves its circle along its own
+ * direction toward the other and ends at the other's edge along that direction; branches on the same
+ * row bow into the band between the rows (clear of the circle between them). Ends on one circle are
+ * spread apart, so no two share a point. Thin at the child, a little wider at the parent (wider still
+ * the hotter the child): never a width from a count.
+ */
+function branches(links: OverviewLink[], nodes: LaidNode[]): LaidLink[] {
+  const at = new Map(nodes.map((n) => [n.id, n.circle!]));
+  const geo = links.flatMap((l) => {
+    const a = at.get(l.from);
+    const b = at.get(l.to);
+    if (!a || !b) return [];
+    const dx = b.cx - a.cx;
+    const dy = b.cy - a.cy;
+    const d = Math.hypot(dx, dy) || 1;
+    const base = Math.atan2(dy, dx);
+    let bend = 0;
+    if (Math.abs(dy) < 1) {
+      // Same row: toward the band (down from the top row, up from the bottom one), more the further.
+      const band = a.cy < BOTTOM_Y ? 1 : -1;
+      bend = (Math.sign(dx * band) || 1) * Math.min(1.1, 0.4 + d / 400);
+    }
+    return [{ l, a, b, ends: [base + bend - SIDE, base + Math.PI - bend + SIDE] }];
+  });
+  // Every end on a circle, spread apart.
+  const onNode = new Map<Id, { g: (typeof geo)[number]; end: 0 | 1 }[]>();
+  for (const g of geo)
+    for (const [end, id] of [g.l.from, g.l.to].entries()) {
+      const list = onNode.get(id) ?? onNode.set(id, []).get(id)!;
+      list.push({ g, end: end as 0 | 1 });
+    }
+  for (const list of onNode.values()) {
+    const spreadOut = spread(
+      list.map(({ g, end }) => g.ends[end]),
+      MIN_END_ANGLE,
+    );
+    list.forEach(({ g, end }, k) => (g.ends[end] = spreadOut[k]));
+  }
+  return geo.map(({ l, a, b, ends: [a0, a1] }) => {
+    const u0 = [Math.cos(a0), Math.sin(a0)];
+    const u1 = [Math.cos(a1), Math.sin(a1)];
+    const p0 = [a.cx + u0[0] * (a.r - 0.5), a.cy + u0[1] * (a.r - 0.5)];
+    const p3 = [b.cx + u1[0] * (b.r - 0.5), b.cy + u1[1] * (b.r - 0.5)];
+    const k = Math.min(80, Math.max(10, 0.4 * Math.hypot(p3[0] - p0[0], p3[1] - p0[1])));
+    const c1 = [p0[0] + u0[0] * k, p0[1] + u0[1] * k];
+    const c2 = [p3[0] + u1[0] * k, p3[1] + u1[1] * k];
+    const w0 = 1.5;
+    const w1 = 2.2 + 1.8 * a.heat;
+    const P = (t: number, i: number) => (1 - t) ** 3 * p0[i] + 3 * (1 - t) ** 2 * t * c1[i] + 3 * (1 - t) * t * t * c2[i] + t ** 3 * p3[i];
+    const D = (t: number, i: number) => 3 * (1 - t) ** 2 * (c1[i] - p0[i]) + 6 * (1 - t) * t * (c2[i] - c1[i]) + 3 * t * t * (p3[i] - c2[i]);
+    const left: string[] = [];
+    const right: string[] = [];
+    const N = 20;
+    for (let s = 0; s <= N; s++) {
+      const t = s / N;
+      const [x, y] = [P(t, 0), P(t, 1)];
+      const [tx, ty] = [D(t, 0), D(t, 1)];
+      const m = Math.hypot(tx, ty) || 1;
+      const half = (w0 + (w1 - w0) * t * t * (3 - 2 * t)) / 2;
+      left.push(`${r1(x - (ty / m) * half)},${r1(y + (tx / m) * half)}`);
+      right.push(`${r1(x + (ty / m) * half)},${r1(y - (tx / m) * half)}`);
+    }
+    const pt = (p: number[]) => `${r1(p[0])} ${r1(p[1])}`;
+    return {
+      key: `${l.from}>${l.to}`,
+      from: l.from,
+      to: l.to,
+      path: `M${pt(p0)}C${pt(c1)} ${pt(c2)} ${pt(p3)}`,
+      width: r1(w1),
+      arrow: '',
+      branch: { points: [...left, ...right.reverse()].join(' '), x1: r1(p0[0]), y1: r1(p0[1]), x2: r1(p3[0]), y2: r1(p3[1]), fromHeat: a.heat, toHeat: b.heat },
+    };
+  });
 }

@@ -37,25 +37,13 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-48 Home's graph: heat circles and branch lines `[feature]` `[ux]` `[a11y]` M
-*Status:* in-progress
-*Why:* B-06 slice 1 (D-9 → go, 2026-11-22; revision 12). The owner's picture of energy: circles
-coloured by heat that flows upward, branch lines that taper. Folds in P-47 (no count encodings,
-contrast).
-*Done when:*
-- Home's picture draws nodes as circles: whys and top-level nodes biggest, each level below one size
-  smaller; declared whys have a double ring; the label sits inside big circles and under small ones.
-- Each circle's fill is its heat: the warmth (14-day halving) of the most recent activity on it or
-  anything feeding it (cycle-safe), never a sum. Cool stone → amber → ember; neutral when shading is
-  off.
-- Links are tapered branch curves leaving each circle along its own direction (no shared end point),
-  coloured from the child's heat to the parent's. No width comes from a count (`linkWidth` goes).
-- No dots once wanders exist; logs-only mode is unchanged.
-- The selection (P-35) is one ink ring; the staged step stays as today's line until P-50.
-- Contrast: every label 4.5:1+, every mark 3:1+.
-- The accessible image and list are unchanged.
-- Unit tests for heat; e2e and screenshots at 390 px; the perf spec within budget or no worse than
-  base.
+### P-49 What's next / Log: one slot, two faces `[feature]` `[capture]` M
+*Status:* todo
+*Why:* B-06 slice 2. Only one thing asks for a decision at a time.
+*Done when:* Home's bottom is one slot with a toggle. "What's next · <node>" shows the focused
+chain's step and ✓ (a clean tap; it logs the step and clears it), or "＋ add one" (inline). "Log"
+shows the log box with one ↑ send. It opens on What's next and flips back after a log; on web,
+typing switches to Log. DESIGN.md "capture is sacred" reworded (owner-approved, D-9).
 
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
@@ -73,14 +61,6 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
-
-### P-49 What's next / Log: one slot, two faces `[feature]` `[capture]` M
-*Status:* todo
-*Why:* B-06 slice 2. Only one thing asks for a decision at a time.
-*Done when:* Home's bottom is one slot with a toggle. "What's next · <node>" shows the focused
-chain's step and ✓ (a clean tap; it logs the step and clears it), or "＋ add one" (inline). "Log"
-shows the log box with one ↑ send. It opens on What's next and flips back after a log; on web,
-typing switches to Log. DESIGN.md "capture is sacred" reworded (owner-approved, D-9).
 
 ### P-50 Tap to focus, swipe to move, tap to narrow `[feature]` `[a11y]` M
 *Status:* todo
@@ -428,6 +408,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-48 — Home's graph as heat circles and branch lines (B-06 slice 1, D-9): circles sized by level, declared whys double-ringed, each circle coloured by heat (the warmth of the newest activity on it or anything feeding it, cycle-safe, never a sum; neutral with shading off), tapered gradient branches that never share an end point, no widths from counts (`linkWidth` gone, P-47 folded in), no dots once wanders exist, labels ≥ 4.5:1; DESIGN.md's graph rule updated (owner-approved, D-9) · evidence: `heat.test.ts` (13), `overview-circles.test.ts` (13), `e2e/home-heat.spec.ts` (4), six old-visual assertions updated with P-48 notes; perf 1.18–1.19× vs base 1.15–1.25× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · this commit
 - 2026-11-22 · P-04 — import checks the file strictly (arrays, duplicate ids incl. "constructor", a newer version, wanders whose names `@` can't tell apart — refused, naming them), then shows a preview (what it holds, what changes, empty-backup warning with Cancel first, "matches what's here", "can't be undone yet"); Replace re-checks against what's here; reachable on native; focus and announcements; the keep-the-dots item was built but pulled for the perf budget (branch `p38-keep-dots`) · evidence: `import.test.ts` (21), `persistence.test.ts` P-04 (6, 5 mutants), `useStore.test.ts` (replace clears the toast), `e2e/import.spec.ts` (10), `e2e/a11y.spec.ts` (preview) · audit: 17 reported · 10 reproduced · 13 fixed · 5 deferred · `144e12e`, `df9351d`, `9b2d459`
 - 2026-11-22 · P-35, P-36 — act from a node: tap a wander → "Toward X" above the log box, "↳ Log next step" logs it in one tap (a typed line is kept and counts as the step), typing logs toward it via a visible chip, Open/×; the selection lasts one log; the list under the graph selects too · first run 1-2-3 on an empty app: a feeling or reason ("feel productive"), one next step ("read a book", it can wait), then see it — one Skip ends it, logging ends it for good · a flaky tab-switch race fixed in e2e (`toHome`) · evidence: `select.test.ts` ×2, `firstRun.test.ts`, `persistence.test.ts` (P-36), `e2e/act-from-node.spec.ts` (9), `e2e/first-run.spec.ts` (7) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · `3da27dc`, `e4e0b88`
 - 2026-11-22 · P-34, P-37 — the graph is Home (owner D-7): whys, wanders and recent logs fill the first screen, with no threshold (logs alone show as dots, "+ What's it all for?" with "Not now"), staged steps as a quiet line, the summary visible, a list of what's in the picture for keyboard/screen reader/large text; the list moved to a Wanders tab; Graph → Explore; threads are called wanders everywhere you read or hear them · evidence: `e2e/home-is-graph.spec.ts` (50/50 ×5), `overview-home.test.ts`, `persistence.test.ts` ("Not now", 4 mutants red), perf 1.10×, screenshots · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, no audit) · `be7ad65`

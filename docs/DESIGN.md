@@ -26,8 +26,11 @@ These came out of the design sessions and several rounds of persona reviews. Cha
 - Toast: says what was logged where, one action (Undo), body opens details, ≥ 6 s, pauses while held, doesn't auto-dismiss under a screen reader.
 - Recency is neutral: "last touched 2d", an "Earlier" section after 21 days, warmth halves every 14 days, and the shading can be turned off.
 - **The graph is Home** (P-34): declared whys head it (then earned ones, then the wanders beside
-  them); your recent logs are dots with a line to each wander they name, the newest one marked;
-  doing → to links are lines; a staged next step is one quiet line under its node. There's no
+  them) as circles, each level below one size smaller, declared whys with a second ring. A circle's
+  colour is its **heat**: the warmth of the most recent activity on it or anything feeding it, never a
+  sum (owner, D-9, 2026-11-22). Doing → to links are tapered branches, and no width comes from a
+  count. Once wanders exist there are no dots.
+  A staged next step is one quiet line under its node. There's no
   threshold: with no wanders your recent logs show as dots on their own, and while there are no whys
   a gentle "+ What's it all for?" offers to name one ("Not now" hides it for good). Under the picture,
   its summary in one line, then the whys and wanders as buttons (the way through without pointing,

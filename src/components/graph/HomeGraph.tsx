@@ -1,11 +1,12 @@
 import { Link, router, useIsFocused } from 'expo-router';
 import { memo, ReactNode, useDeferredValue, useMemo, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import Svg, { Line, Path, Polygon } from 'react-native-svg';
+import Svg, { Defs, Line, LinearGradient, Polygon, Stop } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
 import { pickId } from '@/components/graph/NodeContext';
-import { BIG_TEXT, LaidDot, LaidDotLine, LaidLink, LaidNode, looseOverview, NARROW_W, overview, Overview, overviewLayout, OverviewLayout, pictureItems } from '@/domain/overview';
+import { heatFill, heatInk, heatLabel } from '@/domain/heat';
+import { BIG_TEXT, LABEL_FONT, LABEL_LINE, LaidDot, LaidDotLine, LaidLink, LaidNode, looseOverview, NARROW_W, overview, Overview, overviewLayout, OverviewLayout, pictureItems } from '@/domain/overview';
 import { Data, Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
@@ -72,7 +73,9 @@ function Shortcut({ onPress, testID, data, style, children }: { onPress: () => v
 export const LiveGraph = memo(function LiveGraph({ data, surfacing, firstRun }: { data: Data; surfacing: Id[]; /** The first run's step (P-36): in the offer's place, instead of it. */ firstRun?: ReactNode }) {
   const d = useDeferredValue(data);
   const sf = useDeferredValue(surfacing);
-  const ov = useMemo(() => overview(d, sf) ?? looseOverview(d), [d, sf]);
+  // Heat (P-48) follows the recency shading setting: off, every circle is neutral.
+  const shading = useStore((st) => st.showShading);
+  const ov = useMemo(() => overview(d, sf, { shading }) ?? looseOverview(d), [d, sf, shading]);
   const offerOff = useStore((st) => st.whyOfferOff);
   const offer = !offerOff && ov?.mode !== 'whys';
   // Nothing logged yet (the welcome is showing): no "Not now" — there's nothing to put it off for.
@@ -133,8 +136,9 @@ function WhyOffer({ canPutOff }: { canPutOff: boolean }) {
 }
 
 /**
- * Home's graph: whys and what feeds them, or (with no whys) your most active wanders, or (with none)
- * your recent logs alone, plus your latest logs as dots, given room to breathe (`roomy`). The picture
+ * Home's graph: whys and what feeds them, or (with no whys) your most active wanders, drawn as circles
+ * coloured by heat with tapered branches between them (P-48); or, with no wanders, your recent logs
+ * alone as dots, given room to breathe (`roomy`). The picture
  * is one accessible element: an image labelled with the summary in names; activating it does nothing
  * (its centre is never a target). Nodes, dots and "and more →" are pointer shortcuts. Under it, the
  * summary as one visible line, then the whys and wanders as buttons (the way through without
@@ -191,7 +195,7 @@ export function HomeGraph({ ov, offer }: { ov: Overview; /** "+ What's it all fo
                 onPress={() => router.navigate('/explore')}
                 testID="graph-more"
                 style={[styles.hit, styles.center, { left: layout.more.x, top: layout.more.y, width: layout.more.w, height: layout.more.h }]}>
-                <Text style={styles.moreText}>and more →</Text>
+                <Text style={[styles.moreText, styles.mask]}>and more →</Text>
               </Shortcut>
             )}
           </Pressable>
@@ -242,16 +246,40 @@ const DotLine = memo(
   ({ line: a }, { line: b }) => a.key === b.key && a.newest === b.newest && a.x1 === b.x1 && a.y1 === b.y1 && a.x2 === b.x2 && a.y2 === b.y2,
 );
 
+/** A gradient id that's safe in `url(#…)` whatever the wander ids are (they can hold spaces). */
+function gradientId(key: string) {
+  let h = 5381;
+  for (let i = 0; i < key.length; i++) h = ((h << 5) + h + key.charCodeAt(i)) | 0;
+  return `heat-${(h >>> 0).toString(36)}`;
+}
+
+/** A tapered branch (P-48), coloured from the child's heat to the parent's. Memoised by value. */
 const LinkLine = memo(
   function LinkLine({ link: l }: { link: LaidLink }) {
+    const b = l.branch;
+    if (!b) return null;
+    const id = gradientId(l.key);
     return (
       <>
-        <Path testID={`graph-link-${l.from}-${l.to}`} d={l.path} stroke={C.accent} strokeWidth={l.width} fill="none" />
-        <Polygon points={l.arrow} fill={C.accent} />
+        <Defs>
+          <LinearGradient id={id} gradientUnits="userSpaceOnUse" x1={b.x1} y1={b.y1} x2={b.x2} y2={b.y2}>
+            <Stop offset="0" stopColor={heatInk(b.fromHeat)} />
+            <Stop offset="1" stopColor={heatInk(b.toHeat)} />
+          </LinearGradient>
+        </Defs>
+        <Polygon testID={`graph-link-${l.from}-${l.to}`} points={b.points} fill={`url(#${id})`} />
       </>
     );
   },
-  ({ link: a }, { link: b }) => a.key === b.key && a.path === b.path && a.width === b.width && a.arrow === b.arrow,
+  ({ link: a }, { link: b }) =>
+    a.key === b.key &&
+    a.branch?.points === b.branch?.points &&
+    a.branch?.fromHeat === b.branch?.fromHeat &&
+    a.branch?.toHeat === b.branch?.toHeat &&
+    a.branch?.x1 === b.branch?.x1 &&
+    a.branch?.y1 === b.branch?.y1 &&
+    a.branch?.x2 === b.branch?.x2 &&
+    a.branch?.y2 === b.branch?.y2,
 );
 
 const Dot = memo(
@@ -275,30 +303,70 @@ const Node = memo(
   },
   ({ node: a, stepH: sa, selected: xa }, { node: b, stepH: sb, selected: xb }) =>
     sa === sb &&
-    xa === xb && a.id === b.id && a.kind === b.kind && a.name === b.name && a.step === b.step && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && a.under?.join('|') === b.under?.join('|'),
+    xa === xb &&
+    a.id === b.id &&
+    a.kind === b.kind &&
+    a.name === b.name &&
+    a.step === b.step &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.w === b.w &&
+    a.h === b.h &&
+    a.under?.join('|') === b.under?.join('|') &&
+    a.circle?.cx === b.circle?.cx &&
+    a.circle?.cy === b.circle?.cy &&
+    a.circle?.r === b.circle?.r &&
+    a.circle?.heat === b.circle?.heat &&
+    a.circle?.declared === b.circle?.declared &&
+    a.circle?.inside === b.circle?.inside &&
+    a.circle?.labelW === b.circle?.labelW,
 );
 
-/** A tap selects the wander (P-35): the log box takes its context. "Open" in that row opens its page. */
+/** A ring around a circle, `gap` px beyond its edge (P-48: a declared why's second ring, the selection). */
+function Ring({ n, gap, width, color, testID }: { n: LaidNode; gap: number; width: number; color: string; testID: string }) {
+  const c = n.circle!;
+  const R = c.r + gap;
+  return <View testID={testID} pointerEvents="none" style={[styles.ring, { left: n.w / 2 - R, top: c.cy - n.y - R, width: 2 * R, height: 2 * R, borderRadius: R, borderWidth: width, borderColor: color }]} />;
+}
+
+/**
+ * A node as a circle coloured by its heat (P-48), its label inside when it fits, else under it. A
+ * declared why has a second thin ring; the selection (P-35) is one ink ring. A tap selects the wander
+ * (P-35): the log box takes its context. "Open" in that row opens its page.
+ */
 function NodeView({ node: n, stepH, selected }: { node: LaidNode; stepH: number; selected: boolean }) {
+  const c = n.circle;
+  if (!c) return null;
   const why = n.kind === 'why';
   return (
     <>
       <Shortcut
         onPress={() => useStore.getState().select(n.id)}
         testID={`graph-node-${n.id}`}
-        data={{ kind: n.kind, ...(n.under && { under: n.under.join('|') }), ...(selected && { selected: 'true' }) }}
-        style={[styles.hit, { left: n.x, top: n.y, width: n.w, height: n.h }]}>
-        <View style={[styles.node, why && styles.why, selected && styles.selected]}>
-          <Text style={[styles.text, why && styles.whyText]} numberOfLines={why ? 2 : 1}>
+        data={{ kind: n.kind, ...(n.under && { under: n.under.join('|') }), ...(selected && { selected: 'true' }), heat: c.heat.toFixed(2), label: c.inside ? 'inside' : 'under' }}
+        style={[styles.hit, styles.nodeHit, { left: n.x, top: n.y, width: n.w, height: n.h }]}>
+        <View style={[styles.circle, { marginTop: c.cy - n.y - c.r, width: 2 * c.r, height: 2 * c.r, borderRadius: c.r, backgroundColor: heatFill(c.heat), borderColor: heatInk(c.heat) }]}>
+          {c.inside && (
+            <Text style={[styles.label, styles.inside, { width: c.labelW, color: heatLabel(c.heat) }]} numberOfLines={2}>
+              {n.name}
+            </Text>
+          )}
+        </View>
+        {!c.inside && (
+          <Text style={[styles.label, styles.under, why && styles.underWhy, { maxWidth: c.labelW }]} numberOfLines={2}>
             {n.name}
           </Text>
-        </View>
+        )}
+        {c.declared && <Ring n={n} gap={4} width={1} color={heatInk(c.heat)} testID={`graph-why-ring-${n.id}`} />}
+        {selected && <Ring n={n} gap={c.declared ? 8 : 5} width={2} color={C.ink} testID={`graph-selected-${n.id}`} />}
       </Shortcut>
-      {/* Its staged next step: one quiet line, no age, no count. */}
+      {/* Its staged next step: one quiet line, no age, no count (P-50 changes it). */}
       {n.step && (
-        <Text testID={`graph-step-${n.id}`} style={[styles.step, { left: n.x, top: n.y + n.h, width: n.w, height: stepH, lineHeight: stepH }]} numberOfLines={1}>
-          ↳ {n.step}
-        </Text>
+        <View pointerEvents="none" style={[styles.stepRow, { left: n.x, top: n.y + n.h, width: n.w, height: stepH }]}>
+          <Text testID={`graph-step-${n.id}`} style={[styles.step, styles.mask, { lineHeight: stepH }]} numberOfLines={1}>
+            ↳ {n.step}
+          </Text>
+        </View>
       )}
     </>
   );
@@ -307,14 +375,19 @@ function NodeView({ node: n, stepH, selected }: { node: LaidNode; stepH: number;
 const styles = StyleSheet.create({
   hit: { position: 'absolute', justifyContent: 'center' },
   center: { alignItems: 'center' },
-  // Borders, lines and dots are at least 3:1 against the page (WCAG 1.4.11).
-  // Roomy (Home): a 44 px chip inside its 52 px target.
-  node: { height: 44, paddingHorizontal: 8, borderRadius: 14, borderWidth: 1, borderColor: C.faint, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' },
-  why: { borderWidth: 1.5, borderRadius: 16, borderColor: C.accent },
-  // Selected (P-35): a thicker accent border on a tinted chip.
-  selected: { borderWidth: 2.5, borderColor: C.accent, backgroundColor: C.accentTint },
-  text: { fontSize: 14, lineHeight: 18, fontWeight: '500', color: C.ink, textAlign: 'center' },
-  step: { position: 'absolute', fontSize: 12, color: C.muted, textAlign: 'center', paddingHorizontal: 4 },
+  // Outlines, rings, branches and dots are at least 3:1 against the page (WCAG 1.4.11); labels 4.5:1 (`heat` tests).
+  // Home (P-48): a circle at the top of its target, its label inside or under it.
+  nodeHit: { justifyContent: 'flex-start', alignItems: 'center' },
+  circle: { borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  ring: { position: 'absolute' },
+  label: { fontSize: LABEL_FONT, lineHeight: LABEL_LINE, textAlign: 'center' },
+  inside: { fontWeight: '600' },
+  under: { marginTop: 2, fontWeight: '500', color: C.ink, paddingHorizontal: 2 },
+  underWhy: { fontWeight: '600' },
+  // Text the branches pass behind: the page colour under it, so a line never runs through words.
+  mask: { backgroundColor: C.bg },
+  stepRow: { position: 'absolute', alignItems: 'center' },
+  step: { fontSize: 12, color: C.muted, textAlign: 'center', paddingHorizontal: 4, maxWidth: '100%' },
   whyText: { fontWeight: '600', color: C.accentInk },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.muted },
   // Your latest log: larger, in the accent colour, until the next one (so every log visibly lands).

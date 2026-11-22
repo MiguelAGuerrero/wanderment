@@ -84,20 +84,21 @@ function world(declared: string[], more: { from?: string; to?: string[]; text: s
   return JSON.stringify(json);
 }
 
-test('a fresh app shows no graph; the first thread, its dot and a link appear as you log', async ({ page }) => {
+// P-48: no dots once wanders exist (was "…the first thread, its dot and a link appear…").
+test('a fresh app shows no graph; the first thread and a link appear as you log', async ({ page }) => {
   await openHome(page);
   await expect(page.getByText('Log what you just did.')).toBeVisible();
   await expect(page.getByTestId('home-graph')).toHaveCount(0);
   await expect(page.getByRole('img')).toHaveCount(0);
 
-  // A plain "to draw" log: draw appears, with that log as a dot and a line to it.
+  // A plain "to draw" log: draw appears.
   await logCreating(page, 'sketch @draw', 'draw');
   await expect(graph(page)).toBeVisible();
   const draw = await idOf(page, 'draw');
   expect(draw).not.toBe('');
-  await expect(dots(page)).toHaveCount(1);
-  const first = ((await dots(page).first().getAttribute('data-testid')) ?? '').replace('graph-dot-', '');
-  await expect(page.getByTestId(`graph-dotline-${first}-${draw}`)).toHaveCount(1);
+  // P-48: no dots or dot lines once wanders exist (was: that log as a dot with a line to draw).
+  await expect(dots(page)).toHaveCount(0);
+  await expect(page.locator('[data-testid^="graph-dotline-"]')).toHaveCount(0);
 
   // Doing draw → to be a better drawer: the new node and the link, right after the log.
   await logCreating(page, 'drawing hands @be a better drawer', 'be a better drawer', 'draw');
@@ -105,16 +106,17 @@ test('a fresh app shows no graph; the first thread, its dot and a link appear as
   await expect(node(page, better)).toBeVisible();
   await expect(node(page, draw)).toBeVisible();
   await expect(link(page, draw, better)).toHaveCount(1);
-  await expect(dots(page)).toHaveCount(2);
+  await expect(dots(page)).toHaveCount(0); // P-48: no dots once wanders exist (was 2).
   await expect(picture(page)).toHaveAccessibleName('Your wanders: draw toward be a better drawer. Lately: draw toward be a better drawer; draw.');
 
-  // Undo takes the link (and its dot) away again.
+  // Undo takes the link away again.
   await page.getByRole('button', { name: 'Undo' }).filter({ visible: true }).click();
   await expect(link(page, draw, better)).toHaveCount(0);
-  await expect(dots(page)).toHaveCount(1);
+  await expect(dots(page)).toHaveCount(0); // P-48: no dots once wanders exist (was 1).
 });
 
-test('the owner’s way of logging: each plain log is a dot with a line to every thread it names; a new one moves nothing', async ({ page }) => {
+// P-48: no dots once wanders exist (was "…each plain log is a dot with a line to every thread it names…").
+test('the owner’s way of logging: plain logs naming threads; a new one moves nothing', async ({ page }) => {
   await openHome(page);
   await logMentioning(page, 'sketched', [
     ['draw', true],
@@ -124,25 +126,22 @@ test('the owner’s way of logging: each plain log is a dot with a line to every
   await logMentioning(page, 'cast on', [['knit', true]]);
 
   await expect(nodes(page)).toHaveCount(3);
-  await expect(dots(page)).toHaveCount(3);
-  const [draw, apparel, knit] = [await idOf(page, 'draw'), await idOf(page, 'make apparel'), await idOf(page, 'knit')];
-  // Each dot names its threads, with one line to each of them: draw and make apparel are connected through the first.
-  const named = await dots(page).evaluateAll((els) => els.map((e) => [e.getAttribute('data-testid')!.replace('graph-dot-', ''), e.getAttribute('data-threads')!.split('|')] as const));
-  expect(named.map(([, t]) => t)).toEqual([[knit], [draw], [draw, apparel]]);
-  for (const [dot, threads] of named) for (const t of threads) await expect(page.getByTestId(`graph-dotline-${dot}-${t}`)).toHaveCount(1);
-  await expect(page.locator('[data-testid^="graph-dotline-"]')).toHaveCount(4);
+  // P-48: no dots or dot lines once wanders exist (was: three dots, each with a line to every thread it names).
+  await expect(dots(page)).toHaveCount(0);
+  const apparel = await idOf(page, 'make apparel');
+  await expect(page.locator('[data-testid^="graph-dotline-"]')).toHaveCount(0);
   await expect(picture(page)).toHaveAccessibleName('Your wanders: draw, knit and make apparel. Lately: knit; draw; draw with make apparel.');
   // No numbers anywhere in the graph (no counts, no "+N").
   await expect(graph(page)).not.toContainText(/\d/);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/home-graph-owner-no-whys.png` });
 
-  // A fourth log adds a dot and moves nothing else.
+  // A fourth log moves nothing.
   const before = await positions(page);
   await logMentioning(page, 'hemmed a skirt', [['make apparel', false]]);
-  await expect(dots(page)).toHaveCount(4);
+  await expect(dots(page)).toHaveCount(0); // P-48: no dots once wanders exist (was 4).
   const after = await positions(page);
   for (const [key, at] of Object.entries(before)) expect(after[key], key).toBe(at);
-  expect(Object.keys(after)).toHaveLength(Object.keys(before).length + 1);
+  expect(Object.keys(after)).toHaveLength(Object.keys(before).length); // P-48: no dot added (was + 1).
 
   // Marking make apparel as what it's for moves nothing either; it's now drawn as a why.
   await node(page, apparel).click();
@@ -206,16 +205,15 @@ test('undoing a declare takes the why away again; hiding a thread takes its node
   await expect(page.getByTestId('graph-dot-a4')).toHaveCount(0);
 });
 
-test('a dot opens its activity; “and more →” opens Explore', async ({ page }) => {
+// P-48: no dots once wanders exist (was "a dot opens its activity; …"); logs on their own still do (home-is-graph.spec.ts).
+test('“and more →” opens Explore', async ({ page }) => {
   await page.addInitScript(seedScript, world([]));
   await openHome(page);
   // Seven threads, six in the picture.
   await expect(nodes(page)).toHaveCount(6);
   await expect(page.getByTestId('graph-more')).toHaveText('and more →');
   await expect(picture(page)).toHaveAccessibleName(/ And more\.$/);
-  await page.getByTestId('graph-dot-a4').click();
-  await expect(page).toHaveURL(/\/activity\/a4$/);
-  await page.goBack();
+  await expect(page.getByTestId('graph-dot-a4')).toHaveCount(0); // P-48: no dots once wanders exist (was: it opens /activity/a4).
   await page.getByTestId('graph-more').click();
   await expect(page).toHaveURL(/\/explore$/);
   await expect(page.getByRole('tab', { name: 'List view' })).toBeVisible();
@@ -283,7 +281,12 @@ test('lines, dots and borders stand out from the page (at least 3:1)', async ({ 
       ...[...pic.querySelectorAll('[data-testid^="graph-node-"]')].map((e) => css(e.firstElementChild!).borderTopColor),
       ...[...pic.querySelectorAll('[data-testid^="graph-dot-"]')].map((e) => css(e.firstElementChild!).backgroundColor),
       ...[...pic.querySelectorAll('line, path')].map((e) => (css(e).strokeOpacity === '1' ? css(e).stroke : 'transparent')),
-      ...[...pic.querySelectorAll('polygon')].map((e) => (css(e).fillOpacity === '1' ? css(e).fill : 'transparent')),
+      // P-48: branches are filled with a gradient (was a solid fill): each of its colours is checked.
+      ...[...pic.querySelectorAll('polygon')].flatMap((e) => {
+        const id = css(e).fill.match(/url\("?#([^")]+)"?\)/)?.[1];
+        if (id) return [...document.getElementById(id)!.querySelectorAll('stop')].map((st) => (css(st).stopOpacity === '1' ? css(st).stopColor : 'transparent'));
+        return [css(e).fillOpacity === '1' ? css(e).fill : 'transparent'];
+      }),
     ];
   });
   expect(colours.length).toBeGreaterThan(3);
@@ -384,10 +387,12 @@ test('from 280 to 320 px wide, Search and “Settings and backup” stay fully o
   }
 });
 
+// P-48: dots (and so the newest mark) are only drawn while there are no wanders, so this runs on logs
+// on their own (was: twelve logs to draw, among three wanders, with dot lines).
 test('every log visibly lands: the newest dot is marked, even once the dots are full', async ({ page }) => {
-  // Twelve logs, all to draw: every dot spot is taken, so a new one lands where the oldest just left.
-  const logs = Array.from({ length: 12 }, (_, i) => ({ to: ['draw'], text: `sketch ${i}`, daysAgo: (12 - i) / 10 }));
-  await page.addInitScript(seedScript, legacyBlob(['draw', 'knit', 'make apparel'], logs));
+  // Twelve logs: every dot spot is taken, so a new one lands where the oldest just left.
+  const logs = Array.from({ length: 12 }, (_, i) => ({ text: `sketch ${i}`, daysAgo: (12 - i) / 10 }));
+  await page.addInitScript(seedScript, legacyBlob([], logs));
   await openHome(page);
   await expect(dots(page)).toHaveCount(8);
   const newest = page.locator('[data-testid^="graph-dot-"][data-newest]').filter({ visible: true });
@@ -406,10 +411,9 @@ test('every log visibly lands: the newest dot is marked, even once the dots are 
     });
   expect(await look('graph-dot-a11')).toEqual([14, 'rgb(168, 70, 15)']);
   expect(await look('graph-dot-a10')).toEqual([10, 'rgb(94, 91, 85)']);
-  const stroke = (testId: string) => page.getByTestId(testId).evaluate((e) => parseFloat(getComputedStyle(e).strokeWidth));
-  expect(await stroke('graph-dotline-a11-draw')).toBeGreaterThan(await stroke('graph-dotline-a10-draw'));
+  // P-48: logs on their own have no dot lines (was: the newest dot's line to draw is stronger).
 
-  await logMentioning(page, 'sketched again', [['draw', false]]);
+  await logLine(page, 'sketched again'); // P-48: a plain log, so there are still no wanders (was @draw).
   await expect(dots(page)).toHaveCount(8);
   await expect(newest).toHaveCount(1);
   await expect(newest).not.toHaveAttribute('data-testid', 'graph-dot-a11');

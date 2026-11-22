@@ -112,7 +112,8 @@ test('×, Esc and a tap on empty canvas clear the selection, keeping what’s ty
   await expect(logBox(page)).toHaveValue('half a seam');
 });
 
-test('selecting another node moves the context; dots still open their log; Open goes to the wander', async ({ page }) => {
+// P-48: no dots once wanders exist (was "…; dots still open their log; …"); logs on their own still do (home-is-graph.spec.ts).
+test('selecting another node moves the context; Open goes to the wander', async ({ page }) => {
   await node(page, 'sew').click();
   await node(page, 'draw').click();
   await expect(row(page)).toHaveAccessibleName('Toward draw');
@@ -125,8 +126,7 @@ test('selecting another node moves the context; dots still open their log; Open 
   await expect(logBox(page)).toBeVisible();
   await expect(row(page)).toHaveCount(0);
   await expect(toChip(page, 'draw')).toHaveCount(0);
-  await page.getByTestId('graph-dot-a1').click();
-  await expect(page).toHaveURL(/\/activity\/a1$/);
+  await expect(page.getByTestId('graph-dot-a1')).toHaveCount(0); // P-48: no dots once wanders exist (was: it opens /activity/a1).
 });
 
 test('“+ next step” sets one inline, then it’s one tap to log', async ({ page }) => {

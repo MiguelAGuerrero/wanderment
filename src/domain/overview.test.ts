@@ -552,7 +552,7 @@ describe('overviewLayout: recent logs are dots', () => {
     for (const b of [...c.nodes, ...c.dots]) expect(W / 2 >= b.x && W / 2 <= b.x + b.w && c.height / 2 >= b.y && c.height / 2 <= b.y + b.h).toBe(false);
   });
 
-  it('a plain "to Y" log is a dot with a line to Y (no fill); links get a width from all-time links', () => {
+  it('a plain "to Y" log is a dot with a line to Y (no fill); links never get a width from all-time links', () => {
     let { data, id } = make('draw', 'sew');
     expect(lay(ov(data)).dots).toEqual([]);
     const r = plainAt(data, [id.draw], 10);
@@ -561,7 +561,8 @@ describe('overviewLayout: recent logs are dots', () => {
     data = link(data, id.sew, id.draw);
     const thin = lay(ov(data)).links[0].width;
     data = links(data, id.sew, id.draw, 9, 300);
-    expect(lay(ov(data)).links[0].width).toBeGreaterThan(thin);
+    // P-48: no width comes from a count (was: wider with more links).
+    expect(lay(ov(data)).links[0].width).toBe(thin);
   });
 
   it('hiding a thread takes its node and the dots that only named it; an undone log takes its dot', () => {
@@ -772,12 +773,13 @@ describe('P-33: what the surviving mutants showed was untested', () => {
     expect(lay(ov(data)).dots).toHaveLength(8);
   });
 
-  it('links come in three widths, from all-time links: one, a few (2–4), many (5+)', () => {
+  it('links never take a width from all-time links (P-48; was three widths: one, a few, many)', () => {
     const width = (n: number) => {
       let { data, id } = make('draw', 'sew');
       data = links(data, id.sew, id.draw, n, 300);
       return lay(ov(data)).links[0].width;
     };
-    expect([1, 2, 4, 5, 20].map(width)).toEqual([1.5, 2.5, 2.5, 3.5, 3.5]);
+    // P-48: no width comes from a count (was [1.5, 2.5, 2.5, 3.5, 3.5]).
+    expect([1, 2, 4, 5, 20].map(width)).toEqual([1.5, 1.5, 1.5, 1.5, 1.5]);
   });
 });
