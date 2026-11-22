@@ -126,8 +126,9 @@ test('with wanders: the graph, the staged step under its node, the summary line 
   for (const b of await items.all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await expectNoSeriousViolations(page);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/p34-with-wanders.png` });
-  // Activating one opens the wander (for now).
+  // Activating one selects the wander (P-35); its page opens from the row's "Open".
   await items.nth(1).click();
+  await page.getByRole('link', { name: 'Open draw', exact: true }).click();
   await expect(page).toHaveURL(/\/thread\/draw$/);
 });
 

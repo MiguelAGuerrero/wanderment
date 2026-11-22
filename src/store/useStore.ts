@@ -22,6 +22,7 @@ import {
 } from '@/domain/model';
 import { Settings } from '@/domain/migrate';
 import { rememberSearch } from '@/domain/search';
+import { Selection, selectToward, unselect } from '@/domain/select';
 import { lastActivities } from '@/domain/selectors';
 import { Data, emptyData, Id } from '@/domain/types';
 
@@ -99,6 +100,13 @@ interface State {
   draft: Draft;
   /** Bumped when something outside the log box (a crumb's "Log this") hands focus back to it. */
   logBoxFocus: number;
+  /**
+   * The wander selected on Home (P-35): the log box takes its context. Session only, never stored;
+   * it lasts one log, and leaving Home clears it.
+   */
+  selected?: Selection;
+  /** Bumped when a selection made without pointing (the list on Home) moves focus to its context row. */
+  selectFocus: number;
   /** Activity Home's bridge asks about ("Toward something — or just itself?"). Session only. */
   bridgeFor?: Id;
   /** Thread that shows the quiet "+ What's next? (optional)" line after a log. */
@@ -126,6 +134,8 @@ interface State {
   setDraft: (patch: Partial<Draft>) => void;
   clearDraft: () => void;
   loadNext: (threadId: Id) => void;
+  /** Selects a wander on Home (its "to" chip goes on the line), or clears the selection (`undefined`). */
+  select: (threadId: Id | undefined, opts?: { focus?: boolean }) => void;
   /*
    * Data-changing actions (everything that touches `data` or the saved settings) go through one
    * gate: while the page doesn't hold the data (`holdsData`) they change nothing and show
@@ -220,6 +230,7 @@ export const useStore = create<State>()((set, get) => ({
   data: emptyData(),
   draft: emptyDraft(),
   logBoxFocus: 0,
+  selectFocus: 0,
   showShading: true,
   toastHeld: false,
   recentSearches: [],
@@ -248,6 +259,14 @@ export const useStore = create<State>()((set, get) => ({
     });
   },
 
+  select: (threadId, opts) =>
+    set((s) => {
+      if (!threadId) return s.selected ? { selected: undefined, draft: unselect(s.draft, s.selected) } : {};
+      if (!s.data.threads[threadId]) return {};
+      const { draft, selection } = selectToward(s.draft, s.selected, threadId);
+      return { draft, selected: selection, ...(opts?.focus && { selectFocus: s.selectFocus + 1 }) };
+    }),
+
   log: gated<State['log']>(
     undefined,
     (extra, opts) => {
@@ -269,6 +288,8 @@ export const useStore = create<State>()((set, get) => ({
       const bridge = !!opts?.bridge && !owner;
       set({
         bridgeFor: bridge ? res.activity.id : undefined,
+        // A selection lasts one log.
+        selected: undefined,
         data: res.data,
         undo: undoEntry(data, res.data),
         draft: emptyDraft(),
@@ -430,7 +451,7 @@ export const useStore = create<State>()((set, get) => ({
   dismissToast: () => set({ toast: undefined, toastHeld: false }),
   holdToast: (held) => set({ toastHeld: held }),
   dismissPrompt: () => set({ promptNextFor: undefined }),
-  replaceData: gated<State['replaceData']>(false, (data) => change({ data, undo: undefined, draft: emptyDraft(), bridgeFor: undefined })),
+  replaceData: gated<State['replaceData']>(false, (data) => change({ data, undo: undefined, draft: emptyDraft(), bridgeFor: undefined, selected: undefined })),
   refreshData: gated<State['refreshData']>(false, (data, settings, keepUndo) =>
     change((s) => ({
       data,
@@ -442,6 +463,7 @@ export const useStore = create<State>()((set, get) => ({
       ...(s.bridgeFor && !data.activities[s.bridgeFor] ? { bridgeFor: undefined } : {}),
       ...(s.promptNextFor && !data.threads[s.promptNextFor] ? { promptNextFor: undefined } : {}),
       ...(s.pullInOffer && !data.threads[s.pullInOffer] ? { pullInOffer: undefined } : {}),
+      ...(s.selected && !data.threads[s.selected.id] ? { selected: undefined } : {}),
     })),
   ),
   setShowShading: gated<State['setShowShading']>(false, (on) => change({ showShading: on })),

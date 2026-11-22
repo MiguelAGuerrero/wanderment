@@ -27,6 +27,8 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
   const createThread = useStore((st) => st.createThread);
   const setPullInOffer = useStore((st) => st.setPullInOffer);
   const logBoxFocus = useStore((st) => st.logBoxFocus);
+  const selected = useStore((st) => st.selected?.id);
+  const select = useStore((st) => st.select);
   const screenFocused = useIsFocused();
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   /** Highlighted suggestion, remembered per query so a new query starts at the top. */
@@ -211,11 +213,14 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
                   </Text>
                 )}
                 <Pressable
-                  onPress={() =>
-                    c.kind === 'doing'
-                      ? setDraft({ doingId: null, fromNextOf: undefined, fromNextText: undefined })
-                      : setDraft({ toIds: draft.toIds.filter((x) => x !== c.id) })
-                  }
+                  onPress={() => {
+                    if (c.kind === 'doing') setDraft({ doingId: null, fromNextOf: undefined, fromNextText: undefined });
+                    else {
+                      setDraft({ toIds: draft.toIds.filter((x) => x !== c.id) });
+                      // The selected wander's chip (P-35): removing it clears the selection too.
+                      if (c.id === selected) select(undefined);
+                    }
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel={`${c.kind === 'doing' ? 'Doing' : 'To'}: ${c.label}. Remove`}
                   style={styles.hit}>

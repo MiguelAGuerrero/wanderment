@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-na
 
 import { decorative } from '@/components/a11y';
 import { ExploreIcon, homeContentWidth, LiveGraph, useGraphIcon } from '@/components/graph/HomeGraph';
-import { LogBridge } from '@/components/LogBridge';
+import { HomeAboveLog } from '@/components/graph/NodeContext';
 import { Screen } from '@/components/Screen';
 import { headerWhys } from '@/domain/overview';
 import { useStore } from '@/store/useStore';
@@ -21,13 +21,19 @@ export default function Home() {
   const data = useStore((st) => st.data);
   const setDraft = useStore((st) => st.setDraft);
   const dismissBridge = useStore((st) => st.dismissBridge);
-  // The bridge is one moment on Home: it goes when Home is left. Home stays mounted in the tabs, so
-  // this runs on blur, and on focus too (in case anything set it while Home was in the background).
+  const select = useStore((st) => st.select);
+  // The bridge and a selected wander (P-35) are one moment on Home: they go when Home is left. Home
+  // stays mounted in the tabs, so this runs on blur, and on focus too (in case anything set them
+  // while Home was in the background).
   useFocusEffect(
     useCallback(() => {
-      dismissBridge();
-      return dismissBridge;
-    }, [dismissBridge]),
+      const leave = () => {
+        dismissBridge();
+        select(undefined);
+      };
+      leave();
+      return leave;
+    }, [dismissBridge, select]),
   );
   const isEmpty = Object.keys(data.activities).length === 0 && Object.keys(data.threads).length === 0;
   // Earned whys in the Wanders tab's header order, so the graph and the headers agree.
@@ -40,7 +46,7 @@ export default function Home() {
   const tightHeader = homeContentWidth(width) < 270;
 
   return (
-    <Screen bridge aboveLog={<LogBridge style={styles.bridge} />}>
+    <Screen bridge aboveLog={<HomeAboveLog style={styles.bridge} />}>
       <View style={styles.header}>
         <Text style={[s.h1, styles.title, tightHeader && { fontSize: 24 }]} numberOfLines={1} accessibilityRole="header">
           Wanderment

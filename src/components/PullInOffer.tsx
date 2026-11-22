@@ -15,8 +15,10 @@ export function PullInOffer() {
   const data = useStore((st) => st.data);
   const offer = useStore((st) => st.pullInOffer);
   const setOffer = useStore((st) => st.setPullInOffer);
+  // A wander selected on Home (P-35) has the space above the log box: one row there at a time.
+  const selecting = useStore((st) => !!st.selected);
   const thread = offer ? data.threads[offer] : undefined;
-  if (!thread) return null;
+  if (!thread || selecting) return null;
   const n = candidatesForThread(data, thread.name, thread.id).length;
   if (!n) return null;
   return (

@@ -4,6 +4,7 @@ import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TextInput, us
 import Svg, { Line, Path, Polygon } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
+import { pickId } from '@/components/graph/NodeContext';
 import { BIG_TEXT, LaidDot, LaidDotLine, LaidLink, LaidNode, looseOverview, NARROW_W, overview, Overview, overviewLayout, OverviewLayout, pictureItems } from '@/domain/overview';
 import { Data, Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
@@ -152,6 +153,8 @@ export function HomeGraph({ ov, offer }: { ov: Overview; /** "+ What's it all fo
   const onLayout = (e: LayoutChangeEvent) => e.nativeEvent.layout.width > 0 && setMeasured(e.nativeEvent.layout.width);
   // Laid out again only when something changes, from where things were last time (kept while Home
   // is mounted, never stored): React's "adjust state while rendering" pattern.
+  const select = useStore((st) => st.select);
+  const selected = useStore((st) => st.selected?.id);
   const [laid, setLaid] = useState<{ ov: Overview; width: number; fontScale: number; layout: OverviewLayout }>();
   let layout = laid?.layout;
   if (!laid || laid.ov !== ov || laid.width !== width || laid.fontScale !== fontScale) {
@@ -175,9 +178,10 @@ export function HomeGraph({ ov, offer }: { ov: Overview; /** "+ What's it all fo
               <LinkLine key={l.key} link={l} />
             ))}
           </Svg>
-          <View style={StyleSheet.absoluteFill} {...decorative}>
+          {/* A tap on empty canvas clears the selection (P-35); nodes and dots take their own taps. */}
+          <Pressable onPress={() => select(undefined)} focusable={false} tabIndex={-1} {...noFocus} style={StyleSheet.absoluteFill} {...decorative}>
             {layout.nodes.map((n) => (
-              <Node key={n.key} node={n} stepH={layout.stepH} />
+              <Node key={n.key} node={n} stepH={layout.stepH} selected={n.id === selected} />
             ))}
             {layout.dots.map((d) => (
               <Dot key={d.key} dot={d} />
@@ -190,7 +194,7 @@ export function HomeGraph({ ov, offer }: { ov: Overview; /** "+ What's it all fo
                 <Text style={styles.moreText}>and more →</Text>
               </Shortcut>
             )}
-          </View>
+          </Pressable>
         </View>
       )}
       {/* The summary in one line (two where the picture is hidden), with "Explore" beside it whenever
@@ -213,7 +217,8 @@ export function HomeGraph({ ov, offer }: { ov: Overview; /** "+ What's it all fo
         <View style={styles.items} role="list" aria-label="What’s in the picture">
           {items.map((it) => (
             <View key={it.id} role="listitem" style={styles.listItem}>
-              <Pressable onPress={() => router.push(`/thread/${it.id}`)} style={[styles.item, it.why && styles.itemWhy]} accessibilityRole="button">
+              {/* Selects, like a node, and focus moves to the context row above the log box (P-35). */}
+              <Pressable nativeID={pickId(it.id)} onPress={() => select(it.id, { focus: true })} style={[styles.item, it.why && styles.itemWhy, it.id === selected && styles.itemSelected]} accessibilityRole="button">
                 <Text style={styles.itemText} numberOfLines={2}>
                   <Text style={[styles.itemName, it.why && styles.whyText]}>{it.name}</Text>
                   <Text style={styles.itemRole}>{it.why ? ', what it’s for' : ', a wander'}</Text>
@@ -265,23 +270,25 @@ const Dot = memo(
 );
 
 const Node = memo(
-  function Node({ node: n, stepH }: { node: LaidNode; stepH: number }) {
-    return <NodeView node={n} stepH={stepH} />;
+  function Node({ node: n, stepH, selected }: { node: LaidNode; stepH: number; selected: boolean }) {
+    return <NodeView node={n} stepH={stepH} selected={selected} />;
   },
-  ({ node: a, stepH: sa }, { node: b, stepH: sb }) =>
-    sa === sb && a.id === b.id && a.kind === b.kind && a.name === b.name && a.step === b.step && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && a.under?.join('|') === b.under?.join('|'),
+  ({ node: a, stepH: sa, selected: xa }, { node: b, stepH: sb, selected: xb }) =>
+    sa === sb &&
+    xa === xb && a.id === b.id && a.kind === b.kind && a.name === b.name && a.step === b.step && a.x === b.x && a.y === b.y && a.w === b.w && a.h === b.h && a.under?.join('|') === b.under?.join('|'),
 );
 
-function NodeView({ node: n, stepH }: { node: LaidNode; stepH: number }) {
+/** A tap selects the wander (P-35): the log box takes its context. "Open" in that row opens its page. */
+function NodeView({ node: n, stepH, selected }: { node: LaidNode; stepH: number; selected: boolean }) {
   const why = n.kind === 'why';
   return (
     <>
       <Shortcut
-        onPress={() => router.push(`/thread/${n.id}`)}
+        onPress={() => useStore.getState().select(n.id)}
         testID={`graph-node-${n.id}`}
-        data={{ kind: n.kind, ...(n.under && { under: n.under.join('|') }) }}
+        data={{ kind: n.kind, ...(n.under && { under: n.under.join('|') }), ...(selected && { selected: 'true' }) }}
         style={[styles.hit, { left: n.x, top: n.y, width: n.w, height: n.h }]}>
-        <View style={[styles.node, why && styles.why]}>
+        <View style={[styles.node, why && styles.why, selected && styles.selected]}>
           <Text style={[styles.text, why && styles.whyText]} numberOfLines={why ? 2 : 1}>
             {n.name}
           </Text>
@@ -304,6 +311,8 @@ const styles = StyleSheet.create({
   // Roomy (Home): a 44 px chip inside its 52 px target.
   node: { height: 44, paddingHorizontal: 8, borderRadius: 14, borderWidth: 1, borderColor: C.faint, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' },
   why: { borderWidth: 1.5, borderRadius: 16, borderColor: C.accent },
+  // Selected (P-35): a thicker accent border on a tinted chip.
+  selected: { borderWidth: 2.5, borderColor: C.accent, backgroundColor: C.accentTint },
   text: { fontSize: 14, lineHeight: 18, fontWeight: '500', color: C.ink, textAlign: 'center' },
   step: { position: 'absolute', fontSize: 12, color: C.muted, textAlign: 'center', paddingHorizontal: 4 },
   whyText: { fontWeight: '600', color: C.accentInk },
@@ -321,6 +330,7 @@ const styles = StyleSheet.create({
   listItem: { maxWidth: '100%' },
   item: { minHeight: 44, maxWidth: '100%', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, justifyContent: 'center' },
   itemWhy: { borderColor: C.accent },
+  itemSelected: { borderWidth: 2, borderColor: C.accent, backgroundColor: C.accentTint },
   itemText: { fontSize: 14, flexShrink: 1 },
   itemName: { fontWeight: '500', color: C.ink },
   itemRole: { color: C.muted },
