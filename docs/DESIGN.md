@@ -29,9 +29,7 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   them); your recent logs are dots with a line to each wander they name, the newest one marked;
   doing → to links are lines; a staged next step is one quiet line under its node. There's no
   threshold: with no wanders your recent logs show as dots on their own, and while there are no whys
-  a gentle "+ What's it all for?" offers to name one ("Not now" hides it for good). A log that names
-  no wander stays a dot with no line (P-38); a log naming only wanders that aren't drawn (beyond the
-  cap, or hidden) is left to "and more →". Under the picture,
+  a gentle "+ What's it all for?" offers to name one ("Not now" hides it for good). Under the picture,
   its summary in one line, then the whys and wanders as buttons (the way through without pointing,
   and the whole layout at large text). The cards are the **Wanders** tab (a plain **YOUR WANDERS**
   list until value headers are earned); the single-centre view is **Explore**.

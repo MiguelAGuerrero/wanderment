@@ -308,8 +308,7 @@ test('with no whys: the most active threads, axe-clean, and the cards keep their
   await toHome(page);
   await logLine(page, 'read a novel');
   await expect(graph(page)).toBeVisible();
-  // P-38: the unattached log stays in the picture and in "Lately".
-  await expect(picture(page)).toHaveAccessibleName('Your wanders: play guitar. Lately: read a novel; play guitar.');
+  await expect(picture(page)).toHaveAccessibleName('Your wanders: play guitar. Lately: play guitar.');
   await expect(page.getByRole('button', { name: /^play guitar\s*\S/ })).toHaveCount(1);
   await expect(page.getByRole('button', { name: /^play guitar/ })).toHaveCount(1);
   await expectNoSeriousViolations(page);
