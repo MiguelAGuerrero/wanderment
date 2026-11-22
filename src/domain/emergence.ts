@@ -117,9 +117,9 @@ export interface ValueGroup {
 /**
  * Groups thread ids (already in display order) under the value they most often flow to.
  * Values lead their own group; threads that flow to no value are returned as `rest`.
+ * Pass `values` when the caller already has `valueThreads(data, now)` (Home shares it with the graph).
  */
-export function groupByValue(data: Data, threadIds: Id[], now = new Date()): { groups: ValueGroup[]; rest: Id[] } {
-  const values = valueThreads(data, now);
+export function groupByValue(data: Data, threadIds: Id[], now = new Date(), values = valueThreads(data, now)): { groups: ValueGroup[]; rest: Id[] } {
   if (!values.size) return { groups: [], rest: threadIds };
   // How often each thread sent links to each value in the window — one pass.
   const since = now.getTime() - VALUE_WINDOW_DAYS * DAY;

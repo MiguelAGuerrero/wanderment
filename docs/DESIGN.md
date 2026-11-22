@@ -25,7 +25,8 @@ These came out of the design sessions and several rounds of persona reviews. Cha
 - After logging, the owning thread shows one quiet "+ What's next? (optional)" line. Ignoring it leaves no trace.
 - Toast: says what was logged where, one action (Undo), body opens details, ≥ 6 s, pauses while held, doesn't auto-dismiss under a screen reader.
 - Recency is neutral: "last touched 2d", an "Earlier" section after 21 days, warmth halves every 14 days, and the shading can be turned off.
-- Home shows a plain **YOUR THREADS** list until value headers are earned (see roadmap).
+- Home opens with a compact live graph of what it's for and what feeds it; below it, a plain
+  **YOUR THREADS** list until value headers are earned or declared.
 - Never: goals, streaks, % complete, timers, notifications.
 
 ## Design canvas
