@@ -199,11 +199,13 @@ describe('overview with no whys', () => {
     let { data, id } = make(...names);
     // Activity: t7 busiest (long ago), t0 and t1 the quietest.
     const counts = [1, 0, 2, 3, 4, 5, 6, 9];
+    // Distinct times, oldest first: with equal timestamps "the newest log always shows" would pick by
+    // the random activity id, and the test would depend on luck (it failed in CI that way).
     names.forEach((n, i) => {
-      for (let k = 0; k < counts[i]; k++) data = plain(data, id[n], 200);
+      for (let k = 0; k < counts[i]; k++) data = plain(data, id[n], 300 - i * 10 - k);
     });
     // One link between two shown threads (t6 → t5) and one to a thread that isn't shown (t7 → t1).
-    data = link(data, id.t6, id.t5, 200);
+    data = link(data, id.t6, id.t5, 199);
     data = link(data, id.t7, id.t1, 200);
     const o = ov(data);
     expect(o?.mode).toBe('threads');
