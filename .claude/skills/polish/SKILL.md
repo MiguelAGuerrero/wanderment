@@ -1,19 +1,29 @@
 ---
 name: polish
-description: Orchestrates one batch of refinement work on Wanderment from docs/ROADMAP.md — triages the Inbox, picks the next items, scouts edge cases and UX with fresh subagents, builds, runs one independent adversarial audit, verifies with scripts, lands on main and updates the roadmap. Run it with /polish, optionally naming roadmap items (e.g. /polish P-03) or a theme (/polish data).
-argument-hint: "[item ids like P-03 P-05 | a theme: data, capture, ux, a11y, perf, platform | inbox]"
+description: Refines Wanderment's existing features — benchmarks a feature area against what similar apps' users expect (UI/UX conventions, quality of life), turns gaps and the owner's annoyances into Refine-lane items, and builds them in small audited batches; also fixes reliability and data issues at full rigor. Growing the app with new features is /product's job. Run it with /polish, /polish <feature area> (benchmark then refine it), /polish P-## (named items), or /polish inbox.
+argument-hint: "[<feature area: capture, home, threads, activities, search, graph, settings, onboarding> | item ids like P-03 | inbox]"
 disable-model-invocation: true
 ---
 
-# Polish — one batch, end to end
+# Polish — refine what exists, one batch end to end
+
+**Your job is the Refine lane:** make the features Wanderment already has feel right — what people
+who use similar apps expect from the UI and the interaction, quality of life, edge cases,
+accessibility — plus the **Fix lane** (data loss, lockouts, red CI) at full rigor. You don't add new
+capabilities; that's `/product` (the Grow lane). A gap that would need a new capability becomes an
+Inbox note for `/product`, not a polish item.
 
 You are the **orchestrator**: you hold the plan, talk to the owner, run the gates and judge
 results. Fresh subagents scout, build and audit. Their detailed output goes to files in the batch
 folder, and you pass files between them, not your paraphrase. One run = one batch, landed on `main`.
+Runs only when the owner starts it.
 
-`/product` (`.claude/skills/product/`) also runs this procedure for feature work and for the rough
-spots next to it. When it does, it passes the item ids, owns the conversation with the owner, and
-writes the end-of-run report — so skip Phase 8 and hand back to `/product` after Phase 7.
+`/product` reuses Phases 3–7 below (the build pipeline) for its features. When it does, it passes
+the item ids, owns the conversation with the owner, and writes the report — so skip Phase 8 and
+hand back after Phase 7.
+
+**Lanes in `docs/ROADMAP.md`:** items tagged `[feature]` are Grow (`/product`'s); everything else is
+Refine or Fix (yours). With no argument, take only non-`[feature]` items.
 
 `docs/ROADMAP.md` is the shared surface with the owner: they steer by editing it (the Inbox,
 ordering, decisions), you report by updating it. Respect their ordering and never silently drop or
@@ -33,6 +43,22 @@ reword their Inbox entries.
 Run these scripts as they are; don't re-implement their steps by hand. Read their summaries, and
 open a log file only when a step fails.
 
+## Rigor by risk (owner, 2026-11-22)
+
+Every item gets one of two tiers. Write the tier in `batch.md` next to the item.
+
+| | **Light** — UI, copy, layout, interaction | **Full** — `[data]`, storage, sync/lifecycle, migrations, anything that could lose or lock out data |
+|---|---|---|
+| Scout | Only if the cause is unclear; otherwise localize it yourself | One `polish-scout` (plus research when the platform behaviour is unknown) |
+| Contract | Short: the roadmap's *Done when* plus decisions (5–15 lines) | Full contract |
+| Build | Builders in parallel when files are disjoint (`isolation: "worktree"`, each with its own `E2E_PORT`) | One writer at a time |
+| Verify per item | `verify.sh` once | `verify.sh --repeat-changed=5` + the mutation checks the contract lists |
+| Audit | **One per batch**, default model | One per batch, a **different model**; re-audit after a rework |
+| Budget | Up to 5 S/M items per batch | Up to 3 items or one L |
+
+When in doubt, it's Full. A Light item that turns out to touch stored data is re-tiered, and that's
+written down.
+
 ## Ground rules
 
 - Read `CLAUDE.md`, `AGENTS.md`, `docs/DESIGN.md` and `docs/ROADMAP.md` first, every run.
@@ -42,8 +68,7 @@ open a log file only when a step fails.
   must never get slower, stricter or more interruptive.
 - Expo SDK 58: use the versioned docs (see `AGENTS.md`). If `npx expo install` can't reach the
   network, pin the version from `node_modules/expo/bundledNativeModules.json`.
-- Budget: at most **3 items** or one **L** item per batch, and at most 4 subagents running at once.
-  Finishing beats starting.
+- Budget: by tier (above), and at most 4 subagents running at once. Finishing beats starting.
 
 ## Phase 0 — Orient
 
@@ -69,9 +94,23 @@ Turn each Inbox entry into one of:
 Clear an entry only once it lives elsewhere. Anything that loses or corrupts data goes to the top of
 Now. Run `node scripts/polish/roadmap-lint.mjs`.
 
+## Phase 1b — Benchmark a feature area (when given one, or when the Refine lane is empty)
+
+1. Pick the area (the argument, else the one with the oldest benchmark in `docs/product/discovery/`,
+   else the one the owner's notes complain about).
+2. One `product-scout` with `benchmark-brief.md`: how 3–5 similar apps (journaling, lifelog,
+   habit-free trackers, quick capture, notes) handle that area's everyday moments, and what their
+   users take for granted. It also walks Wanderment's current screens for that area (screenshots).
+3. Curate into `docs/product/discovery/refine-<area>-YYYY-MM-DD.md`: each convention with sources,
+   Wanderment today, the gap, and a verdict — *adopt* (fits DESIGN.md), *adapt* (with the change),
+   *refuse* (with the rule), or *grow* (needs a new capability → an Inbox note for `/product`).
+4. Each *adopt/adapt* gap becomes a Refine-lane item (no `[feature]` tag), ordered by how often
+   the moment happens. Then choose the batch from them.
+
 ## Phase 2 — Choose the batch
 
-With no argument, take items from the top of Now, skipping `blocked` ones. Within the budget, set
+With no argument, take non-`[feature]` items from the top of Now, skipping `blocked` ones. Fix-lane
+items (data loss, lockouts, red CI) always go first. Within the budget, set
 each chosen item's status to `in-progress`. Check dependencies: items touching the same files or
 state are built by one builder in a stated order, or split across batches.
 
@@ -79,9 +118,9 @@ state are built by one builder in a stated order, or split across batches.
 
 | Item | Scouting |
 |---|---|
-| S, not a bug, no `[data]` | None. Localize it yourself (a few greps), then write the contract. |
-| S bug, any `[data]`, any M | One `polish-scout`. |
-| L, or `[ux]`/`[a11y]` across several screens | One `polish-scout` plus one walkthrough scout for the affected screens, with territories split (code paths vs. live-app behaviour). |
+| Light tier, cause clear | None. Localize it yourself (a few greps), then write the short contract. |
+| Light tier, cause unclear; any Full tier | One `polish-scout`. |
+| Full tier on a platform whose behaviour can't be run here (e.g. WebKit) | One `polish-scout` plus one research scout, in parallel. |
 
 Launch all scouts **in one message**, so they run in parallel. Each brief is `scout-brief.md` with
 the blanks filled, including the output path `.polish/current/P-##/scout.md`. Scouts return only
@@ -117,9 +156,12 @@ Ask the owner (one `AskUserQuestion`, ≤ 4 questions, recommended option first)
 Everything else you decide and proceed: implementation, test design, naming, ordering. Record the
 answers in the contracts.
 
-## Phase 5 — Build, one writer at a time
+## Phase 5 — Build
 
-One `polish-builder` per item, **sequentially** on the main checkout. Its prompt is `build-brief.md`
+Light tier with disjoint files: builders in parallel, each with `isolation: "worktree"`, a
+`node_modules` symlink to the main checkout, and its own `E2E_PORT`; merge them one at a time with
+a verify between. Otherwise one `polish-builder` per item, **sequentially** on the main checkout.
+While anything verifies in the main checkout, don't edit it (verify refuses a tree that changed). Its prompt is `build-brief.md`
 with the blanks filled: the contract path, the scout file path, and `.polish/current/decisions.md`
 (earlier builders' decisions, which this builder must follow or explicitly revisit).
 
@@ -129,7 +171,7 @@ Parallel builders are allowed only for items with disjoint files. Each runs with
 After each builder:
 1. Check its status line: DONE, BLOCKED or FAIL.
 2. Look at the diff yourself (`git diff --stat`, then the risky parts).
-3. Run `scripts/polish/verify.sh --repeat-changed=5`.
+3. Run `scripts/polish/verify.sh` (Light) or `scripts/polish/verify.sh --repeat-changed=5` (Full).
 4. Look at the screenshots the builder saved, at 390×844, plus 200 % zoom for `[a11y]`.
 5. Commit the item locally: `git commit -m "Polish(P-##): …"`. This gives one revertable commit per
    item. Don't push yet.
@@ -147,7 +189,8 @@ blanks filled: the contract paths, the batch base commit, and the output path
 include the builders' reports or your opinion.
 
 Choose the auditor's model by risk:
-- **Batches with a `[data]` item:** audit with a different model from the builders. Pass the Agent
+- **Batches with a Full-tier item:** audit with a different model from the builders, and audit
+  again after a rework that changes the design. Pass the Agent
   `model` override, e.g. `fable` when the session runs Opus, `opus` otherwise. A different reviewer
   is the only kind of second opinion the evidence supports.
 - **Other batches:** leave the model at its default.

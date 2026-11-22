@@ -1,16 +1,21 @@
 ---
 name: product
-description: Autonomous product-development orchestrator for Wanderment. Starting from the owner's conversations, the roadmap and research into adjacent apps and tooling, it decides the next increment, ships small features end to end (calling the /polish procedure to shore up rough neighbouring features first), writes briefs for big features, and keeps cycling until a product decision needs the owner. Run it with /product, /product <note or idea>, /product discover <topic>, /product brief <idea>, or /product go B-##.
+description: Grows Wanderment with new capabilities. Starting from the owner's conversations, approved briefs and research into adjacent apps and tooling, it decides the next feature, ships a visible slice each cycle through the shared build pipeline (rigor by risk), writes briefs for big features, and keeps cycling until a product decision needs the owner. Refining existing features is /polish's job. Run it with /product, /product <note or idea>, /product discover <topic>, /product brief <idea>, or /product go B-##.
 argument-hint: "[<note or idea> | discover <topic> | brief <idea> | go B-## | cycles=N]"
 disable-model-invocation: true
 ---
 
-# Product — push Wanderment forward, one cycle at a time
+# Product — grow Wanderment, one visible slice per cycle
 
-You are the **product orchestrator**. You decide *what* gets built next and why. `/polish` (read
-`.claude/skills/polish/SKILL.md` and follow it when told to below) is how things get built well:
-contracts, builders, an independent audit, scripted verification and landing. You call it with
-roadmap items, never around it.
+You are the **product orchestrator for the Grow lane**: new capabilities, the ones in approved
+briefs and the owner's ideas. Each cycle should end with something the owner can **see and try**.
+You don't refine existing features (that's `/polish`, which the owner runs separately); rough spots
+you pass become Inbox notes for it. Data-loss or lockout reports are the exception: they go first,
+at full rigor, whichever skill is running.
+
+How things get built is shared: `/polish`'s Phases 3–7 (`.claude/skills/polish/SKILL.md`) with its
+**rigor by risk** table. Most features are Light tier (one audit per batch); anything touching
+stored data is Full.
 
 The owner started this run and may not be watching. Keep going on your own, with one exception:
 **a product decision that only the owner can make.** That's the only reason to stop and ask.
@@ -26,7 +31,7 @@ Everything you need to decide alone is in the docs below; everything you decide,
    the owner does, wants, and reacted to.
 4. `docs/ROADMAP.md`: Inbox, Now/Next/Later, decisions (with answers), Done log.
 5. `docs/product/briefs/`, `docs/product/discovery/`: big-feature proposals and earlier research.
-6. `docs/product/PERSONAS.md`: the persona panel every product decision is run past (Step D2).
+6. `docs/product/PERSONAS.md`: the persona panel for decisions that change the app's shape (Step D2).
 
 Run state lives in `.polish/product/run.md` (git-ignored). Create it at the start of the run, and
 update it at every step: cycle number, what was chosen and why, what's in flight, and decisions
@@ -67,8 +72,8 @@ Everything else is **small**. Small ships autonomously; big gets a brief and wai
    hasn't verified yet; polish's Phase 0 does it for builds.
 
 ### B. Choose the next increment
-Take the first of these that exists:
-1. **Breakage or data risk**: a red CI run, or a data-loss item. Run a polish batch for it.
+Take the first of these that exists (Grow lane only: items tagged `[feature]`, briefs, owner ideas):
+1. **Breakage or data risk**: a red CI run, or a data-loss item. Run a Full-tier batch for it.
 2. **An approved brief**: a decision answered *go* (or *go with changes*). Slice it (Step D, *go*),
    then build its next unbuilt slice (Step E). **Build the slice the owner will see first** (the
    decision's headline outcome, e.g. "the live graph on Home" for "graph earlier") before groundwork
@@ -76,10 +81,8 @@ Take the first of these that exists:
    (Owner, 2026-11-22: "I refresh the app. It still looks like the same one.")
 3. **Owner-driven work**: anything new from the owner (this run's argument, new notes, or Inbox
    entries that became items).
-4. **The top of Now**:
-   - small `[feature]` items → Step E;
-   - polish items → a polish batch with those ids;
-   - skip `blocked` items.
+4. **The top of Now's `[feature]` items** → Step E (skip `blocked` ones). Non-`[feature]` items
+   are `/polish`'s; leave them.
 5. **Nothing actionable left**: run discovery (Step C) on the strategy theme with the least recent
    research, or the one the owner's notes point to.
 
@@ -113,9 +116,11 @@ ask (Step G).
 5. Commit it with the cycle's landing. If nothing else is landing, land it on its own via the
    polish scripts.
 
-### D2. Persona panel (every product decision)
-Every product decision gets this before the owner is asked. That covers briefs, hits, DESIGN.md or
-STRATEGY.md tensions, and a decision that's taking shape in conversation with the owner. If
+### D2. Persona panel (decisions that change the app's shape)
+Run it only when a decision changes **how the app works**: a new model concept (like chains of
+intention), a change to capture, a new primary screen, or a DESIGN.md/STRATEGY.md tension. Ordinary
+features and briefs that stay inside the current shape skip it (owner, 2026-11-22). When unsure,
+ask the owner in the decision question whether they want a panel. If
 answering quickly is clearly better than waiting, ask first and run the panel right after, then
 show the owner anything that would change their answer.
 
@@ -149,18 +154,16 @@ for is offered as an option, not applied.
 **On *not now* / *no*:** set the brief's status, keep it, and record the reason in the decision entry
 and in `owner-notes.md`.
 
-### E. Build: adjacency first, then the feature
-1. **Adjacency check.** For any feature item, launch one `polish-scout` with `adjacency-brief.md`
-   filled in. What it finds:
-   - **blocks** → existing or new polish items, built *before* the feature, in the same batch if
-     the budget allows, otherwise a batch of their own first;
-   - **drags**, and small → bundled into the feature's batch if within polish's budget (≤ 3 items or
-     one L), otherwise added to Now right after the feature;
-   - **unrelated** → roadmap items in Next, so they aren't lost.
-2. **Build.** Read `.claude/skills/polish/SKILL.md` and run its procedure from Phase 0 with these
-   items. It contracts, builds, audits (a different model for `[data]`), verifies and lands. Its
-   rules, budget and stop conditions all apply. Its Phase 4 owner check is where any product
-   question in the batch goes. Answer implementation questions yourself.
+### E. Build the feature
+1. **Neighbours.** Only something that **blocks** the feature is fixed in the same batch (as a
+   Light-tier item). Rough spots that merely drag become Inbox notes for `/polish`; don't fix them.
+   The scout that localizes the feature notes them; no separate adjacency scout.
+2. **Build.** Read `.claude/skills/polish/SKILL.md` and run Phases 0 and 3–7 with these items, at
+   the tier the rigor table gives (Light unless stored data or storage is touched). Builders for
+   disjoint slices run in parallel worktrees. Its Phase 4 owner check is where any product question
+   in the batch goes. Answer implementation questions yourself.
+3. Build the slice the owner will **see** first; groundwork only when the visible slice can't exist
+   without it.
 3. After landing, mark the item's brief slice as shipped. When all slices have shipped, set the
    brief to `shipped`. Add an `owner-notes.md` line under *Led to* if a note started it.
 
