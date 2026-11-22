@@ -20,6 +20,8 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
   const draft = useStore((st) => st.draft);
   const setDraft = useStore((st) => st.setDraft);
   const log = useStore((st) => st.log);
+  /** The page is taking the data back after being hidden (P-29): typing works, logging waits. */
+  const reconnecting = useStore((st) => st.storage.state === 'ready' && !!st.storage.reconnecting);
   const createThread = useStore((st) => st.createThread);
   const setPullInOffer = useStore((st) => st.setPullInOffer);
   const logBoxFocus = useStore((st) => st.logBoxFocus);
@@ -129,6 +131,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
     setPullInOffer(id);
   };
   const submit = () => {
+    if (reconnecting) return;
     if (log({ doingId }, { bridge })) inputRef.current?.focus();
   };
 
@@ -268,8 +271,13 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
               accessibilityLabel={placeholder}
             />
           </View>
-          <Pressable onPress={submit} style={[s.primaryBtn, !draft.text.trim() && { opacity: 0.4 }]} disabled={!draft.text.trim()} accessibilityRole="button">
-            <Text style={s.primaryBtnText}>Log</Text>
+          <Pressable
+            onPress={submit}
+            style={[s.primaryBtn, (!draft.text.trim() || reconnecting) && { opacity: 0.4 }]}
+            disabled={!draft.text.trim() || reconnecting}
+            accessibilityRole="button"
+          >
+            <Text style={s.primaryBtnText}>{reconnecting ? 'Reconnecting…' : 'Log'}</Text>
           </Pressable>
         </View>
       </View>

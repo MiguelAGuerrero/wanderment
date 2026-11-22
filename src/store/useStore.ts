@@ -20,6 +20,7 @@ import {
   undeclareThread,
   updateThread,
 } from '@/domain/model';
+import { Settings } from '@/domain/migrate';
 import { rememberSearch } from '@/domain/search';
 import { lastActivities } from '@/domain/selectors';
 import { Data, emptyData, Id } from '@/domain/types';
@@ -56,7 +57,11 @@ export type StorageKind = 'sqlite' | 'local';
 
 export type StorageStatus =
   | { state: 'loading' }
-  | { state: 'ready'; kind: StorageKind }
+  /**
+   * `reconnecting` (web): the page let go of the data while hidden and is taking it back. The data
+   * stays on screen and typing works; logging waits (P-29).
+   */
+  | { state: 'ready'; kind: StorageKind; reconnecting?: boolean }
   /**
    * Couldn't open the saved data; nothing is shown so nothing can be overwritten. `waiting`:
    * another copy of the app holds it, and this page opens by itself once it's free.
@@ -121,6 +126,11 @@ interface State {
   holdToast: (held: boolean) => void;
   dismissPrompt: () => void;
   replaceData: (data: Data) => void;
+  /**
+   * Shows the saved data again after another copy of the app may have changed it (P-29), keeping
+   * the draft. `keepUndo`: false when the data changed underneath, so Undo (and its toast) go.
+   */
+  refreshData: (data: Data, settings: Settings, keepUndo: boolean) => void;
   setShowShading: (on: boolean) => void;
 }
 
@@ -320,6 +330,16 @@ export const useStore = create<State>()((set, get) => ({
   holdToast: (held) => set({ toastHeld: held }),
   dismissPrompt: () => set({ promptNextFor: undefined }),
   replaceData: (data) => set({ data, undo: undefined, draft: emptyDraft(), bridgeFor: undefined }),
+  refreshData: (data, settings, keepUndo) =>
+    set((s) => ({
+      data,
+      ...settings,
+      ...(!keepUndo && { undo: undefined, toast: undefined }),
+      // Anything pointing at a record that's gone now goes too.
+      ...(s.bridgeFor && !data.activities[s.bridgeFor] ? { bridgeFor: undefined } : {}),
+      ...(s.promptNextFor && !data.threads[s.promptNextFor] ? { promptNextFor: undefined } : {}),
+      ...(s.pullInOffer && !data.threads[s.pullInOffer] ? { pullInOffer: undefined } : {}),
+    })),
   setShowShading: (on) => set({ showShading: on }),
 }));
 

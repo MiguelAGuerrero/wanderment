@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 
+import { releaseData } from '@/storage/persistence';
+
 /**
  * Registers the Workbox service worker (web production builds only) and reports when a new
  * version is installed and waiting. Nothing reloads by itself: the person taps "Reload".
@@ -55,14 +57,17 @@ export function registerServiceWorker() {
   else window.addEventListener('load', register, { once: true });
 }
 
-/** Activates the waiting version, then reloads once it has taken over. */
+/**
+ * Activates the waiting version, then reloads once it has taken over — after letting go of the
+ * data, so the reloaded page isn't kept out by this one's last moments (P-29).
+ */
 export function applyUpdate() {
   if (!waitingWorker) return;
   let reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (reloaded) return;
     reloaded = true;
-    window.location.reload();
+    void releaseData().finally(() => window.location.reload());
   });
   waitingWorker.postMessage({ type: 'SKIP_WAITING' });
 }
