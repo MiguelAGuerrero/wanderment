@@ -8,7 +8,8 @@ import { moveFocus } from './FirstRun';
 
 /**
  * What a checked backup holds and what replacing would do here (P-04): Replace or Cancel, or only
- * Close when it matches what's here. Focus moves to it as it appears, so it's announced.
+ * Close when it matches what's here. Focus moves to it as it appears, so it's announced. An empty
+ * backup (it would remove everything) puts Cancel first and Replace plain, never the obvious step.
  */
 export function ImportPreviewCard({ plan, onReplace, onCancel }: { plan: ImportPlan; onReplace: () => void; onCancel: () => void }) {
   const ref = useRef<ComponentRef<typeof View>>(null);
@@ -27,15 +28,32 @@ export function ImportPreviewCard({ plan, onReplace, onCancel }: { plan: ImportP
       ) : (
         <Text style={styles.body}>{changes(plan)}</Text>
       )}
+      {/* Until there's a way back (P-39). */}
+      {!plan.identical && <Text style={styles.body}>Replacing can’t be undone yet. Export first if unsure.</Text>}
       <View style={styles.row}>
-        {!plan.identical && (
-          <Pressable onPress={onReplace} style={s.primaryBtn} accessibilityRole="button">
-            <Text style={s.primaryBtnText}>Replace</Text>
+        {plan.identical ? (
+          <Pressable onPress={onCancel} style={s.chip} accessibilityRole="button">
+            <Text style={s.chipText}>Close</Text>
           </Pressable>
+        ) : plan.empty ? (
+          <>
+            <Pressable onPress={onCancel} style={s.chip} accessibilityRole="button">
+              <Text style={s.chipText}>Cancel</Text>
+            </Pressable>
+            <Pressable onPress={onReplace} style={s.chip} accessibilityRole="button">
+              <Text style={s.chipText}>Replace</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable onPress={onReplace} style={s.primaryBtn} accessibilityRole="button">
+              <Text style={s.primaryBtnText}>Replace</Text>
+            </Pressable>
+            <Pressable onPress={onCancel} style={s.chip} accessibilityRole="button">
+              <Text style={s.chipText}>Cancel</Text>
+            </Pressable>
+          </>
         )}
-        <Pressable onPress={onCancel} style={s.chip} accessibilityRole="button">
-          <Text style={s.chipText}>{plan.identical ? 'Close' : 'Cancel'}</Text>
-        </Pressable>
       </View>
     </View>
   );

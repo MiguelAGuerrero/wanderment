@@ -58,7 +58,7 @@ describe('the strict check (imports)', () => {
     const named = (...ts: Thread[]) => backup(data(ts));
     // Case.
     expect(() => fromBackup(named(thread('t1', 'draw'), thread('t2', 'Draw')))).toThrow(
-      'Two wanders have the same name: “draw” and “Draw”. Rename one in the file, then import it again.',
+      'Two wanders have the same name: “draw” and “Draw”. Rename one in the file, or in the app the backup came from and export it again.',
     );
     // An NFC pair: "Café" composed vs "Cafe" + combining acute.
     const composed = 'Café';
@@ -69,15 +69,52 @@ describe('the strict check (imports)', () => {
     expect(() => fromBackup(named(thread('t1', 'play  guitar'), thread('t2', ' play guitar')))).toThrow(/same name/);
     // A hidden one counts too, and says it's hidden so it can be found.
     expect(() => fromBackup(named(thread('t1', 'draw'), thread('t2', 'DRAW', { hidden: true })))).toThrow(
-      'Two wanders have the same name: “draw” and “DRAW” (hidden). Rename one in the file, then import it again.',
+      'Two wanders have the same name: “draw” and “DRAW” (hidden). Rename one in the file, or in the app the backup came from and export it again.',
     );
   });
 
   it('names every clash, or the first few and how many more', () => {
     const three = backup(data([thread('t1', 'draw'), thread('t2', 'Draw'), thread('t3', 'DRAW'), thread('t4', 'run'), thread('t5', 'Run')]));
-    expect(() => fromBackup(three)).toThrow('Some wanders have the same name: “draw”, “Draw” and “DRAW”; “run” and “Run”. Rename them in the file, then import it again.');
+    expect(() => fromBackup(three)).toThrow('Some wanders have the same name: “draw”, “Draw” and “DRAW”; “run” and “Run”. Rename them in the file, or in the app the backup came from and export it again.');
     const many = backup(data(['a', 'b', 'c', 'd', 'e'].flatMap((n) => [thread(`${n}1`, n), thread(`${n}2`, n.toUpperCase())])));
-    expect(() => fromBackup(many)).toThrow('Some wanders have the same name: “a” and “A”; “b” and “B”; “c” and “C”; and 2 more. Rename them in the file, then import it again.');
+    expect(() => fromBackup(many)).toThrow('Some wanders have the same name: “a” and “A”; “b” and “B”; “c” and “C”; and 2 more. Rename them in the file, or in the app the backup came from and export it again.');
+  });
+
+  it('caps the message: at most three names a group, each clipped to 40 characters (audit F5)', () => {
+    const thirty = backup(data(Array.from({ length: 30 }, (_, i) => thread(`t${i}`, i % 2 ? 'draw' : 'DRAW'))));
+    expect(() => fromBackup(thirty)).toThrow('Some wanders have the same name: “DRAW”, “draw”, “DRAW” and 27 more. Rename them in the file, or in the app the backup came from and export it again.');
+    const long = 'a'.repeat(5000);
+    let message = '';
+    try {
+      fromBackup(backup(data([thread('t1', long), thread('t2', long.toUpperCase())])));
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    expect(message).toBe(`Two wanders have the same name: “${'a'.repeat(39)}…” and “${'A'.repeat(39)}…”. Rename one in the file, or in the app the backup came from and export it again.`);
+    // Clipped by characters, never through one: an emoji at the cut stays whole.
+    const emoji = `${'b'.repeat(38)}🎨🎨🎨`;
+    expect(() => fromBackup(backup(data([thread('t1', emoji), thread('t2', emoji.toUpperCase())])))).toThrow(`“${'b'.repeat(38)}🎨…” and “${'B'.repeat(38)}🎨…”`);
+  });
+
+  it('ids that are also names of object methods are ordinary ids (audit F4)', () => {
+    const odd = ['constructor', 'toString', 'valueOf', 'hasOwnProperty'];
+    const threads = Object.fromEntries(odd.map((id, i) => [id, thread(id, `wander ${i}`)]));
+    const activities = Object.fromEntries(odd.map((id) => [id, act(id, `did ${id}`, { doingId: id })]));
+    const d = fromBackup(backup({ version: 1, threads, activities }));
+    expect(Object.keys(d.threads)).toEqual(odd);
+    expect(Object.keys(d.activities)).toEqual(odd);
+    expect(d.threads.constructor).toMatchObject({ id: 'constructor', name: 'wander 0' });
+    // Two of them are still two of the same id.
+    const twice = { version: 1, threads: { a: thread('constructor', 'draw'), b: thread('constructor', 'run') }, activities: {} };
+    expect(() => fromBackup(backup(twice))).toThrow('Two wanders in the backup have the same id (“constructor”).');
+  });
+
+  it('“__proto__” as an id is refused, plainly: the app’s storage can’t keep it, so it would be lost on reload', () => {
+    const asThread = JSON.stringify({ app: 'wanderment', exportedAt: at, data: { version: 1, threads: { ['__proto__']: thread('__proto__', 'draw') }, activities: {} } });
+    expect(asThread).toContain('"__proto__"');
+    expect(() => fromBackup(asThread)).toThrow('A wander in the backup has an id this app can’t use (“__proto__”).');
+    const asActivity = backup({ version: 1, threads: {}, activities: { a1: act('__proto__', 'x') } });
+    expect(() => fromBackup(asActivity)).toThrow('An activity in the backup has an id this app can’t use (“__proto__”).');
   });
 
   it('still accepts a good backup as before', () => {
@@ -178,6 +215,14 @@ describe('planImport: what a backup holds and how it differs from what’s here'
     expect(planImport(emptyData(), emptyData())).toMatchObject({ empty: true, identical: true });
     // Only hidden wanders isn't empty.
     expect(planImport(emptyData(), data([thread('t1', 'draw', { hidden: true })]))).toMatchObject({ empty: false, incoming: { wanders: 1, visible: 0, hidden: 1 } });
+  });
+
+  it('ids named like object methods are compared as ids: added, removed, unchanged (audit F4)', () => {
+    const odd = data([thread('constructor', 'draw'), thread('hasOwnProperty', 'run')]);
+    expect(planImport(emptyData(), odd).threads).toEqual({ added: 2, removed: 0, changed: 0, unchanged: 0 });
+    expect(planImport(odd, emptyData()).threads).toEqual({ added: 0, removed: 2, changed: 0, unchanged: 0 });
+    expect(planImport(odd, fromBackup(backup(odd)))).toMatchObject({ identical: true, threads: { unchanged: 2 } });
+    expect(planImport(data([thread('toString', 'draw')]), data([thread('valueOf', 'draw')])).threads).toEqual({ added: 1, removed: 1, changed: 0, unchanged: 0 });
   });
 
   it('stays fast on a big backup (linear)', () => {

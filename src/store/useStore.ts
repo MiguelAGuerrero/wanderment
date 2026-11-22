@@ -456,7 +456,7 @@ export const useStore = create<State>()((set, get) => ({
   dismissToast: () => set({ toast: undefined, toastHeld: false }),
   holdToast: (held) => set({ toastHeld: held }),
   dismissPrompt: () => set({ promptNextFor: undefined }),
-  replaceData: gated<State['replaceData']>(false, (data) => change({ data, undo: undefined, draft: emptyDraft(), bridgeFor: undefined, selected: undefined })),
+  replaceData: gated<State['replaceData']>(false, (data) => change({ data, undo: undefined, toast: undefined, draft: emptyDraft(), bridgeFor: undefined, selected: undefined })),
   refreshData: gated<State['refreshData']>(false, (data, settings, keepUndo) =>
     change((s) => ({
       data,

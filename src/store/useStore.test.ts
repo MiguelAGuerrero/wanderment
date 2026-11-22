@@ -111,6 +111,14 @@ describe('the bridge after a log', () => {
     st().replaceData(emptyData());
     expect(st().bridgeFor).toBeUndefined();
   });
+
+  it('replacing the data (import) also takes the toast away: no Undo or details left pointing at what’s gone (P-04 audit F13)', () => {
+    logText('read a novel', { bridge: true });
+    expect(st().toast?.message).toBe('Logged');
+    st().replaceData(emptyData());
+    expect(st().toast).toBeUndefined();
+    expect(st().undo).toBeUndefined();
+  });
 });
 
 describe('the bridge (audit of P-13/P-24)', () => {

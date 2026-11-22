@@ -1,16 +1,17 @@
 import { router } from 'expo-router';
-import { ComponentRef, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ComponentRef, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Keyboard, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { VERSION_LABEL } from '@/build';
+import { moveFocus } from '@/components/FirstRun';
 import { ImportPreviewCard } from '@/components/ImportPreview';
 import { toBackup } from '@/domain/backup';
 import { canCheckForUpdates, checkForUpdates, UpdateCheck } from '@/pwa/serviceWorker';
 import { backupsLocation, shareBackup } from '@/storage/nativeBackup';
 import { askToKeepData, onPersistenceAnswered, PersistenceStatus, persistenceStatus } from '@/storage/persistent';
 import { confirmImport, ImportPreview, previewImport, rebasePreview } from '@/store/importBackup';
-import { RECONNECTING_NOTICE, useStore } from '@/store/useStore';
+import { holdsData, RECONNECTING_NOTICE, useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
 export default function Settings() {
@@ -18,8 +19,11 @@ export default function Settings() {
   const setHidden = useStore((st) => st.setHidden);
   const showShading = useStore((st) => st.showShading);
   const storage = useStore((st) => st.storage);
+  const holding = useStore(holdsData);
   const setShowShading = useStore((st) => st.setShowShading);
   const [message, setMessage] = useState<string>();
+  /** The refusal note is about now: once the data is back it's gone (audit F7). */
+  const said = message === RECONNECTING_NOTICE && holding ? undefined : message;
   const [pasting, setPasting] = useState(false);
   const [pasted, setPasted] = useState('');
   /** A checked backup waiting for Replace or Cancel; a new one takes its place (`previews` remounts it). */
@@ -27,6 +31,11 @@ export default function Settings() {
   const [previews, setPreviews] = useState(0);
   /** Always compared with what's here now. */
   const shown = useMemo(() => preview && rebasePreview(preview, data), [preview, data]);
+  const importRef = useRef<ComponentRef<typeof View>>(null);
+  const scrollRef = useRef<ComponentRef<typeof ScrollView>>(null);
+  /** Native: where the data card starts in the scroll view, and the preview last scrolled to. */
+  const dataCardY = useRef(0);
+  const scrolledTo = useRef(-1);
   const [kept, setKept] = useState<PersistenceStatus>();
   /** What the last "Ask the browser to keep it" got; separate from import/export messages. */
   const [keepNote, setKeepNote] = useState<string>();
@@ -35,6 +44,20 @@ export default function Settings() {
   const hidden = Object.values(data.threads).filter((t) => t.hidden);
   /** What the last "Check for updates" found; a new version shows as the update banner. */
   const [update, setUpdate] = useState<UpdateCheck | 'checking'>();
+
+  // What's here changed under an open preview (an Unhide, another tab's changes): its words change,
+  // so say so (audit F6).
+  const lastShown = useRef(shown);
+  useEffect(() => {
+    const was = lastShown.current;
+    lastShown.current = shown;
+    if (was && shown && was.incoming === shown.incoming && JSON.stringify(was.plan) !== JSON.stringify(shown.plan)) setMessage(CHANGED);
+  }, [shown]);
+
+  // iOS has no live regions: say it out loud. (Android's live region and the web's aria-live already do.)
+  useEffect(() => {
+    if (Platform.OS === 'ios' && said) AccessibilityInfo.announceForAccessibility(said);
+  }, [said]);
 
   const checkUpdates = async () => {
     setUpdate('checking');
@@ -86,6 +109,8 @@ export default function Settings() {
 
   /** Checks the file and shows what it would do; nothing changes until Replace. */
   const importJson = (json: string) => {
+    // Native: the paste box's keyboard would cover the preview.
+    Keyboard.dismiss();
     try {
       setPreview(previewImport(json));
       setPreviews((n) => n + 1);
@@ -96,6 +121,9 @@ export default function Settings() {
     }
   };
 
+  /** The preview is gone: focus goes back where importing started, not to the top of the page (audit F6). */
+  const backToImport = () => requestAnimationFrame(() => moveFocus(importRef.current));
+
   const replace = () => {
     if (!shown) return;
     const result = confirmImport(shown);
@@ -103,9 +131,10 @@ export default function Settings() {
       setPreview(undefined);
       setPasting(false);
       setMessage(`Imported ${result.activities} activities.`);
+      backToImport();
     } else if (result.reason === 'changed') {
       setPreview(result.preview);
-      setMessage('What’s here just changed — check the comparison again.');
+      setMessage(CHANGED);
     } else if (result.reason === 'reconnecting') {
       // Refused: the preview and the pasted text stay, to try again.
       setMessage(RECONNECTING_NOTICE);
@@ -115,6 +144,7 @@ export default function Settings() {
   const cancel = () => {
     setPreview(undefined);
     setMessage(undefined);
+    backToImport();
   };
 
   const importData = () => {
@@ -131,7 +161,7 @@ export default function Settings() {
 
   return (
     <SafeAreaView style={s.screen}>
-      <View style={s.content}>
+      <Body scrollRef={scrollRef}>
         <View style={styles.header}>
           <Text style={s.h1}>Settings</Text>
           <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
@@ -140,7 +170,7 @@ export default function Settings() {
         </View>
 
         <Text style={s.quietLabel}>Your data · stays on this device</Text>
-        <View style={[s.card, { gap: 10 }]}>
+        <View style={[s.card, { gap: 10 }]} onLayout={(e) => (dataCardY.current = e.nativeEvent.layout.y)}>
           <Text style={s.meta}>
             {Object.keys(data.activities).length} activities · {Object.keys(data.threads).length} wanders
           </Text>
@@ -164,7 +194,7 @@ export default function Settings() {
           <Pressable onPress={exportData} style={s.chip} accessibilityRole="button">
             <Text style={s.chipText}>Export everything (.json)</Text>
           </Pressable>
-          <Pressable onPress={importData} style={s.chip} accessibilityRole="button">
+          <Pressable ref={importRef} onPress={importData} style={s.chip} accessibilityRole="button">
             <Text style={s.chipText}>Import from a backup</Text>
           </Pressable>
           {pasting && (
@@ -175,9 +205,20 @@ export default function Settings() {
               </Pressable>
             </View>
           )}
-          {shown && <ImportPreviewCard key={previews} plan={shown.plan} onReplace={replace} onCancel={cancel} />}
+          {shown && (
+            <View
+              onLayout={(e) => {
+                // Native: bring a new preview into view (it can open below the fold).
+                if (Platform.OS === 'web' || scrolledTo.current === previews) return;
+                scrolledTo.current = previews;
+                scrollRef.current?.scrollTo({ y: Math.max(0, dataCardY.current + e.nativeEvent.layout.y - 12) });
+              }}
+            >
+              <ImportPreviewCard key={previews} plan={shown.plan} onReplace={replace} onCancel={cancel} />
+            </View>
+          )}
           <Text style={s.meta}>Importing replaces what’s on this device. You’ll see what the backup holds and what would change before anything does.</Text>
-          <View accessibilityLiveRegion="polite">{message && <Text style={{ color: C.accentInk }}>{message}</Text>}</View>
+          <View accessibilityLiveRegion="polite">{said && <Text style={{ color: C.accentInk }}>{said}</Text>}</View>
         </View>
 
         <Text style={s.quietLabel}>Feel</Text>
@@ -218,8 +259,23 @@ export default function Settings() {
         </View>
 
         <Text style={s.meta}>There are no notifications — nothing to turn off.</Text>
-      </View>
+      </Body>
     </SafeAreaView>
+  );
+}
+
+const CHANGED = 'What’s here just changed — check the comparison again.';
+
+/**
+ * Native: Settings scrolls, so the paste box and the import preview are reachable on a small screen
+ * (audit F1); a tap on a button while the keyboard is up still presses it. Web: the page scrolls, as before.
+ */
+function Body({ scrollRef, children }: { scrollRef: RefObject<ComponentRef<typeof ScrollView> | null>; children: ReactNode }) {
+  if (Platform.OS === 'web') return <View style={s.content}>{children}</View>;
+  return (
+    <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled">
+      <View style={s.content}>{children}</View>
+    </ScrollView>
   );
 }
 

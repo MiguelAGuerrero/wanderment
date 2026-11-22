@@ -1,3 +1,4 @@
+import { hasOwn } from './migrate';
 import { declaredWhys } from './model';
 import { Data, Id } from './types';
 
@@ -58,12 +59,11 @@ function counts(data: Data): ImportCounts {
 function diff<T extends object>(here: Record<Id, T>, incoming: Record<Id, T>): ImportDiff {
   const out: ImportDiff = { added: 0, removed: 0, changed: 0, unchanged: 0 };
   for (const [id, record] of Object.entries(incoming)) {
-    const mine = here[id];
-    if (!mine) out.added++;
-    else if (same(mine, record)) out.unchanged++;
+    if (!hasOwn(here, id)) out.added++;
+    else if (same(here[id], record)) out.unchanged++;
     else out.changed++;
   }
-  for (const id of Object.keys(here)) if (!incoming[id]) out.removed++;
+  for (const id of Object.keys(here)) if (!hasOwn(incoming, id)) out.removed++;
   return out;
 }
 

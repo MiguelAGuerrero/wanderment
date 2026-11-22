@@ -266,3 +266,50 @@ describe('P-38: logs never drop out of the picture', () => {
     expect(l.dotLines.map((x) => x.dot)).toEqual([o.dots[0].id]);
   });
 });
+
+describe('P-38 audit: what stays out, the newest mark, and short summaries', () => {
+  const lay = (data: Data, surfacing: Id[] = []) => {
+    const o = overview(data, surfacing)!;
+    return { o, l: overviewLayout(o, W, { roomy: true }) };
+  };
+
+  it('a log naming only a hidden wander stays out, and the mark goes to the newest dot that is shown (F11)', () => {
+    let { data, id } = make('draw', 'old');
+    data = to(data, 'sketched', [id.draw], 30);
+    const loose1 = loose(data, 'read a novel', 20);
+    // The newest log names only "old", which is then hidden.
+    const hiddenLog = logActivity(loose1.data, { text: 'sorted old things', toIds: [id.old], occurredAt: at(1) }, at(1));
+    data = updateThread(hiddenLog.data, id.old, { hidden: true });
+    const { o, l } = lay(data);
+    expect(o.dots.map((d) => d.id)).not.toContain(hiddenLog.activity.id);
+    expect(o.dots[0].id).toBe(loose1.activity.id);
+    expect(l.dots.filter((d) => d.newest).map((d) => d.id)).toEqual([loose1.activity.id]);
+    expect(o.summary).not.toContain('old');
+  });
+
+  it('a log naming only a why past the three shown stays out (F11)', () => {
+    let { data, id } = make('w1', 'w2', 'w3', 'w4', 'draw');
+    ['w1', 'w2', 'w3', 'w4'].forEach((n, i) => {
+      data = { ...data, threads: { ...data.threads, [id[n]]: { ...data.threads[id[n]], declaredAt: at(9000 - i).toISOString() } } };
+    });
+    const fourth = logActivity(data, { text: 'for the fourth', toIds: [id.w4], occurredAt: at(10) }, at(10));
+    data = to(fourth.data, 'sketched', [id.draw], 1);
+    const { o } = lay(data);
+    expect(o.mode).toBe('whys');
+    expect(o.mode === 'whys' && o.whys.map((w) => w.thread.name)).toEqual(['w1', 'w2', 'w3']);
+    expect(o.dots.map((d) => d.id)).not.toContain(fourth.activity.id);
+    expect(o.summary).not.toContain('for the fourth');
+  });
+
+  it('a long log is clipped in “Lately” (and so in the picture’s name), never read out in full (F8)', () => {
+    let { data, id } = make('draw');
+    data = to(data, 'sketched', [id.draw], 3);
+    const long = `${'very long words '.repeat(37)}end`; // 595 characters
+    expect(long.length).toBeGreaterThan(590);
+    data = loose(data, long, 1).data;
+    const { o } = lay(data);
+    const clipped = `${long.slice(0, 39).trimEnd()}…`;
+    expect(o.summary).toBe(`Your wanders: draw. Lately: ${clipped}; draw.`);
+    expect(o.summary.length).toBeLessThan(100);
+  });
+});

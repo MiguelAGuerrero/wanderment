@@ -198,9 +198,10 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data))
       const m = linkCount.get(a.doingId) ?? linkCount.set(a.doingId, new Map()).get(a.doingId)!;
       m.set(to, (m.get(to) ?? 0) + 1);
     }
-    const names = named(a);
-    if (!names.some((id) => shown.has(id)) && names.some((id) => data.threads[id])) continue;
+    // Recency first: most logs are too old to be a dot, so they cost nothing more (this runs on every log).
     if (recent.length === MAX_DOTS && newer(a, recent[MAX_DOTS - 1]) > 0) continue;
+    const namesShown = (!!a.doingId && shown.has(a.doingId)) || a.toIds.some((id) => shown.has(id));
+    if (!namesShown && ((!!a.doingId && !!data.threads[a.doingId]) || a.toIds.some((id) => !!data.threads[id]))) continue;
     recent.push(a);
     recent.sort(newer);
     if (recent.length > MAX_DOTS) recent.pop();
@@ -251,6 +252,9 @@ export function stagedStep(t: Thread): string | undefined {
   return next.length > STEP_CHARS ? `${next.slice(0, STEP_CHARS - 1).trimEnd()}…` : next;
 }
 
+/** Longest log named by its words in "Lately" (P-38 audit F8): the summary is also the picture's name. */
+export const LOG_CHARS = 40;
+
 /** One entry of the list after the summary (the way through without pointing, P-34). */
 export interface PictureItem {
   id: Id;
@@ -280,7 +284,8 @@ function latelySentence(dots: OverviewDot[], data: Data) {
   const parts: string[] = [];
   for (const d of dots) {
     if (!d.threads.length) {
-      const text = data.activities[d.id]?.text.trim().replace(/\s+/g, ' ');
+      const words = data.activities[d.id]?.text.trim().replace(/\s+/g, ' ');
+      const text = words && words.length > LOG_CHARS ? `${words.slice(0, LOG_CHARS - 1).trimEnd()}…` : words;
       if (!text || seen.has(`\0${text}`)) continue;
       seen.add(`\0${text}`);
       parts.push(text);

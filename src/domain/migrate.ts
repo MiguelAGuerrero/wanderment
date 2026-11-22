@@ -35,7 +35,8 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
       continue;
     }
     const id = typeof t.id === 'string' && t.id ? t.id : key;
-    if (strict && threads[id]) throw new Error(`Two wanders in the backup have the same id (“${id}”).`);
+    if (strict && id === UNUSABLE_ID) throw new Error(`A wander in the backup has an id this app can’t use (“${id}”).`);
+    if (strict && hasOwn(threads, id)) throw new Error(`Two wanders in the backup have the same id (“${id}”).`);
     threads[id] = {
       id,
       name: t.name.trim().replace(/\s+/g, ' '),
@@ -57,7 +58,8 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
     }
     const rawTo = Array.isArray(a.toIds) ? a.toIds : (bad('An activity in the backup is malformed.'), []);
     const id = typeof a.id === 'string' && a.id ? a.id : key;
-    if (strict && activities[id]) throw new Error(`Two activities in the backup have the same id (“${id}”).`);
+    if (strict && id === UNUSABLE_ID) throw new Error(`An activity in the backup has an id this app can’t use (“${id}”).`);
+    if (strict && hasOwn(activities, id)) throw new Error(`Two activities in the backup have the same id (“${id}”).`);
     const doingId = typeof a.doingId === 'string' && a.doingId ? a.doingId : undefined;
     const createdAt = isIso(a.createdAt) ? utc(a.createdAt) : isIso(a.occurredAt) ? utc(a.occurredAt) : new Date(0).toISOString();
     activities[id] = {
@@ -75,6 +77,14 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
 }
 
 /**
+ * Assigning a record under this key sets an object's prototype instead (the storage loader does
+ * exactly that), so it would vanish on the next load: an import refuses it rather than lose it.
+ */
+const UNUSABLE_ID = '__proto__';
+/** Own records only: ids like "constructor" or "toString" are ids, not Object.prototype's. */
+export const hasOwn = (records: object, id: string) => Object.prototype.hasOwnProperty.call(records, id);
+
+/**
  * An import may not bring two wanders (hidden ones too) whose names `@` can't tell apart: refused,
  * naming them, so nothing is renamed behind the person's back (owner, 2026-11-22).
  */
@@ -86,17 +96,26 @@ function refuseSameNames(threads: Record<Id, Thread>) {
   }
   const groups = [...byName.values()].filter((g) => g.length > 1);
   if (!groups.length) return;
+  // Short enough to read (audit F5): three groups, three names each, each name clipped.
   const SHOWN = 3;
-  const named = (t: Thread) => `“${t.name}”${t.hidden ? ' (hidden)' : ''}`;
-  const list = (g: Thread[]) => `${g.slice(0, -1).map(named).join(', ')} and ${named(g[g.length - 1])}`;
+  const named = (t: Thread) => `“${clip(t.name)}”${t.hidden ? ' (hidden)' : ''}`;
+  const list = (g: Thread[]) => {
+    const names = g.slice(0, SHOWN).map(named);
+    if (g.length > SHOWN) return `${names.join(', ')} and ${g.length - SHOWN} more`;
+    return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  };
   const one = groups.length === 1 && groups[0].length === 2;
   const shown = groups.slice(0, SHOWN).map(list).join('; ');
   const more = groups.length > SHOWN ? `; and ${groups.length - SHOWN} more` : '';
-  throw new Error(
-    one
-      ? `Two wanders have the same name: ${shown}. Rename one in the file, then import it again.`
-      : `Some wanders have the same name: ${shown}${more}. Rename them in the file, then import it again.`,
-  );
+  const fix = 'in the file, or in the app the backup came from and export it again.';
+  throw new Error(one ? `Two wanders have the same name: ${shown}. Rename one ${fix}` : `Some wanders have the same name: ${shown}${more}. Rename them ${fix}`);
+}
+
+/** At most this many characters of a name in a message; longer ones end in "…" (never cut through a character). */
+const NAME_CHARS = 40;
+function clip(name: string): string {
+  const chars = Array.from(name);
+  return chars.length > NAME_CHARS ? `${chars.slice(0, NAME_CHARS - 1).join('').trimEnd()}…` : name;
 }
 
 const isIso = (v: unknown): v is string => typeof v === 'string' && !Number.isNaN(Date.parse(v));
