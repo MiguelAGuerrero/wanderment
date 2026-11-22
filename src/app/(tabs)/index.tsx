@@ -3,14 +3,12 @@ import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
-import { HomeGraph, OpenGraphIcon, useGraphNarrow } from '@/components/graph/HomeGraph';
+import { LiveGraph, OpenGraphIcon, useGraphNarrow } from '@/components/graph/HomeGraph';
 import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
 import { ThreadCard } from '@/components/ThreadCard';
 import { candidatesForThread, groupByValue, valueHeader, valueThreads, whyValue } from '@/domain/emergence';
-import { buildFlowIndex } from '@/domain/graph';
 import { findThreadByName } from '@/domain/model';
-import { overview } from '@/domain/overview';
 import { ageLabel, homeThreads, ThreadSummary } from '@/domain/selectors';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
@@ -38,9 +36,6 @@ export default function Home() {
 
   // Earned values, computed once: the headers and the graph at the top both use them.
   const earned = useMemo(() => valueThreads(data), [data]);
-  // The live graph: a pure function of the data, so it simply re-renders as you declare or log.
-  const graph = useMemo(() => overview(data, buildFlowIndex(data), earned), [data, earned]);
-  const graphNarrow = useGraphNarrow();
 
   // Plain "YOUR THREADS" until a value has clearly emerged; then group under "TO …" headers.
   const byId = new Map(current.map((c) => [c.thread.id, c]));
@@ -54,6 +49,14 @@ export default function Home() {
       ),
     [data, current, earned],
   );
+
+  // The live graph: a pure function of the data, so it simply re-renders as you declare or log. Its
+  // earned whys are the headers', in the same order. Any visible thread makes a graph (never an empty
+  // box). (`__wandermentNoHomeGraph` lets the e2e time Home without it, to show it isn't slower.)
+  const noGraph = (globalThis as { __wandermentNoHomeGraph?: boolean }).__wandermentNoHomeGraph === true;
+  const graph = useMemo(() => !noGraph && Object.values(data.threads).some((t) => !t.hidden), [data, noGraph]);
+  const surfacing = useMemo(() => groups.map((g) => g.value.id), [groups]);
+  const graphNarrow = useGraphNarrow();
 
   return (
     <Screen bridge scrollToTopOn={bridgeFor}>
@@ -80,7 +83,7 @@ export default function Home() {
         </View>
       </View>
 
-      {graph && <HomeGraph ov={graph} />}
+      {graph && <LiveGraph data={data} surfacing={surfacing} />}
 
       <LogBridge />
 
