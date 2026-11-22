@@ -15,6 +15,8 @@ const nodes = (page: Page) => page.locator('[data-testid^="graph-node-"]').filte
 const dots = (page: Page) => page.locator('[data-testid^="graph-dot-"]').filter({ visible: true });
 const link = (page: Page, from: string, to: string) => page.getByTestId(`graph-link-${from}-${to}`);
 const openGraph = (page: Page) => page.getByRole('link', { name: 'Explore', exact: true });
+/** P-35: a tap on a node selects it; its page opens from "Open" in the row above the log box. */
+const open = (page: Page, name: string) => page.getByRole('link', { name: `Open ${name}`, exact: true }).click();
 /** P-34: the cards (today's list) live on the Wanders tab. */
 async function toWanders(page: Page) {
   await page.getByRole('tab', { name: 'Wanders' }).click();
@@ -144,6 +146,7 @@ test('the owner’s way of logging: each plain log is a dot with a line to every
 
   // Marking make apparel as what it's for moves nothing either; it's now drawn as a why.
   await node(page, apparel).click();
+  await open(page, 'make apparel');
   await page.getByRole('button', { name: 'What it’s for', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Not what it’s for right now', exact: true })).toBeVisible();
   await page.goBack();
@@ -164,6 +167,7 @@ test('marking a thread “What it’s for” makes it a why right away; nodes op
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/home-graph-no-whys-links.png` });
 
   await node(page, 'make apparel').click();
+  await open(page, 'make apparel');
   await expect(page).toHaveURL(/\/thread\/make%20apparel$|\/thread\/make apparel$/);
   await page.getByRole('button', { name: 'What it’s for', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Not what it’s for right now', exact: true })).toBeVisible();
@@ -178,6 +182,7 @@ test('marking a thread “What it’s for” makes it a why right away; nodes op
 
   // A feeder opens its own thread.
   await page.locator('[data-testid="graph-node-sew"][data-under="make apparel"]').click();
+  await open(page, 'sew');
   await expect(page).toHaveURL(/\/thread\/sew$/);
 });
 
@@ -185,6 +190,7 @@ test('undoing a declare takes the why away again; hiding a thread takes its node
   await page.addInitScript(seedScript, world([]));
   await openHome(page);
   await node(page, 'make apparel').click();
+  await open(page, 'make apparel');
   await page.getByRole('button', { name: 'What it’s for', exact: true }).click();
   await page.goBack();
   await expect(node(page, 'make apparel')).toHaveAttribute('data-kind', 'why');
@@ -192,6 +198,7 @@ test('undoing a declare takes the why away again; hiding a thread takes its node
   await expect(node(page, 'make apparel')).toHaveAttribute('data-kind', 'thread');
 
   await node(page, 'read').click();
+  await open(page, 'read');
   // Hiding goes back to Home by itself.
   await page.getByRole('button', { name: 'Hide', exact: true }).click();
   await expect(logBox(page)).toBeVisible();

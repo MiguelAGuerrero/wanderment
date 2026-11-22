@@ -86,6 +86,8 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
   await openHome(page);
   await makeThreads(page, ['play guitar', 'make apparel']);
   await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
+  // P-35: on Home that's the list's button, which selects; the page opens from "Open".
+  await page.getByRole('link', { name: 'Open make apparel', exact: true }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
 
   const field = page.getByRole('textbox', { name: 'Wander name' });
@@ -109,6 +111,7 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
 
   // A unique name renames.
   await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
+  await page.getByRole('link', { name: 'Open make apparel', exact: true }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
   await field.fill('sew clothes');
   await field.press('Enter');
@@ -120,8 +123,10 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
   // A hidden thread's name is taken too, and the message says where to find it.
   await page.goto('./');
   await page.getByRole('button', { name: /^play guitar\s*\S/ }).click();
+  await page.getByRole('link', { name: 'Open play guitar', exact: true }).click();
   await page.getByRole('button', { name: 'Hide' }).click();
   await page.getByRole('button', { name: /^sew clothes\s*\S/ }).click();
+  await page.getByRole('link', { name: 'Open sew clothes', exact: true }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
   await field.fill('PLAY GUITAR');
   await field.press('Enter');
@@ -135,6 +140,8 @@ test('a refused rename can be left with Cancel or Esc, keeping the old name (aud
   await openHome(page);
   await makeThreads(page, ['play guitar', 'make apparel']);
   await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
+  // P-35: on Home that's the list's button, which selects; the page opens from "Open".
+  await page.getByRole('link', { name: 'Open make apparel', exact: true }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
 
   const field = page.getByRole('textbox', { name: 'Wander name' });

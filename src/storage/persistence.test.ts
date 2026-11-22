@@ -1422,6 +1422,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       setDraft: [{ text: 'still typing' }],
       clearDraft: [],
       loadNext: ['t1'],
+      select: ['t1'],
       setPullInOffer: ['t1'],
       dismissPullIn: ['t1'],
       dismissBridge: [],
