@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openWanders, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const COPY = 'Logged. Toward something — or just itself?';
@@ -10,7 +10,7 @@ const bridge = (page: Page) => page.getByRole('group', { name: 'Attach what you 
 
 async function makeThread(page: Page, text: string, name: string) {
   await logBox(page).fill(`${text} @${name}`);
-  await page.getByRole('option', { name: `+ New thread “${name}”` }).click();
+  await page.getByRole('option', { name: `+ New wander “${name}”` }).click();
   await logBox(page).press('Enter');
   await expect(page.getByText(`Logged → to ${name}`)).toBeVisible();
 }
@@ -22,12 +22,12 @@ async function counts(page: Page, text: string) {
 
 async function underNoThread(page: Page, text: string) {
   await page.getByRole('tab', { name: 'Activities' }).click();
-  await page.getByRole('tab', { name: 'No thread' }).click();
+  await page.getByRole('tab', { name: 'No wander' }).click();
   await expect(page.getByText(text, { exact: true }).filter({ visible: true })).toBeVisible();
 }
 
 test('first ever log: the bridge asks, "+ name it" attaches, and Undo leaves no thread', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await logLine(page, 'read a novel');
 
   await expect(bridge(page)).toBeVisible();
@@ -39,7 +39,7 @@ test('first ever log: the bridge asks, "+ name it" attaches, and Undo leaves no 
   expect(await bridge(page).evaluate((el) => el.contains(document.activeElement))).toBe(false);
 
   await bridge(page).getByRole('button', { name: '+ name it' }).click();
-  const field = page.getByRole('textbox', { name: 'Name the thread it was toward' });
+  const field = page.getByRole('textbox', { name: 'Name the wander it was toward' });
   await expect(field).toBeFocused();
   await field.fill('reading');
   await field.press('Enter');
@@ -55,7 +55,7 @@ test('first ever log: the bridge asks, "+ name it" attaches, and Undo leaves no 
   // Undo doesn't bring the bridge back: it was one moment.
   await expect(bridge(page)).toHaveCount(0);
   await underNoThread(page, 'read a novel');
-  await counts(page, '1 activities · 0 threads');
+  await counts(page, '1 activities · 0 wanders');
 });
 
 test('with a thread, a plain log offers it as a chip; tapping attaches, Undo reverts', async ({ page }) => {
@@ -99,7 +99,7 @@ test('ignoring the bridge writes nothing; a reload drops it and keeps the activi
   await page.reload();
   await expect(logBox(page)).toBeVisible();
   await expect(page.getByText(QUESTION)).toHaveCount(0);
-  await counts(page, '2 activities · 1 threads');
+  await counts(page, '2 activities · 1 wanders');
   await page.goto('./');
   await underNoThread(page, 'read a novel');
 });
@@ -112,13 +112,13 @@ test('"Just itself" hides the bridge and writes nothing', async ({ page }) => {
   await expect(bridge(page)).toHaveCount(0);
   await page.reload();
   await expect(logBox(page)).toBeVisible();
-  await counts(page, '2 activities · 1 threads');
+  await counts(page, '2 activities · 1 wanders');
   await page.goto('./');
   await underNoThread(page, 'read a novel');
 });
 
 test('the next log moves the bridge to the newest activity, or clears it when that one has a thread', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await makeThread(page, 'scales', 'play guitar');
   await logLine(page, 'first');
   await expect(bridge(page)).toBeVisible();
@@ -153,7 +153,7 @@ test('leaving Home clears the bridge; a log from Activities neither shows nor an
   await expect(bridge(page)).toHaveCount(0);
 
   await page.getByRole('tab', { name: 'Activities' }).click();
-  await expect(page.getByRole('tab', { name: 'No thread' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'No wander' })).toBeVisible();
   await logLine(page, 'watered the plants');
   await expect(page.getByText('watered the plants', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
@@ -182,7 +182,7 @@ test('the question is announced once, politely, by the toast; the bridge is not 
 });
 
 test('"+ name it": spaces do nothing, Esc cancels, and naming a hidden thread brings it back', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await makeThread(page, 'a chapter', 'reading');
   await page.getByRole('button', { name: /^reading\s*a chapter/ }).click();
   await page.getByRole('button', { name: 'Hide' }).click();
@@ -193,7 +193,7 @@ test('"+ name it": spaces do nothing, Esc cancels, and naming a hidden thread br
   // A hidden thread isn't offered as a chip.
   await expect(bridge(page).getByRole('button')).toHaveText(['+ name it', 'Just itself']);
   await bridge(page).getByRole('button', { name: '+ name it' }).click();
-  const field = page.getByRole('textbox', { name: 'Name the thread it was toward' });
+  const field = page.getByRole('textbox', { name: 'Name the wander it was toward' });
   await field.fill('   ');
   await field.press('Enter');
   // Let any blur-on-submit (react-native-web queues it with setTimeout 0) run before checking.
@@ -211,13 +211,13 @@ test('"+ name it": spaces do nothing, Esc cancels, and naming a hidden thread br
   await field.press('Enter');
   await expect(page.getByText('Attached → to reading', { exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^reading\s*read a novel/ })).toBeVisible();
-  await counts(page, '2 activities · 1 threads');
+  await counts(page, '2 activities · 1 wanders');
 });
 
 test('a scrolled Home brings the bridge into view after a log (audit F2)', async ({ page }) => {
   const names = Array.from({ length: 40 }, (_, i) => `thread ${i + 1}`);
   await page.addInitScript(seedScript, legacyBlob(names, names.map((n, i) => ({ from: n, to: [], text: `on ${n}`, daysAgo: i * 0.1 }))));
-  await openHome(page);
+  await openWanders(page);
   await page.getByRole('button', { name: /^thread 40\s*\S/ }).scrollIntoViewIfNeeded();
   await logLine(page, 'read a novel');
   await expect(bridge(page)).toBeInViewport();
@@ -240,11 +240,11 @@ test('"+ name it" with a leading @ attaches to the existing thread, no twin (aud
   await makeThread(page, 'strummed', 'play guitar');
   await logLine(page, 'tuned up');
   await page.getByRole('button', { name: '+ name it' }).click();
-  const field = page.getByRole('textbox', { name: 'Name the thread it was toward' });
+  const field = page.getByRole('textbox', { name: 'Name the wander it was toward' });
   await field.fill('@Play   Guitar');
   await field.press('Enter');
   await expect(page.getByText('Attached → to play guitar')).toBeVisible();
-  await counts(page, '2 activities · 1 threads');
+  await counts(page, '2 activities · 1 wanders');
 });
 
 test.describe('on a touch screen', () => {

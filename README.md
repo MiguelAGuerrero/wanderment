@@ -3,7 +3,7 @@
 A personal log for people with many interests who don't want goal-setting apps.
 
 Log what you just did in one line. Optionally say what it was **to** — `practiced scales @play guitar`.
-Over time, threads of activity form, each with a small "next step" so picking an interest back up
+Over time, wanders form, each with a small "next step" so picking an interest back up
 feels warm instead of cold. No goals, streaks, timers or notifications: you can name what you're
 moving toward or let it surface from what you do; how you get there stays open.
 
@@ -43,11 +43,11 @@ npm run e2e        # Playwright end-to-end tests against the built web app
 | `src/domain/` | Pure TypeScript model, selectors, @-autocomplete, emergence (pull-in, values), search, graph neighbourhoods, backup/migration. No React. Fully unit-tested. |
 | `src/store/` | Zustand store: data, draft, toast, single-step undo. |
 | `src/storage/` | SQLite schema + migrations, repository (tested against real SQLite via `node:sqlite`), persistence with a write-ahead journal on web, native file backups. |
-| `src/components/` | Composer (log box), ThreadCard (card + next-step crumb), Toast, UpdateBanner, PullInOffer, Screen shell; `graph/` holds the graph canvas (react-native-svg edges), list view and attach card. |
+| `src/components/` | Composer (log box), ThreadCard (card + next-step crumb), Toast, UpdateBanner, PullInOffer, Screen shell; `graph/` holds Home's graph, Explore's canvas (react-native-svg edges), list view and attach card. |
 | `src/pwa/` | Service-worker registration and update detection (web only). |
 | `public/` | Web HTML template, PWA manifest and icons. `workbox-config.js` generates `sw.js` at build time. |
 | `e2e/` | Playwright specs and a static server that mimics GitHub Pages. |
-| `src/app/` | Expo Router screens: Home, Activities, Graph, thread page, activity details, pull-in, search, settings. |
+| `src/app/` | Expo Router screens: Home (the graph), Wanders, Activities, Explore, wander page (`thread/[id]`), activity details, pull-in, search, settings. |
 | `docs/` | Design decisions and roadmap. |
 
 See [`docs/DESIGN.md`](docs/DESIGN.md) for the product rules and [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next —

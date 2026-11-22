@@ -1,4 +1,4 @@
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openWanders, test } from './fixtures';
 
 test('first open shows the welcome and example chips that fill the log box', async ({ page }) => {
   await openHome(page);
@@ -8,13 +8,13 @@ test('first open shows the welcome and example chips that fill the log box', asy
 });
 
 test('@ + "New thread" creates the first thread', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await logBox(page).fill('practiced scales @play guitar');
-  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New wander “play guitar”/ }).click();
   await expect(logBox(page)).toHaveValue('practiced scales ');
   await logBox(page).press('Enter');
   await expect(page.getByRole('button', { name: /^play guitar\s*practiced scales/ })).toBeVisible();
-  await expect(page.getByText('Your first thread.')).toBeVisible();
+  await expect(page.getByText('Your first wander.')).toBeVisible();
 });
 
 test('an unpicked @word is saved as typed and never creates a thread', async ({ page }) => {
@@ -24,13 +24,13 @@ test('an unpicked @word is saved as typed and never creates a thread', async ({ 
   await page.getByRole('tab', { name: 'Activities' }).click();
   await expect(page.getByText('leg day @gymm')).toBeVisible();
   await page.goto('./settings');
-  await expect(page.getByText('1 activities · 0 threads')).toBeVisible();
+  await expect(page.getByText('1 activities · 0 wanders')).toBeVisible();
 });
 
 test('a next step loads into the log box and clears once logged', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await logBox(page).fill('practiced scales @play guitar');
-  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New wander “play guitar”/ }).click();
   await logBox(page).press('Enter');
 
   // The quiet prompt appears under the thread after logging.
@@ -75,9 +75,9 @@ test('the toast leaves on its own after about 6 s, but not while hovered', async
 });
 
 test('on a thread page, removing the preset doing chip really logs without it', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await logBox(page).fill('scales @play guitar');
-  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New wander “play guitar”/ }).click();
   await logBox(page).press('Enter');
   await page.getByRole('button', { name: /^play guitar\s*scales/ }).click();
   const box = page.getByRole('textbox', { name: 'Log in play guitar…' });
@@ -89,9 +89,9 @@ test('on a thread page, removing the preset doing chip really logs without it', 
 });
 
 test('holding the toast on a stacked screen keeps it up; hiding a thread can be undone', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await logBox(page).fill('scales @play guitar');
-  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New wander “play guitar”/ }).click();
   await logBox(page).press('Enter');
   await page.getByRole('button', { name: /^play guitar\s*scales/ }).click();
   await page.getByRole('textbox', { name: 'Log in play guitar…' }).fill('arpeggios');

@@ -165,5 +165,5 @@ export function whyValue(data: Data, id: Id, now = new Date()): string {
     if (a.doingId === id) outflow += a.toIds.length;
   }
   const name = data.threads[id]?.name ?? 'this';
-  return `In the last ${VALUE_WINDOW_DAYS} days, ${inflow} ${inflow === 1 ? 'thing' : 'things'} you logged went from another thread → to ${name}, and ${outflow} went from it to something else. When most of what you do flows toward a thread, it gets a header, and the threads that feed it gather underneath.`;
+  return `In the last ${VALUE_WINDOW_DAYS} days, ${inflow} ${inflow === 1 ? 'thing' : 'things'} you logged went from another wander → to ${name}, and ${outflow} went from it to something else. When most of what you do flows toward a wander, it gets a header, and the wanders that feed it gather underneath.`;
 }

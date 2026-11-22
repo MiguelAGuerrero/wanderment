@@ -1,14 +1,14 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, openHome, test } from './fixtures';
+import { expect, logBox, openWanders, test } from './fixtures';
 
 const STEP_CHIP = 'learn the F chord, next step in play guitar. This line counts as it. Remove';
 
-/** A "play guitar" thread whose next step is "learn the F chord". */
+/** A "play guitar" thread whose next step is "learn the F chord" (P-34: on the Wanders tab, with the cards). */
 async function seed(page: Page) {
-  await openHome(page);
+  await openWanders(page);
   await logBox(page).fill('practiced scales @play guitar');
-  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New wander “play guitar”/ }).click();
   await logBox(page).press('Enter');
   const next = page.getByRole('textbox', { name: 'Optional next step for play guitar' });
   await next.fill('learn the F chord');
@@ -128,7 +128,7 @@ test('a step edited after “Log this” drops the chip and is not cleared by lo
 test('a second crumb replaces the first crumb’s untouched step, and only its own step is used (audit F1)', async ({ page }) => {
   await seed(page);
   await logBox(page).fill('sketched @draw');
-  await page.getByRole('option', { name: /New thread “draw”/ }).click();
+  await page.getByRole('option', { name: /New wander “draw”/ }).click();
   await logBox(page).press('Enter');
   const next = page.getByRole('textbox', { name: 'Optional next step for draw' });
   await next.fill('sketch a hand');

@@ -111,6 +111,8 @@ interface State {
   showShading: boolean;
   recentSearches: string[];
   leftAsIs: Id[];
+  /** Home's "+ What's it all for?" was put off for good ("Not now", P-34). A saved setting. */
+  whyOfferOff: boolean;
   /** A thread just created from the @ menu whose name appears in earlier activities. */
   pullInOffer?: Id;
   /** Threads whose "earlier activities mention this" line was dismissed (this session only). */
@@ -169,6 +171,8 @@ interface State {
    */
   refreshData: (data: Data, settings: Settings, keepUndo: boolean) => boolean;
   setShowShading: (on: boolean) => boolean;
+  /** "Not now" on Home's "+ What's it all for?": it never shows again. */
+  putOffWhy: () => boolean;
 }
 
 const emptyDraft = (): Draft => ({ text: '', toIds: [] });
@@ -220,6 +224,7 @@ export const useStore = create<State>()((set, get) => ({
   toastHeld: false,
   recentSearches: [],
   leftAsIs: [],
+  whyOfferOff: false,
   dismissedPullIn: [],
   storage: { state: 'loading' },
 
@@ -440,6 +445,7 @@ export const useStore = create<State>()((set, get) => ({
     })),
   ),
   setShowShading: gated<State['setShowShading']>(false, (on) => change({ showShading: on })),
+  putOffWhy: gated<State['putOffWhy']>(false, () => change({ whyOfferOff: true })),
 }));
 
 /** Threads ordered by most recent use, for autocomplete ranking. */

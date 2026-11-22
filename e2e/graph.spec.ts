@@ -19,7 +19,7 @@ const centre = (page: Page, name: string) => page.getByRole('button', { name: ne
 
 test('opens on the top value, re-centres on tap, and the breadcrumb goes back', async ({ page }) => {
   await page.addInitScript(seedScript, world);
-  await page.goto('./graph');
+  await page.goto('./explore');
   await expect(centre(page, 'make apparel')).toBeVisible();
   // Above: what it flows to. Below: what feeds it.
   await expect(page.getByRole('button', { name: 'sell prints, 1 link' })).toBeVisible();
@@ -45,7 +45,7 @@ test('opens on the top value, re-centres on tap, and the breadcrumb goes back', 
 
 test('attach mode: one loose activity at a time; tap a node, Leave as is, Skip', async ({ page }) => {
   await page.addInitScript(seedScript, world);
-  await page.goto('./graph');
+  await page.goto('./explore');
   await page.getByRole('button', { name: 'Attach loose activities' }).click();
   await expect(page.getByRole('textbox', { name: 'What did you just do?' })).toHaveCount(0);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/attach.png` });
@@ -74,7 +74,7 @@ test('attach mode: one loose activity at a time; tap a node, Leave as is, Skip',
 test('stays responsive with 220 threads and 4000 activities', async ({ page }) => {
   test.slow();
   await page.addInitScript(seedScript, bigBlob(220, 4000));
-  await page.goto('./graph');
+  await page.goto('./explore');
   const nodes = page.getByRole('button', { name: /, \d+ links?$/ });
   await expect(nodes.first()).toBeVisible({ timeout: 20_000 });
   for (let i = 0; i < 5; i++) {
@@ -97,7 +97,7 @@ test('attach mode holds the centre even when attaching changes which thread is m
     { text: 'loose one', daysAgo: 0.2 },
   ]);
   await page.addInitScript(seedScript, blob);
-  await page.goto('./graph');
+  await page.goto('./explore');
   await expect(centre(page, 'alpha')).toBeVisible();
   await page.getByRole('button', { name: 'Attach loose activities' }).click();
   await page.getByRole('button', { name: 'beta, 1 link. Attach here.' }).click();
@@ -107,7 +107,7 @@ test('attach mode holds the centre even when attaching changes which thread is m
 
 test('the centre is an attach target too', async ({ page }) => {
   await page.addInitScript(seedScript, world);
-  await page.goto('./graph');
+  await page.goto('./explore');
   await page.getByRole('button', { name: 'Attach loose activities' }).click();
   await page.getByRole('button', { name: /^make apparel, \d+ steps.*Attach here\.$/ }).click();
   await expect(page.getByText('Attached → to make apparel').filter({ visible: true })).toBeVisible();

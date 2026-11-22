@@ -17,7 +17,7 @@ test('data saved by the first release (localStorage) moves into SQLite once', as
   await expect(page.getByRole('button', { name: /^play guitar\s*\S/ })).toBeVisible();
   await expect(page.getByText('learn the F chord')).toBeVisible();
   await page.goto('./settings');
-  await expect(page.getByText('3 activities · 2 threads')).toBeVisible();
+  await expect(page.getByText('3 activities · 2 wanders')).toBeVisible();
   await expect(page.getByText('Saved in a database in this browser.')).toBeVisible();
   // Recency shading was off in the old data and stays off.
   await expect(page.getByRole('switch', { name: 'Recency shading' })).not.toBeChecked();
@@ -27,7 +27,7 @@ test('data saved by the first release (localStorage) moves into SQLite once', as
 
   // From now on it loads from SQLite.
   await page.reload();
-  await expect(page.getByText('3 activities · 2 threads')).toBeVisible();
+  await expect(page.getByText('3 activities · 2 wanders')).toBeVisible();
 });
 
 test('falls back to localStorage where SQLite can’t run, and still keeps data', async ({ page }) => {
@@ -41,7 +41,7 @@ test('falls back to localStorage where SQLite can’t run, and still keeps data'
   await expect(page.getByText('Logged', { exact: true })).toBeVisible();
   await page.reload();
   await page.goto('./settings');
-  await expect(page.getByText('1 activities · 0 threads')).toBeVisible();
+  await expect(page.getByText('1 activities · 0 wanders')).toBeVisible();
   await expect(page.getByText(/local storage/)).toBeVisible();
 });
 

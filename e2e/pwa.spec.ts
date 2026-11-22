@@ -49,7 +49,7 @@ test('works offline after the first visit, with data intact', async ({ page, con
 
   // A deep link that was never visited also opens offline (navigation fallback).
   await page.goto('./settings');
-  await expect(page.getByText('1 activities · 0 threads')).toBeVisible();
+  await expect(page.getByText('1 activities · 0 wanders')).toBeVisible();
 });
 
 test('a new version shows a reload banner and never reloads by itself once the person has typed (or after 10 s, see update.spec.ts)', async ({ page, request }) => {

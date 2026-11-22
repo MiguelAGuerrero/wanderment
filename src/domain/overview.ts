@@ -71,7 +71,9 @@ interface Shared {
 }
 export type Overview =
   | ({ mode: 'whys'; whys: OverviewWhy[]; moreWhys: number; /** Beside the whys, feeding none of them. */ others: OverviewNode[] } & Shared)
-  | ({ mode: 'threads'; threads: OverviewNode[] } & Shared);
+  | ({ mode: 'threads'; threads: OverviewNode[] } & Shared)
+  /** No wanders yet (P-34): your recent logs on their own, as dots naming nothing. */
+  | ({ mode: 'logs' } & Shared);
 
 /** Ties go by name. One collator, not localeCompare per call: big histories sort hundreds of feeders. */
 const collator = new Intl.Collator();
@@ -227,6 +229,42 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data))
   return { mode: 'threads', threads, links, dots, more, summary: threadsSummary(threads, links, dots, more, data) };
 }
 
+/**
+ * With no visible wanders (P-34, no threshold): your most recent logs on their own, newest first, as
+ * dots (the newest marked), and a summary naming them in words. Nothing logged: undefined.
+ */
+export function looseOverview(data: Data): Overview | undefined {
+  const recent = Object.values(data.activities).sort(newer).slice(0, MAX_DOTS);
+  if (!recent.length) return undefined;
+  const dots: OverviewDot[] = recent.map((a) => ({ id: a.id, threads: [], doing: false }));
+  const texts = [...new Set(recent.map((a) => a.text.trim().replace(/\s+/g, ' ')).filter(Boolean))];
+  return { mode: 'logs', links: [], dots, more: false, summary: texts.length ? `Lately: ${texts.join('; ')}.` : '' };
+}
+
+/** Longest staged step drawn under its node (P-34); longer ones end in "…". */
+export const STEP_CHARS = 40;
+
+/** A wander's staged next step as its quiet line under the node, or undefined when it has none. */
+export function stagedStep(t: Thread): string | undefined {
+  const next = t.next?.trim().replace(/\s+/g, ' ');
+  if (!next) return undefined;
+  return next.length > STEP_CHARS ? `${next.slice(0, STEP_CHARS - 1).trimEnd()}…` : next;
+}
+
+/** One entry of the list after the summary (the way through without pointing, P-34). */
+export interface PictureItem {
+  id: Id;
+  name: string;
+  why: boolean;
+}
+
+/** The whys and wanders in the picture, whys first, at most MAX_THREADS (six). */
+export function pictureItems(ov: Overview): PictureItem[] {
+  const threads = ov.mode === 'whys' ? [...ov.whys.map((w) => w.thread), ...feedersAndOthers(ov)] : ov.mode === 'threads' ? ov.threads.map((n) => n.thread) : [];
+  const whyIds = new Set(ov.mode === 'whys' ? ov.whys.map((w) => w.thread.id) : []);
+  return threads.slice(0, MAX_THREADS).map((t) => ({ id: t.id, name: t.name, why: whyIds.has(t.id) }));
+}
+
 /** "a", "a and b", "a, b and c" (and "…, c and others"). */
 function list(names: string[], others = false) {
   const all = others ? [...names, 'others'] : names;
@@ -272,7 +310,7 @@ function threadsSummary(threads: OverviewNode[], links: OverviewLink[], dots: Ov
     ...links.map((l) => `${data.threads[l.from].name} toward ${data.threads[l.to].name}`),
     list(threads.filter((n) => !linked.has(n.thread.id)).map((n) => n.thread.name)),
   ].filter(Boolean);
-  return [`Your threads: ${parts.join('; ')}.`, latelySentence(dots, data), more ? 'And more.' : ''].filter(Boolean).join(' ');
+  return [`Your wanders: ${parts.join('; ')}.`, latelySentence(dots, data), more ? 'And more.' : ''].filter(Boolean).join(' ');
 }
 
 // ─── Layout ────────────────────────────────────────────────────────────────
@@ -285,6 +323,8 @@ export interface Slots {
 export interface LaidNode {
   key: string;
   id: Id;
+  /** Roomy layout only: its staged next step, as one quiet line under it (`stagedStep`). */
+  step?: string;
   /** feeder = beside the whys and linking into one of them. */
   kind: 'why' | 'feeder' | 'thread';
   /** For a feeder: the whys it links into. */
@@ -343,7 +383,9 @@ export interface OverviewLayout {
   links: LaidLink[];
   dots: LaidDot[];
   dotLines: LaidDotLine[];
-  /** "and more →" (opens the Graph tab). */
+  /** Roomy layout only: where a node's staged-step line goes (under its chip), `STEP_H` tall. */
+  stepH: number;
+  /** "and more →" (opens Explore). */
   more?: LaidBox;
   /** Pass back as `prev` next time. */
   slots: Slots;
@@ -357,6 +399,15 @@ const SLOTS = MAX_THREADS;
 /** With no whys, threads fill the slots top-left, bottom-middle, top-right…, so the dots between them use the whole box. */
 const ZIGZAG = [0, 4, 2, 3, 1, 5];
 const MORE_SLOTS = 2;
+
+/** Roomy (Home, P-34): node targets this tall (a 44 px chip), with a staged-step line under each row. */
+export const ROOMY_NODE = 52;
+export const STEP_H = 20;
+const ROOMY_GAP = 12;
+/** Roomy, with threads: two node rows, each with its step line, and two dot rows between them. */
+export const ROOMY_H = 2 * (ROOMY_NODE + STEP_H) + 2 * ROW + 3 * ROOMY_GAP;
+/** Roomy, no wanders: just the two rows of dots. */
+export const LOGS_H = 2 * ROW + ROOMY_GAP;
 
 /** Coarse on purpose: three widths, from all-time links (thickening is the only quantity shown). */
 export const linkWidth = (count: number) => (count <= 1 ? 1.5 : count < 5 ? 2.5 : 3.5);
@@ -372,14 +423,16 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
  * from the dot before it, still shown elsewhere) is what makes that log visible.
  * The picture's centre is never a target, so a screen reader activating it opens nothing.
  * `focusId` is reserved for focusing a node (P-26) and does nothing yet.
+ * `roomy` (Home, P-34): bigger targets and more space, always full height (it never shrinks), each
+ * node's staged step as a line under it, and with no wanders just the dots (same caps either way).
  */
-export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: number; prev?: Slots; focusId?: Id } = {}): OverviewLayout {
-  const { fontScale = 1, prev } = opts;
-  if (width < NARROW_W || fontScale >= BIG_TEXT) return { summaryOnly: true, height: 0, nodes: [], links: [], dots: [], dotLines: [], slots: prev ?? { threads: {}, dots: {} } };
+export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: number; prev?: Slots; focusId?: Id; roomy?: boolean } = {}): OverviewLayout {
+  const { fontScale = 1, prev, roomy = false } = opts;
+  if (width < NARROW_W || fontScale >= BIG_TEXT) return { summaryOnly: true, height: 0, nodes: [], links: [], dots: [], dotLines: [], stepH: 0, slots: prev ?? { threads: {}, dots: {} } };
 
   // Threads: whys first, then the rest by when they were made (first appearance).
   const whyIds = new Set(ov.mode === 'whys' ? ov.whys.map((w) => w.thread.id) : []);
-  const members = ov.mode === 'whys' ? [...ov.whys.map((w) => w.thread), ...[...feedersAndOthers(ov)].sort(byCreated)] : ov.threads.map((n) => n.thread).sort(byCreated);
+  const members = ov.mode === 'whys' ? [...ov.whys.map((w) => w.thread), ...[...feedersAndOthers(ov)].sort(byCreated)] : ov.mode === 'threads' ? ov.threads.map((n) => n.thread).sort(byCreated) : [];
   const slot: Record<Id, number> = {};
   const taken = new Set<number>();
   for (const t of members) {
@@ -396,16 +449,26 @@ export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: 
     slot[t.id] = p;
     taken.add(p);
   }
-  const compact = members.length === 1 && slot[members[0].id] < MAX_COLUMNS;
-  const height = compact ? COMPACT_H : GRAPH_H;
+  const compact = !roomy && members.length === 1 && slot[members[0].id] < MAX_COLUMNS;
+  const logsOnly = roomy && !members.length;
+  // Vertical geometry: node rows (each with its step line when roomy) and the two rows of dots.
+  const nodeH = roomy ? ROOMY_NODE : ROW;
+  const stepH = roomy ? STEP_H : 0;
+  const rowGap = roomy ? ROOMY_GAP : 0;
+  const dotTop = logsOnly ? 0 : nodeH + stepH + rowGap;
+  const dotY = (r: number) => dotTop + r * (ROW + rowGap);
+  const bottomY = dotY(2);
+  const height = logsOnly ? LOGS_H : roomy ? ROOMY_H : compact ? COMPACT_H : GRAPH_H;
+  const steps = new Map<Id, string>();
+  if (roomy) for (const t of members) if (stagedStep(t)) steps.set(t.id, stagedStep(t)!);
 
   const colW = (width - GAP * (MAX_COLUMNS - 1)) / MAX_COLUMNS;
-  const box = (i: number) => ({ x: (i % MAX_COLUMNS) * (colW + GAP), y: i < MAX_COLUMNS ? 0 : GRAPH_H - ROW });
-  /** Where lines meet a node: the middle of its chip's edge facing the dots. */
+  const box = (i: number) => ({ x: (i % MAX_COLUMNS) * (colW + GAP), y: i < MAX_COLUMNS ? 0 : bottomY });
+  /** Where lines meet a node: the middle of its chip's edge facing the dots (below a top node's step line). */
   const anchor = (id: Id) => {
     const b = box(slot[id]);
     const top = slot[id] < MAX_COLUMNS;
-    return { x: b.x + colW / 2, y: top ? b.y + ROW - CHIP_INSET : b.y + CHIP_INSET, top };
+    return { x: b.x + colW / 2, y: top ? (steps.has(id) ? b.y + nodeH + stepH : b.y + nodeH - CHIP_INSET) : b.y + CHIP_INSET, top };
   };
 
   const feeds = new Map<Id, Id[]>();
@@ -414,7 +477,7 @@ export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: 
     .map((t) => {
       const b = box(slot[t.id]);
       const kind: LaidNode['kind'] = whyIds.has(t.id) ? 'why' : feeds.has(t.id) ? 'feeder' : 'thread';
-      return { key: t.id, id: t.id, kind, ...(feeds.has(t.id) && { under: feeds.get(t.id) }), name: t.name, x: b.x, y: b.y, w: colW, h: ROW };
+      return { key: t.id, id: t.id, kind, ...(feeds.has(t.id) && { under: feeds.get(t.id) }), ...(steps.has(t.id) && { step: steps.get(t.id) }), name: t.name, x: b.x, y: b.y, w: colW, h: nodeH };
     })
     .sort((a, b) => slot[a.id] - slot[b.id]);
 
@@ -432,7 +495,7 @@ export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: 
   for (let r = 0; r < rows; r++)
     for (let c = 0; c < perRow; c++) {
       if (centre(c) || (more && r === 1 && c >= perRow - MORE_SLOTS)) continue;
-      spots.set(r * perRow + c, { x: c * pitch + (pitch - ROW) / 2, y: ROW * (r + 1) });
+      spots.set(r * perRow + c, { x: c * pitch + (pitch - ROW) / 2, y: roomy ? dotY(r) : ROW * (r + 1) });
     }
   const shownDots = ov.dots.slice(0, Math.min(MAX_DOTS, spots.size));
   const dotSlot: Record<Id, number> = {};
@@ -446,6 +509,13 @@ export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: 
   }
   for (const d of shownDots) {
     if (dotSlot[d.id] !== undefined) continue;
+    // Naming nothing (no wanders yet): the first free spot in reading order.
+    if (!d.threads.length) {
+      const free = [...spots.keys()].find((i) => !used.has(i))!;
+      dotSlot[d.id] = free;
+      used.add(free);
+      continue;
+    }
     const pts = d.threads.map(anchor);
     const want = { x: pts.reduce((n, p) => n + p.x, 0) / pts.length, y: pts.reduce((n, p) => n + p.y, 0) / pts.length };
     let best = -1;
@@ -475,7 +545,8 @@ export function overviewLayout(ov: Overview, width: number, opts: { fontScale?: 
     links,
     dots,
     dotLines,
-    ...(more && { more: { x: width - MORE_SLOTS * pitch, y: ROW * 2, w: MORE_SLOTS * pitch, h: ROW } }),
+    stepH,
+    ...(more && { more: { x: width - MORE_SLOTS * pitch, y: roomy ? dotY(1) : ROW * 2, w: MORE_SLOTS * pitch, h: ROW } }),
     slots: { threads: slot, dots: dotSlot },
   };
 }

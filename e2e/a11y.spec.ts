@@ -1,7 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openWanders, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 /** Fails on serious or critical axe violations, printing what and where. */
@@ -14,9 +14,10 @@ async function expectNoSeriousViolations(page: Page) {
 }
 
 async function seed(page: Page) {
-  await openHome(page);
+  // P-34: the cards (and their next-step prompt) are on the Wanders tab.
+  await openWanders(page);
   await logBox(page).fill('practiced scales @play guitar');
-  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New wander “play guitar”/ }).click();
   await logBox(page).press('Enter');
   const next = page.getByRole('textbox', { name: 'Optional next step for play guitar' });
   await next.fill('learn the F chord');
@@ -34,10 +35,10 @@ test('Home, Activities, thread page and details have no serious accessibility vi
   await expectNoSeriousViolations(page);
 
   await page.getByRole('tab', { name: 'Activities' }).click();
-  await expect(page.getByRole('tab', { name: 'No thread' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'No wander' })).toBeVisible();
   await expectNoSeriousViolations(page);
 
-  await page.getByRole('tab', { name: 'Home' }).click();
+  await page.getByRole('tab', { name: 'Wanders' }).click();
   await page.getByRole('button', { name: /^play guitar\s*\S/ }).click();
   await expect(page.getByText('You left off')).toBeVisible();
   await expectNoSeriousViolations(page);
@@ -52,29 +53,29 @@ test('Home, Activities, thread page and details have no serious accessibility vi
 test('a refused rename on the thread page has no serious accessibility violations', async ({ page }) => {
   await seed(page);
   await logBox(page).fill('sewed a hem @make apparel');
-  await page.getByRole('option', { name: /New thread “make apparel”/ }).click();
+  await page.getByRole('option', { name: /New wander “make apparel”/ }).click();
   await logBox(page).press('Enter');
   await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
-  const field = page.getByRole('textbox', { name: 'Thread name' });
+  const field = page.getByRole('textbox', { name: 'Wander name' });
   await field.fill('Play Guitar');
   await field.press('Enter');
-  await expect(page.getByText('Another thread is already called “play guitar”.')).toBeVisible();
+  await expect(page.getByText('Another wander is already called “play guitar”.')).toBeVisible();
   await expectNoSeriousViolations(page);
 });
 
 test('suggestions are an accessible listbox', async ({ page }) => {
   await seed(page);
   await logBox(page).fill('more @pla');
-  await expect(page.getByRole('listbox', { name: 'Thread suggestions' })).toBeVisible();
+  await expect(page.getByRole('listbox', { name: 'Wander suggestions' })).toBeVisible();
   await expectNoSeriousViolations(page);
 });
 
 test('pull-in and search screens have no serious accessibility violations', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await logLine(page, 'drawing at lunch');
-  await page.getByRole('button', { name: '+ New thread' }).click();
-  const name = page.getByRole('textbox', { name: 'New thread name' });
+  await page.getByRole('button', { name: '+ New wander' }).click();
+  const name = page.getByRole('textbox', { name: 'New wander name' });
   await name.fill('practice drawing');
   await name.press('Enter');
   await expect(page.getByRole('checkbox')).toHaveCount(1);
@@ -93,7 +94,7 @@ test('the graph, its list view and attach mode have no serious accessibility vio
     { text: 'read a novel', daysAgo: 1 },
   ]);
   await page.addInitScript(seedScript, blob);
-  await page.goto('./graph');
+  await page.goto('./explore');
   await expect(page.getByRole('button', { name: /^make apparel, \d+ steps/ })).toBeVisible();
   await expectNoSeriousViolations(page);
   await page.getByRole('button', { name: 'Attach loose activities' }).click();
@@ -118,11 +119,11 @@ test('Settings, with the “may clear your data” line and its button, has no s
 
 test('the bridge after a log, and its name field, have no serious accessibility violations at 390 px', async ({ page }) => {
   const long = 'practise the long slow patient art of baking sourdough every single weekend morning';
-  await openHome(page);
+  await openWanders(page);
   // Longer than the @ menu takes, so it's named with "+ New thread" (shown once something is logged).
   await logLine(page, 'fed the starter');
-  await page.getByRole('button', { name: '+ New thread' }).click();
-  const name = page.getByRole('textbox', { name: 'New thread name' });
+  await page.getByRole('button', { name: '+ New wander' }).click();
+  const name = page.getByRole('textbox', { name: 'New wander name' });
   await name.fill(long);
   await name.press('Enter');
   await expect(page.getByRole('button', { name: new RegExp(`^${long}`) })).toBeVisible();
@@ -145,7 +146,7 @@ test('the bridge after a log, and its name field, have no serious accessibility 
   }
 
   await bridge.getByRole('button', { name: '+ name it' }).click();
-  const field = page.getByRole('textbox', { name: 'Name the thread it was toward' });
+  const field = page.getByRole('textbox', { name: 'Name the wander it was toward' });
   await expect(field).toBeFocused();
   expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await expectNoSeriousViolations(page);

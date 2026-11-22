@@ -50,7 +50,7 @@ test('granted: asks once after the first log, and Settings says the data is kept
   await expect.poll(() => persistCalls(page)).toBe(1);
   await logAndSave(page, 'second');
   await page.goto('./settings');
-  await expect(page.getByText('2 activities · 0 threads')).toBeVisible();
+  await expect(page.getByText('2 activities · 0 wanders')).toBeVisible();
   await expect(page.getByText(GRANTED)).toBeVisible();
   await expect(page.getByText('Saved in a database in this browser.')).toBeVisible();
   await expect(page.getByRole('button', { name: ASK })).toHaveCount(0);
@@ -97,7 +97,7 @@ test('without the storage API the app works and Settings shows no persistence li
   await openHome(page);
   await logAndSave(page, 'first');
   await page.goto('./settings');
-  await expect(page.getByText('1 activities · 0 threads')).toBeVisible();
+  await expect(page.getByText('1 activities · 0 wanders')).toBeVisible();
   await expect(page.getByText('Saved in a database in this browser.')).toBeVisible();
   for (const line of [GRANTED, NOT_GRANTED, INSTALLED]) await expect(page.getByText(line)).toHaveCount(0);
   await expect(page.getByRole('button', { name: ASK })).toHaveCount(0);
@@ -122,7 +122,7 @@ test('in the localStorage fallback with persistence refused, data is still kept'
   await expect.poll(() => persistCalls(page)).toBe(1);
   await page.reload();
   await page.goto('./settings');
-  await expect(page.getByText('1 activities · 0 threads')).toBeVisible();
+  await expect(page.getByText('1 activities · 0 wanders')).toBeVisible();
   await expect(page.getByText(/local storage/)).toBeVisible();
   await expect(page.getByText(NOT_GRANTED)).toBeVisible();
 });

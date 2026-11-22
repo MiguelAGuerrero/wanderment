@@ -1,7 +1,7 @@
 /** P-14: marking a thread as what it's for (a declared "why") from the thread page. */
 import { Page } from '@playwright/test';
 
-import { expect, openHome, test } from './fixtures';
+import { expect, openWanders, test } from './fixtures';
 import { seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -59,7 +59,7 @@ test('declare and undeclare from the thread page, each with Undo; the mark survi
   await expect(undeclareBtn(page)).toBeVisible();
 
   await page.getByRole('button', { name: 'Rename' }).click();
-  const field = page.getByRole('textbox', { name: 'Thread name' });
+  const field = page.getByRole('textbox', { name: 'Wander name' });
   await field.fill('draw every day');
   await field.press('Enter');
   await expect(page.getByText('draw every day', { exact: true }).filter({ visible: true })).toBeVisible();
@@ -195,7 +195,7 @@ test('export → import round-trips the mark; a backup without it imports unmark
 
 test('hiding a declared thread says so and unmarks it; Undo restores both', async ({ page }) => {
   await page.addInitScript(seedScript, blob(1));
-  await openHome(page);
+  await openWanders(page);
   await page.getByRole('link', { name: 'practice drawing', exact: true }).click();
   await expect(undeclareBtn(page)).toBeVisible();
   await page.getByRole('button', { name: 'Hide', exact: true }).click();
@@ -264,9 +264,9 @@ test('at 200 % zoom the declared control’s words all fit (audit F3)', async ({
 test('while renaming, the control waits, so a typed name is never dropped (audit F4)', async ({ page }) => {
   await openThread(page, blob(0), 't1');
   await page.getByRole('button', { name: 'Rename' }).click();
-  await page.getByRole('textbox', { name: 'Thread name' }).fill('drawing practice');
+  await page.getByRole('textbox', { name: 'Wander name' }).fill('drawing practice');
   await expect(declareBtn(page)).toHaveCount(0);
-  await page.getByRole('textbox', { name: 'Thread name' }).press('Enter');
+  await page.getByRole('textbox', { name: 'Wander name' }).press('Enter');
   await expect(page.getByText('drawing practice', { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await expect(declareBtn(page)).toBeVisible();
 });

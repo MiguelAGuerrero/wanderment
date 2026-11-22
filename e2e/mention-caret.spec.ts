@@ -1,11 +1,11 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, openHome, test } from './fixtures';
+import { expect, logBox, openHome, openWanders, test } from './fixtures';
 
 async function makeThreads(page: Page, names: string[]) {
   for (const name of names) {
     await logBox(page).fill(`started @${name}`);
-    await page.getByRole('option', { name: `+ New thread “${name}”` }).click();
+    await page.getByRole('option', { name: `+ New wander “${name}”` }).click();
     await logBox(page).press('Enter');
     await expect(page.getByText('Logged → to', { exact: false })).toBeVisible();
   }
@@ -32,10 +32,10 @@ test('@ in the middle of a sentence: suggestions for the word at the caret, pick
   const music = page.getByRole('option', { name: /^make music/ });
   const apparel = page.getByRole('option', { name: /^make apparel/ });
   await expect(music).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('option', { name: '+ New thread “make”' })).toBeVisible();
+  await expect(page.getByRole('option', { name: '+ New wander “make”' })).toBeVisible();
   await expect(page.getByRole('option', { name: /and then more/ })).toHaveCount(0);
   await expect(page.getByTestId('mention-highlight')).toHaveText('@make');
-  await expect(page.getByText('2 threads match, make music selected')).toBeAttached();
+  await expect(page.getByText('2 wanders match, make music selected')).toBeAttached();
 
   await logBox(page).press('ArrowDown');
   await expect(apparel).toHaveAttribute('aria-selected', 'true');
@@ -79,10 +79,10 @@ test('Return with the menu open mid-sentence logs the text as typed and picks or
   await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(logBox(page)).toHaveValue('');
   await page.getByRole('tab', { name: 'Activities' }).click();
-  await page.getByRole('tab', { name: 'No thread' }).click();
+  await page.getByRole('tab', { name: 'No wander' }).click();
   await expect(page.getByText('sketched @make and then more', { exact: true }).filter({ visible: true })).toBeVisible();
   await page.goto('./settings');
-  await expect(page.getByText('3 activities · 2 threads')).toBeVisible();
+  await expect(page.getByText('3 activities · 2 wanders')).toBeVisible();
 });
 
 test('the menu follows the caret: a selection or a caret outside the @word closes it, Esc keeps it closed', async ({ page }) => {
@@ -122,9 +122,9 @@ test('the menu follows the caret: a selection or a caret outside the @word close
 });
 
 test('text loaded from outside puts the caret at the end, not where it was', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await logBox(page).fill('practiced scales @play guitar');
-  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New wander “play guitar”/ }).click();
   await logBox(page).press('Enter');
   const nextInput = page.getByRole('textbox', { name: 'Optional next step for play guitar' });
   await nextInput.fill('tune up for @pla');
@@ -194,5 +194,5 @@ test('an unmatched "@word and more" mid-sentence offers no new thread (audit B, 
   await expect(page.getByRole('option', { name: /New thread/ })).toHaveCount(0);
   // At the end of the text, a multi-word new thread is still offered.
   await box.fill('went @zzq and');
-  await expect(page.getByRole('option', { name: '+ New thread “zzq and”' })).toBeVisible();
+  await expect(page.getByRole('option', { name: '+ New wander “zzq and”' })).toBeVisible();
 });

@@ -237,7 +237,7 @@ describe('the summary is in names, never numbers (and never an arrow)', () => {
     let { data, id } = make('draw', 'be a better drawer', 'sketching');
     data = link(data, id.draw, id['be a better drawer']);
     const s = ov(data)!.summary;
-    expect(s).toBe('Your threads: draw toward be a better drawer; sketching. Lately: draw toward be a better drawer.');
+    expect(s).toBe('Your wanders: draw toward be a better drawer; sketching. Lately: draw toward be a better drawer.');
     expect(s).not.toMatch(/→|\d/);
   });
 
@@ -247,7 +247,7 @@ describe('the summary is in names, never numbers (and never an arrow)', () => {
     data = plainAt(data, [id.draw, id['make apparel']], 3).data;
     data = plainAt(data, [id.draw], 2).data;
     data = plainAt(data, [id.knit], 1).data;
-    expect(ov(data)!.summary).toBe('Your threads: draw, make apparel and knit. Lately: knit; draw; draw with make apparel.');
+    expect(ov(data)!.summary).toBe('Your wanders: draw, make apparel and knit. Lately: knit; draw; draw with make apparel.');
   });
 
   it('with whys: what it’s for, what feeds each, and what surfaced on its own', () => {
@@ -295,7 +295,7 @@ describe('the summary is in names, never numbers (and never an arrow)', () => {
   it('keeps very long names whole', () => {
     const LONG = 'learn to read sheet music well enough to sight-read a whole hymn at church without stopping';
     const { data } = make(LONG);
-    expect(ov(data)!.summary).toBe(`Your threads: ${LONG}.`);
+    expect(ov(data)!.summary).toBe(`Your wanders: ${LONG}.`);
   });
 });
 

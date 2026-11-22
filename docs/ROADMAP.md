@@ -37,18 +37,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-34 The graph is Home `[feature]` M
-*Status:* todo
-*Why:* B-04 slice 1 (owner D-7, 2026-11-22): "the graph view should be first and foremost"; today it
-waits until you've "logged for a while" and shows nothing with no threads.
-*Done when:* Home is a full-screen graph (P-15's model) with the log box at the bottom; with no
-wanders, recent logs show as dots plus a "+ What's it all for?" node (no threshold, no "fills in"
-message); the list moves to a "Wanders" tab; the Graph tab is removed and its view opens from
-"Explore" on Home; e2e flows updated; axe; 390 px and 200 %; Home not slower. B-04 panel refinements 2–5: a
-non-pointer list of whys/wanders after the summary (also the large-text layout); staged steps as one
-quiet line under their node (no age, no count); the summary visible under the graph; "+ What's it
-all for?" only while there are no whys, with "Not now". Ships together with P-37.
-
 ### P-35 Act from a node `[feature]` `[capture]` M
 *Status:* todo
 *Why:* B-04 slice 2: quickly log the next step from any wander, or log fresh toward it, without
@@ -66,13 +54,6 @@ see it in the graph.
 "feel productive", "feel calmer" — no targets, dates, numbers or "goal" wording) ② "One next step
 toward it?" (mundane is welcome: "read a book") ③ the graph with both, log box ready; every step skippable in one tap; nothing required; logging at any point ends it
 for good; e2e for full path, skips, and log-during; axe.
-
-### P-37 Threads are "wanders" `[ux]` S
-*Status:* todo
-*Why:* B-04 slice 4 (owner): name the app's nodes "wanders".
-*Done when:* UI copy, accessible names, toasts, empty states, README/DESIGN wording say "wander(s)"
-(code and stored data keep `thread`); e2e locators updated; no "thread" left in rendered text
-(grep test).
 
 ### P-04 Import you can trust `[data]` M
 *Status:* todo
@@ -332,6 +313,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-22 · P-34, P-37 — the graph is Home (owner D-7): whys, wanders and recent logs fill the first screen, with no threshold (logs alone show as dots, "+ What's it all for?" with "Not now"), staged steps as a quiet line, the summary visible, a list of what's in the picture for keyboard/screen reader/large text; the list moved to a Wanders tab; Graph → Explore; threads are called wanders everywhere you read or hear them · evidence: `e2e/home-is-graph.spec.ts` (50/50 ×5), `overview-home.test.ts`, `persistence.test.ts` ("Not now", 4 mutants red), perf 1.10×, screenshots · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, no audit) · `PTHIRTYFOUR`
 - 2026-11-22 · P-33 — graph follow-ups: the newest log's dot is marked so every log visibly lands; Search/Settings fit the header at 280–320 px; whys keep the picture full; an honest, serial perf check (limit 1.25×, a 15 ms-slower mutant reads 1.49×); test-only switch and unused flow-index fields removed; DESIGN.md says what ships · evidence: `overview.test.ts` (28/28 mutants killed), `e2e/home-graph.spec.ts`, `e2e/home-graph-perf.spec.ts`, full suite ×10 = 1410 passed · audit: 10 reported · 10 reproduced · 9 fixed · 1 deferred (200 % zoom: the first crumb ends 6 px under the log box — superseded by the graph-as-Home layout) · `c83282c`
 - 2026-11-22 · P-30 — a refresh shows the new version: right after opening, refreshing or returning, a newer version loads by itself (data released first, draft kept); after typing or 10 s the banner asks; one automatic update per version; Settings shows the version and "Check for updates" · evidence: `update.test.ts`, `e2e/update.spec.ts` (9), `e2e/pwa.spec.ts`, `e2e/handoff.spec.ts` update tests ×5 · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (light tier: the batch audit runs with P-33, fixed forward) · `fcf7014`
 - 2026-11-22 · P-15 — Home opens with a live graph: your threads, recent logs as dots linked to every thread they name (owner: activities as dots), doing → to links as lines, declared whys first, nodes that stay put, "and more" instead of numbers, one accessible summary · evidence: `overview.test.ts` (38, 25/25 mutants killed), `e2e/home-graph.spec.ts` (incl. owner-style logging, perf ≤ 1.10× without the graph), `e2e/a11y.spec.ts`, screenshots · audit: 16 reported · 12 reproduced · 14 fixed · 2 deferred (long-name ellipsis, unused flow-index fields; re-audit of the rework still running — findings fixed forward) · `d2423fe`, `c55e96d`

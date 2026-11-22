@@ -25,7 +25,7 @@ export default function Activities() {
       <View style={{ flexDirection: 'row', gap: 8 }} accessibilityRole="tablist">
         {[
           ['All', false],
-          ['No thread', true],
+          ['No wander', true],
         ].map(([label, val]) => (
           <Pressable
             key={String(label)}
@@ -37,7 +37,7 @@ export default function Activities() {
           </Pressable>
         ))}
       </View>
-      {list.length === 0 && <Text style={s.meta}>{onlyLoose ? 'Everything has a thread.' : 'Nothing logged yet.'}</Text>}
+      {list.length === 0 && <Text style={s.meta}>{onlyLoose ? 'Everything has a wander.' : 'Nothing logged yet.'}</Text>}
       <View style={[s.card, { padding: 0, overflow: 'hidden' }]}>
         {list.slice(0, shown).map((a, i) => (
           <Row key={a.id} a={a} first={i === 0} data={data} recent={recent} />
@@ -72,7 +72,7 @@ function Row({ a, first, data, recent }: { a: Activity; first: boolean; data: Da
         <Text style={s.meta}>{link}</Text>
       ) : (
         <View style={styles.chips}>
-          <Text style={s.meta}>No thread{suggestion ? ' · maybe:' : ''}</Text>
+          <Text style={s.meta}>No wander{suggestion ? ' · maybe:' : ''}</Text>
           {suggestion && (
             <Pressable onPress={() => attach(a.id, suggestion.id)} style={styles.hit} accessibilityRole="button" accessibilityLabel={`+ ${suggestion.name}: attach to ${suggestion.name}`}>
               <View style={[styles.small, styles.dashed]}>
@@ -89,7 +89,7 @@ function Row({ a, first, data, recent }: { a: Activity; first: boolean; data: Da
       )}
       {picking && !link && (
         <View style={styles.chips}>
-          {recent.length === 0 && <Text style={s.meta}>No threads yet — type @name in the log box to start one.</Text>}
+          {recent.length === 0 && <Text style={s.meta}>No wanders yet — type @name in the log box to start one.</Text>}
           {recent.map((id) =>
             data.threads[id] ? (
               <Pressable key={id} onPress={() => attach(a.id, id)} style={styles.hit} accessibilityRole="button" accessibilityLabel={`${data.threads[id].name}: attach`}>

@@ -30,7 +30,7 @@ export default function PullIn() {
   if (!thread) {
     return (
       <SafeAreaView style={[s.screen, s.content]}>
-        <Text style={s.body}>This thread doesn’t exist anymore.</Text>
+        <Text style={s.body}>This wander doesn’t exist anymore.</Text>
       </SafeAreaView>
     );
   }

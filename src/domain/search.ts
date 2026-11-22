@@ -38,7 +38,7 @@ export function search(data: Data, query: string, limit = 100): SearchGroup[] {
   const group = (threadId?: Id) => {
     const key = threadId ?? '';
     if (!groups.has(key)) {
-      groups.set(key, { threadId, title: threadId ? data.threads[threadId]?.name ?? 'Thread' : 'No thread', hits: [], recent: '' });
+      groups.set(key, { threadId, title: threadId ? data.threads[threadId]?.name ?? 'Wander' : 'No wander', hits: [], recent: '' });
     }
     return groups.get(key)!;
   };

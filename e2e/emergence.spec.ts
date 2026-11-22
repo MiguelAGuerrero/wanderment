@@ -1,17 +1,17 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openWanders, test } from './fixtures';
 
 const visibleText = (page: Page, text: string) => page.getByText(text, { exact: true }).filter({ visible: true });
 
 test('name a new thread and pull in past activities in bulk; one Undo reverts all', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await logLine(page, 'sketched gestures for drawing');
   await logLine(page, 'drew hands, practiced shading');
   await logLine(page, 'went to the gym');
 
-  await page.getByRole('button', { name: '+ New thread' }).click();
-  const name = page.getByRole('textbox', { name: 'New thread name' });
+  await page.getByRole('button', { name: '+ New wander' }).click();
+  const name = page.getByRole('textbox', { name: 'New wander name' });
   await name.fill('practice drawing');
   await name.press('Enter');
 
@@ -25,7 +25,7 @@ test('name a new thread and pull in past activities in bulk; one Undo reverts al
 
   await expect(visibleText(page, 'Pulled 2 activities into practice drawing')).toBeVisible();
   await page.getByRole('tab', { name: 'Activities' }).click();
-  await page.getByRole('tab', { name: 'No thread' }).click();
+  await page.getByRole('tab', { name: 'No wander' }).click();
   await expect(visibleText(page, 'went to the gym')).toBeVisible();
   await expect(visibleText(page, 'sketched gestures for drawing')).toHaveCount(0);
 
@@ -38,7 +38,7 @@ test('a thread made from the @ menu quietly offers to pull in earlier mentions',
   await openHome(page);
   await logLine(page, 'drawing at lunch');
   await logBox(page).fill('more gestures @practice drawing');
-  await page.getByRole('option', { name: /New thread “practice drawing”/ }).click();
+  await page.getByRole('option', { name: /New wander “practice drawing”/ }).click();
   await logBox(page).press('Enter');
 
   await page.getByRole('button', { name: /1 earlier activity mentions “practice drawing”/ }).click();
@@ -68,24 +68,26 @@ test('a thread most activity flows into gets a "TO …" header, with an explaine
       sessionStorage.setItem('seeded', '1');
     }
   }, legacy);
-  await openHome(page);
+  await openWanders(page);
   await expect(page.getByRole('heading', { name: 'TO MAKE APPAREL' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'OTHER THREADS' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'YOUR THREADS' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'OTHER WANDERS' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'YOUR WANDERS' })).toHaveCount(0);
   await page.getByRole('button', { name: /TO MAKE APPAREL/ }).click();
-  await expect(page.getByText(/4 things you logged went from another thread → to make apparel/)).toBeVisible();
+  await expect(page.getByText(/4 things you logged went from another wander → to make apparel/)).toBeVisible();
 });
 
 test('search finds activities, notes and next steps, and remembers the search', async ({ page }) => {
-  await openHome(page);
+  await openWanders(page);
   await logBox(page).fill('practiced scales @play guitar');
-  await page.getByRole('option', { name: /New thread “play guitar”/ }).click();
+  await page.getByRole('option', { name: /New wander “play guitar”/ }).click();
   await logBox(page).press('Enter');
   const next = page.getByRole('textbox', { name: 'Optional next step for play guitar' });
   await next.fill('faster scales');
   await next.press('Enter');
   await logLine(page, 'jam night');
 
+  // P-34: Search is in Home's header.
+  await page.getByRole('tab', { name: 'Home' }).click();
   await page.getByRole('link', { name: 'Search' }).click();
   await page.getByRole('textbox', { name: 'Search' }).fill('scales');
   await expect(page.getByText('2 results')).toBeVisible();

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { decorative } from '@/components/a11y';
 import { C } from '@/theme';
 
-/** Bottom tab bar: Home · Activities · Graph. Same component on web and native. */
+/** Bottom tab bar: Home (the graph) · Wanders · Activities. Same component on web and native. */
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
   return (
@@ -15,11 +15,11 @@ export default function TabLayout() {
         <TabTrigger name="index" href="/" asChild>
           <TabButton glyph="◎">Home</TabButton>
         </TabTrigger>
+        <TabTrigger name="wanders" href="/wanders" asChild>
+          <TabButton glyph="∿">Wanders</TabButton>
+        </TabTrigger>
         <TabTrigger name="activities" href="/activities" asChild>
           <TabButton glyph="≡">Activities</TabButton>
-        </TabTrigger>
-        <TabTrigger name="graph" href="/graph" asChild>
-          <TabButton glyph="⋔">Graph</TabButton>
         </TabTrigger>
       </TabList>
     </Tabs>

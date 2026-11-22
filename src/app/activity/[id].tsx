@@ -151,7 +151,7 @@ export default function ActivityDetails() {
               </Pressable>
             ) : null,
           )}
-          <Pressable onPress={() => setAdding(adding === 'to' ? undefined : 'to')} style={[s.chip, s.chipDashed]} accessibilityRole="button" accessibilityLabel="Add a thread it was to" accessibilityState={{ expanded: adding === 'to' }}>
+          <Pressable onPress={() => setAdding(adding === 'to' ? undefined : 'to')} style={[s.chip, s.chipDashed]} accessibilityRole="button" accessibilityLabel="Add a wander it was to" accessibilityState={{ expanded: adding === 'to' }}>
             <Text style={[s.chipText, { color: C.muted }]}>+ To…</Text>
           </Pressable>
         </View>
@@ -160,7 +160,7 @@ export default function ActivityDetails() {
           <View style={[s.card, { gap: 8 }]}>
             <Text style={s.meta}>{adding === 'doing' ? 'What were you doing?' : 'What was it to?'}</Text>
             <View style={styles.row}>
-              {candidates.length === 0 && <Text style={s.meta}>No other threads yet — type @name in the log box to start one.</Text>}
+              {candidates.length === 0 && <Text style={s.meta}>No other wanders yet — type @name in the log box to start one.</Text>}
               {candidates.map((tid) => (
                 <Pressable key={tid} onPress={() => pickThread(tid)} style={s.chip} accessibilityRole="button" accessibilityLabel={`${adding === 'doing' ? 'Doing' : 'To'} ${data.threads[tid].name}`}>
                   <Text style={s.chipText}>{data.threads[tid].name}</Text>

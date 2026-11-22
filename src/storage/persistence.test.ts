@@ -1390,7 +1390,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     });
     const other = () => ({ version: 1 as const, threads: {}, activities: { i1: act('i1', 'imported') } });
     type S = ReturnType<Store['getState']>;
-    const settingsOf = (st: S) => ({ showShading: st.showShading, recentSearches: st.recentSearches, leftAsIs: st.leftAsIs });
+    const settingsOf = (st: S) => ({ showShading: st.showShading, recentSearches: st.recentSearches, leftAsIs: st.leftAsIs, ...(st.whyOfferOff && { whyOfferOff: true }) });
 
     /** Every action that changes the data or the saved settings, with arguments that do change something. */
     const MUTATING: Record<string, { args: unknown[]; setup?: (store: Store) => void }> = {
@@ -1414,6 +1414,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       replaceData: { args: [other()] },
       refreshData: { args: [other(), { showShading: false, recentSearches: [], leftAsIs: [] }, false] },
       setShowShading: { args: [false] },
+      putOffWhy: { args: [] },
     };
     /** The draft, and what's only on screen this session: these never change the data. */
     const NOT_DATA: Record<string, unknown[]> = {
@@ -1940,5 +1941,45 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(log).toEqual(['close', 'shutdown', 'lock released', 'ping']);
       expect(env.ls.has('wanderment:released')).toBe(false);
     });
+  });
+});
+
+describe('P-34: “Not now” on “+ What’s it all for?” is kept for good', () => {
+  it('survives a reload in SQLite, and is off until it’s used', async () => {
+    let store = await load();
+    expect(store.getState().whyOfferOff).toBe(false);
+    logText(store, 'first');
+    await settle();
+    store = await load();
+    expect(store.getState().whyOfferOff).toBe(false);
+    expect(store.getState().putOffWhy()).toBe(true);
+    await settle();
+    store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(store.getState().whyOfferOff).toBe(true);
+  });
+
+  it('survives the tab closing before SQLite commits (journal)', async () => {
+    let store = await load();
+    env.state.hangWrites = true;
+    store.getState().putOffWhy();
+    await settle();
+    env.state.hangWrites = false;
+    store = await load();
+    expect(store.getState().whyOfferOff).toBe(true);
+  });
+
+  it('in the old format (a browser that can’t run SQLite), and when it moves into SQLite', async () => {
+    env.state.openError = new Error('no OPFS');
+    let store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+    store.getState().putOffWhy();
+    await settle();
+    store = await load();
+    expect(store.getState().whyOfferOff).toBe(true);
+    env.state.openError = undefined;
+    store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(store.getState().whyOfferOff).toBe(true);
   });
 });

@@ -82,8 +82,8 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
 
   const announcement = open
     ? suggestions.length
-      ? `${suggestions.length} ${suggestions.length === 1 ? 'thread matches' : 'threads match'}, ${suggestions[activeIndex].name} selected`
-      : 'No threads match'
+      ? `${suggestions.length} ${suggestions.length === 1 ? 'wander matches' : 'wanders match'}, ${suggestions[activeIndex].name} selected`
+      : 'No wanders match'
     : '';
   useEffect(() => {
     // Web uses the live region below; native screen readers get an announcement.
@@ -170,7 +170,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
       )}
       {open && (
         // RN's Role type has no "listbox"; react-native-web passes any ARIA role through.
-        <View style={styles.suggestions} role={'listbox' as 'list'} aria-label="Thread suggestions">
+        <View style={styles.suggestions} role={'listbox' as 'list'} aria-label="Wander suggestions">
           {suggestions.map((t, i) => (
             <Pressable
               key={t.id}
@@ -188,7 +188,7 @@ export function Composer({ presetDoingId, placeholder = 'What did you just do?',
           ))}
           {canCreate && (
             <Pressable onPress={createAndPick} style={[styles.suggestion, suggestions.length === 0 && { borderTopWidth: 0 }]} role="option" aria-selected={false}>
-              <Text style={[styles.suggestionText, { color: C.accent }]}>+ New thread “{mention!.query.trim()}”</Text>
+              <Text style={[styles.suggestionText, { color: C.accent }]}>+ New wander “{mention!.query.trim()}”</Text>
             </Pressable>
           )}
         </View>

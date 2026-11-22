@@ -14,15 +14,15 @@ const LOG_BOX_LABEL = 'What did you just do?';
  * three threads, "+ name it" and "Just itself". Ignoring it leaves no trace. It isn't a live region:
  * the toast already announces the question once.
  */
-export function LogBridge() {
+export function LogBridge({ style }: { /** Home: it sits above the log box, inset like it. */ style?: object }) {
   const data = useStore((st) => st.data);
   const bridgeFor = useStore((st) => st.bridgeFor);
   if (!bridgeFor || !needsBridge(data, bridgeFor)) return null;
   // Keyed, so a half-typed name never carries over to the next activity.
-  return <Bridge key={bridgeFor} activityId={bridgeFor} />;
+  return <Bridge key={bridgeFor} activityId={bridgeFor} style={style} />;
 }
 
-function Bridge({ activityId }: { activityId: Id }) {
+function Bridge({ activityId, style }: { activityId: Id; style?: object }) {
   const data = useStore((st) => st.data);
   const attach = useStore((st) => st.attach);
   const attachToNew = useStore((st) => st.attachToNew);
@@ -55,7 +55,7 @@ function Bridge({ activityId }: { activityId: Id }) {
   };
 
   return (
-    <View ref={root} style={styles.wrap} role="group" aria-label="Attach what you just logged">
+    <View ref={root} style={[styles.wrap, style]} role="group" aria-label="Attach what you just logged">
       <Text style={styles.copy}>Logged. {BRIDGE_QUESTION}</Text>
       <View style={styles.row}>
         {threads.map((t) => (
@@ -78,7 +78,7 @@ function Bridge({ activityId }: { activityId: Id }) {
             onKeyPress={(e) => Platform.OS === 'web' && e.nativeEvent.key === 'Escape' && cancelName()}
             returnKeyType="done"
             style={styles.input}
-            accessibilityLabel="Name the thread it was toward"
+            accessibilityLabel="Name the wander it was toward"
           />
         ) : (
           <Pressable ref={nameBtn} onPress={() => setNaming(true)} style={[s.chip, s.chipDashed]} accessibilityRole="button">

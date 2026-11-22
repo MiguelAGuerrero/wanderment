@@ -37,7 +37,7 @@ export function ThreadCard({ summary }: { summary: ThreadSummary }) {
         onPress={() => router.push(`/thread/${thread.id}`)}
         style={styles.card}
         accessibilityRole="button"
-        accessibilityHint="Opens the thread">
+        accessibilityHint="Opens the wander">
         {showShading && <View style={[styles.bar, { backgroundColor: warmColor(warmth) }]} />}
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={styles.name}>{thread.name}</Text>

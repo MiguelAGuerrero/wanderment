@@ -62,6 +62,7 @@ export default function RootLayout() {
           <Stack.Screen name="activity/[id]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="settings" />
           <Stack.Screen name="search" />
+          <Stack.Screen name="explore" />
           <Stack.Screen name="pull-in/[id]" options={{ presentation: 'modal' }} />
         </Stack>
         <ToastTimer />

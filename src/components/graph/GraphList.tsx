@@ -45,7 +45,7 @@ export function GraphList({ hood, onPick, attaching }: { hood: Neighbourhood; on
       {section('Further: where those flow', hood.up2)}
       {section('Further: what feeds those', hood.down2)}
       {!hood.up.length && !hood.down.length && !hood.siblings.length && (
-        <Text style={s.meta}>Nothing links here yet. Log something “doing” this thread and → to another, and it’ll show up.</Text>
+        <Text style={s.meta}>Nothing links here yet. Log something “doing” this wander and → to another, and it’ll show up.</Text>
       )}
     </View>
   );

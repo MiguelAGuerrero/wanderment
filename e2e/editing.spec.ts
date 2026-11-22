@@ -5,7 +5,7 @@ import { expect, logBox, logLine, openHome, test } from './fixtures';
 async function makeThreads(page: Page, names: string[]) {
   for (const name of names) {
     await logBox(page).fill(`started @${name}`);
-    await page.getByRole('option', { name: `+ New thread “${name}”` }).click();
+    await page.getByRole('option', { name: `+ New wander “${name}”` }).click();
     await logBox(page).press('Enter');
     await expect(page.getByText('Logged → to', { exact: false })).toBeVisible();
   }
@@ -27,11 +27,11 @@ test('keyboard: ↑/↓ move through suggestions, Tab picks, Esc closes, Enter a
   const second = page.getByRole('option', { name: /^make apparel/ });
   await expect(first).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByTestId('mention-highlight')).toHaveText('@make');
-  await expect(page.getByText('2 threads match, make music selected')).toBeAttached();
+  await expect(page.getByText('2 wanders match, make music selected')).toBeAttached();
 
   await logBox(page).press('ArrowDown');
   await expect(second).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByText('2 threads match, make apparel selected')).toBeAttached();
+  await expect(page.getByText('2 wanders match, make apparel selected')).toBeAttached();
   await logBox(page).press('Tab');
   await expect(logBox(page)).toHaveValue('sketched a logo ');
   await expect(page.getByRole('button', { name: 'To: make apparel. Remove' })).toBeVisible();
@@ -47,7 +47,7 @@ test('keyboard: ↑/↓ move through suggestions, Tab picks, Esc closes, Enter a
   await page.getByRole('tab', { name: 'Activities' }).click();
   await expect(page.getByText('sketched a logo for @make', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText('demo @make', { exact: true }).filter({ visible: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'No thread' }).click();
+  await page.getByRole('tab', { name: 'No wander' }).click();
   await expect(page.getByText('demo @make', { exact: true }).filter({ visible: true })).toBeVisible();
 });
 
@@ -88,10 +88,10 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
   await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
 
-  const field = page.getByRole('textbox', { name: 'Thread name' });
+  const field = page.getByRole('textbox', { name: 'Wander name' });
   await field.fill('  Play   Guitar ');
   await field.press('Enter');
-  const refusal = page.getByText('Another thread is already called “play guitar”.');
+  const refusal = page.getByText('Another wander is already called “play guitar”.');
   await expect(refusal).toBeVisible();
   await expect(page.locator('[aria-live="polite"]').filter({ has: refusal })).toHaveCount(1);
   await expect(field).toHaveValue('  Play   Guitar ');
@@ -126,7 +126,7 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
   await field.fill('PLAY GUITAR');
   await field.press('Enter');
   await expect(
-    page.getByText('Another thread is already called “play guitar”. It’s hidden — you can unhide it in Settings.'),
+    page.getByText('Another wander is already called “play guitar”. It’s hidden — you can unhide it in Settings.'),
   ).toBeVisible();
   await expect(field).toHaveValue('PLAY GUITAR');
 });
@@ -137,7 +137,7 @@ test('a refused rename can be left with Cancel or Esc, keeping the old name (aud
   await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
 
-  const field = page.getByRole('textbox', { name: 'Thread name' });
+  const field = page.getByRole('textbox', { name: 'Wander name' });
   await field.fill('play guitar');
   await field.press('Enter');
   await expect(field).toHaveAttribute('aria-invalid', 'true');
@@ -147,8 +147,8 @@ test('a refused rename can be left with Cancel or Esc, keeping the old name (aud
   await expect(page.getByText('make apparel', { exact: true }).filter({ visible: true }).first()).toBeVisible();
 
   await page.getByRole('button', { name: 'Rename' }).click();
-  await page.getByRole('textbox', { name: 'Thread name' }).fill('play guitar');
-  await page.getByRole('textbox', { name: 'Thread name' }).press('Escape');
-  await expect(page.getByRole('textbox', { name: 'Thread name' })).toHaveCount(0);
-  await expect(page.getByText('Another thread is already called', { exact: false })).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Wander name' }).fill('play guitar');
+  await page.getByRole('textbox', { name: 'Wander name' }).press('Escape');
+  await expect(page.getByRole('textbox', { name: 'Wander name' })).toHaveCount(0);
+  await expect(page.getByText('Another wander is already called', { exact: false })).toHaveCount(0);
 });

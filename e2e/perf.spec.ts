@@ -16,7 +16,8 @@ test('logging stays quick on Home and Activities with a large history', async ({
   test.slow();
   await page.addInitScript(seedScript, bigBlob(220, 4000));
   await page.goto('./');
-  await expect(page.getByRole('heading', { name: /THREADS|TO / }).first()).toBeVisible({ timeout: 20_000 });
+  // P-34: the list is on the Wanders tab; Home's heading shows once the data has loaded.
+  await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible({ timeout: 20_000 });
   const home = await timedLog(page, 'home log');
   await page.getByRole('tab', { name: 'Activities' }).click();
   await expect(page.getByRole('button', { name: /Show 100 more/ })).toBeVisible({ timeout: 10_000 });

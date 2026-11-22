@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -14,11 +14,15 @@ import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
+const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
 /**
- * Where activity flows: a centre thread, what it flows to above, what feeds it below,
- * siblings at the sides. Tap to re-centre. Attach mode works through unattached activities.
+ * Explore (the old Graph tab, opened from Home and from a wander's page): where activity flows — a
+ * centre wander, what it flows to above, what feeds it below, siblings at the sides. Tap to
+ * re-centre. Attach mode works through unattached activities. `?center=<id>` opens on that wander.
  */
-export default function Graph() {
+export default function Explore() {
+  const { center } = useLocalSearchParams<{ center?: string }>();
   const data = useStore((st) => st.data);
   const attach = useStore((st) => st.attach);
   const leftAsIs = useStore((st) => st.leftAsIs);
@@ -27,11 +31,12 @@ export default function Graph() {
 
   // Opens on the top value (the thread most activity flows toward), else the most recent thread.
   const start = useMemo(() => {
+    if (center && data.threads[center] && !data.threads[center].hidden) return center;
     const values = [...valueThreads(data)];
     if (values.length) return values.sort((a, b) => (index.steps.get(b) ?? 0) - (index.steps.get(a) ?? 0))[0];
     const { current, earlier } = homeThreads(data);
     return (current[0] ?? earlier[0])?.thread.id;
-  }, [data, index]);
+  }, [data, index, center]);
 
   const [path, setPath] = useState<Id[]>([]);
   const [depth, setDepth] = useState<1 | 2>(1);
@@ -68,12 +73,13 @@ export default function Graph() {
   if (!hood) {
     return (
       <Screen>
+        <Back />
         <Text style={s.h1} accessibilityRole="header">
-          Graph
+          Explore
         </Text>
         <View style={[s.card, { gap: 8 }]}>
-          <Text style={s.body}>This fills in once you’ve logged for a while. It shows where your activity flows — what feeds what — starting from the thing most of it flows toward.</Text>
-          <Text style={s.meta}>Start a thread by typing @name in the log box.</Text>
+          <Text style={s.body}>Explore shows where your activity flows between wanders — what feeds what — starting from the one most of it flows toward.</Text>
+          <Text style={s.meta}>Name a wander by typing @name in the log box.</Text>
         </View>
       </Screen>
     );
@@ -98,9 +104,10 @@ export default function Graph() {
           />
         ) : undefined
       }>
+      <Back />
       <View style={styles.header}>
         <Text style={s.h1} accessibilityRole="header">
-          Graph
+          Explore
         </Text>
         <View style={styles.segment} accessibilityRole="tablist">
           {(['graph', 'list'] as const).map((v) => (
@@ -172,7 +179,16 @@ export default function Graph() {
   );
 }
 
+function Back() {
+  return (
+    <Pressable onPress={goBack} style={styles.back} accessibilityRole="button">
+      <Text style={{ color: C.accent, fontSize: 15 }}>‹ Back</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  back: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   segment: { flexDirection: 'row', borderRadius: 22, borderWidth: 1, borderColor: C.line, overflow: 'hidden' },
   seg: { minHeight: 44, minWidth: 64, paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: C.surface },

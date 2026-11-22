@@ -115,7 +115,7 @@ export default function Settings() {
         <Text style={s.quietLabel}>Your data · stays on this device</Text>
         <View style={[s.card, { gap: 10 }]}>
           <Text style={s.meta}>
-            {Object.keys(data.activities).length} activities · {Object.keys(data.threads).length} threads
+            {Object.keys(data.activities).length} activities · {Object.keys(data.threads).length} wanders
           </Text>
           <Text style={s.meta}>
             {storage.state === 'ready' && storage.kind === 'local'
@@ -156,14 +156,14 @@ export default function Settings() {
         <View style={[s.card, styles.rowBetween]}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 16, color: C.ink }}>Recency shading</Text>
-            <Text style={s.meta}>The fading bar on threads</Text>
+            <Text style={s.meta}>The fading bar on wanders</Text>
           </View>
           <Switch value={showShading} onValueChange={(on) => void setShowShading(on)} accessibilityLabel="Recency shading" />
         </View>
 
         {hidden.length > 0 && (
           <>
-            <Text style={s.quietLabel}>Hidden threads</Text>
+            <Text style={s.quietLabel}>Hidden wanders</Text>
             <View style={[s.card, { gap: 8 }]}>
               {hidden.map((t) => (
                 <View key={t.id} style={styles.rowBetween}>

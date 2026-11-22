@@ -14,7 +14,12 @@ const node = (page: Page, id: string) => page.getByTestId(`graph-node-${id}`).fi
 const nodes = (page: Page) => page.locator('[data-testid^="graph-node-"]').filter({ visible: true });
 const dots = (page: Page) => page.locator('[data-testid^="graph-dot-"]').filter({ visible: true });
 const link = (page: Page, from: string, to: string) => page.getByTestId(`graph-link-${from}-${to}`);
-const openGraph = (page: Page) => page.getByRole('link', { name: 'Open graph', exact: true });
+const openGraph = (page: Page) => page.getByRole('link', { name: 'Explore', exact: true });
+/** P-34: the cards (today's list) live on the Wanders tab. */
+async function toWanders(page: Page) {
+  await page.getByRole('tab', { name: 'Wanders' }).click();
+  await expect(page.getByRole('heading', { name: 'Wanders', exact: true })).toBeVisible();
+}
 
 async function expectNoSeriousViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
@@ -23,10 +28,10 @@ async function expectNoSeriousViolations(page: Page) {
   expect(report, report.join('\n')).toEqual([]);
 }
 
-/** Picks the "+ New thread “name”" suggestion for the @name at the end of `text`, then logs. */
+/** Picks the "+ New wander “name”" suggestion for the @name at the end of `text`, then logs. */
 async function logCreating(page: Page, text: string, name: string, doing?: string) {
   await logBox(page).fill(text);
-  await page.getByRole('option', { name: `+ New thread “${name}”` }).click();
+  await page.getByRole('option', { name: `+ New wander “${name}”` }).click();
   if (doing) await page.getByRole('button', { name: `Suggested: doing ${doing}. Tap to accept.` }).click();
   await logBox(page).press('Enter');
 }
@@ -38,7 +43,7 @@ async function logMentioning(page: Page, text: string, names: [string, boolean][
     await logBox(page).press('End');
     await logBox(page).pressSequentially(` @${name}`);
     await page
-      .getByRole('option', { name: isNew ? `+ New thread “${name}”` : new RegExp(`^${name}`) })
+      .getByRole('option', { name: isNew ? `+ New wander “${name}”` : new RegExp(`^${name}`) })
       .first()
       .click();
   }
@@ -99,7 +104,7 @@ test('a fresh app shows no graph; the first thread, its dot and a link appear as
   await expect(node(page, draw)).toBeVisible();
   await expect(link(page, draw, better)).toHaveCount(1);
   await expect(dots(page)).toHaveCount(2);
-  await expect(picture(page)).toHaveAccessibleName('Your threads: draw toward be a better drawer. Lately: draw toward be a better drawer; draw.');
+  await expect(picture(page)).toHaveAccessibleName('Your wanders: draw toward be a better drawer. Lately: draw toward be a better drawer; draw.');
 
   // Undo takes the link (and its dot) away again.
   await page.getByRole('button', { name: 'Undo' }).filter({ visible: true }).click();
@@ -124,7 +129,7 @@ test('the owner’s way of logging: each plain log is a dot with a line to every
   expect(named.map(([, t]) => t)).toEqual([[knit], [draw], [draw, apparel]]);
   for (const [dot, threads] of named) for (const t of threads) await expect(page.getByTestId(`graph-dotline-${dot}-${t}`)).toHaveCount(1);
   await expect(page.locator('[data-testid^="graph-dotline-"]')).toHaveCount(4);
-  await expect(picture(page)).toHaveAccessibleName('Your threads: draw, knit and make apparel. Lately: knit; draw; draw with make apparel.');
+  await expect(picture(page)).toHaveAccessibleName('Your wanders: draw, knit and make apparel. Lately: knit; draw; draw with make apparel.');
   // No numbers anywhere in the graph (no counts, no "+N").
   await expect(graph(page)).not.toContainText(/\d/);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/home-graph-owner-no-whys.png` });
@@ -194,7 +199,7 @@ test('undoing a declare takes the why away again; hiding a thread takes its node
   await expect(page.getByTestId('graph-dot-a4')).toHaveCount(0);
 });
 
-test('a dot opens its activity; “and more →” opens the Graph tab', async ({ page }) => {
+test('a dot opens its activity; “and more →” opens Explore', async ({ page }) => {
   await page.addInitScript(seedScript, world([]));
   await openHome(page);
   // Seven threads, six in the picture.
@@ -205,7 +210,7 @@ test('a dot opens its activity; “and more →” opens the Graph tab', async (
   await expect(page).toHaveURL(/\/activity\/a4$/);
   await page.goBack();
   await page.getByTestId('graph-more').click();
-  await expect(page).toHaveURL(/\/graph$/);
+  await expect(page).toHaveURL(/\/explore$/);
   await expect(page.getByRole('tab', { name: 'List view' })).toBeVisible();
 });
 
@@ -222,19 +227,19 @@ test('the graph is one accessible element: its summary, in names; nodes are out 
   await expect(picture(page).getByRole('button')).toHaveCount(0);
   const focusable = await picture(page).locator('[tabindex]:not([tabindex="-1"]), a[href], button').count();
   expect(focusable).toBe(0);
-  // "Open graph" is in the header (one of them); Tab from the header skips the nodes to the list.
+  // "Explore" is in the header (one of them); Tab from the header skips the nodes to the list.
   await expect(openGraph(page)).toHaveCount(1);
   await page.getByRole('link', { name: 'Settings and backup' }).focus();
   await page.keyboard.press('Tab');
-  await expect(page.getByRole('button', { name: '+ New thread' })).toBeFocused();
+  await expect(page.getByRole('button', { name: 'make apparel, what it’s for' })).toBeFocused();
   // Cards are still found exactly once by their name.
   await expect(page.getByRole('button', { name: /^draw\s*\S/ })).toHaveCount(1);
   await expectNoSeriousViolations(page);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/home-graph-2-whys.png` });
 
   await openGraph(page).click();
-  await expect(page).toHaveURL(/\/graph$/);
-  // The Graph tab's own screen (its graph / list switch) is showing.
+  await expect(page).toHaveURL(/\/explore$/);
+  // Explore's own screen (its graph / list switch) is showing.
   await expect(page.getByRole('tab', { name: 'List view' })).toBeVisible();
 });
 
@@ -289,12 +294,14 @@ test('lines, dots and borders stand out from the page (at least 3:1)', async ({ 
 test('with no whys: the most active threads, axe-clean, and the cards keep their names', async ({ page }) => {
   await openHome(page);
   await logCreating(page, 'practiced scales @play guitar', 'play guitar');
+  await toWanders(page);
   const next = page.getByRole('textbox', { name: 'Optional next step for play guitar' });
   await next.fill('learn the F chord');
   await next.press('Enter');
+  await page.getByRole('tab', { name: 'Home' }).click();
   await logLine(page, 'read a novel');
   await expect(graph(page)).toBeVisible();
-  await expect(picture(page)).toHaveAccessibleName('Your threads: play guitar. Lately: play guitar.');
+  await expect(picture(page)).toHaveAccessibleName('Your wanders: play guitar. Lately: play guitar.');
   await expect(page.getByRole('button', { name: /^play guitar\s*\S/ })).toHaveCount(1);
   await expect(page.getByRole('button', { name: /^play guitar/ })).toHaveCount(1);
   await expectNoSeriousViolations(page);
@@ -304,13 +311,15 @@ test('with no whys: the most active threads, axe-clean, and the cards keep their
 test('the first run: with one thread the graph is compact, so the first card’s crumb stays clear of the toast', async ({ page }) => {
   await openHome(page);
   await logCreating(page, 'practiced scales @play guitar', 'play guitar');
+  // P-34: the cards are on the Wanders tab (with no graph above them), where the log box and the bridge are too.
+  await toWanders(page);
   const next = page.getByRole('textbox', { name: 'Optional next step for play guitar' });
   await next.fill('learn the F chord');
   await next.press('Enter');
   // A loose line: the bridge asks, the toast shows, and the first-thread banner is up.
   await logLine(page, 'read a novel');
   await expect(page.getByRole('group', { name: 'Attach what you just logged' })).toBeVisible();
-  await expect(page.getByText('Your first thread.')).toBeVisible();
+  await expect(page.getByText('Your first wander.')).toBeVisible();
   const crumb = page.getByRole('button', { name: 'learn the F chord Log this' });
   const c = (await crumb.boundingBox())!;
   const toast = (await page.getByRole('button', { name: 'Undo' }).filter({ visible: true }).locator('..').boundingBox())!;
@@ -318,15 +327,14 @@ test('the first run: with one thread the graph is compact, so the first card’s
   const inCrumb = await crumb.evaluate((el, [x, y]) => el.contains(document.elementFromPoint(x, y)), [c.x + 10, c.y + c.height - 3]);
   expect(inCrumb).toBe(true);
   expect(c.y + c.height).toBeLessThanOrEqual(toast.y);
-  expect((await picture(page).boundingBox())!.height).toBe(88);
 });
 
 test('the first card and its crumb stay above the log box at 390 × 844', async ({ page }) => {
   await page.addInitScript(seedScript, world(['make apparel', 'get stronger']));
   await openHome(page);
   await expect(picture(page)).toBeVisible();
-  const box = (await picture(page).boundingBox())!;
-  expect(box.height).toBe(176);
+  // P-34: the cards are on the Wanders tab (with no graph above them).
+  await toWanders(page);
   const card = page.getByRole('button', { name: /^(make apparel|draw|sew|get stronger|lift|run|read)\s*\S/ }).first();
   const cardBox = (await card.boundingBox())!;
   const logTop = (await logBox(page).boundingBox())!.y;
@@ -351,7 +359,7 @@ test('at 125 % zoom the picture still shows', async ({ page }) => {
   await expect(page.getByTestId('home-graph-summary')).toHaveCount(0);
 });
 
-test('from 280 to 320 px wide, Search and “Settings and backup” stay fully on screen; the Graph tab is still there', async ({ page }) => {
+test('from 280 to 320 px wide, Search and “Settings and backup” stay fully on screen; Explore is still there', async ({ page }) => {
   await page.addInitScript(seedScript, world(['make apparel']));
   for (const width of [280, 300, 312, 320]) {
     await page.setViewportSize({ width, height: 700 });
@@ -364,7 +372,7 @@ test('from 280 to 320 px wide, Search and “Settings and backup” stay fully o
       expect(b.width).toBeGreaterThanOrEqual(44);
     }
     await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Graph' })).toBeInViewport();
+    await expect(openGraph(page)).toBeInViewport();
     if (SHOTS && width === 312) await page.screenshot({ path: `${SHOTS}/home-header-312.png` });
   }
 });
@@ -406,7 +414,7 @@ test('every log visibly lands: the newest dot is marked, even once the dots are 
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/home-graph-newest-dot.png` });
 });
 
-test('at 200 % zoom: only the summary (two lines) with “Open graph” beside it, and the whole first card stays above the log box', async ({ page }) => {
+test('at 200 % zoom: only the summary (two lines) with “Explore” beside it, and the whole first card stays above the log box', async ({ page }) => {
   await page.setViewportSize({ width: 195, height: 422 });
   const names = ['make apparel', 'get stronger', 'sell prints', 'draw', 'sew', 'cut patterns', 'lift', 'run', 'photograph', 'frame'];
   const at = (from: string, to: string) => ({ from, to: [to], text: 'a', daysAgo: 1 });
@@ -451,7 +459,8 @@ test('with a large history the graph is there with the list, and logging stays q
   test.slow();
   await page.addInitScript(seedScript, bigBlob(220, 4000));
   await page.goto('./');
-  await expect(page.getByRole('heading', { name: /THREADS|TO / }).first()).toBeVisible({ timeout: 20_000 });
+  // P-34: the list is on the Wanders tab; Home's heading shows once the data has loaded.
+  await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible({ timeout: 20_000 });
   // Rendered in the same pass as the list (no second wait).
   await expect(picture(page)).toBeVisible({ timeout: 1000 });
   await expect(page.locator('[data-testid^="graph-node-"][data-kind="why"]').filter({ visible: true })).toHaveCount(3);

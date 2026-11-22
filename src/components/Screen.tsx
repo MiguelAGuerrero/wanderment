@@ -21,6 +21,7 @@ export function Screen({
   footer,
   bridge,
   scrollToTopOn,
+  aboveLog,
 }: {
   children: ReactNode;
   composer?: boolean;
@@ -32,6 +33,8 @@ export function Screen({
   bridge?: boolean;
   /** When this changes to a value, the content scrolls back to the top (Home: the bridge appeared). */
   scrollToTopOn?: string;
+  /** Shown right above the log box (Home: the bridge, where logging happens). */
+  aboveLog?: ReactNode;
 }) {
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   useEffect(() => {
@@ -51,6 +54,7 @@ export function Screen({
             {footer ?? (
               <>
                 <PullInOffer />
+                {aboveLog}
                 <Composer presetDoingId={presetDoingId} placeholder={placeholder} bridge={bridge} />
               </>
             )}

@@ -3,32 +3,36 @@
 These came out of the design sessions and several rounds of persona reviews. Change them deliberately.
 
 ## Model
-- **Activity**: a one-off thing you did. Free text, when it happened, optional note, optional **doing** thread, zero or more **to** threads.
-- **Thread**: an ongoing pursuit named as an action ("practice drawing", "make apparel"). At most one visible **next** step.
-- **Links between threads are never stored.** They are derived from activities (doing → to), counted. Both directions are distinct intentions ("drawing to make apparel" ≠ "making apparel to practise drawing").
-- Everything references ids, so renaming a thread never rewrites history.
-- A thread can be created with just a name. If nothing flows into it, it simply fades.
-- A thread can be marked as **what it's for** (a "why"): a direction, not a goal — no target, progress
+- **Activity**: a one-off thing you did. Free text, when it happened, optional note, optional **doing** wander, zero or more **to** wanders.
+- **Wander** (`Thread` in code and stored data): an ongoing pursuit named as an action ("practice drawing", "make apparel"). At most one visible **next** step.
+- **Links between wanders are never stored.** They are derived from activities (doing → to), counted. Both directions are distinct intentions ("drawing to make apparel" ≠ "making apparel to practise drawing").
+- Everything references ids, so renaming a wander never rewrites history.
+- A wander can be created with just a name. If nothing flows into it, it simply fades.
+- A wander can be marked as **what it's for** (a "why"): a direction, not a goal — no target, progress
   or deadline. A why can be declared (named up front) or earned (most activity flows into it); both
   look the same on Home and both fade to Earlier when nothing flows in. _(Owner decision D-4.)_
   At most **three** are declared at once, all visible: declaring a fourth offers a swap (you pick
-  which one steps back, nothing is chosen for you), and hiding a declared thread unmarks it (Undo
+  which one steps back, nothing is chosen for you), and hiding a declared wander unmarks it (Undo
   restores both). No counts are shown.
-- The **next** belongs to the activity's doing thread, else its first "to".
+- The **next** belongs to the activity's doing wander, else its first "to".
 
 ## Interaction
 - **Capture is sacred.** One line, Return logs, as typed. Nothing is required.
-- `@` opens up to 3 thread suggestions (prefix match, then recency). **Tap** (or **Tab** on web) picks. Return never picks or creates a thread; an unmatched `@word` stays plain text.
+- `@` opens up to 3 wander suggestions (prefix match, then recency). **Tap** (or **Tab** on web) picks. Return never picks or creates a wander; an unmatched `@word` stays plain text.
 - A "doing" can be *suggested* from words in the sentence (dashed chip) but is never applied silently.
-- The next-step **crumb** hangs under each thread card. Tapping it **loads** the text into the log box with the thread as doing — it doesn't complete anything. If you've already started a line, your words stay and a removable "↳ step" chip says the line counts as that step (D-6). Logging turns it into an activity and clears the next (only if the step hasn't changed since it was loaded).
-- After a log with **no thread**, Home asks once, quietly: "Toward something — or just itself?", with up to three recent threads, "+ name it" and "Just itself". A tap attaches; ignoring it writes nothing, and it's gone on the next log or when you leave Home.
-- After logging, the owning thread shows one quiet "+ What's next? (optional)" line. Ignoring it leaves no trace.
+- The next-step **crumb** hangs under each wander card. Tapping it **loads** the text into the log box with the wander as doing — it doesn't complete anything. If you've already started a line, your words stay and a removable "↳ step" chip says the line counts as that step (D-6). Logging turns it into an activity and clears the next (only if the step hasn't changed since it was loaded).
+- After a log with **no wander**, Home asks once, quietly: "Toward something — or just itself?", with up to three recent wanders, "+ name it" and "Just itself". A tap attaches; ignoring it writes nothing, and it's gone on the next log or when you leave Home.
+- After logging, the owning wander shows one quiet "+ What's next? (optional)" line. Ignoring it leaves no trace.
 - Toast: says what was logged where, one action (Undo), body opens details, ≥ 6 s, pauses while held, doesn't auto-dismiss under a screen reader.
 - Recency is neutral: "last touched 2d", an "Earlier" section after 21 days, warmth halves every 14 days, and the shading can be turned off.
-- Home opens with a compact live graph: declared whys head it (then earned ones, then the threads
-  beside them); your recent logs are dots with a line to each thread they name, the newest one
-  marked; doing → to links are lines. Below it, a plain **YOUR THREADS** list until value headers
-  are earned.
+- **The graph is Home** (P-34): declared whys head it (then earned ones, then the wanders beside
+  them); your recent logs are dots with a line to each wander they name, the newest one marked;
+  doing → to links are lines; a staged next step is one quiet line under its node. There's no
+  threshold: with no wanders your recent logs show as dots on their own, and while there are no whys
+  a gentle "+ What's it all for?" offers to name one ("Not now" hides it for good). Under the picture,
+  its summary in one line, then the whys and wanders as buttons (the way through without pointing,
+  and the whole layout at large text). The cards are the **Wanders** tab (a plain **YOUR WANDERS**
+  list until value headers are earned); the single-centre view is **Explore**.
 - Never: goals, streaks, % complete, timers, notifications.
 
 ## One copy at a time (web, P-29)

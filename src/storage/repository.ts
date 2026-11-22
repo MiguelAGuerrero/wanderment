@@ -120,6 +120,7 @@ export async function loadSettings(db: Db): Promise<Settings> {
     if (r.key === 'showShading') settings.showShading = r.value !== 'false';
     if (r.key === 'recentSearches') settings.recentSearches = stringList(r.value);
     if (r.key === 'leftAsIs') settings.leftAsIs = stringList(r.value);
+    if (r.key === 'whyOfferOff' && r.value === 'true') settings.whyOfferOff = true;
   }
   return settings;
 }
@@ -129,6 +130,8 @@ export async function saveSettings(db: Db, settings: Settings): Promise<void> {
     await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['showShading', String(settings.showShading)]);
     await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['recentSearches', JSON.stringify(settings.recentSearches)]);
     await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['leftAsIs', JSON.stringify(settings.leftAsIs)]);
+    // Additive (P-34): only ever turned on, so it's written once it is.
+    if (settings.whyOfferOff) await db.run('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', ['whyOfferOff', 'true']);
   });
 }
 

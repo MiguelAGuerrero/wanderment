@@ -37,7 +37,8 @@ async function home(browser: Browser, graph: boolean) {
   const swapped = graph ? () => 0 : await dropGraph(page);
   await page.addInitScript(seedScript, bigBlob(220, 4000));
   await page.goto('./');
-  await expect(page.getByRole('heading', { name: /THREADS|TO / }).first()).toBeVisible({ timeout: 20_000 });
+  // P-34: the list is on the Wanders tab; Home's heading shows once the data has loaded.
+  await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId('home-graph-picture')).toHaveCount(graph ? 1 : 0);
   expect(swapped()).toBe(graph ? 0 : 1);
   // The main thread's work from Return (before the app sees it) until the page is idle again: the

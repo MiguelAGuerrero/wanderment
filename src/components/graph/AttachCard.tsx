@@ -42,14 +42,14 @@ export function AttachCard({
     <View style={styles.card} accessibilityLabel="Attach mode">
       <View style={styles.head}>
         <Text style={s.meta}>
-          Without a thread · {ageLabel(activity.occurredAt)}
+          Without a wander · {ageLabel(activity.occurredAt)}
         </Text>
         <Pressable onPress={onDone} style={styles.small} accessibilityRole="button" accessibilityLabel="Done attaching">
           <Text style={{ color: C.accent, fontWeight: '600', fontSize: 15 }}>Done</Text>
         </Pressable>
       </View>
       <Text style={styles.text}>{activity.text}</Text>
-      <Text style={s.meta}>Tap a highlighted thread above, or:</Text>
+      <Text style={s.meta}>Tap a highlighted wander above, or:</Text>
       <View style={styles.chips}>
         {chips.map((id) => (
           <Pressable key={id} onPress={() => onAttach(id)} style={[s.chip, s.chipAccent]} accessibilityRole="button" accessibilityLabel={`→ to ${data.threads[id].name}: attach`}>

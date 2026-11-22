@@ -118,7 +118,7 @@ describe('search', () => {
     const groups = search(data, 'scales');
     expect(groups.map((g) => [g.title, g.hits.map((h) => `${h.kind}:${h.text}`)])).toEqual([
       ['play guitar', ['next:faster scales', 'activity:practiced scales']],
-      ['No thread', ['note:Played SCALES badly']],
+      ['No wander', ['note:Played SCALES badly']],
     ]);
     expect(search(data, 'scales practiced')[0].hits.map((h) => h.text)).toEqual(['practiced scales']);
     expect(search(data, '   ')).toEqual([]);

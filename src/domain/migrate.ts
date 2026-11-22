@@ -16,13 +16,13 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
   if (!d || typeof d !== 'object') throw new Error('The backup is missing its data.');
   if (d.version !== 1) throw new Error('That file isn’t a Wanderment backup.');
   if (!d.threads || typeof d.threads !== 'object' || !d.activities || typeof d.activities !== 'object') {
-    throw new Error('The backup is missing threads or activities.');
+    throw new Error('The backup is missing wanders or activities.');
   }
 
   const threads: Record<Id, Thread> = {};
   for (const [key, t] of Object.entries(d.threads as Record<string, Partial<Thread>>)) {
     if (!t || typeof t.name !== 'string' || !t.name.trim()) {
-      bad('A thread in the backup is malformed.');
+      bad('A wander in the backup is malformed.');
       continue;
     }
     const id = typeof t.id === 'string' && t.id ? t.id : key;
@@ -76,6 +76,8 @@ export interface Settings {
   recentSearches: string[];
   /** Unattached activities the person chose to leave as they are (attach mode won't ask again). */
   leftAsIs: Id[];
+  /** Home's "+ What's it all for?" was put off with "Not now": it never shows again (P-34). Absent until then. */
+  whyOfferOff?: true;
 }
 
 export const defaultSettings = (): Settings => ({ showShading: true, recentSearches: [], leftAsIs: [] });
@@ -83,7 +85,8 @@ export const defaultSettings = (): Settings => ({ showShading: true, recentSearc
 export const sameSettings = (a: Settings, b: Settings) =>
   a.showShading === b.showShading &&
   a.recentSearches.join('\n') === b.recentSearches.join('\n') &&
-  a.leftAsIs.join('\n') === b.leftAsIs.join('\n');
+  a.leftAsIs.join('\n') === b.leftAsIs.join('\n') &&
+  !!a.whyOfferOff === !!b.whyOfferOff;
 
 /**
  * Persisted format v1 → v2: reads the JSON blob the first release kept in AsyncStorage
@@ -91,7 +94,7 @@ export const sameSettings = (a: Settings, b: Settings) =>
  */
 export function parseLegacyState(json: string | null | undefined): { data: Data; settings: Settings } | undefined {
   if (!json) return undefined;
-  let parsed: { state?: { data?: unknown; showShading?: unknown; recentSearches?: unknown; leftAsIs?: unknown }; version?: number };
+  let parsed: { state?: { data?: unknown; showShading?: unknown; recentSearches?: unknown; leftAsIs?: unknown; whyOfferOff?: unknown }; version?: number };
   try {
     parsed = JSON.parse(json);
   } catch {
@@ -112,6 +115,7 @@ export function parseLegacyState(json: string | null | undefined): { data: Data;
       showShading: parsed.state.showShading !== false,
       recentSearches: strings(parsed.state.recentSearches),
       leftAsIs: strings(parsed.state.leftAsIs),
+      ...(parsed.state.whyOfferOff === true && { whyOfferOff: true as const }),
     },
   };
 }

@@ -31,7 +31,7 @@ export default function ThreadPage() {
   /** The thread that already has the typed name, when a rename was refused. */
   const [nameTaken, setNameTaken] = useState<{ name: string; hidden: boolean }>();
   const takenText = nameTaken
-    ? `Another thread is already called “${nameTaken.name}”.${nameTaken.hidden ? ' It’s hidden — you can unhide it in Settings.' : ''}`
+    ? `Another wander is already called “${nameTaken.name}”.${nameTaken.hidden ? ' It’s hidden — you can unhide it in Settings.' : ''}`
     : '';
   useEffect(() => {
     // Web announces through the live region below; iOS has no live regions, so say it.
@@ -68,7 +68,7 @@ export default function ThreadPage() {
     return (
       <Screen composer={false}>
         <Back />
-        <Text style={s.body}>This thread doesn’t exist anymore.</Text>
+        <Text style={s.body}>This wander doesn’t exist anymore.</Text>
       </Screen>
     );
   }
@@ -97,7 +97,7 @@ export default function ThreadPage() {
               if (e.nativeEvent.key === 'Escape') cancelRename();
             }}
             style={[s.h1, styles.field]}
-            accessibilityLabel="Thread name"
+            accessibilityLabel="Wander name"
             {...(Platform.OS === 'web' ? { 'aria-invalid': !!nameTaken, 'aria-describedby': nameTaken ? 'rename-taken' : undefined } : {})}
           />
           {/* Always mounted while renaming, so the refusal is announced when it appears. */}
@@ -191,6 +191,11 @@ export default function ThreadPage() {
           accessibilityRole="button">
           <Text style={s.chipText}>{thread.hidden ? 'Unhide' : 'Hide'}</Text>
         </Pressable>
+        {!thread.hidden && (
+          <Pressable onPress={() => router.push(`/explore?center=${encodeURIComponent(thread.id)}`)} style={s.chip} accessibilityRole="link">
+            <Text style={s.chipText}>Explore</Text>
+          </Pressable>
+        )}
       </View>
       {/* On its own row, so its label changing never moves it (or what's below) under a finger.
           A hidden thread can't be what it's for (unhide it first), and it waits while renaming so
@@ -232,7 +237,7 @@ export default function ThreadPage() {
         <View style={styles.pullInRow}>
           <Pressable onPress={() => router.push(`/pull-in/${thread.id}`)} style={styles.pullIn} accessibilityRole="button">
             <Text style={{ color: C.body, fontSize: 14 }}>
-              Some earlier activities without a thread mention this · <Text style={{ color: C.accent, fontWeight: '600' }}>Review</Text>
+              Some earlier activities without a wander mention this · <Text style={{ color: C.accent, fontWeight: '600' }}>Review</Text>
             </Text>
           </Pressable>
           <Pressable onPress={() => dismissPullIn(thread.id)} style={styles.pen} accessibilityRole="button" accessibilityLabel="Dismiss">

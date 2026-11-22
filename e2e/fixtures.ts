@@ -46,3 +46,9 @@ export async function openHome(page: Page) {
   await page.goto('./');
   await expect(logBox(page)).toBeVisible();
 }
+
+/** P-34: opens the Wanders tab (the list of cards that was Home before the graph) once data has loaded. */
+export async function openWanders(page: Page) {
+  await page.goto('./wanders');
+  await expect(logBox(page)).toBeVisible();
+}

@@ -149,7 +149,7 @@ export function GraphCanvas({
               highlight?.suggested.has(hood.center.id) && { backgroundColor: C.accentTint },
             ]}
             accessibilityRole="button"
-            accessibilityLabel={`${hood.center.name}, ${hood.steps} steps${hood.recentSteps ? `, ${hood.recentSteps} in the last two weeks` : ''}. ${highlight ? 'Attach here.' : 'Opens the thread.'}`}>
+            accessibilityLabel={`${hood.center.name}, ${hood.steps} steps${hood.recentSteps ? `, ${hood.recentSteps} in the last two weeks` : ''}. ${highlight ? 'Attach here.' : 'Opens the wander.'}`}>
             <Text style={styles.centerText} numberOfLines={3}>
               {hood.center.name}
             </Text>
