@@ -1416,6 +1416,15 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       setShowShading: { args: [false] },
       putOffWhy: { args: [] },
       endFirstRun: { args: [] },
+      // P-65: the trailhead's "Move it?" and its Undo change the data (the kept line is a1, loose).
+      moveKept: { args: [{ kind: 'toward', threadId: 't2' }], setup: (store) => store.setState({ kept: { activityId: 'a1', text: 'unattached' } }) },
+      undoKept: {
+        args: [],
+        setup: (store) => {
+          store.setState({ kept: { activityId: 'a1', text: 'unattached' } });
+          store.getState().moveKept({ kind: 'toward', threadId: 't2' });
+        },
+      },
     };
     /** The draft, and what's only on screen this session: these never change the data. */
     const NOT_DATA: Record<string, unknown[]> = {
@@ -1443,6 +1452,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       openSheet: ['activities'],
       closeSheet: [],
       showSheetSection: ['activities'],
+      // P-65: walking away from the trailhead's kept line (session only).
+      leaveKept: [],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>
