@@ -1,8 +1,9 @@
-import { Link, useIsFocused } from 'expo-router';
+import { Link } from 'expo-router';
 import { ComponentRef, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityActionEvent, AccessibilityInfo, Animated, PanResponder, PanResponderGestureState, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
+import { useShown } from '@/components/shown';
 import { Composer } from '@/components/Composer';
 import { useGraphNarrow } from '@/components/graph/HomeGraph';
 import { stepFocus, validScope } from '@/domain/focus';
@@ -87,7 +88,7 @@ export function HomeSlot({ bridge }: { bridge?: boolean }) {
       return !!to && to !== node;
     });
   }, [map, scope, node]);
-  const screenFocused = useIsFocused();
+  const screenFocused = useShown();
   const [{ pan, drag, swiped }] = useState(swipe);
   const nextTab = useRef<Focusable>(null);
   /** The page is taking the data back (P-29): the Log face says so over its box; What's next, over its card. */

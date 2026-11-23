@@ -1,7 +1,7 @@
 /** P-14: marking a thread as what it's for (a declared "why") from the thread page. */
 import { Page } from '@playwright/test';
 
-import { expect, openWanders, test } from './fixtures';
+import { expect, openSheet, openWanders, test } from './fixtures';
 import { seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -208,6 +208,7 @@ test('hiding a declared thread says so and unmarks it; Undo restores both', asyn
   await undo(page).click();
   await expect(page.getByRole('link', { name: 'practice drawing', exact: true })).toBeVisible();
   await page.reload();
+  await openSheet(page, 'Wanders'); // P-58: /wanders redirects to Home, so a reload lands there with the sheet away
   await page.getByRole('link', { name: 'practice drawing', exact: true }).click();
   await expect(undeclareBtn(page)).toBeVisible();
 

@@ -43,8 +43,9 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   threshold: with no wanders your recent logs show on their own as rows, a dot and its words, newest first (P-57), and while there are no whys
   a gentle "+ What's it all for?" offers to name one ("Not now" hides it for good). Under the picture,
   its summary in one line, then the whys and wanders as buttons (the way through without pointing,
-  and the whole layout at large text). The cards are the **Wanders** tab (a plain **YOUR WANDERS**
-  list until value headers are earned); the single-centre view is **Explore**.
+  and the whole layout at large text). There is no tab bar (owner, D-10): a handle at the bottom of Home pulls up one sheet with two
+  sections, **Wanders** (the cards; a plain **YOUR WANDERS** list until value headers are earned) and
+  **Activities**; drag down, Esc or Back puts it away. The single-centre view is **Explore**.
 - **Screens show actions and data, not explanations** (owner, 2026-11-22). What something means is
   carried by structure, position and a few marks; explanations live in an ⓘ sheet that never opens by
   itself. Safety warnings stay inline. Accessible names keep the full meaning.

@@ -18,6 +18,50 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle
+> This UI is very confusing, and the nodes are cropping with the text. There's too many prompts trying
+> to get my attention. There should be something … more intuitive where a node can have a quick
+> action button to just add it to something else. Also, the prompt "what feeds it, nothing yet" is
+> really distracting, since the focus is just seeing my declarations. … I just want a simple plus
+> button to add a log instead of the two tabs; the what's next could be displayed. And the log can
+> take the place of the search … if you're gonna type something you already did it can auto complete
+> with previous entries, or you can tap it on the graph … I'll clean my car and tap "clean my car" as
+> a way of pulsing that entire graph … reducing the clutter … the text is out of place and the icons
+> themselves are way too small.
+Answers (D-11):
+- **A round ＋ at the bottom right** raises the log field (autocompleting past entries; tapping a
+  node attaches). The What's next card is always shown; the toggle goes (replaces P-49's toggle).
+- **Node quick actions:** each node has a small ＋ sticking out of it (feel productive keeps its
+  own). Selecting a node pops up its quick actions (no permanent buttons). Replaces P-50's "a tap
+  attaches".
+- **Removed from Home:** the summary line, the button list under the graph, the "All" label (the
+  first-run card is kept until P-55).
+- **The pulse:** a glow travels up the path when you log; under Reduce Motion the circles just warm.
+- **Fixes:** labels overlapping circles; misplaced text; tiny icons.
+Planned items (after P-58 lands):
+- P-60: declutter + labels + icons;
+- P-61: ＋ to log, with autocomplete and tap-to-attach;
+- P-62: node ＋ and quick actions;
+- P-63: the pulse.
+Evidence: docs/product/evidence/2026-11-23-home-clutter.png.
+## 2026-11-23 7:27 — screenshot: logged "clean my car" (typed in Log), graph didn't change; toast + bridge both ask "Toward something — or just itself?"
+> I logged something and the graph didn't update, and in fact the pill itself is very un user-friendly.
+> (Which pill: "Logged towards something".)
+Diagnosis: the typed words didn't match/complete the staged step "Clean my car" (typed words never
+complete a step); the log was unattached, and unattached logs aren't drawn once wanders exist; the
+question appeared twice (toast + bridge).
+Decision (D-11, owner): **remove the "Toward something — or just itself?" bridge and the toast's
+question.** The target is chosen before logging (P-61's autocomplete offers matching staged steps and
+nodes, e.g. "Clean my car · feel productive": one tap attaches and completes; or tap a node). The
+toast is plain "Logged · Undo". DESIGN.md's bridge rule is removed when P-61 ships.
+Evidence: docs/product/evidence/2026-11-23-logged-toward-prompt.png.
+- Correction (owner): "No, I put in an entirely different activity." → the log was new and unattached;
+  with wanders present, unattached logs aren't drawn anywhere, so Home showed no sign of it.
+  Decision: **loose dots with words.** The last few unattached logs sit as small labelled dots in a
+  quiet strip below the graph (like P-57's rows), fading with age; tapping one attaches it to a node
+  (or opens it); a new one glows briefly as it lands. → P-64 (after P-60–P-63, or folded into P-60).
+
+
 ## 2026-11-22 — Logs with no context; pull-out views
 > [Screenshot: their Home with two logs and no wanders: two bare dots and "Lately: Watched an video
 > on AI acceptance; Worke…"] This view is very confusing with the truncated "lately" and the dots

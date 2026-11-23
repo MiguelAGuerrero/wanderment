@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, test } from './fixtures';
 
 async function waitForServiceWorkerControl(page: Page) {
   await page.waitForFunction(async () => {
@@ -44,7 +44,7 @@ test('works offline after the first visit, with data intact', async ({ page, con
   await context.setOffline(true);
   await page.reload();
   await expect(page.getByText('Wanderment', { exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('read on the train')).toBeVisible();
 
   // A deep link that was never visited also opens offline (navigation fallback).

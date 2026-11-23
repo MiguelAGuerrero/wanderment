@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, test } from './fixtures';
 
 async function makeThreads(page: Page, names: string[]) {
   for (const name of names) {
@@ -44,7 +44,7 @@ test('keyboard: ↑/↓ move through suggestions, Tab picks, Esc closes, Enter a
   await expect(first).toHaveCount(0);
   await logBox(page).press('Enter');
   await expect(page.getByText('Logged → to make apparel')).toBeVisible();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('sketched a logo for @make', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText('demo @make', { exact: true }).filter({ visible: true })).toBeVisible();
   await page.getByRole('tab', { name: 'No wander' }).click();
@@ -65,7 +65,7 @@ test('edit an activity’s text and threads, then delete it and undo', async ({ 
   await page.getByRole('textbox', { name: 'Note' }).fill('felt good');
   await page.getByRole('button', { name: 'Done' }).click();
 
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('went for a long run', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText('run more', { exact: true }).filter({ visible: true })).toHaveCount(1);
 
@@ -78,6 +78,7 @@ test('edit an activity’s text and threads, then delete it and undo', async ({ 
 
   // Edits are saved, not just shown.
   await page.reload();
+  await openSheet(page, 'Activities'); // P-58: /activities redirects to Home, so a reload lands there with the sheet away
   await page.getByText('went for a long run', { exact: true }).filter({ visible: true }).click();
   await expect(page.getByRole('textbox', { name: 'Note' })).toHaveValue('felt good');
 });

@@ -1,4 +1,4 @@
-import { expect, logBox, logLine, openHome, openWanders, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, openWanders, test } from './fixtures';
 
 test('first open shows the welcome and example chips that fill the log box', async ({ page }) => {
   await openHome(page);
@@ -33,7 +33,7 @@ test('an unpicked @word is saved as typed and never creates a thread', async ({ 
   await openHome(page);
   await logLine(page, 'leg day @gymm');
   await expect(page.getByText('Logged', { exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('leg day @gymm')).toBeVisible();
   await page.goto('./settings');
   await expect(page.getByText('1 activities · 0 wanders')).toBeVisible();
@@ -61,7 +61,7 @@ test('a next step loads into the log box and clears once logged', async ({ page 
   await logBox(page).press('Enter');
   await expect(crumb).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^play guitar\s*learned the F chord, mostly/ })).toBeVisible();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('learned the F chord, mostly', { exact: true }).filter({ visible: true })).toBeVisible();
 });
 
@@ -70,7 +70,7 @@ test('Undo in the toast removes the last activity', async ({ page }) => {
   await logLine(page, 'went for a run');
   await page.getByRole('button', { name: 'Undo' }).click();
   await expect(page.getByText('Log what you just did.')).toBeVisible();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('Nothing logged yet.')).toBeVisible();
 });
 

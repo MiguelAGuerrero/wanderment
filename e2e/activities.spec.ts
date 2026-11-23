@@ -1,4 +1,4 @@
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, test } from './fixtures';
 
 test('"No thread" filter and Attach…', async ({ page }) => {
   await openHome(page);
@@ -7,7 +7,7 @@ test('"No thread" filter and Attach…', async ({ page }) => {
   await logBox(page).press('Enter');
   await logLine(page, 'read a novel');
 
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await page.getByRole('tab', { name: 'No wander' }).click();
   await expect(page.getByText('read a novel')).toBeVisible();
   await expect(page.getByText('practiced scales', { exact: true }).filter({ visible: true })).toHaveCount(0);
@@ -24,7 +24,7 @@ test('data survives a reload', async ({ page }) => {
   await logLine(page, 'watered the plants');
   await expect(page.getByText('Logged', { exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('watered the plants')).toBeVisible();
 });
 

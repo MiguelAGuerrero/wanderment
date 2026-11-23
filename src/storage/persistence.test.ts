@@ -1439,6 +1439,10 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       scopeUp: [],
       setFocusMap: [undefined],
       askAddStep: ['t1'],
+      // P-58: Home's sheet, out or away, and its section (session only).
+      openSheet: ['activities'],
+      closeSheet: [],
+      showSheetSection: ['activities'],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>

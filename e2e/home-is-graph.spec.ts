@@ -2,7 +2,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -258,7 +258,7 @@ test('Explore opens the old graph view (with its List view), from Home and from 
 test('the Wanders tab shows the list that was Home: headers, cards and crumbs, “+ New wander”', async ({ page }) => {
   await page.addInitScript(seedScript, withWhy());
   await openHome(page);
-  await page.getByRole('tab', { name: 'Wanders' }).click();
+  await openSheet(page, 'Wanders'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByRole('heading', { name: 'Wanders', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'YOUR WANDERS' })).toBeVisible();
   await expect(page.getByRole('button', { name: /^draw\s*sketch/ })).toBeVisible();
@@ -323,10 +323,10 @@ test('P-37: no screen says “thread” — in what’s shown or in accessible n
   await expect(page.getByRole('listbox')).toBeVisible();
   await check('Home, @ suggestions');
   await logBox(page).fill('');
-  await page.getByRole('tab', { name: 'Wanders' }).click();
+  await openSheet(page, 'Wanders'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByRole('heading', { name: 'YOUR WANDERS' })).toBeVisible();
   await check('Wanders');
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await page.getByRole('tab', { name: 'No wander' }).click();
   await check('Activities');
   await page.goto('./explore');

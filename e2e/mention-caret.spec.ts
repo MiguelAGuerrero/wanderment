@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, openHome, openWanders, test } from './fixtures';
+import { expect, logBox, openHome, openSheet, openWanders, test } from './fixtures';
 
 async function makeThreads(page: Page, names: string[]) {
   for (const name of names) {
@@ -49,7 +49,7 @@ test('@ in the middle of a sentence: suggestions for the word at the caret, pick
 
   await logBox(page).press('Enter');
   await expect(page.getByText('Logged → to make apparel')).toBeVisible();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('sketched and then more', { exact: true }).filter({ visible: true })).toBeVisible();
 });
 
@@ -78,7 +78,7 @@ test('Return with the menu open mid-sentence logs the text as typed and picks or
   await logBox(page).press('Enter');
   await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(logBox(page)).toHaveValue('');
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await page.getByRole('tab', { name: 'No wander' }).click();
   await expect(page.getByText('sketched @make and then more', { exact: true }).filter({ visible: true })).toBeVisible();
   await page.goto('./settings');

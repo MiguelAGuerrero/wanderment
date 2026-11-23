@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, openWanders, test, toHome } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, openWanders, test, toHome } from './fixtures';
 
 const visibleText = (page: Page, text: string) => page.getByText(text, { exact: true }).filter({ visible: true });
 
@@ -24,7 +24,7 @@ test('name a new thread and pull in past activities in bulk; one Undo reverts al
   await page.getByRole('button', { name: 'Attach 2' }).click();
 
   await expect(visibleText(page, 'Pulled 2 activities into practice drawing')).toBeVisible();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await page.getByRole('tab', { name: 'No wander' }).click();
   await expect(visibleText(page, 'went to the gym')).toBeVisible();
   await expect(visibleText(page, 'sketched gestures for drawing')).toHaveCount(0);

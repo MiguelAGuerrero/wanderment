@@ -34,8 +34,8 @@ export { expect };
 
 const LOG_BOX = 'What did you just do?';
 
-// Visible only: tabs stay mounted, so right after a tab switch the other tab's (hidden) log box can
-// still match first.
+// Visible only: the sheet's sections stay mounted (P-58), so right after a switch the other one's
+// (hidden) log box can still match first.
 const visibleLogBox = (page: Page) => page.getByRole('textbox', { name: LOG_BOX }).filter({ visible: true });
 
 /** P-49: Home's own log box, shown (the Log face) or not. */
@@ -116,17 +116,36 @@ export async function openHome(page: Page) {
   await expect(visibleLogBox(page).or(slotTab(page, 'Log')).first()).toBeVisible();
 }
 
-/** P-34: opens the Wanders tab (the list of cards that was Home before the graph) once data has loaded. */
+/** P-58: the sheet pulled up from Home's handle (Wanders | Activities). */
+const sheet = (page: Page) => page.getByRole('dialog', { name: 'Wanders and activities', exact: true });
+
+/**
+ * P-58: opens Home's sheet on a section (Wanders or Activities, which were tabs) — from the handle
+ * when it's away, with its tab when it's out — and waits until it's out and at rest (Home's slot out
+ * of sight under it).
+ */
+export async function openSheet(page: Page, section: 'Wanders' | 'Activities') {
+  const tab = sheet(page).getByRole('tab', { name: section, exact: true });
+  await expect(sheet(page).or(page.getByRole('button', { name: 'Wanders and activities', exact: true })).first()).toBeVisible();
+  if (!(await sheet(page).isVisible())) await page.getByRole('button', { name: 'Wanders and activities', exact: true }).click();
+  await expect(tab).toBeVisible();
+  if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click();
+  await expect(tab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('home-slot')).toBeHidden();
+}
+
+/** P-34/P-58: opens the Wanders list (the cards that were Home before the graph) once data has loaded: /wanders opens Home's sheet on it. */
 export async function openWanders(page: Page) {
   await page.goto('./wanders');
+  await expect(sheet(page).getByRole('tab', { name: 'Wanders', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(logBox(page)).toBeVisible();
 }
 
-/** Switches to the Home tab and waits until the previous tab's screen (and its log box) is gone. */
+/** Back to Home (P-58: puts its sheet away, as the Home tab did) and waits until the sheet's screen (and its log box) is gone. */
 export async function toHome(page: Page) {
-  await page.getByRole('tab', { name: 'Home' }).click();
+  if (await sheet(page).isVisible()) await sheet(page).getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Wanderment', level: 1 }).filter({ visible: true })).toBeVisible();
-  // P-49: Home's own box is in its slot (shown or not); every other tab's box is gone.
+  // P-49: Home's own box is in its slot (shown or not); every other box is gone.
   await expect(slotTab(page, 'Log')).toBeVisible();
   await expect(page.locator(`input[aria-label="${LOG_BOX}"]:not([data-testid="home-slot"] *)`).filter({ visible: true })).toHaveCount(0);
 }

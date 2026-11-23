@@ -1,7 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, openWanders, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, openWanders, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 /** Fails on serious or critical axe violations, printing what and where. */
@@ -34,17 +34,17 @@ test('Home, Activities, thread page and details have no serious accessibility vi
   await seed(page);
   await expectNoSeriousViolations(page);
 
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByRole('tab', { name: 'No wander' })).toBeVisible();
   await expectNoSeriousViolations(page);
 
-  await page.getByRole('tab', { name: 'Wanders' }).click();
+  await openSheet(page, 'Wanders'); // P-58: a section of Home's sheet (was a tab)
   await page.getByRole('button', { name: /^play guitar\s*\S/ }).click();
   await expect(page.getByText('You left off')).toBeVisible();
   await expectNoSeriousViolations(page);
 
   await page.goto('./');
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await page.getByText('read a novel').filter({ visible: true }).click();
   await expect(page.getByRole('textbox', { name: 'What you did' })).toBeVisible();
   await expectNoSeriousViolations(page);

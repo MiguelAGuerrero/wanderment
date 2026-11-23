@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, openWanders, test, toHome } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, openWanders, test, toHome } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const COPY = 'Logged. Toward something — or just itself?';
@@ -21,7 +21,7 @@ async function counts(page: Page, text: string) {
 }
 
 async function underNoThread(page: Page, text: string) {
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await page.getByRole('tab', { name: 'No wander' }).click();
   await expect(page.getByText(text, { exact: true }).filter({ visible: true })).toBeVisible();
 }
@@ -147,12 +147,12 @@ test('leaving Home clears the bridge; a log from Activities neither shows nor an
   await logLine(page, 'read a novel');
   await expect(bridge(page)).toBeVisible();
 
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await toHome(page);
   await expect(logBox(page)).toBeVisible();
   await expect(bridge(page)).toHaveCount(0);
 
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByRole('tab', { name: 'No wander' })).toBeVisible();
   await logLine(page, 'watered the plants');
   await expect(page.getByText('watered the plants', { exact: true }).filter({ visible: true })).toBeVisible();

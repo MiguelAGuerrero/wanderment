@@ -1,6 +1,6 @@
 import { ComponentRef, ReactNode, useEffect, useRef } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Edge, SafeAreaView } from 'react-native-safe-area-context';
 
 import { Id } from '@/domain/types';
 import { C, s } from '@/theme';
@@ -24,6 +24,9 @@ export function Screen({
   scrollToTopOn,
   aboveLog,
   slot,
+  below,
+  bottomHidden,
+  edges = ['top'],
 }: {
   children: ReactNode;
   composer?: boolean;
@@ -39,18 +42,25 @@ export function Screen({
   aboveLog?: ReactNode;
   /** Home (P-49): the log box is one face of a slot with "What's next" (HomeSlot). */
   slot?: boolean;
+  /** Under the log box (Home, P-58: the sheet's handle). */
+  below?: ReactNode;
+  /** The bottom (toast, log box) isn't drawn, only `below` (Home, P-58: under the sheet, which has its own). */
+  bottomHidden?: boolean;
+  /** Safe-area edges (P-58: Home's sheet sits under the top inset, so its sections take the bottom one). */
+  edges?: Edge[];
 }) {
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   useEffect(() => {
     if (scrollToTopOn) scroller.current?.scrollTo({ y: 0, animated: false });
   }, [scrollToTopOn]);
   return (
-    <SafeAreaView style={s.screen} edges={['top']}>
+    <SafeAreaView style={s.screen} edges={edges}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView ref={scroller} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
           {children}
         </ScrollView>
-        {(composer || footer) && (
+        {bottomHidden && below}
+        {(composer || footer) && !bottomHidden && (
           <View style={styles.bottom}>
             <View style={styles.toastSlot} pointerEvents="box-none">
               <Toast />
@@ -62,6 +72,7 @@ export function Screen({
                 {slot ? <HomeSlot bridge={bridge} /> : <Composer presetDoingId={presetDoingId} placeholder={placeholder} bridge={bridge} />}
               </>
             )}
+            {below}
           </View>
         )}
       </KeyboardAvoidingView>

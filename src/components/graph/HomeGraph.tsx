@@ -1,10 +1,11 @@
-import { Link, router, useIsFocused } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { memo, ReactNode, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Svg, { Defs, Line, LinearGradient, Path, Polygon, Stop } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
 import { goUp, useReduceMotion } from '@/components/graph/scopeNav';
+import { useShown } from '@/components/shown';
 import { FocusMap, scopeIds, STEP_ADD_R, STEP_DOT_R, stepMark, validScope } from '@/domain/focus';
 import { heatFill, heatInk, heatLabel } from '@/domain/heat';
 import { BIG_TEXT, LABEL_FONT, LABEL_LINE, LaidDot, LaidDotLine, LaidLink, LaidNode, looseOverview, NARROW_W, overview, Overview, overviewLayout, OverviewLayout, pictureItems, scopeLayout } from '@/domain/overview';
@@ -161,11 +162,11 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
   const { width: windowWidth, fontScale } = useWindowDimensions();
   const narrow = useGraphNarrow();
   const icon = useGraphIcon();
-  // Home stays mounted behind the other tabs: its words (which name your logs) are only there while it's shown.
-  const focused = useIsFocused();
+  // Home stays mounted behind its sheet and other screens (P-58): its words (which name your logs) are only there while it's shown.
+  const focused = useShown();
   const [measured, setMeasured] = useState<number>();
   const width = measured ?? homeContentWidth(windowWidth);
-  // A hidden tab measures 0 wide: keep the last width (and the picture) for when Home is back.
+  // A hidden screen measures 0 wide: keep the last width (and the picture) for when Home is back.
   const onLayout = (e: LayoutChangeEvent) => e.nativeEvent.layout.width > 0 && setMeasured(e.nativeEvent.layout.width);
   // Laid out again only when something changes, from where things were last time (kept while Home
   // is mounted, never stored): React's "adjust state while rendering" pattern.

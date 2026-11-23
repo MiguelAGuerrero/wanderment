@@ -1,6 +1,6 @@
 import { Page } from '@playwright/test';
 
-import { expect, logBox, test } from './fixtures';
+import { expect, logBox, openSheet, test } from './fixtures';
 import { bigBlob, seedScript } from './graphFixture';
 
 /** Time from Return to the toast, with a large history (220 threads, 4000 activities). */
@@ -19,7 +19,7 @@ test('logging stays quick on Home and Activities with a large history', async ({
   // P-34: the list is on the Wanders tab; Home's heading shows once the data has loaded.
   await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible({ timeout: 20_000 });
   const home = await timedLog(page, 'home log');
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByRole('button', { name: /Show 100 more/ })).toBeVisible({ timeout: 10_000 });
   await page.getByText('Logged', { exact: true }).filter({ visible: true }).waitFor({ state: 'hidden', timeout: 10_000 });
   const activities = await timedLog(page, 'activities log');

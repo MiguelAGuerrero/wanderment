@@ -77,7 +77,12 @@ function Bridge({ activityId, style }: { activityId: Id; style?: object }) {
             // react-native-web ignores submitBehavior and blurs on Enter (which would cancel a blank name).
             blurOnSubmit={false}
             onBlur={() => !name.trim() && setNaming(false)}
-            onKeyPress={(e) => Platform.OS === 'web' && e.nativeEvent.key === 'Escape' && cancelName()}
+            onKeyPress={(e) => {
+              if (Platform.OS !== 'web' || e.nativeEvent.key !== 'Escape') return;
+              // Only the field (P-58: the sheet it's in stays out).
+              e.preventDefault();
+              cancelName();
+            }}
             returnKeyType="done"
             style={styles.input}
             accessibilityLabel="Name the wander it was toward"

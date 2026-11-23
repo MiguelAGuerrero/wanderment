@@ -24,6 +24,7 @@ import { canNarrow, FocusMap, stepFocus, validScope } from '@/domain/focus';
 import { Settings } from '@/domain/migrate';
 import { rememberSearch } from '@/domain/search';
 import { Selection, selectToward, unselect } from '@/domain/select';
+import { SheetSection } from '@/domain/sheet';
 import { cardLabel, HomeFace, restingFace, whatsNextNode } from '@/domain/slot';
 import { lastActivities } from '@/domain/selectors';
 import { Data, emptyData, Id } from '@/domain/types';
@@ -130,6 +131,8 @@ interface State {
   addStepFor?: Id;
   /** The last focus or scope change, said politely to screen readers (P-50). */
   focusSaid: { text: string; n: number };
+  /** The sheet pulled up from Home's handle (P-58): whether it's out, and the section it shows (kept for the session). */
+  sheet: { open: boolean; section: SheetSection };
   /** Activity Home's bridge asks about ("Toward something — or just itself?"). Session only. */
   bridgeFor?: Id;
   /** Thread that shows the quiet "+ What's next? (optional)" line after a log. */
@@ -175,6 +178,11 @@ interface State {
   moveFocus: (dir: 1 | -1) => boolean;
   /** Up one scope level (P-50): the chip, Esc, Back. */
   scopeUp: () => void;
+  /** Pulls Home's sheet out (P-58), on the given section or the one it showed last. */
+  openSheet: (section?: SheetSection) => void;
+  /** Puts Home's sheet away; it remembers its section. */
+  closeSheet: () => void;
+  showSheetSection: (section: SheetSection) => void;
   setFocusMap: (map: FocusMap | undefined) => void;
   /** The picture's dashed ＋ under a node with no step: the What's next card opens its "＋ add one" (`undefined`: taken). */
   askAddStep: (threadId: Id | undefined) => void;
@@ -283,6 +291,7 @@ export const useStore = create<State>()((set, get) => ({
   selectFocus: 0,
   homeFace: 'log',
   scope: [],
+  sheet: { open: false, section: 'wanders' },
   focusSaid: { text: '', n: 0 },
   showShading: true,
   toastHeld: false,
@@ -357,6 +366,10 @@ export const useStore = create<State>()((set, get) => ({
       const name = up.length ? s.data.threads[up[up.length - 1]]?.name : undefined;
       return { scope: up, focusSaid: { text: name ? `Showing ${name}` : 'Showing all', n: s.focusSaid.n + 1 } };
     }),
+
+  openSheet: (section) => set((s) => ({ sheet: { open: true, section: section ?? s.sheet.section } })),
+  closeSheet: () => set((s) => (s.sheet.open ? { sheet: { ...s.sheet, open: false } } : {})),
+  showSheetSection: (section) => set((s) => (s.sheet.section === section ? {} : { sheet: { ...s.sheet, section } })),
 
   setFocusMap: (map) => set({ focusMap: map }),
   askAddStep: (threadId) => set(threadId ? { focus: threadId, homeFace: 'next', addStepFor: threadId } : { addStepFor: undefined }),

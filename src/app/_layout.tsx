@@ -57,7 +57,10 @@ export default function RootLayout() {
       <View ref={app} style={styles.app} pointerEvents={over ? 'none' : 'auto'} importantForAccessibility={over ? 'no-hide-descendants' : 'auto'}>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
-          <Stack.Screen name="(tabs)" />
+          {/* Home is the only top-level screen (P-58): its sheet holds Wanders and Activities. */}
+          <Stack.Screen name="index" />
+          <Stack.Screen name="wanders" />
+          <Stack.Screen name="activities" />
           <Stack.Screen name="thread/[id]" />
           <Stack.Screen name="activity/[id]" options={{ presentation: 'modal' }} />
           <Stack.Screen name="settings" />

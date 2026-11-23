@@ -1,7 +1,7 @@
-import { useIsFocused } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { useShown } from '@/components/shown';
 import { caretAfterEdit, mentionAt, mentionEnd, replaceActiveMention, suggestDoing, suggestThreads } from '@/domain/compose';
 import { findThreadByName } from '@/domain/model';
 import { Id } from '@/domain/types';
@@ -46,7 +46,7 @@ export function Composer({
   const logBoxFocus = useStore((st) => st.logBoxFocus);
   const selected = useStore((st) => st.selected?.id);
   const select = useStore((st) => st.select);
-  const screenFocused = useIsFocused();
+  const screenFocused = useShown();
   const inputRef = useRef<ComponentRef<typeof TextInput>>(null);
   /** Highlighted suggestion, remembered per query so a new query starts at the top. */
   const [active, setActive] = useState<{ query?: string; index: number }>({ index: 0 });

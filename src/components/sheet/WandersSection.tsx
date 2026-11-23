@@ -1,9 +1,10 @@
-import { Link, router, useFocusEffect } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
+import { useShown, useWhileShown } from '@/components/shown';
 import { ThreadCard } from '@/components/ThreadCard';
 import { candidatesForThread, groupByValue, valueHeader, valueThreads, whyValue } from '@/domain/emergence';
 import { findThreadByName } from '@/domain/model';
@@ -13,17 +14,20 @@ import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
 /**
- * The Wanders tab (P-34): what Home was before the graph became Home — your wanders as cards with
- * their crumbs, under "TO …" headers once a value has emerged, and the bridge after a plain log.
+ * The Wanders section of Home's sheet (P-58; the Wanders tab of P-34): what Home was before the graph
+ * became Home — your wanders as cards with their crumbs, under "TO …" headers once a value has
+ * emerged, and the bridge after a plain log.
  */
-export default function Wanders() {
+export function WandersSection() {
   // Brings the bridge into view when it appears, even if the list was scrolled.
   const bridgeFor = useStore((st) => st.bridgeFor);
   const data = useStore((st) => st.data);
   const dismissBridge = useStore((st) => st.dismissBridge);
-  // The bridge is one moment where you logged: it goes when the tab is left. Tabs stay mounted, so
-  // this runs on blur, and on focus too (in case anything set it while it was in the background).
-  useFocusEffect(
+  // The bridge is one moment where you logged: it goes when the section is left. The section stays
+  // mounted, so this runs when it's hidden, and when it's shown too (in case anything set it while
+  // it was in the background).
+  useWhileShown(
+    useShown(),
     useCallback(() => {
       dismissBridge();
       return dismissBridge;
@@ -49,7 +53,7 @@ export default function Wanders() {
   );
 
   return (
-    <Screen bridge scrollToTopOn={bridgeFor}>
+    <Screen bridge scrollToTopOn={bridgeFor} edges={['bottom']}>
       <Text style={s.h1} accessibilityRole="header">
         Wanders
       </Text>
@@ -86,7 +90,7 @@ export default function Wanders() {
         const sum = byId.get(id);
         return sum ? <ThreadCard key={id} summary={sum} /> : null;
       })}
-      {current.length === 0 && <Text style={s.meta}>Nothing attached to a wander yet — that’s fine. Your activities are in the Activities tab.</Text>}
+      {current.length === 0 && <Text style={s.meta}>Nothing attached to a wander yet — that’s fine. Your activities are under Activities.</Text>}
       {groups.length > 0 && rest.length === 0 && (
         <View style={[styles.labelRow, { justifyContent: 'flex-end' }]}>
           <NewThread />

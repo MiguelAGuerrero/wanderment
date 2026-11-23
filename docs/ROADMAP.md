@@ -37,25 +37,59 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-58 Wanders and Activities pull out from Home `[feature]` `[a11y]` M
-*Status:* todo
-*Why:* owner, 2026-11-22 (D-10): "make activities and wanders just pull out views from the home
-page." One sheet from the bottom; the tab bar goes.
-*Done when:*
-- The tab bar is removed; Home is the only screen.
-- A handle at the bottom (drag or swipe up, or tap) pulls up one sheet with two sections, Wanders |
-  Activities (today's lists); drag down, Esc or Back puts it away.
-- Deep links to /wanders and /activities open Home with the sheet on that section.
-- The What's next / Log slot sits at the bottom.
-- Screen readers get the handle as a button with the sheet as a dialog; 44 pt targets.
-- DESIGN.md's tab wording updated; e2e navigation helpers updated.
-
 ### P-59 Step marks never cover a label `[ux]` S
 *Status:* todo
 *Why:* P-50 screenshots: the focused node's step dot or dashed ＋ can sit over a neighbour's label in
 the three-column layout (sew's ＋ beside "feel productive").
 *Done when:* the step mark picks a free side (or sits under its node) so it never overlaps any label
 or circle at 350–600 px; unit test on the layout.
+
+### P-60 A calmer Home: fewer prompts, readable nodes, loose logs `[feature]` `[ux]` `[a11y]` M
+*Status:* todo
+*Why:* owner, 2026-11-23 (D-11; screenshots in docs/product/evidence/2026-11-23-*): "too many prompts
+… nodes are cropping with the text … icons way too small"; a new unattached log left no trace on
+Home.
+*Done when:*
+- Home no longer shows the summary line, the button list under the graph (screen readers reach nodes
+  as buttons in the picture and through the sheet) or the "All" label (only "‹ All · <node>" when
+  narrowed).
+- Labels never overlap a circle or its ring.
+- Header icons are 24 pt glyphs with 44 pt targets.
+- With wanders present, the last few unattached logs sit as labelled dots in a quiet strip below the
+  graph, fading with age; tapping one attaches it (or opens it); a new one glows briefly.
+- e2e at 390 px and 200 %.
+
+### P-61 ＋ to log: autocomplete and attach before logging `[feature]` `[capture]` M
+*Status:* todo
+*Why:* owner, 2026-11-23 (D-11): "a simple plus button to add a log instead of the two tabs … if
+you're gonna type something you already did it can auto complete … or you can tap it on the graph";
+remove "Toward something — or just itself?".
+*Done when:*
+- The What's next / Log toggle goes: the What's next card is always shown, with a round ＋ at the
+  bottom right that raises the log field (with the keyboard).
+- As you type, matching staged steps, past entries and nodes are suggested ("Clean my car · feel
+  productive"); one tap fills and attaches, and completes a matching step; tapping a node while the
+  field is open attaches it.
+- The bridge question and the toast's question are removed; the toast is "Logged · Undo".
+- DESIGN.md's capture and bridge rules are updated.
+
+### P-62 Quick actions on a node `[feature]` `[a11y]` M
+*Status:* todo
+*Why:* owner, 2026-11-23 (D-11): "a node can have a quick action … a plus sticking out of it …
+selecting a node will pop up quick actions."
+*Done when:*
+- Each node shows a small ＋ nub.
+- Selecting a node pops up its actions beside it: log toward it, ＋ under it, add a step, move it
+  under another node, open.
+- Tapping outside closes them.
+- Screen readers get the same actions; 44 pt targets.
+
+### P-63 A log pulses its path `[feature]` `[a11y]` S
+*Status:* todo
+*Why:* owner, 2026-11-23 (D-11): "tap clean my car as a way of pulsing that entire graph."
+*Done when:* after a log toward a node, a brief glow travels from it up its branches to the top
+(about a second, once), and the circles warm; under Reduce Motion they just warm; perf within
+budget.
 
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
@@ -383,6 +417,12 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 - **D-10 Wanders and Activities as pull-outs** — **answered 2026-11-22 by the owner:** one sheet
   from the bottom (Wanders | Activities), the tab bar removed; logs-only Home shows each log's words.
   → P-57, P-58.
+- **D-11 A calmer Home: ＋ to log, quick actions, pulse** — **answered 2026-11-23 by the owner:** a
+  round ＋ replaces the What's next / Log toggle (What's next always shown); the log field
+  autocompletes past entries and staged steps, and tapping a node attaches; the "Toward something?"
+  question is removed; each node has a ＋ and selecting it pops quick actions; a log pulses its
+  path; the summary line, button list and "All" go; unattached logs show as loose labelled dots.
+  → P-60 to P-63 (supersede P-49's toggle and P-50's "a tap attaches").
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
@@ -411,6 +451,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-23 · P-58 — Wanders and Activities pull out from Home (D-10): no tab bar; a "Wanders and activities" handle under the slot pulls up one sheet (Wanders | Activities, each with its own log box), drag down / scrim / Close / Esc / Back to put it away; returning from a page keeps it open; /wanders and /activities redirect to it; DESIGN.md updated · evidence: `e2e/home-sheet.spec.ts` (11), `sheet.test.ts` ×2, 38 tab clicks → `openSheet` (P-58 notes); perf 1.14× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-22 · P-57 — logs show their words (owner's screenshot): with no wanders, Home's recent logs are rows, a heat-coloured dot and the log's words (cut short with "…", full text in the name), newest first, each opening its log; no cut-off "Lately" line in that state (the list is named by it for screen readers) · evidence: `overview-home.test.ts` (+4), e2e P-57 tests (4: the owner's two logs at 390 px, long text, 200 %, shading off) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · this commit
 - 2026-11-22 · P-50 — tap to focus, swipe to move, tap to narrow (B-06 slice 3, D-9): one ink ring marks focus, only the focused node's step is drawn (dot or dashed ＋), a tap also attaches the next log (visible chip, one log); swiping the card (or ‹ ›, arrow keys, screen-reader actions) moves focus between chains without attaching or zooming; tapping a focused parent narrows to its subtree with "‹ All · <node>", Esc/Back to go up; focus persists after a log; the "Toward X" row removed; DESIGN.md updated (D-9) · evidence: `focus.test.ts`, store `focus.test.ts`, `e2e/home-focus.spec.ts` (10), act-from-node rewritten; perf 1.12–1.19× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-22 · P-56 + CI fix — CI red since P-48: the build job's overview time test read the wall clock for heat (fixed in 9906c09, which also unblocked P-49's deploy); two e2e flakes were real app bugs: the first-run step mounted twice for a moment as the picture caught up, wiping anything typed (HomeGraph now renders the step/offer in one fixed place), and on web a stray blur after Return could send the next line nowhere (`blurOnSubmit={false}` on the log field) · evidence: new tests in `e2e/first-run.spec.ts` and `e2e/capture.spec.ts` (each failed 5/5 before), the two flaky specs 360/360 repeats under load, verify --full · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Fix lane, Light) · this commit

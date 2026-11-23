@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { expect, logBox, logLine, openHome, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, test } from './fixtures';
 
 const legacy = readFileSync(join(__dirname, '../src/storage/fixtures/legacy-v1.json'), 'utf8');
 
@@ -61,7 +61,7 @@ test('a second tab waits instead of showing stale data', async ({ page, context 
   // P-29: it opens by itself once the other tab is gone — no Reload.
   await page.close();
   await expect(logBox(second)).toBeVisible();
-  await second.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(second, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(second.getByText('first tab')).toBeVisible();
   expect(secondErrors).toEqual([]);
 });
@@ -101,7 +101,7 @@ test('a page whose files another copy holds without the tab lock (a suspended We
 
   await page.close();
   await expect(logBox(second)).toBeVisible({ timeout: 15_000 });
-  await second.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(second, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(second.getByText('from the holder')).toBeVisible();
 });
 

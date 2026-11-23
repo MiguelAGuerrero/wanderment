@@ -9,7 +9,8 @@ import { Activity, Data, Id } from '@/domain/types';
 import { recentThreadOrder, useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
-export default function Activities() {
+/** The Activities section of Home's sheet (P-58; the Activities tab before): everything logged, newest first. */
+export function ActivitiesSection() {
   const data = useStore((st) => st.data);
   const [onlyLoose, setOnlyLoose] = useState(false);
   /** Long histories render in pages, so logging stays instant with thousands of entries. */
@@ -20,7 +21,7 @@ export default function Activities() {
   const recent = useMemo(() => [...new Set([...recentThreadOrder(data), ...Object.keys(data.threads)])].slice(0, 8), [data]);
 
   return (
-    <Screen>
+    <Screen edges={['bottom']}>
       <Text style={s.h1}>Activities</Text>
       <View style={{ flexDirection: 'row', gap: 8 }} accessibilityRole="tablist">
         {[

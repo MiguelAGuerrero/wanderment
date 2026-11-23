@@ -1,7 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test, toHome } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, test, toHome } from './fixtures';
 
 /**
  * P-29 part B: a page holds the data only while it's visible. Headless Chromium keeps every page
@@ -21,7 +21,7 @@ const logButton = (page: Page) => page.getByRole('button', { name: 'Log', exact:
 const reconnecting = (page: Page) => page.getByRole('button', { name: 'Log, reconnecting', exact: true });
 
 async function seeActivity(page: Page, text: string) {
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText(text, { exact: true })).toBeVisible();
   await toHome(page);
 }
@@ -157,7 +157,7 @@ test('update reloads with another page in the background never lock the page out
   expect(await page.evaluate(() => sessionStorage.getItem('sawWaiting'))).toBeNull();
   // Each update reload let go of the data first (and waited for it), rather than racing its own files.
   expect(await second.evaluate(() => (window as unknown as { releases?: number }).releases)).toBe(3);
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   for (let i = 1; i <= 3; i++) await expect(page.getByText(`before update ${i}`, { exact: true })).toBeVisible();
 });
 
@@ -202,7 +202,7 @@ test('the audit’s F1 with two real pages: the page that doesn’t hold the dat
   await expect(anotherTab(page)).toBeVisible({ timeout: 20_000 });
   await setVisibility(b, 'hidden');
   await expect(logBox(page)).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   for (const text of ['alpha', 'beta']) await expect(page.getByText(text, { exact: true }).filter({ visible: true })).toHaveCount(1);
 });
 
@@ -232,7 +232,7 @@ test('a save that keeps failing, then a tab switch and back: nothing vanishes, a
   await expect(logButton(page)).toBeVisible({ timeout: 15_000 });
   // Still on screen, and still saying it isn't saved.
   await expect(page.getByText(/couldn’t be (saved|restored)/)).toBeVisible();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   for (const text of ['alpha', 'unsaved']) await expect(page.getByText(text, { exact: true }).filter({ visible: true })).toHaveCount(1);
 
   // Saving works again: the next change carries it, and it survives a reload.
@@ -242,7 +242,7 @@ test('a save that keeps failing, then a tab switch and back: nothing vanishes, a
   await box.press('Enter');
   await expect(page.getByText(/couldn’t be (saved|restored)/)).toHaveCount(0);
   await page.reload();
-  await page.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   for (const text of ['alpha', 'unsaved', 'later']) await expect(page.getByText(text, { exact: true }).filter({ visible: true })).toHaveCount(1, { timeout: 15_000 });
 });
 
@@ -259,7 +259,7 @@ test('the activity sheet shows what another page changed once it takes the data 
   await handTo(page, b);
 
   // B edits the same activity.
-  await b.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(b, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await b.getByText('alpha', { exact: true }).filter({ visible: true }).click();
   await expect(b.getByRole('textbox', { name: 'Note' })).toHaveValue('from A');
   await b.getByRole('textbox', { name: 'Note' }).fill('from B');
@@ -294,7 +294,7 @@ test('a note ending in a space (as phone keyboards leave it) still shows another
   await note.fill('went well ');
   const b = await context.newPage();
   await handTo(page, b);
-  await b.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(b, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await b.getByText('alpha', { exact: true }).filter({ visible: true }).click();
   await expect(b.getByRole('textbox', { name: 'Note' })).toHaveValue('went well');
   await b.getByRole('textbox', { name: 'Note' }).fill('B wrote a long careful note');
@@ -321,7 +321,7 @@ test('a title emptied in one page doesn’t put back its old text over another p
   await title.fill('');
   const b = await context.newPage();
   await handTo(page, b);
-  await b.getByRole('tab', { name: 'Activities' }).click();
+  await openSheet(b, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await b.getByText('alpha', { exact: true }).filter({ visible: true }).click();
   await b.getByRole('textbox', { name: 'What you did' }).fill('alpha, edited in B');
 
@@ -390,7 +390,7 @@ test.describe('without the service worker (the wasm comes from the network)', ()
     restore();
     await expect(logBox(page)).toHaveValue('', { timeout: 15_000 });
     await expect(logButton(page)).toBeVisible();
-    await page.getByRole('tab', { name: 'Activities' }).click();
+    await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
     await expect(page.getByText('pressed while away', { exact: true }).filter({ visible: true })).toHaveCount(1);
     // Saved once, too.
     await page.reload();
@@ -434,7 +434,7 @@ test.describe('without the service worker (the wasm comes from the network)', ()
     await expect(message).toHaveCount(0, { timeout: 15_000 });
     await expect(logButton(page)).toBeVisible();
     await expect(logBox(page)).toHaveValue('');
-    await page.getByRole('tab', { name: 'Activities' }).click();
+    await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
     await expect(page.getByText('pressed while it fails', { exact: true }).filter({ visible: true })).toHaveCount(1);
     await expect(page.getByText('kept', { exact: true }).filter({ visible: true })).toHaveCount(1);
   });

@@ -2,7 +2,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, test, toHome } from './fixtures';
+import { expect, openSheet, test, toHome } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -87,7 +87,7 @@ test.describe('with wanders', () => {
     // Whenever Home is shown, it opens on What’s next again.
     await tab(page, 'Log').click();
     await expect(box(page)).toBeVisible();
-    await page.getByRole('tab', { name: 'Wanders' }).click();
+    await openSheet(page, 'Wanders'); // P-58: a section of Home's sheet (was a tab)
     await toHome(page);
     await expect(tab(page, 'What’s next')).toHaveAttribute('aria-selected', 'true');
     await expect(box(page)).toBeHidden();
@@ -112,7 +112,7 @@ test.describe('with wanders', () => {
     await expect(check(page, 'sketch a hand')).toBeVisible();
     await check(page, 'sketch a hand').click();
     // The activity is the step's words, with draw better hands as doing.
-    await page.getByRole('tab', { name: 'Activities' }).click();
+    await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
     await page.getByText('sketch a hand', { exact: true }).filter({ visible: true }).click();
     await expect(page.getByRole('textbox', { name: 'What you did' })).toHaveValue('sketch a hand');
     await expect(page.getByText('draw better hands').filter({ visible: true }).first()).toBeVisible();
@@ -174,7 +174,7 @@ test.describe('with wanders', () => {
     // The switch was announced.
     await expect(said(page)).toHaveText('What’s next');
     // It went nowhere: it's under "No wander".
-    await page.getByRole('tab', { name: 'Activities' }).click();
+    await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
     await page.getByRole('tab', { name: 'No wander' }).click();
     await expect(page.getByText('cooked dinner', { exact: true }).filter({ visible: true })).toBeVisible();
   });

@@ -2,7 +2,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, test, toHome } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, test, toHome } from './fixtures';
 import { bigBlob, legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -19,7 +19,7 @@ const openGraph = (page: Page) => page.getByRole('link', { name: 'Explore', exac
 const open = (page: Page, name: string) => page.getByRole('link', { name: `Open ${name}`, exact: true }).click();
 /** P-34: the cards (today's list) live on the Wanders tab. */
 async function toWanders(page: Page) {
-  await page.getByRole('tab', { name: 'Wanders' }).click();
+  await openSheet(page, 'Wanders'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByRole('heading', { name: 'Wanders', exact: true })).toBeVisible();
 }
 
