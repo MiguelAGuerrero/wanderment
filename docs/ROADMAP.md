@@ -47,7 +47,11 @@ contexts, park with "waiting on…", resume) is the reference, minus timers and 
 tap; prompt first on opening, the graph a swipe away; when the words match nothing mapped, a short
 wizard of sorts distills the feeling into something actionable, giving what lands in the graph some
 structure ("less chaotic and freeform, but not as prescriptive as templates"); matching stays
-on-device (no AI model), so the wizard works by questions, not inference.
+on-device (no AI model), so the wizard works by questions, not inference. Refined the same day:
+Wanderment is "life stones and milestones … large [stretches] of work", no descriptive structure —
+"just energy and mood" (shown by the picture, not entered: capture stays words only); Mindstream is
+the deliberate tool for working on them; D-12 stands (Wanderment keeps its own life-scale stack, no
+link to Mindstream); the wizard is light — one gentle question at most (e.g. "toward which stone?").
 *Done when:* brief B-07 written (resolving text to the graph, stacks per chain, park/resume, how it
 sits beside Home's graph, what supersedes P-19, P-51–P-55, P-62, P-63), persona panel run, and the
 owner's go/no-go recorded as a decision.

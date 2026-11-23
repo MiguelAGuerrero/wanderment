@@ -35,6 +35,11 @@ retires); park P-62 until the direction is built out.
 B-07 shape (answers): guess did-vs-about-to, one tap confirms; prompt first, graph a swipe away;
 unmatched words → "a wizard of sorts that distills the feeling into something actionable … a
 structure … less chaotic and freeform, but not as prescriptive as templates"; on-device only.
+Then: "[Wanderment] is more life stones and milestones, like large [stretches] of work. I don't
+need a descriptive structure on it, just energy and mood. [Mindstream] is the deliberate
+alternative when you actually go ahead and start implementing on those actions in a way that's
+[repeatable] and understandable for reflection [and] refinement." (voice transcription; bracketed
+words inferred.) Answers: keep D-12 as decided; capture words only, as today; keep a light wizard.
 Led to: D-12; P-62 parked (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle
