@@ -1,0 +1,1956 @@
+From 40c5822a899c9015a6648d6b3123360f3e1b0c07 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 23 Nov 2026 21:21:43 +0000
+Subject: [PATCH] =?UTF-8?q?WIP(P-62):=20node=20quick=20actions=20=E2=80=94?=
+ =?UTF-8?q?=20parked=20(perf=201.37x=20over=201.25x=20budget;=20home-focus?=
+ =?UTF-8?q?:376=20fails)?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01PPdXwd9es7H8ztRqu2uVSE
+---
+ e2e/act-from-node.spec.ts            |   5 +-
+ e2e/home-actions.spec.ts             | 310 +++++++++++++++++++++++++++
+ e2e/home-calm.spec.ts                |   5 +-
+ e2e/home-focus.spec.ts               |  22 +-
+ e2e/home-graph.spec.ts               |   6 +-
+ e2e/home-heat.spec.ts                |   3 +-
+ e2e/home-is-graph.spec.ts            |   3 +-
+ src/components/graph/HomeGraph.tsx   | 146 ++++++++++++-
+ src/components/graph/NodeActions.tsx | 170 +++++++++++++++
+ src/domain/activityIndex.test.ts     | 102 +++++++++
+ src/domain/activityIndex.ts          | 105 +++++++++
+ src/domain/heat.ts                   |  10 +
+ src/domain/overview.ts               |  65 ++----
+ src/domain/quickActions.test.ts      | 212 ++++++++++++++++++
+ src/domain/quickActions.ts           | 223 +++++++++++++++++++
+ src/storage/persistence.test.ts      |   3 +
+ src/store/quickActions.test.ts       |  97 +++++++++
+ src/store/useStore.ts                |  29 +++
+ 18 files changed, 1454 insertions(+), 62 deletions(-)
+ create mode 100644 e2e/home-actions.spec.ts
+ create mode 100644 src/components/graph/NodeActions.tsx
+ create mode 100644 src/domain/activityIndex.test.ts
+ create mode 100644 src/domain/activityIndex.ts
+ create mode 100644 src/domain/quickActions.test.ts
+ create mode 100644 src/domain/quickActions.ts
+ create mode 100644 src/store/quickActions.test.ts
+
+diff --git a/e2e/act-from-node.spec.ts b/e2e/act-from-node.spec.ts
+index 77baea1..6bd2aa7 100644
+--- a/e2e/act-from-node.spec.ts
++++ b/e2e/act-from-node.spec.ts
+@@ -157,6 +157,7 @@ test('“＋ add one” on a tapped node sets its step inline, then it’s one t
+ 
+ // P-50: was "…, focus moves to the row; Esc returns focus to the list" — no row: focus stays on the list's button, and the change is said.
+ // P-61: with the log field away the list's button only focuses (was: "…focuses and attaches…; Esc clears the attach").
++// P-62: it also pops up the node's actions, focus in them; Esc hands focus back to the button.
+ test('without pointing: the list focuses, focus stays on it; nothing is attached', async ({ page }) => {
+   const item = list(page).getByRole('button', { name: 'draw, a wander', exact: true });
+   await item.focus();
+@@ -164,10 +165,12 @@ test('without pointing: the list focuses, focus stays on it; nothing is attached
+   await expect(page).toHaveURL(/\/wanderment\/$/);
+   await expect(card(page)).toHaveAccessibleName('What’s next, draw, for make apparel: sketch a hand');
+   await expect(page.getByTestId('home-focus-said')).toHaveText('What’s next, draw, for make apparel: sketch a hand');
+-  await expect(item).toBeFocused();
++  // P-62: its quick actions pop up with focus in them (was: focus stayed on the button); Esc puts them away and hands focus back.
++  await expect(page.getByRole('menu', { name: 'Actions for draw' }).getByRole('menuitem', { name: 'Log toward it', exact: true })).toBeFocused();
+   await expect(page.getByTestId('home-slot').getByRole('button', { name: 'To: draw. Remove', exact: true, includeHidden: true })).toHaveCount(0);
+   await expectNoSeriousViolations(page);
+   await page.keyboard.press('Escape');
++  await expect(page.getByRole('menu')).toHaveCount(0);
+   await expect(page.getByTestId('home-slot').getByRole('button', { name: 'To: draw. Remove', exact: true, includeHidden: true })).toHaveCount(0);
+   await expect(item).toBeFocused();
+ });
+diff --git a/e2e/home-actions.spec.ts b/e2e/home-actions.spec.ts
+new file mode 100644
+index 0000000..8035e7e
+--- /dev/null
++++ b/e2e/home-actions.spec.ts
+@@ -0,0 +1,310 @@
++/** P-62 (D-11): quick actions on a node — a ＋ nub on every circle; selecting a node pops up its actions. */
++import { AxeBuilder } from '@axe-core/playwright';
++import { Locator, Page } from '@playwright/test';
++
++import { expect, test } from './fixtures';
++import { legacyBlob, seedScript } from './graphFixture';
++
++const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
++const DAY = 864e5;
++const BOX = 'What did you just do?';
++
++const node = (page: Page, id: string) => page.getByTestId(`graph-node-${id}`).filter({ visible: true });
++const nodes = (page: Page) => page.locator('[data-testid^="graph-node-"]').filter({ visible: true });
++const nub = (page: Page, name: string) => page.getByRole('button', { name: `Actions for ${name}`, exact: true });
++const nubs = (page: Page) => page.getByRole('button', { name: /^Actions for / }).filter({ visible: true });
++const menu = (page: Page) => page.getByRole('menu');
++const item = (page: Page, name: string) => menu(page).getByRole('menuitem', { name, exact: true });
++const plus = (page: Page) => page.getByRole('button', { name: 'Log something', exact: true });
++const box = (page: Page) => page.getByTestId('home-slot').locator(`input[aria-label="${BOX}"]`);
++const chip = (page: Page, kind: 'To' | 'Doing', name: string) => page.getByTestId('home-slot').getByRole('button', { name: `${kind}: ${name}. Remove`, exact: true });
++const card = (page: Page) => page.getByRole('region', { name: /^What’s next/ });
++const scopeChip = (page: Page) => page.getByTestId('scope-chip').filter({ visible: true });
++const rings = (page: Page) => page.locator('[data-testid^="graph-selected-"]').filter({ visible: true });
++
++async function expectNoSeriousViolations(page: Page) {
++  const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
++  const serious = violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
++  const report = serious.map((v) => `${v.id}: ${v.help}\n  ${v.nodes.map((n) => `${n.target.join(' ')} ${n.html.slice(0, 200)}`).slice(0, 5).join('\n  ')}`);
++  expect(report, report.join('\n')).toEqual([]);
++}
++
++/**
++ * The owner's Home (2026-11-23): feel productive (declared, the card's node) with the staged step
++ * "Clean my car"; draw feeds it (no step); cook stands alone.
++ */
++function owner() {
++  const json = JSON.parse(
++    legacyBlob(['feel productive', 'draw', 'cook'], [
++      { from: 'draw', to: ['feel productive'], text: 'sketched', daysAgo: 20 },
++      { from: 'cook', text: 'cooked dinner', daysAgo: 4 },
++      { to: ['feel productive'], text: 'made the bed', daysAgo: 3 },
++    ]),
++  );
++  json.state.data.threads['feel productive'].declaredAt = new Date(Date.now() - 30 * DAY).toISOString();
++  json.state.data.threads['feel productive'].next = 'Clean my car';
++  return JSON.stringify(json);
++}
++
++async function open(page: Page, picture = true) {
++  await page.addInitScript(seedScript, owner());
++  await page.goto('./');
++  await expect(plus(page)).toBeVisible();
++  if (picture) await expect(nodes(page)).toHaveCount(3);
++}
++
++const centre = async (l: Locator) => {
++  const b = (await l.boundingBox())!;
++  return { x: b.x + b.width / 2, y: b.y + b.height / 2, w: b.width, h: b.height };
++};
++const circle = (page: Page, id: string) => page.getByTestId(`graph-circle-${id}`).filter({ visible: true });
++const overlaps = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) =>
++  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
++
++test.describe('at 390 px', () => {
++  test.use({ viewport: { width: 390, height: 844 } });
++  test.beforeEach(async ({ page }) => open(page));
++
++  test('every circle has a small ＋ nub sticking out of its edge, a 44 pt button “Actions for <node>”; circles keep their names', async ({ page }) => {
++    await expect(nubs(page)).toHaveCount(3);
++    for (const [id, name] of [
++      ['feel productive', 'feel productive, what it’s for'],
++      ['draw', 'draw, a wander'],
++      ['cook', 'cook, a wander'],
++    ]) {
++      await expect(node(page, id)).toHaveAccessibleName(name);
++      const n = nub(page, id);
++      await expect(n).toBeVisible();
++      await expect(n).toHaveAttribute('aria-expanded', 'false');
++      const hit = (await n.boundingBox())!;
++      expect(hit.width).toBeGreaterThanOrEqual(44);
++      expect(hit.height).toBeGreaterThanOrEqual(44);
++      // The disc (about 20 pt) overlaps the circle's edge: its centre just outside it.
++      const disc = await centre(n.locator('div').first());
++      expect(disc.w).toBeGreaterThanOrEqual(18);
++      expect(disc.w).toBeLessThanOrEqual(22);
++      const c = await centre(circle(page, id));
++      const d = Math.hypot(disc.x - c.x, disc.y - c.y);
++      expect(d).toBeGreaterThan(c.w / 2);
++      expect(d - disc.w / 2).toBeLessThan(c.w / 2);
++    }
++    await expect(menu(page)).toHaveCount(0);
++    await expectNoSeriousViolations(page);
++    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p62-1-nubs.png` });
++  });
++
++  test('a tap on a circle focuses it and pops up its actions beside it, focus inside; they cover no other circle', async ({ page }) => {
++    await node(page, 'draw').click();
++    await expect(rings(page)).toHaveAttribute('data-testid', 'graph-selected-draw');
++    await expect(card(page)).toContainText('What’s next · draw');
++    await expect(menu(page)).toHaveAccessibleName('Actions for draw');
++    await expect(menu(page).getByRole('menuitem')).toHaveText(['→Log toward it', '＋Under it', '•Add a step', '↗Open']);
++    for (const name of ['Log toward it', 'Under it', 'Add a step', 'Open']) {
++      const b = (await item(page, name).boundingBox())!;
++      expect(b.height).toBeGreaterThanOrEqual(44);
++      expect(b.width).toBeGreaterThanOrEqual(44);
++    }
++    await expect(item(page, 'Log toward it')).toBeFocused();
++    await expect(nub(page, 'draw')).toHaveAttribute('aria-expanded', 'true');
++    // On screen, and clear of the other circles.
++    const m = (await menu(page).boundingBox())!;
++    expect(m.x).toBeGreaterThanOrEqual(0);
++    expect(m.x + m.width).toBeLessThanOrEqual(390);
++    for (const id of ['feel productive', 'cook']) expect(overlaps(m, (await circle(page, id).boundingBox())!)).toBe(false);
++    // Nothing attached by the tap; the log field stays away.
++    await expect(box(page)).toBeHidden();
++    await expectNoSeriousViolations(page);
++  });
++
++  test('the nub pops up the same actions (feel productive has a step: no “Add a step”); again puts them away', async ({ page }) => {
++    await nub(page, 'feel productive').click();
++    await expect(menu(page)).toHaveAccessibleName('Actions for feel productive');
++    await expect(menu(page).getByRole('menuitem')).toHaveText(['→Log toward it', '＋Under it', '↗Open']);
++    await expect(rings(page)).toHaveAttribute('data-testid', 'graph-selected-feel productive');
++    // Not narrowed, though something feeds it.
++    await expect(scopeChip(page)).toHaveCount(0);
++    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p62-2-menu.png` });
++    await nub(page, 'feel productive').click();
++    await expect(menu(page)).toHaveCount(0);
++  });
++
++  test('Log toward it: the log field opens with the node attached (a chip), keyboard in it; the log goes there', async ({ page }) => {
++    await node(page, 'feel productive').click();
++    await item(page, 'Log toward it').click();
++    await expect(menu(page)).toHaveCount(0);
++    await expect(box(page)).toBeVisible();
++    await expect(box(page)).toBeFocused();
++    await expect(chip(page, 'To', 'feel productive')).toBeVisible();
++    await box(page).fill('swept the floor');
++    await box(page).press('Enter');
++    await expect(page.getByText('Logged → feel productive', { exact: true })).toBeVisible();
++  });
++
++  test('＋ Under it: a name field in place of the actions; Return makes the wander and opens the log field with it as doing and this node as to; the first log draws the branch', async ({ page }) => {
++    await node(page, 'feel productive').click();
++    await item(page, 'Under it').click();
++    const field = page.getByRole('textbox', { name: 'New wander under feel productive', exact: true });
++    await expect(field).toBeFocused();
++    await expect(menu(page)).toHaveCount(0);
++    await expectNoSeriousViolations(page);
++    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p62-3-under.png` });
++    await field.fill('tidy the desk');
++    await field.press('Enter');
++    await expect(field).toHaveCount(0);
++    await expect(box(page)).toBeFocused();
++    await expect(chip(page, 'Doing', 'tidy the desk')).toBeVisible();
++    await expect(chip(page, 'To', 'feel productive')).toBeVisible();
++    // Made, but nothing logged yet: it stands on its own (a branch is never stored, only drawn from logs).
++    const fresh = page.getByRole('button', { name: 'tidy the desk, a wander', exact: true });
++    await expect(fresh).toBeVisible();
++    await expect(fresh).not.toHaveAttribute('data-under', /./);
++    await box(page).fill('cleared the desk');
++    await box(page).press('Enter');
++    await expect(page.getByText('Logged → feel productive', { exact: true })).toBeVisible();
++    const id = (await fresh.getAttribute('data-testid'))!.replace('graph-node-', '');
++    await expect(page.getByTestId(`graph-link-${id}-feel productive`)).toHaveCount(1);
++    await expect(fresh).toHaveAttribute('data-under', 'feel productive');
++  });
++
++  test('Add a step: the card’s field for that node, focused; Return stages it', async ({ page }) => {
++    await node(page, 'draw').click();
++    await item(page, 'Add a step').click();
++    await expect(menu(page)).toHaveCount(0);
++    const field = card(page).getByRole('textbox', { name: 'What’s next for draw', exact: true });
++    await expect(field).toBeFocused();
++    await field.fill('ink a hand');
++    await field.press('Enter');
++    await expect(card(page)).toContainText('ink a hand');
++  });
++
++  test('Open: the wander’s page', async ({ page }) => {
++    await node(page, 'cook').click();
++    await item(page, 'Open').click();
++    await expect(page).toHaveURL(/\/thread\/cook$/);
++  });
++
++  test('a tap outside, Esc, or selecting another node puts them away; Esc hands focus back', async ({ page }) => {
++    await node(page, 'draw').click();
++    await expect(menu(page)).toBeVisible();
++    await page.getByRole('heading', { name: 'Wanderment' }).click();
++    await expect(menu(page)).toHaveCount(0);
++    // Focus stays where it was; nothing else changed.
++    await expect(rings(page)).toHaveAttribute('data-testid', 'graph-selected-draw');
++
++    await node(page, 'draw').click();
++    await expect(item(page, 'Log toward it')).toBeFocused();
++    await page.keyboard.press('Escape');
++    await expect(menu(page)).toHaveCount(0);
++    await expect(node(page, 'draw')).toBeFocused();
++
++    await nub(page, 'draw').click();
++    await page.keyboard.press('Escape');
++    await expect(menu(page)).toHaveCount(0);
++    await expect(nub(page, 'draw')).toBeFocused();
++
++    await node(page, 'draw').click();
++    await node(page, 'cook').click();
++    await expect(menu(page)).toHaveAccessibleName('Actions for cook');
++    await expect(rings(page)).toHaveAttribute('data-testid', 'graph-selected-cook');
++    // The ＋ to log, outside: away, and the field opens.
++    await plus(page).click();
++    await expect(menu(page)).toHaveCount(0);
++    await expect(box(page)).toBeFocused();
++  });
++
++  test('a second tap on a focused parent narrows and puts them away; Back puts them away (and goes up, as before)', async ({ page }) => {
++    await node(page, 'feel productive').click();
++    await expect(menu(page)).toBeVisible();
++    await expect(scopeChip(page)).toHaveCount(0);
++    await node(page, 'feel productive').click();
++    await expect(menu(page)).toHaveCount(0);
++    await expect(scopeChip(page)).toHaveText('‹ All · feel productive');
++    // Narrowed, the nubs are there too.
++    await expect(nubs(page)).toHaveCount(2);
++    await node(page, 'draw').click();
++    await expect(menu(page)).toHaveAccessibleName('Actions for draw');
++    await page.goBack();
++    await expect(menu(page)).toHaveCount(0);
++    await expect(scopeChip(page)).toHaveCount(0);
++    await expect(page).toHaveURL(/\/wanderment\/$/);
++  });
++
++  test('Esc in a scope puts the actions away first, then goes up', async ({ page }) => {
++    await node(page, 'feel productive').click();
++    await node(page, 'feel productive').click();
++    await expect(scopeChip(page)).toBeVisible();
++    await node(page, 'draw').click();
++    await expect(menu(page)).toBeVisible();
++    await page.keyboard.press('Escape');
++    await expect(menu(page)).toHaveCount(0);
++    await expect(scopeChip(page)).toBeVisible();
++    await page.keyboard.press('Escape');
++    await expect(scopeChip(page)).toHaveCount(0);
++  });
++
++  test('a swipe on the card moves focus and pops nothing up', async ({ page }) => {
++    const b = (await card(page).getByText('Clean my car', { exact: true }).boundingBox())!;
++    const [x, y] = [b.x + b.width / 2, b.y + b.height / 2];
++    await page.mouse.move(x, y);
++    await page.mouse.down();
++    await page.mouse.move(x - 80, y + 2, { steps: 10 });
++    await page.mouse.up();
++    await expect(card(page)).not.toContainText('What’s next · feel productive');
++    await expect(menu(page)).toHaveCount(0);
++  });
++
++  test('keyboard: Tab to a nub, Enter pops up the menu with focus on its first item, arrows move, Esc returns to the nub', async ({ page }) => {
++    await nub(page, 'cook').focus();
++    await page.keyboard.press('Enter');
++    await expect(item(page, 'Log toward it')).toBeFocused();
++    await page.keyboard.press('ArrowRight');
++    await expect(item(page, 'Under it')).toBeFocused();
++    await page.keyboard.press('End');
++    await expect(item(page, 'Open')).toBeFocused();
++    await page.keyboard.press('ArrowRight');
++    await expect(item(page, 'Log toward it')).toBeFocused();
++    await page.keyboard.press('Escape');
++    await expect(menu(page)).toHaveCount(0);
++    await expect(nub(page, 'cook')).toBeFocused();
++    // The circle itself, by keyboard.
++    await node(page, 'cook').focus();
++    await page.keyboard.press('Enter');
++    await expect(item(page, 'Log toward it')).toBeFocused();
++  });
++
++  test('with the log field open a tap attaches, as before (P-61), and pops nothing up', async ({ page }) => {
++    await plus(page).click();
++    await expect(box(page)).toBeFocused();
++    await node(page, 'cook').click();
++    await expect(chip(page, 'To', 'cook')).toBeVisible();
++    await expect(menu(page)).toHaveCount(0);
++  });
++});
++
++test.describe('at 200 % zoom (195 px: the list)', () => {
++  test.use({ viewport: { width: 195, height: 422 } });
++  test.beforeEach(async ({ page }) => open(page, false));
++
++  test('a list item opens the same actions (no nubs); they work and Esc hands focus back; no serious violations', async ({ page }) => {
++    const list = page.getByTestId('home-graph-list');
++    await expect(list).toBeVisible();
++    await expect(nubs(page)).toHaveCount(0);
++    const draw = list.getByRole('button', { name: 'draw, a wander', exact: true });
++    await draw.click();
++    await expect(menu(page)).toHaveAccessibleName('Actions for draw');
++    await expect(item(page, 'Log toward it')).toBeFocused();
++    await expect(draw).toHaveAttribute('aria-expanded', 'true');
++    const m = (await menu(page).boundingBox())!;
++    expect(m.x).toBeGreaterThanOrEqual(0);
++    expect(m.x + m.width).toBeLessThanOrEqual(195);
++    await expectNoSeriousViolations(page);
++    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p62-4-list-200.png`, fullPage: true });
++    await page.keyboard.press('Escape');
++    await expect(menu(page)).toHaveCount(0);
++    await expect(draw).toBeFocused();
++    await draw.click();
++    await item(page, 'Log toward it').click();
++    await expect(box(page)).toBeFocused();
++    await expect(chip(page, 'To', 'draw')).toBeVisible();
++  });
++});
+diff --git a/e2e/home-calm.spec.ts b/e2e/home-calm.spec.ts
+index 357e16f..df8d167 100644
+--- a/e2e/home-calm.spec.ts
++++ b/e2e/home-calm.spec.ts
+@@ -75,7 +75,10 @@ test('nodes are buttons in reading order (whys first, left to right), and the fo
+   await page.addInitScript(seedScript, longNames());
+   await openHome(page);
+   await expect(why(page)).toBeVisible();
+-  const names = await picture(page).getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
++  const all = await picture(page).getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
++  // P-62: each circle is followed by its ＋ nub, “Actions for <node>”.
++  const names = all.filter((n, i) => i % 2 === 0);
++  expect(all.filter((n, i) => i % 2 === 1)).toEqual(names.map((n) => `Actions for ${n!.replace(/, (what it’s for|a wander)$/, '')}`));
+   expect(names.slice(0, 3)).toEqual(['feel productive, what it’s for', 'make apparel for the spring market, what it’s for', 'Supercalifragilisticexpialidocious, what it’s for']);
+   expect(names.slice(3).every((n) => n?.endsWith(', a wander'))).toBe(true);
+   expect(names).toHaveLength(6);
+diff --git a/e2e/home-focus.spec.ts b/e2e/home-focus.spec.ts
+index 1769b54..0765080 100644
+--- a/e2e/home-focus.spec.ts
++++ b/e2e/home-focus.spec.ts
+@@ -162,6 +162,8 @@ test.describe('at 390 px', () => {
+ 
+   test('the dashed ＋ is the card’s “＋ add one”', async ({ page }) => {
+     await node(page, 'sew').click();
++    // P-62: the tap also pops up sew's actions (their "Add a step" does the same), over the step mark: Esc puts them away.
++    await page.keyboard.press('Escape');
+     await page.getByTestId('graph-add-step-sew').click();
+     const field = page.getByRole('textbox', { name: 'What’s next for sew' });
+     await expect(field).toBeFocused();
+@@ -270,7 +272,8 @@ test.describe('at 390 px', () => {
+     await expect(up).toHaveText('‹ All · make apparel');
+     expect((await up.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+     // The list is the scope's too (P-60: the picture's circles, named as the list's buttons were; their text is just the name).
+-    expect(await list(page).getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toEqual(['make apparel, what it’s for', 'draw, a wander', 'sew, a wander', 'draw better hands, a wander']);
++    // P-62: (each circle is followed by its ＋ nub, “Actions for <node>”, left out here.)
++    expect(await list(page).getByRole('button', { name: /, (what it’s for|a wander)$/ }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toEqual(['make apparel, what it’s for', 'draw, a wander', 'sew, a wander', 'draw better hands, a wander']);
+     // A swipe walks this scope's chains only.
+     await swipe(page, card(page), -140);
+     await focusedOn(page, 'draw better hands');
+@@ -288,13 +291,15 @@ test.describe('at 390 px', () => {
+     await expect(chip(page)).toHaveCount(0); // P-60: at All, no chip (was "All")
+     await expect(said(page)).toHaveText('Showing all');
+     await focusedOn(page, 'make apparel');
+-    // Esc goes up.
++    // Esc goes up. (P-62: on the focused parent, the first tap pops up its actions, the second narrows.)
++    await node(page, 'make apparel').click();
+     await node(page, 'make apparel').click();
+     await expect(nodes(page)).toHaveCount(4);
+     await page.keyboard.press('Escape');
+     await expect(nodes(page)).toHaveCount(6);
+     // So does the browser's Back, staying on Home.
+     await node(page, 'make apparel').click();
++    await node(page, 'make apparel').click(); // P-62: the second tap narrows
+     await expect(nodes(page)).toHaveCount(4);
+     await page.goBack();
+     await expect(nodes(page)).toHaveCount(6);
+@@ -303,6 +308,7 @@ test.describe('at 390 px', () => {
+ 
+     // Two levels: the chip names both, and each way up goes one level.
+     await node(page, 'make apparel').click();
++    await node(page, 'make apparel').click(); // P-62: the second tap narrows
+     await node(page, 'draw').click();
+     await node(page, 'draw').click();
+     await expect(nodes(page)).toHaveCount(2);
+@@ -339,6 +345,7 @@ test.describe('at 390 px', () => {
+     await expect(nodes(page)).toHaveCount(6);
+     await watch();
+     await node(page, 'make apparel').click();
++    await node(page, 'make apparel').click(); // P-62: the first tap on the focused parent pops up its actions; the second narrows
+     await expect(nodes(page)).toHaveCount(4);
+     await page.waitForTimeout(400);
+     expect((await scales()).filter((s) => s !== 1)).toEqual([]);
+@@ -364,21 +371,30 @@ test.describe('at 390 px', () => {
+   });
+ 
+   // P-61: with the log field away a tap no longer attaches (was: "focus, attach, narrow"; one “to” chip).
++  // P-62: Enter also pops up the node's actions, focus in them (was: focus stayed on the button); Esc
++  // hands it back. The second tap is Shift+Tab (back on the button, the actions stay up) and Enter.
+   test('without pointing, the list does what a tap does: focus, narrow; screen readers hear each change', async ({ page }) => {
+     const sew = list(page).getByRole('button', { name: 'sew, a wander', exact: true });
+     await sew.focus();
+     await page.keyboard.press('Enter');
+     await focusedOn(page, 'sew');
+     await expect(sew).toHaveAttribute('aria-current', 'true');
++    await expect(page.getByRole('menu', { name: 'Actions for sew' }).getByRole('menuitem').first()).toBeFocused();
++    await page.keyboard.press('Escape');
+     await expect(sew).toBeFocused();
+     await expect(said(page)).toHaveText(NAME.sew);
+     await expect(toChips(page)).toHaveCount(0);
+     const ma = list(page).getByRole('button', { name: 'make apparel, what it’s for', exact: true });
+     await ma.focus();
+     await page.keyboard.press('Enter');
++    await expect(page.getByRole('menu', { name: 'Actions for make apparel' }).getByRole('menuitem').first()).toBeFocused();
++    await page.keyboard.press('Shift+Tab');
++    await expect(ma).toBeFocused();
++    await expect(page.getByRole('menu', { name: 'Actions for make apparel' })).toBeVisible();
+     await page.keyboard.press('Enter');
+     await expect(said(page)).toHaveText('Showing make apparel');
+-    await expect(list(page).getByRole('button')).toHaveCount(4);
++    await expect(page.getByRole('menu')).toHaveCount(0);
++    await expect(list(page).getByRole('button', { name: /, (what it’s for|a wander)$/ })).toHaveCount(4);
+     await expect(ma).toBeFocused();
+     await expectNoSeriousViolations(page);
+   });
+diff --git a/e2e/home-graph.spec.ts b/e2e/home-graph.spec.ts
+index 45e614f..a98fc2c 100644
+--- a/e2e/home-graph.spec.ts
++++ b/e2e/home-graph.spec.ts
+@@ -231,9 +231,11 @@ test('the graph is named by its summary, in names; its circles are the buttons,
+   );
+   expect(name).not.toMatch(/\d|→/);
+   // P-60: the circles are the only things inside exposed or focusable (was: nothing), whys first.
+-  await expect(picture(page).getByRole('button')).toHaveCount(6);
++  // P-62: and each circle's ＋ nub ("Actions for <node>"): 6 circles, 6 nubs.
++  await expect(picture(page).getByRole('button')).toHaveCount(12);
++  await expect(picture(page).getByRole('button', { name: /^Actions for / })).toHaveCount(6);
+   const focusable = await picture(page).locator('[tabindex]:not([tabindex="-1"]), a[href], button').count();
+-  expect(focusable).toBe(6);
++  expect(focusable).toBe(12);
+   // "Explore" is in the header (one of them); Tab from the header goes to the first circle (P-60: was the list's first button).
+   await expect(openGraph(page)).toHaveCount(1);
+   await page.getByRole('link', { name: 'Settings and backup' }).focus();
+diff --git a/e2e/home-heat.spec.ts b/e2e/home-heat.spec.ts
+index 2d538e9..1f621c2 100644
+--- a/e2e/home-heat.spec.ts
++++ b/e2e/home-heat.spec.ts
+@@ -162,7 +162,8 @@ test('circles by level, coloured by heat that flows upward; no dots; tapered bra
+   // The picture's name is as before; P-60: its circles are the list's buttons (named as the list under it was; their text is just the name).
+   await expect(picture(page)).toHaveCount(1);
+   await expect(picture(page)).toHaveAccessibleName(/^What it’s for: make apparel, fed by draw and sew; feel productive, fed by read; get stronger, nothing feeds it yet\. Lately: /);
+-  expect(await picture(page).getByRole('list', { name: 'What’s in the picture' }).getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toEqual([
++  // P-62: (each circle is followed by its ＋ nub, “Actions for <node>”, left out here.)
++  expect(await picture(page).getByRole('list', { name: 'What’s in the picture' }).getByRole('button', { name: /, (what it’s for|a wander)$/ }).evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toEqual([
+     'make apparel, what it’s for',
+     'feel productive, what it’s for',
+     'get stronger, what it’s for',
+diff --git a/e2e/home-is-graph.spec.ts b/e2e/home-is-graph.spec.ts
+index 0ae5cb2..13dc5a0 100644
+--- a/e2e/home-is-graph.spec.ts
++++ b/e2e/home-is-graph.spec.ts
+@@ -220,7 +220,8 @@ test('with wanders: the graph, the staged step under its node, and its circles t
+   await expect(line(page)).toHaveCount(0);
+   await expect(page.getByTestId('home-graph-picture')).toHaveAccessibleName(/^What it’s for: make apparel, fed by draw and sew\./);
+   // The whys and wanders in the picture, with their roles, in reading order (P-60: the circles; was a list under the summary).
+-  const items = pictureList(page).getByRole('button');
++  // P-62: (each circle is followed by its ＋ nub, “Actions for <node>”, left out here.)
++  const items = pictureList(page).getByRole('button', { name: /, (what it’s for|a wander)$/ });
+   expect(await items.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toEqual(['make apparel, what it’s for', 'sew, a wander', 'draw, a wander', 'get stronger, a wander', 'lift, a wander']); // P-60: reading order (the list had draw before sew)
+   for (const b of await items.all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+   await expectNoSeriousViolations(page);
+diff --git a/src/components/graph/HomeGraph.tsx b/src/components/graph/HomeGraph.tsx
+index 119adac..05cef66 100644
+--- a/src/components/graph/HomeGraph.tsx
++++ b/src/components/graph/HomeGraph.tsx
+@@ -1,6 +1,6 @@
+ import { Link, router } from 'expo-router';
+ import { memo, ReactNode, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+-import { Animated, Easing, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
++import { Animated, BackHandler, Easing, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+ import Svg, { Defs, Line, LinearGradient, Path, Polygon, Stop } from 'react-native-svg';
+ 
+ import { decorative } from '@/components/a11y';
+@@ -10,7 +10,9 @@ import { useShown } from '@/components/shown';
+ import { FocusMap, scopeIds, STEP_ADD_R, STEP_DOT_R, stepMark, validScope } from '@/domain/focus';
+ import { heatFill, heatInk, heatLabel } from '@/domain/heat';
+ import { LooseLogs } from '@/components/graph/LooseLogs';
++import { NodeActions, returnFocus } from '@/components/graph/NodeActions';
+ import { BIG_TEXT, LABEL_FONT, LABEL_LINE, LaidDot, LaidDotLine, LaidLink, LaidNode, looseLogs, looseOverview, NARROW_W, RING_OUT, overview, Overview, overviewLayout, OverviewLayout, pictureItems, scopeLayout } from '@/domain/overview';
++import { menuPlace, Nub, NUB_HIT, NUB_R, nubs } from '@/domain/quickActions';
+ import { whatsNextNode } from '@/domain/slot';
+ import { Data, Id } from '@/domain/types';
+ import { useStore } from '@/store/useStore';
+@@ -178,10 +180,11 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's
+   const select = useStore((st) => st.select);
+   const tapCanvas = useCallback(() => {
+     select(undefined);
++    useStore.getState().showActions(undefined);
+     const st = useStore.getState();
+     if (st.homeFace === 'log' && !st.draft.text.trim()) st.showHomeFace('next');
+   }, [select]);
+-  const tapNode = useStore((st) => st.tapNode);
++  const pressNode = useStore((st) => st.pressNode);
+   const storedScope = useStore((st) => st.scope);
+   const [laid, setLaid] = useState<{ ov: Overview; width: number; fontScale: number; layout: OverviewLayout }>();
+   let all = laid?.layout;
+@@ -209,11 +212,18 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's
+   }, [map, setFocusMap]);
+   useEffect(() => () => setFocusMap(undefined), [setFocusMap]);
+   const zoom = useZoom(root, layout, width);
++  // P-62: each circle's ＋ nub, and the node whose actions are up (put away when focus moves off it, or Home is left).
++  const nubAt = useMemo(() => (layout && !narrow ? nubs(layout, width) : {}), [layout, narrow, width]);
++  const actionsFor = useStore((st) => st.actionsFor);
++  const actions = useActions(actionsFor, focusId, focused);
+   if (!layout || !allMap) return null;
+   const summaryOnly = layout.summaryOnly || narrow;
+   const inScope = scopeIds(allMap, scope);
+   const listed = items.filter((it) => inScope.has(it.id));
+   const ringed = layout.nodes.find((n) => n.id === focusId);
++  const menuNode = actionsFor && actionsFor === focusId && focused ? layout.nodes.find((n) => n.id === actionsFor) : undefined;
++  const menuAt = menuNode?.circle && menuPlace(menuNode.circle, actions.size, { w: width, h: layout.height });
++  const menuItem = actionsFor && actionsFor === focusId ? listed.find((it) => it.id === actionsFor) : undefined;
+ 
+   return (
+     <View onLayout={onLayout} testID="home-graph" style={styles.graph}>
+@@ -245,7 +255,7 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's
+           {/* P-60: the circles are the way through for screen readers and the keyboard, in reading order. */}
+           <View role="list" aria-label="What’s in the picture" style={StyleSheet.absoluteFill} pointerEvents="box-none">
+             {layout.nodes.map((n) => (
+-              <Node key={n.key} node={n} focused={n.id === focusId} />
++              <Node key={n.key} node={n} focused={n.id === focusId} nub={nubAt[n.id]} menu={n.id === menuNode?.id ? menuAt || undefined : undefined} onNub={actions.onNub} onMenuSize={actions.setSize} />
+             ))}
+           </View>
+           <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+@@ -280,10 +290,13 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's
+         <View role="group" aria-label={ov.summary} testID="home-graph-list">
+           <View style={styles.items} role="list" aria-label="What’s in the picture">
+             {listed.map((it) => (
+-              <View key={it.id} role="listitem" style={styles.listItem}>
++              <View key={it.id} role="listitem" style={[styles.listItem, it.id === menuItem?.id && styles.listItemOpen]}>
+                 {/* Like a tap on its circle (P-50): focuses it (and with the log field open attaches it, P-61), or (focused, with something feeding it) narrows to it. */}
+                 <Pressable
+-                  onPress={() => tapNode(it.id)}
++                  onPress={() => pressNode(it.id)}
++                  testID={`graph-item-${it.id}`}
++                  aria-haspopup="menu"
++                  aria-expanded={it.id === menuItem?.id}
+                   style={[styles.item, it.why && styles.itemWhy, it.id === focusId && styles.itemSelected]}
+                   accessibilityRole="button"
+                   {...(it.id === focusId && ({ 'aria-current': true } as object))}>
+@@ -292,6 +305,8 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's
+                     <Text style={styles.itemRole}>{it.why ? ', what it’s for' : ', a wander'}</Text>
+                   </Text>
+                 </Pressable>
++                {/* P-62: at the largest text, the same actions, under its button (next in the Tab order). */}
++                {it.id === menuItem?.id && <NodeActions id={it.id} name={it.name} style={styles.listMenu} />}
+               </View>
+             ))}
+           </View>
+@@ -301,6 +316,61 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's
+   );
+ }
+ 
++/**
++ * P-62: the quick actions' ways away while they're up: Esc (before anything else Esc does), Back
++ * (Android's, the browser's) — both handing focus back to what opened them — and a press anywhere
++ * outside them that isn't their own node or nub (which toggle them themselves). They go when focus
++ * moves to another node (a swipe) or Home is left. `onNub` notes the nub opened them.
++ */
++function useActions(actionsFor: Id | undefined, focusId: Id | undefined, shown: boolean) {
++  const by = useRef<'node' | 'nub'>('node');
++  const [size, setSize] = useState({ w: 300, h: 56 });
++  const onNub = useCallback(() => {
++    by.current = 'nub';
++  }, []);
++  useEffect(() => {
++    if (actionsFor && (actionsFor !== focusId || !shown)) useStore.getState().showActions(undefined);
++  }, [actionsFor, focusId, shown]);
++  useEffect(() => {
++    if (!actionsFor) {
++      by.current = 'node';
++      return;
++    }
++    const away = (refocus: boolean) => {
++      useStore.getState().showActions(undefined);
++      if (refocus) returnFocus(actionsFor, by.current);
++    };
++    if (Platform.OS !== 'web') {
++      const sub = BackHandler.addEventListener('hardwareBackPress', () => (away(true), true));
++      return () => sub.remove();
++    }
++    if (typeof document === 'undefined') return;
++    const onKey = (e: KeyboardEvent) => {
++      if (e.key !== 'Escape') return;
++      // Marked handled, so Esc doesn't also go up a scope or clear an attach (`useScopeNav`).
++      e.preventDefault();
++      away(true);
++    };
++    const own = (t: EventTarget | null) => {
++      const el = t as Element | null;
++      if (!el?.closest) return false;
++      const ids = ['node-actions', `graph-node-${actionsFor}`, `graph-nub-${actionsFor}`, `graph-item-${actionsFor}`];
++      return ids.some((id) => el.closest(`[data-testid="${CSS.escape(id)}"]`));
++    };
++    const onDown = (e: PointerEvent) => !own(e.target) && away(false);
++    const onPop = () => away(true);
++    document.addEventListener('keydown', onKey, true);
++    document.addEventListener('pointerdown', onDown, true);
++    window.addEventListener('popstate', onPop);
++    return () => {
++      document.removeEventListener('keydown', onKey, true);
++      document.removeEventListener('pointerdown', onDown, true);
++      window.removeEventListener('popstate', onPop);
++    };
++  }, [actionsFor]);
++  return { size, setSize, onNub };
++}
++
+ // Memoised by value: a log re-renders only the dot and lines it adds (Home must not get slower).
+ const DotLine = memo(
+   function DotLine({ line: l }: { line: LaidDotLine }) {
+@@ -388,12 +458,30 @@ const LogRow = memo(
+   ({ dot: a }, { dot: b }) => a.id === b.id && a.newest === b.newest && a.text === b.text && a.heat === b.heat,
+ );
+ 
++type NodeProps = {
++  node: LaidNode;
++  focused: boolean;
++  /** P-62: its ＋ nub, and (while they're up) where its actions go, in the picture. */
++  nub?: Nub;
++  menu?: { x: number; y: number };
++  onNub: () => void;
++  onMenuSize: (size: { w: number; h: number }) => void;
++};
+ const Node = memo(
+-  function Node({ node: n, focused }: { node: LaidNode; focused: boolean }) {
+-    return <NodeView node={n} focused={focused} />;
++  function Node(p: NodeProps) {
++    return <NodeView {...p} />;
+   },
+-  ({ node: a, focused: xa }, { node: b, focused: xb }) =>
++  ({ node: a, focused: xa, nub: na, menu: ma, onNub: fa, onMenuSize: sa }, { node: b, focused: xb, nub: nb, menu: mb, onNub: fb, onMenuSize: sb }) =>
+     xa === xb &&
++    ma?.x === mb?.x &&
++    ma?.y === mb?.y &&
++    !ma === !mb &&
++    fa === fb &&
++    sa === sb &&
++    na?.x === nb?.x &&
++    na?.y === nb?.y &&
++    na?.hx === nb?.hx &&
++    na?.hy === nb?.hy &&
+     a.id === b.id &&
+     a.kind === b.kind &&
+     a.name === b.name &&
+@@ -428,15 +516,16 @@ function Ring({ n, gap, width, color, testID }: { n: LaidNode; gap: number; widt
+  * to it (`tapNode`). Its page opens from
+  * the card's name.
+  */
+-function NodeView({ node: n, focused }: { node: LaidNode; focused: boolean }) {
++function NodeView({ node: n, focused, nub, menu, onNub, onMenuSize }: NodeProps) {
+   const c = n.circle;
+   if (!c) return null;
+   const why = n.kind === 'why';
++  const open = !!menu;
+   return (
+-    <View role="listitem" style={[styles.hit, { left: n.x, top: n.y, width: n.w, height: n.h }]}>
++    <View role="listitem" style={[styles.hit, { left: n.x, top: n.y, width: n.w, height: n.h }, open && styles.openNode]}>
+       {/* P-60: a button named as the list under the picture named it; the focused one is current. */}
+       <Pressable
+-        onPress={() => useStore.getState().tapNode(n.id)}
++        onPress={() => useStore.getState().pressNode(n.id)}
+         accessibilityRole="button"
+         accessibilityLabel={`${n.name}${why ? ', what it’s for' : ', a wander'}`}
+         {...(focused && ({ 'aria-current': true } as object))}
+@@ -462,6 +551,30 @@ function NodeView({ node: n, focused }: { node: LaidNode; focused: boolean }) {
+         {c.declared && <Ring n={n} gap={4} width={1} color={heatInk(c.heat)} testID={`graph-why-ring-${n.id}`} />}
+         {focused && <Ring n={n} gap={c.declared ? RING_OUT : 5} width={2} color={C.ink} testID={`graph-selected-${n.id}`} />}
+       </Pressable>
++      {/* P-62: its actions, while they're up: after the circle in the Tab order (Shift+Tab is back on it; activating it again narrows). */}
++      {menu && <NodeActions id={n.id} name={n.name} onSize={onMenuSize} style={[styles.menu, { left: menu.x - n.x, top: menu.y - n.y }]} />}
++      {/* P-62: the ＋ nub sticking out of its edge, its 44 pt target overlapping it: the node's actions. */}
++      {nub && (
++        <Pressable
++          onPress={() => {
++            onNub();
++            const st = useStore.getState();
++            st.showActions(st.actionsFor === n.id ? undefined : n.id);
++          }}
++          accessibilityRole="button"
++          accessibilityLabel={`Actions for ${n.name}`}
++          aria-haspopup="menu"
++          aria-expanded={open}
++          {...noFocus}
++          testID={`graph-nub-${n.id}`}
++          style={[styles.nubHit, { left: nub.hx - n.x, top: nub.hy - n.y }]}>
++          <View style={[styles.nub, { left: nub.x - nub.hx - NUB_R, top: nub.y - nub.hy - NUB_R }, open && styles.nubOpen]}>
++            <Text style={[styles.nubText, open && styles.nubTextOpen]} {...decorative}>
++              ＋
++            </Text>
++          </View>
++        </Pressable>
++      )}
+     </View>
+   );
+ }
+@@ -593,6 +706,17 @@ const styles = StyleSheet.create({
+   step: { fontSize: LABEL_FONT, lineHeight: LABEL_LINE + 2, fontWeight: '600', color: C.ink, paddingHorizontal: 2, maxWidth: '100%' },
+   addStep: { width: 2 * STEP_ADD_R, height: 2 * STEP_ADD_R, borderRadius: STEP_ADD_R, borderWidth: 1.2, borderStyle: 'dashed', borderColor: C.faint, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' },
+   addStepText: { fontSize: 12, lineHeight: 14, color: C.muted },
++  // P-62: the ＋ nub (20 pt) in its 44 pt target; ink while its actions are up.
++  nubHit: { position: 'absolute', width: NUB_HIT, height: NUB_HIT },
++  nub: { position: 'absolute', width: 2 * NUB_R, height: 2 * NUB_R, borderRadius: NUB_R, borderWidth: 1.5, borderColor: C.ink, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' },
++  nubOpen: { backgroundColor: C.ink },
++  nubText: { fontSize: 13, lineHeight: 15, fontWeight: '700', color: C.ink },
++  nubTextOpen: { color: '#FFFFFF' },
++  menu: { position: 'absolute' },
++  // The node whose actions are up is drawn over the others (its actions with it).
++  openNode: { zIndex: 2 },
++  listMenu: { alignSelf: 'flex-start', marginTop: 8 },
++  listItemOpen: { width: '100%' },
+   // P-50: the scope chip.
+   chipRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28 },
+   chip: { minHeight: 44, marginVertical: -8, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: C.ink, justifyContent: 'center', maxWidth: '100%', backgroundColor: C.surface },
+diff --git a/src/components/graph/NodeActions.tsx b/src/components/graph/NodeActions.tsx
+new file mode 100644
+index 0000000..7ce0dac
+--- /dev/null
++++ b/src/components/graph/NodeActions.tsx
+@@ -0,0 +1,170 @@
++import { router } from 'expo-router';
++import { ComponentRef, useEffect, useLayoutEffect, useRef, useState } from 'react';
++import { LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
++
++import { decorative } from '@/components/a11y';
++import { MENU_MAX_W } from '@/domain/quickActions';
++import { Id } from '@/domain/types';
++import { useStore } from '@/store/useStore';
++import { C } from '@/theme';
++
++type Focusable = ComponentRef<typeof View> | null;
++const web = Platform.OS === 'web';
++const focusEl = (el: unknown) => (el as HTMLElement | null)?.focus?.();
++
++/** The way back to what opened a node's actions (web): its circle, its ＋ nub, or its button in the list. */
++const opener = (id: Id, by: 'node' | 'nub') => {
++  if (!web || typeof document === 'undefined') return null;
++  const q = (t: string) => document.querySelector<HTMLElement>(`[data-testid="${CSS.escape(t)}"]`);
++  return by === 'nub' ? q(`graph-nub-${id}`) : (q(`graph-node-${id}`) ?? q(`graph-item-${id}`));
++};
++
++/** Focus back on what opened the actions (Esc, Back). */
++export const returnFocus = (id: Id, by: 'node' | 'nub') => requestAnimationFrame(() => focusEl(opener(id, by)));
++
++/** One action: an icon over a short label (the label is its name), 48 pt tall. */
++const ITEM_W = 88;
++
++/**
++ * P-62 (D-11): a node's quick actions, popped up by selecting it (or its ＋ nub): a compact strip of
++ * Log toward it · ＋ Under it · Add a step (while it has none) · Open. A menu of menuitems (arrow
++ * keys move between them on web); focus goes to the first when it opens. "＋ Under it" turns the
++ * strip into a name field: Return makes the new wander and opens the log field with it as doing and
++ * this node as "to" (chips), so the first log draws the branch — nothing is logged or stored until
++ * then (a stored pending home waits for P-53). Esc, Back, a tap outside or another node put it away
++ * (`HomeGraph`).
++ */
++export function NodeActions({ id, name, style, onSize }: { id: Id; name: string; style?: object; onSize?: (size: { w: number; h: number }) => void }) {
++  const hasStep = useStore((st) => !!st.data.threads[id]?.next);
++  const [naming, setNaming] = useState(false);
++  const [text, setText] = useState('');
++  const items = useRef<Focusable[]>([]);
++  const box = useRef<Focusable>(null);
++  // Focus goes in (web): the first action, as soon as it's there (before a key pressed meanwhile can go elsewhere).
++  useLayoutEffect(() => {
++    if (web && !naming) focusEl(items.current[0]);
++  }, [naming]);
++  // Focus leaving for somewhere else on the page puts it away (Tab out, the log field taking it).
++  useEffect(() => {
++    if (!web) return;
++    const el = box.current as unknown as HTMLElement | null;
++    // Back on its own circle, nub or list button (Shift+Tab), they stay: activating it again is the second tap.
++    const onOut = (e: FocusEvent) => {
++      const to = e.relatedTarget as Node | null;
++      if (to && !el?.contains(to) && !(['node', 'nub'] as const).some((by) => opener(id, by)?.contains(to))) useStore.getState().showActions(undefined);
++    };
++    el?.addEventListener('focusout', onOut);
++    return () => el?.removeEventListener('focusout', onOut);
++  }, [id]);
++
++  const close = () => useStore.getState().showActions(undefined);
++  const logToward = () => {
++    const st = useStore.getState();
++    close();
++    st.select(id);
++    st.focusLogBox();
++  };
++  const under = () => {
++    const n = text.trim();
++    if (!n) return;
++    const st = useStore.getState();
++    // Refused while reconnecting: the name stays.
++    const made = st.createThread(n);
++    if (!made) return;
++    close();
++    if (made !== id) st.setDraft({ doingId: made });
++    st.select(id);
++    st.focusLogBox();
++  };
++  const addStep = () => {
++    close();
++    useStore.getState().askAddStep(id);
++  };
++  const open = () => {
++    close();
++    router.push(`/thread/${id}`);
++  };
++  const actions = [
++    { key: 'log', glyph: '→', label: 'Log toward it', run: logToward },
++    { key: 'under', glyph: '＋', label: 'Under it', run: () => setNaming(true) },
++    ...(hasStep ? [] : [{ key: 'step', glyph: '•', label: 'Add a step', run: addStep }]),
++    { key: 'open', glyph: '↗', label: 'Open', run: open },
++  ];
++  const onKeyDown = (e: { key: string; preventDefault(): void }) => {
++    const all = items.current.filter(Boolean) as unknown as HTMLElement[];
++    const i = all.indexOf(document.activeElement as HTMLElement);
++    const to = { ArrowRight: i + 1, ArrowDown: i + 1, ArrowLeft: i - 1, ArrowUp: i - 1, Home: 0, End: all.length - 1 }[e.key];
++    if (to === undefined) return;
++    e.preventDefault();
++    all[(to + all.length) % all.length]?.focus();
++  };
++  const onLayout = (e: LayoutChangeEvent) => onSize?.({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height });
++
++  return (
++    <View ref={box} testID="node-actions" style={[styles.strip, { width: Math.min(MENU_MAX_W, actions.length * ITEM_W) }, style]} onLayout={onLayout}>
++      {naming ? (
++        <View role="group" aria-label={`New wander under ${name}`} style={styles.naming}>
++          <Text style={styles.glyph} {...decorative}>
++            ＋
++          </Text>
++          <TextInput
++            value={text}
++            onChangeText={setText}
++            autoFocus
++            placeholder="New wander under it"
++            placeholderTextColor={C.faint}
++            onSubmitEditing={under}
++            submitBehavior="submit"
++            blurOnSubmit={false}
++            returnKeyType="done"
++            style={styles.field}
++            accessibilityLabel={`New wander under ${name}`}
++            testID="node-actions-under"
++          />
++        </View>
++      ) : (
++        <View role="menu" aria-label={`Actions for ${name}`} {...({ 'aria-orientation': 'horizontal' } as object)} style={styles.row} {...(web && ({ onKeyDown } as object))}>
++          {actions.map((a, i) => (
++            <Pressable
++              key={a.key}
++              ref={(el) => {
++                items.current[i] = el;
++              }}
++              role="menuitem"
++              onPress={a.run}
++              testID={`node-action-${a.key}`}
++              {...(web && ({ tabIndex: i === 0 ? 0 : -1 } as object))}
++              style={({ pressed }) => [styles.item, pressed && styles.pressed]}>
++              <Text style={styles.glyph} {...decorative}>
++                {a.glyph}
++              </Text>
++              <Text style={styles.label} numberOfLines={2}>
++                {a.label}
++              </Text>
++            </Pressable>
++          ))}
++        </View>
++      )}
++    </View>
++  );
++}
++
++const styles = StyleSheet.create({
++  strip: {
++    maxWidth: '100%',
++    backgroundColor: C.surface,
++    borderWidth: 1.5,
++    borderColor: C.ink,
++    borderRadius: 14,
++    overflow: 'hidden',
++    ...(web ? ({ boxShadow: '0 4px 14px rgba(24, 24, 27, 0.14)' } as object) : { elevation: 4 }),
++  },
++  // Wraps when there's no room for one line (the list at the largest text).
++  row: { flexDirection: 'row', flexWrap: 'wrap' },
++  item: { flexGrow: 1, flexBasis: ITEM_W - 8, minWidth: 44, minHeight: 52, paddingHorizontal: 4, paddingVertical: 5, alignItems: 'center', justifyContent: 'center', gap: 1 },
++  pressed: { backgroundColor: C.quietBg },
++  glyph: { fontSize: 16, lineHeight: 19, color: C.ink, fontWeight: '600' },
++  label: { fontSize: 12, lineHeight: 14, color: C.ink, fontWeight: '500', textAlign: 'center' },
++  naming: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 52, paddingLeft: 12, paddingRight: 8 },
++  field: { flex: 1, minHeight: 44, fontSize: 15, color: C.ink },
++});
+diff --git a/src/domain/activityIndex.test.ts b/src/domain/activityIndex.test.ts
+new file mode 100644
+index 0000000..cd2ce96
+--- /dev/null
++++ b/src/domain/activityIndex.test.ts
+@@ -0,0 +1,102 @@
++/** P-46 (with P-62): Home's index of every log, brought up to date a log at a time, always equals one built from scratch. */
++import { describe, expect, it } from 'vitest';
++
++import { activityIndex, ActivityIndex, buildActivityIndex, newer, TOP_PER_THREAD } from './activityIndex';
++import { deleteActivity, editActivity, ensureThread, logActivity } from './model';
++import { headerWhys, looseLogs, overview } from './overview';
++import { Data, emptyData, Id } from './types';
++
++const NOW = new Date(Date.UTC(2026, 10, 23, 12));
++const day = (n: number) => new Date(NOW.getTime() - n * 864e5);
++
++/** Everything an index says, comparable. */
++const plain = (ix: ActivityIndex) => ({
++  count: ix.count,
++  steps: [...ix.steps].sort(),
++  pairs: [...ix.pairs].map(([k, m]) => [k, [...m].sort()]).sort(),
++  direct: [...ix.direct].sort(),
++  top: [...ix.top].map(([k, l]) => [k, l.map((a) => a.id)]).sort(),
++  latest: [...ix.heat.latest].sort(),
++  feeders: [...ix.heat.feeders].map(([k, s]) => [k, [...s].sort()]).sort(),
++  loose: ix.loose.map((a) => a.id).sort(),
++});
++
++function world() {
++  let data: Data = emptyData();
++  const id: Id[] = [];
++  for (let i = 0; i < 8; i++) {
++    const r = ensureThread(data, `w${i}`, day(300));
++    data = r.data;
++    id.push(r.thread.id);
++  }
++  let seed = 7;
++  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
++  for (let i = 0; i < 60; i++) {
++    const doing = rnd() < 0.8 ? id[Math.floor(rnd() * 8)] : undefined;
++    const to = rnd() < 0.7 ? [id[Math.floor(rnd() * 8)]] : [];
++    data = logActivity(data, { text: `x${i}`, doingId: doing, toIds: to, occurredAt: day(rnd() * 30) }, day(rnd() * 30)).data;
++  }
++  return { data, id };
++}
++
++/** Worked out the slow way, log by log: each wander's newest logs, its counts, the loose ones. */
++function oracle(data: Data) {
++  const acts = Object.values(data.activities);
++  const ids = [...new Set(acts.flatMap((a) => [...(a.doingId ? [a.doingId] : []), ...a.toIds]))];
++  const names = (a: (typeof acts)[number], id: Id) => a.doingId === id || a.toIds.includes(id);
++  return {
++    top: ids.map((id) => [id, acts.filter((a) => names(a, id)).sort(newer).slice(0, TOP_PER_THREAD).map((a) => a.id)]).sort(),
++    steps: ids.map((id) => [id, acts.filter((a) => a.doingId === id || (a.toIds.includes(id) && a.doingId !== id)).length]).sort(),
++    loose: acts.filter((a) => !a.doingId && !a.toIds.length).map((a) => a.id).sort(),
++  };
++}
++
++const expectSame = (data: Data, what: string) => {
++  const p = plain(activityIndex(data.activities));
++  expect(p, what).toEqual(plain(buildActivityIndex(data.activities)));
++  const o = oracle(data);
++  expect(p.top, what).toEqual(o.top);
++  expect(p.steps, what).toEqual(o.steps);
++  expect(p.loose, what).toEqual(o.loose);
++  // And so the picture and the loose logs are what a fresh index gives.
++  const ov = overview(data, headerWhys(data, NOW), { now: NOW });
++  const l = looseLogs(data, { now: NOW });
++  activityIndex({}); // forgotten: the next one is worked out afresh (every record added to an empty index)
++  expect(ov, what).toEqual(overview(data, headerWhys(data, NOW), { now: NOW }));
++  expect(l, what).toEqual(looseLogs(data, { now: NOW }));
++};
++
++describe('P-46: the activity index', () => {
++  it('a log at a time (with a doing, a to, both, neither), it matches one built from scratch, and the picture with it', () => {
++    let { data, id } = world();
++    expectSame(data, 'start');
++    for (const [i, input] of [{ doingId: id[1], toIds: [id[2]] }, { toIds: [id[3]] }, { doingId: id[4], toIds: [] }, { toIds: [] }, { doingId: id[5], toIds: [id[5], id[0]] }].entries()) {
++      const before = activityIndex(data.activities);
++      // The picture worked out with it before the log (so a stale answer would show).
++      overview(data, headerWhys(data, NOW), { now: NOW });
++      data = logActivity(data, { text: `new ${i}`, ...input }, day(0)).data;
++      expect(activityIndex(data.activities), 'brought up to date, not rebuilt').toBe(before);
++      expectSame(data, `log ${i}`);
++    }
++  });
++
++  it('an edit, a removal or a replaced history builds it again, correctly', () => {
++    let { data } = world();
++    activityIndex(data.activities);
++    const [a, b] = Object.keys(data.activities);
++    data = editActivity(data, a, { toIds: [], doingId: null });
++    expectSame(data, 'edited');
++    data = deleteActivity(data, b);
++    expectSame(data, 'removed');
++    // Undo of a log: the older activities again.
++    const older = data;
++    data = logActivity(data, { text: 'undone', toIds: [] }, day(0)).data;
++    activityIndex(data.activities);
++    expectSame(older, 'undone');
++    // One more record, but another one changed in the same step: rebuilt.
++    const ids = Object.keys(older.activities);
++    const tampered = { ...older, activities: { ...older.activities, [ids[0]]: { ...older.activities[ids[0]], toIds: [] }, extra: { ...older.activities[ids[1]], id: 'extra' } } };
++    activityIndex(older.activities);
++    expectSame(tampered, 'one more and one changed');
++  });
++});
+diff --git a/src/domain/activityIndex.ts b/src/domain/activityIndex.ts
+new file mode 100644
+index 0000000..84e0a08
+--- /dev/null
++++ b/src/domain/activityIndex.ts
+@@ -0,0 +1,105 @@
++/**
++ * P-46 (with P-62): what Home's picture needs from every log, kept up to date a log at a time. Home
++ * redraws after every log, and with a big history going through every log again each time is most of
++ * the picture's cost; a log only adds one record, so when the new activities are the old ones plus a
++ * few, only those few are added. Anything else (an edit, a removal, an import) builds it again.
++ * Nothing here is stored.
++ */
++import { emptyHeatIndex, HeatIndex, indexHeat } from './heat';
++import { Activity, Id } from './types';
++
++/** How many of each wander's newest logs are kept (the picture's dots never need more). */
++export const TOP_PER_THREAD = 8;
++
++export interface ActivityIndex {
++  /** The activities this was worked out from. */
++  acts: Record<Id, Activity>;
++  count: number;
++  /** All-time logs per wander (as doing, or as a "to" that isn't its doing). */
++  steps: Map<Id, number>;
++  /** doing → to (a different wander) → how many logs. */
++  pairs: Map<Id, Map<Id, number>>;
++  /** Logs with no doing, per "to". */
++  direct: Map<Id, number>;
++  /** Per wander, its newest logs (doing or to), newest first (`newer`), at most TOP_PER_THREAD. */
++  top: Map<Id, Activity[]>;
++  /** P-48's heat index (each wander's newest log, and who feeds whom). */
++  heat: HeatIndex;
++  /** Logs that name no wander (no doing, no to). */
++  loose: Activity[];
++}
++
++const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
++/** Newest first: by when it was logged, then id (as `overview`'s dots). */
++export const newer = (a: Activity, b: Activity) => cmp(b.createdAt, a.createdAt) || cmp(b.id, a.id);
++
++function add(ix: ActivityIndex, a: Activity) {
++  indexHeat(ix.heat, a);
++  if (!a.doingId && !a.toIds.length) ix.loose.push(a);
++  const named: Id[] = [];
++  if (a.doingId) {
++    ix.steps.set(a.doingId, (ix.steps.get(a.doingId) ?? 0) + 1);
++    named.push(a.doingId);
++  }
++  for (const to of a.toIds) {
++    if (!named.includes(to)) named.push(to);
++    if (to === a.doingId) continue;
++    ix.steps.set(to, (ix.steps.get(to) ?? 0) + 1);
++    if (!a.doingId) ix.direct.set(to, (ix.direct.get(to) ?? 0) + 1);
++    else {
++      const m = ix.pairs.get(a.doingId) ?? ix.pairs.set(a.doingId, new Map()).get(a.doingId)!;
++      m.set(to, (m.get(to) ?? 0) + 1);
++    }
++  }
++  for (const id of named) {
++    const list = ix.top.get(id) ?? ix.top.set(id, []).get(id)!;
++    if (list.length === TOP_PER_THREAD && newer(a, list[TOP_PER_THREAD - 1]) > 0) continue;
++    let i = list.length;
++    while (i > 0 && newer(a, list[i - 1]) < 0) i--;
++    list.splice(i, 0, a);
++    if (list.length > TOP_PER_THREAD) list.pop();
++  }
++}
++
++/** Built from scratch. */
++export function buildActivityIndex(acts: Record<Id, Activity>): ActivityIndex {
++  const ix: ActivityIndex = { acts, count: 0, steps: new Map(), pairs: new Map(), direct: new Map(), top: new Map(), heat: emptyHeatIndex(), loose: [] };
++  for (const id in acts) {
++    add(ix, acts[id]);
++    ix.count++;
++  }
++  return ix;
++}
++
++let last: ActivityIndex | undefined;
++
++/**
++ * The index for these activities: the last one as it is (the same activities), brought up to date
++ * (the same records plus new ones), or built again.
++ */
++export function activityIndex(acts: Record<Id, Activity>): ActivityIndex {
++  if (last?.acts === acts) return last;
++  if (last) {
++    const old = last.acts;
++    const added: Activity[] = [];
++    let kept = 0;
++    let same = true;
++    for (const id in acts) {
++      const o = Object.prototype.hasOwnProperty.call(old, id) ? old[id] : undefined;
++      if (o === undefined) added.push(acts[id]);
++      else if (o !== acts[id]) {
++        same = false;
++        break;
++      } else kept++;
++    }
++    // Every old record still there and untouched: just add the new ones (in place: only the latest index is ever used).
++    if (same && kept === last.count) {
++      for (const a of added) add(last, a);
++      last.acts = acts;
++      last.count += added.length;
++      return last;
++    }
++  }
++  last = buildActivityIndex(acts);
++  return last;
++}
+diff --git a/src/domain/heat.ts b/src/domain/heat.ts
+index 9e5f4cd..567925b 100644
+--- a/src/domain/heat.ts
++++ b/src/domain/heat.ts
+@@ -13,6 +13,8 @@ import { Activity, Data, Id } from './types';
+ export interface HeatIndex {
+   latest: Map<Id, string>;
+   feeders: Map<Id, Set<Id>>;
++  /** P-46: per node, the newest log on it or anything feeding it, as `nodeHeat` found it (forgotten when a log names a wander). */
++  reach?: Map<Id, string | undefined>;
+ }
+ export const emptyHeatIndex = (): HeatIndex => ({ latest: new Map(), feeders: new Map() });
+ 
+@@ -20,6 +22,7 @@ export const emptyHeatIndex = (): HeatIndex => ({ latest: new Map(), feeders: ne
+ export function indexHeat(index: HeatIndex, a: Activity) {
+   const { latest, feeders } = index;
+   const at = a.occurredAt;
++  if (a.doingId || a.toIds.length) index.reach = undefined;
+   if (a.doingId) {
+     const prev = latest.get(a.doingId);
+     if (prev === undefined || at > prev) latest.set(a.doingId, at);
+@@ -51,7 +54,13 @@ export function nodeHeat(data: Data, ids: Iterable<Id>, opts: { now?: Date; shad
+     for (const a of Object.values(data.activities)) indexHeat(index, a);
+   }
+   const { latest, feeders } = index;
++  const reach = (index.reach ??= new Map());
+   for (const id of wanted) {
++    if (reach.has(id)) {
++      const best = reach.get(id);
++      out[id] = best === undefined ? 0 : warmth(new Date(best), now);
++      continue;
++    }
+     // Everything beneath it, each once (so a cycle ends).
+     let best: string | undefined;
+     const seen = new Set<Id>([id]);
+@@ -66,6 +75,7 @@ export function nodeHeat(data: Data, ids: Iterable<Id>, opts: { now?: Date; shad
+         stack.push(f);
+       }
+     }
++    reach.set(id, best);
+     out[id] = best === undefined ? 0 : warmth(new Date(best), now);
+   }
+   return out;
+diff --git a/src/domain/overview.ts b/src/domain/overview.ts
+index a6b8fc8..9b99831 100644
+--- a/src/domain/overview.ts
++++ b/src/domain/overview.ts
+@@ -11,9 +11,10 @@
+  * Positions never come from counts: a thread keeps its slot while it's in the picture, and one that
+  * enters takes a free slot (`overviewLayout` takes the previous slots). No numbers are drawn.
+  */
++import { activityIndex } from './activityIndex';
+ import { groupByValue, valueThreads } from './emergence';
+ import { subtree } from './focus';
+-import { emptyHeatIndex, indexHeat, nodeHeat } from './heat';
++import { nodeHeat } from './heat';
+ import { declaredWhys } from './model';
+ import { homeThreads, warmth } from './selectors';
+ import { Activity, Data, Id, Thread } from './types';
+@@ -113,7 +114,8 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data),
+   const visible = (id: Id) => !!data.threads[id] && !data.threads[id].hidden;
+   const all = Object.values(data.threads).filter((t) => !t.hidden);
+   if (!all.length) return undefined;
+-  const acts = Object.values(data.activities);
++  // P-46: what's needed from every log, kept up to date a log at a time.
++  const ix = activityIndex(data.activities);
+ 
+   const declared = declaredWhys(data);
+   const declaredIds = new Set(declared.map((t) => t.id));
+@@ -124,35 +126,24 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data),
+   // A why that doesn't fit is never drawn as a plain thread.
+   const eligible = (t: Thread) => !whyList.includes(t);
+ 
+-  // One pass (a big history has thousands of logs): all-time activity per thread, the newest log
+-  // that names a visible thread, and links and plain "to" logs into the shown whys.
+-  const steps = new Map<Id, number>();
++  // From the index (a big history has thousands of logs): all-time activity per thread, the newest
++  // log that names a visible thread, and links and plain "to" logs into the shown whys.
++  const steps = ix.steps;
+   const into = new Map<Id, Map<Id, number>>();
+   const direct = new Map<Id, number>();
+-  let newest: Activity | undefined;
+-  const seen = new Set(all.map((t) => t.id));
+-  // P-48: heat is worked out from this same pass (not a pass of its own: Home redraws after every log).
+-  const heatIndex = opts.shading === false ? undefined : emptyHeatIndex();
+-  for (const a of acts) {
+-    if (heatIndex) indexHeat(heatIndex, a);
+-    let any = false;
+-    if (a.doingId) {
+-      steps.set(a.doingId, (steps.get(a.doingId) ?? 0) + 1);
+-      any = seen.has(a.doingId);
+-    }
+-    for (const to of a.toIds) {
+-      if (to === a.doingId) continue;
+-      steps.set(to, (steps.get(to) ?? 0) + 1);
+-      any ||= seen.has(to);
++  for (const [from, m] of ix.pairs)
++    for (const [to, n] of m) {
+       if (!whyIds.has(to)) continue;
+-      if (!a.doingId) direct.set(to, (direct.get(to) ?? 0) + 1);
+-      else {
+-        const m = into.get(to) ?? into.set(to, new Map()).get(to)!;
+-        m.set(a.doingId, (m.get(a.doingId) ?? 0) + 1);
+-      }
++      (into.get(to) ?? into.set(to, new Map()).get(to)!).set(from, n);
+     }
+-    if (any && (!newest || a.createdAt > newest.createdAt || (a.createdAt === newest.createdAt && a.id > newest.id))) newest = a;
++  for (const id of whyIds) if (ix.direct.has(id)) direct.set(id, ix.direct.get(id)!);
++  let newest: Activity | undefined;
++  for (const t of all) {
++    const a = ix.top.get(t.id)?.[0];
++    if (a && (!newest || newer(a, newest) < 0)) newest = a;
+   }
++  // P-48: heat is worked out from the same index (Home redraws after every log).
++  const heatIndex = opts.shading === false ? undefined : ix.heat;
+   const byActivity = (a: Thread, b: Thread) => (steps.get(b.id) ?? 0) - (steps.get(a.id) ?? 0) || byName(a, b);
+ 
+   // The threads beside the whys (or, with none, all of the picture), best first: whatever slots the
+@@ -201,22 +192,11 @@ export function overview(data: Data, surfacing: Iterable<Id> = headerWhys(data),
+   const shown = new Set([...whyIds, ...picked.map((t) => t.id)]);
+   // Links between threads in the picture, and the most recent logs that name one of them.
+   const linkCount = new Map<Id, Map<Id, number>>();
+-  const recent: Activity[] = [];
+-  for (const a of acts) {
+-    let any = !!a.doingId && shown.has(a.doingId);
+-    for (const to of a.toIds) {
+-      if (!shown.has(to)) continue;
+-      any = true;
+-      if (!a.doingId || to === a.doingId || !shown.has(a.doingId)) continue;
+-      const m = linkCount.get(a.doingId) ?? linkCount.set(a.doingId, new Map()).get(a.doingId)!;
+-      m.set(to, (m.get(to) ?? 0) + 1);
+-    }
+-    if (!any) continue;
+-    if (recent.length === MAX_DOTS && newer(a, recent[MAX_DOTS - 1]) > 0) continue;
+-    recent.push(a);
+-    recent.sort(newer);
+-    if (recent.length > MAX_DOTS) recent.pop();
++  for (const [from, m] of ix.pairs) {
++    if (!shown.has(from)) continue;
++    for (const [to, n] of m) if (shown.has(to)) (linkCount.get(from) ?? linkCount.set(from, new Map()).get(from)!).set(to, n);
+   }
++  const recent = [...new Set([...shown].flatMap((id) => ix.top.get(id) ?? []))].sort(newer).slice(0, MAX_DOTS);
+   const links: OverviewLink[] = [];
+   for (const [from, m] of linkCount) for (const [to, count] of m) links.push({ from, to, count });
+   links.sort((a, b) => byName(data.threads[a.from], data.threads[b.from]) || byName(data.threads[a.to], data.threads[b.to]));
+@@ -281,7 +261,8 @@ export function looseLogs(data: Data, opts: { now?: Date; shading?: boolean } =
+   const { now = new Date(), shading = true } = opts;
+   const since = now.getTime() - LOOSE_DAYS * 864e5;
+   const out: Activity[] = [];
+-  for (const a of Object.values(data.activities)) {
++  // P-46: only the logs that name no wander (from the index), not every log.
++  for (const a of activityIndex(data.activities).loose) {
+     if (a.doingId || a.toIds.length || new Date(a.occurredAt).getTime() < since) continue;
+     if (out.length === LOOSE_MAX && newer(a, out[LOOSE_MAX - 1]) > 0) continue;
+     out.push(a);
+diff --git a/src/domain/quickActions.test.ts b/src/domain/quickActions.test.ts
+new file mode 100644
+index 0000000..b3074a1
+--- /dev/null
++++ b/src/domain/quickActions.test.ts
+@@ -0,0 +1,212 @@
++/** P-62: quick actions on a node — where each circle's ＋ nub goes, and where its actions pop up. */
++import { describe, expect, it } from 'vitest';
++
++import { stepMark } from './focus';
++import { declareThread, ensureThread, logActivity, updateThread } from './model';
++import { headerWhys, LABEL_LINE, overview, overviewLayout, OverviewLayout, RING_OUT, scopeLayout } from './overview';
++import { discTouchesBox, discTouchesPolygon, menuPlace, middle, NUB_HIT, NUB_OUT, NUB_R, nubs } from './quickActions';
++import { Data, emptyData, Id } from './types';
++
++const NOW = new Date(Date.UTC(2026, 10, 23, 12));
++const day = (n: number) => new Date(NOW.getTime() - n * 864e5);
++
++function make(...names: string[]) {
++  let data: Data = emptyData();
++  const id: Record<string, Id> = {};
++  names.forEach((n, i) => {
++    const r = ensureThread(data, n, new Date(day(300).getTime() + i * 6e4));
++    data = r.data;
++    id[n] = r.thread.id;
++  });
++  return { data, id };
++}
++const feed = (data: Data, from: Id | undefined, to: Id[], daysAgo: number) => logActivity(data, { text: 'x', doingId: from, toIds: to, occurredAt: day(daysAgo) }, day(daysAgo)).data;
++const declare = (data: Data, id: Id) => {
++  const r = declareThread(data, id, day(1));
++  if (!r.ok) throw new Error('declare');
++  return r.data;
++};
++const ov = (data: Data) => overview(data, headerWhys(data, NOW), { now: NOW })!;
++
++/** The owner's Home: one declared why, "feel productive", with a step. */
++function owner() {
++  let { data, id } = make('feel productive');
++  data = declare(data, id['feel productive']);
++  data = updateThread(data, id['feel productive'], { next: 'Clean my car' });
++  return { data, id };
++}
++/** Three declared whys with long names, wanders feeding them (some feeding each other), more than fit. */
++function busy() {
++  const names = ['feel productive', 'make apparel for the spring market', 'Supercalifragilisticexpialidocious', 'draw better hands every evening', 'sew', 'read philosophy slowly', 'knit', 'lift'];
++  let { data, id } = make(...names);
++  data = feed(data, id['draw better hands every evening'], [id['make apparel for the spring market']], 2);
++  data = feed(data, id.sew, [id['make apparel for the spring market'], id['feel productive']], 3);
++  data = feed(data, id['read philosophy slowly'], [id['feel productive']], 4);
++  data = feed(data, id.knit, [id.Supercalifragilisticexpialidocious], 5);
++  data = feed(data, id['feel productive'], [id['make apparel for the spring market']], 5);
++  data = feed(data, id.lift, [], 6);
++  for (const w of ['feel productive', 'make apparel for the spring market', 'Supercalifragilisticexpialidocious']) data = declare(data, id[w]);
++  data = updateThread(data, id['feel productive'], { next: 'Clean my car' });
++  data = updateThread(data, id.sew, { next: 'hem the blue dress before Saturday' });
++  return { data, id };
++}
++/** No whys: the most active wanders, zigzagged, feeding each other. */
++function noWhys() {
++  let { data, id } = make('draw', 'sew', 'read', 'knit', 'lift');
++  data = feed(data, id.draw, [id.sew], 1);
++  data = feed(data, id.read, [id.knit], 2);
++  data = feed(data, id.lift, [id.draw], 3);
++  data = feed(data, id.knit, [id.sew], 4);
++  return { data, id };
++}
++
++type Box = { x: number; y: number; w: number; h: number };
++const overlap = (a: Box, b: Box) => a.x < b.x + b.w - 0.01 && b.x < a.x + a.w - 0.01 && a.y < b.y + b.h - 0.01 && b.y < a.y + a.h - 0.01;
++
++/** Every circle has a nub on its edge, inside the picture, clear of everything else drawn (and its target 44 px, inside, overlapping the circle's edge). */
++function expectNubsClear(l: OverviewLayout, width: number, what: string) {
++  const ns = nubs(l, width);
++  expect(Object.keys(ns).sort(), `${what}: one per circle`).toEqual(l.nodes.map((n) => n.id).sort());
++  for (const n of l.nodes) {
++    const c = n.circle!;
++    const p = ns[n.id];
++    const at = `${what}: ${n.name}'s nub`;
++    // Sticking out of its own edge: the disc overlaps the circle's edge.
++    expect(Math.hypot(p.x - c.cx, p.y - c.cy)).toBeCloseTo(c.r + NUB_OUT, 0);
++    expect(Math.hypot(p.x - c.cx, p.y - c.cy) - NUB_R, at).toBeLessThan(c.r);
++    expect(Math.hypot(p.x - c.cx, p.y - c.cy) + NUB_R, at).toBeGreaterThan(c.r);
++    // Inside the picture, the target too.
++    expect(p.x - NUB_R).toBeGreaterThanOrEqual(0);
++    expect(p.x + NUB_R).toBeLessThanOrEqual(width);
++    expect(p.y - NUB_R).toBeGreaterThanOrEqual(0);
++    expect(p.y + NUB_R).toBeLessThanOrEqual(l.height);
++    const hit = { x: p.hx, y: p.hy, w: NUB_HIT, h: NUB_HIT };
++    expect(hit.x).toBeGreaterThanOrEqual(0);
++    expect(hit.y).toBeGreaterThanOrEqual(0);
++    expect(hit.x + hit.w).toBeLessThanOrEqual(width + 0.01);
++    expect(hit.y + hit.h).toBeLessThanOrEqual(l.height + 0.01);
++    // The target holds the nub and overlaps the circle's edge, but leaves the circle's middle (a tap there is the circle's).
++    expect(discTouchesBox(p.x, p.y, 0.5, hit), at).toBe(true);
++    expect(discTouchesBox(c.cx, c.cy, c.r, hit), at).toBe(true);
++    expect(discTouchesBox(c.cx, c.cy, middle(c.r), hit), `${at}'s target / its circle's middle`).toBe(false);
++    expect(middle(c.r)).toBeGreaterThanOrEqual(c.r / 2);
++    for (const m of l.nodes) {
++      const mc = m.circle!;
++      // Other circles with their rings.
++      if (m !== n) expect(Math.hypot(p.x - mc.cx, p.y - mc.cy), `${at} / ${m.name}`).toBeGreaterThanOrEqual(mc.r + RING_OUT + NUB_R);
++      // Its target never reaches another circle (a tap on that circle is that circle's).
++      if (m !== n) expect(discTouchesBox(mc.cx, mc.cy, mc.r, hit), `${at}'s target / ${m.name}`).toBe(false);
++      // Labels under circles.
++      if (!mc.inside) expect(discTouchesBox(p.x, p.y, NUB_R, { x: mc.cx - mc.labelW / 2, y: mc.labelY, w: mc.labelW, h: mc.labelH }), `${at} / ${m.name}'s label`).toBe(false);
++      // Any node's step mark (whichever is focused): its target, its words, its branch.
++      const s = stepMark(mc, width, l.height);
++      const mark = { x: s.x - 22, y: s.y - 22, w: 44, h: 44 };
++      expect(discTouchesBox(p.x, p.y, NUB_R, mark), `${at} / ${m.name}'s step mark`).toBe(false);
++      expect(overlap(hit, mark), `${at}'s target / ${m.name}'s step mark`).toBe(false);
++      if (m.step) expect(discTouchesBox(p.x, p.y, NUB_R, { x: s.label.x, y: s.y - LABEL_LINE / 2 - 1, w: s.label.w, h: LABEL_LINE + 2 }), `${at} / ${m.name}'s step words`).toBe(false);
++      expect(discTouchesPolygon(p.x, p.y, NUB_R, s.branch), `${at} / ${m.name}'s step branch`).toBe(false);
++      // Other nubs, and their targets.
++      if (m !== n) {
++        const q = ns[m.id];
++        expect(Math.hypot(p.x - q.x, p.y - q.y), `${at} / ${m.name}'s nub`).toBeGreaterThanOrEqual(2 * NUB_R);
++        expect(overlap(hit, { x: q.hx, y: q.hy, w: NUB_HIT, h: NUB_HIT }), `${at}'s target / ${m.name}'s nub's target`).toBe(false);
++      }
++    }
++    for (const k of l.links) expect(discTouchesPolygon(p.x, p.y, NUB_R, k.branch!.points), `${at} / branch ${k.key}`).toBe(false);
++    if (l.more) {
++      expect(discTouchesBox(p.x, p.y, NUB_R, l.more), `${at} / and more`).toBe(false);
++      expect(overlap(hit, l.more), `${at}'s target / and more`).toBe(false);
++    }
++  }
++}
++
++describe('P-62: every circle’s ＋ nub', () => {
++  it('the owner’s Home (one why, feel productive): a nub sticking out of its edge, up and to the right', () => {
++    const { data, id } = owner();
++    for (const width of [350, 390, 600]) {
++      const l = overviewLayout(ov(data), width, { roomy: true });
++      expectNubsClear(l, width, `owner at ${width}`);
++      const c = l.nodes[0].circle!;
++      const p = nubs(l, width)[id['feel productive']];
++      expect(p.x).toBeGreaterThan(c.cx);
++      expect(p.y).toBeLessThan(c.cy);
++    }
++  });
++
++  for (const width of [350, 390, 600]) {
++    it(`at ${width} px: whys, feeders, branches between whys, steps and “and more →” — no overlaps`, () => {
++      const o = ov(busy().data);
++      expect(o.more).toBe(true);
++      expectNubsClear(overviewLayout(o, width, { roomy: true }), width, `busy at ${width}`);
++    });
++
++    it(`at ${width} px with no whys (zigzagged wanders feeding each other) — no overlaps`, () => {
++      expectNubsClear(overviewLayout(ov(noWhys().data), width, { roomy: true }), width, `no whys at ${width}`);
++    });
++
++    it(`at ${width} px narrowed to a node — no overlaps`, () => {
++      const { data, id } = busy();
++      const o = ov(data);
++      const all = overviewLayout(o, width, { roomy: true });
++      const l = scopeLayout(o, all, id['make apparel for the spring market'], width);
++      expect(l).not.toBe(all);
++      expectNubsClear(l, width, `narrowed at ${width}`);
++    });
++  }
++
++  it('larger native text (130 %) still has room', () => {
++    const o = ov(busy().data);
++    expectNubsClear(overviewLayout(o, 350, { roomy: true, fontScale: 1.3 }), 350, 'busy at 130 %');
++  });
++
++  it('no picture (the list at the largest text): no nubs', () => {
++    const o = ov(busy().data);
++    const l = overviewLayout(o, 200, { roomy: true });
++    expect(l.summaryOnly).toBe(true);
++    expect(nubs(l, 200)).toEqual({});
++  });
++});
++
++describe('P-62: where the actions pop up', () => {
++  const area = { w: 350, h: 344 };
++  const size = { w: 300, h: 56 };
++
++  it('under the circle’s rings, centred on it', () => {
++    const c = { cx: 175, cy: 42, r: 34 };
++    const p = menuPlace(c, size, area);
++    expect(p.above).toBe(false);
++    expect(p.y).toBeGreaterThanOrEqual(c.cy + c.r + RING_OUT);
++    expect(p.x + size.w / 2).toBeCloseTo(c.cx, 0);
++  });
++
++  it('kept on screen: near an edge it slides in, never past it', () => {
++    const left = menuPlace({ cx: 30, cy: 42, r: 34 }, size, area);
++    expect(left.x).toBe(0);
++    const right = menuPlace({ cx: 330, cy: 42, r: 34 }, size, area);
++    expect(right.x + size.w).toBe(area.w);
++    // Wider than the picture: as wide as it.
++    expect(menuPlace({ cx: 100, cy: 42, r: 34 }, { w: 500, h: 56 }, area).x).toBe(0);
++  });
++
++  it('flips above when it doesn’t fit below (the bottom row), and stays inside when neither fits', () => {
++    const c = { cx: 60, cy: 300, r: 24 };
++    const p = menuPlace(c, size, area);
++    expect(p.above).toBe(true);
++    expect(p.y + size.h).toBeLessThanOrEqual(c.cy - c.r - RING_OUT);
++    const tall = menuPlace({ cx: 60, cy: 170, r: 24 }, { w: 300, h: 300 }, area);
++    expect(tall.y).toBeGreaterThanOrEqual(0);
++    expect(tall.y + 300).toBeLessThanOrEqual(area.h);
++  });
++
++  it('on Home’s real layout: under a top-row circle it covers no circle of the bottom row; over a bottom-row one, none of the top row', () => {
++    const { data } = busy();
++    for (const width of [350, 390, 600]) {
++      const l = overviewLayout(ov(data), width, { roomy: true });
++      for (const n of l.nodes) {
++        const p = menuPlace(n.circle!, { w: 300, h: 60 }, { w: width, h: l.height });
++        const box = { x: p.x, y: p.y, w: Math.min(300, width), h: 60 };
++        for (const m of l.nodes) expect(discTouchesBox(m.circle!.cx, m.circle!.cy, m.circle!.r, box), `${width}: ${n.name}'s actions / ${m.name}`).toBe(false);
++      }
++    }
++  });
++});
+diff --git a/src/domain/quickActions.ts b/src/domain/quickActions.ts
+new file mode 100644
+index 0000000..4ee1b61
+--- /dev/null
++++ b/src/domain/quickActions.ts
+@@ -0,0 +1,223 @@
++/**
++ * P-62 (D-11): quick actions on a node. Every circle on Home has a small ＋ nub sticking out of its
++ * edge; selecting a node (or its nub) pops up its actions as a compact strip beside it. Nothing here
++ * is stored.
++ */
++import { stepMark } from './focus';
++import { LABEL_LINE, LaidNode, OverviewLayout, RING_OUT } from './overview';
++import { Id } from './types';
++
++/** The nub's visual radius (a 20 pt disc)… */
++export const NUB_R = 10;
++/** …its centre this far beyond the circle's edge, so it overlaps the edge and sticks out… */
++export const NUB_OUT = 4;
++/** …and its pointer target (overlapping the circle's edge). */
++export const NUB_HIT = 44;
++/** The middle of a circle a nub's target never covers (a tap there is the circle's): this much of its radius. */
++export const middle = (r: number) => 0.6 * r;
++/** The least room between the nub and anything else drawn. */
++const CLEAR = 2;
++
++export interface Nub {
++  /** The nub's centre. */
++  x: number;
++  y: number;
++  /** Its 44 × 44 target's top-left corner (kept inside the picture, so not always centred on the nub). */
++  hx: number;
++  hy: number;
++}
++
++type Box = { x: number; y: number; w: number; h: number };
++const DEG = Math.PI / 180;
++/**
++ * Where a nub may go, in order of preference (screen angles, y down): upper right, upper left, right,
++ * left, straight up, then the lower diagonals. Labels and the step band are below a circle and
++ * branches mostly leave toward the other row, so an upper diagonal is nearly always free.
++ */
++const ANGLES = [-45, -135, 0, 180, -90, 45, 135].map((a) => a * DEG);
++
++const r1 = (n: number) => Math.round(n * 10) / 10;
++
++/** Whether a disc comes within `R` of a box. */
++export function discTouchesBox(cx: number, cy: number, R: number, b: Box): boolean {
++  const dx = Math.max(b.x - cx, 0, cx - (b.x + b.w));
++  const dy = Math.max(b.y - cy, 0, cy - (b.y + b.h));
++  return dx * dx + dy * dy < R * R;
++}
++
++const overlaps = (a: Box, b: Box) => a.x < b.x + b.w - 0.01 && b.x < a.x + a.w - 0.01 && a.y < b.y + b.h - 0.01 && b.y < a.y + a.h - 0.01;
++
++/** Distance from a point to a segment. */
++function segDist(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
++  const vx = bx - ax;
++  const vy = by - ay;
++  const l = vx * vx + vy * vy;
++  const t = l ? Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / l)) : 0;
++  return Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
++}
++
++/** A polygon's points ("x,y x,y …") as pairs. */
++const points = (s: string) => s.split(' ').map((p) => p.split(',').map(Number) as [number, number]);
++
++/** Whether a disc comes within `R` of a filled polygon's outline (branches are thin, so the outline is enough). */
++export function discTouchesPolygon(cx: number, cy: number, R: number, poly: string): boolean {
++  const p = points(poly);
++  for (let i = 0; i < p.length; i++) {
++    const [a, b] = [p[i], p[(i + 1) % p.length]];
++    if (segDist(cx, cy, a[0], a[1], b[0], b[1]) < R) return true;
++  }
++  return false;
++}
++
++/** Everything a nub must stay clear of in a layout (`width` × its height). */
++export function obstacles(layout: OverviewLayout, width: number) {
++  const discs: { x: number; y: number; r: number }[] = [];
++  const boxes: Box[] = [];
++  const polys: string[] = [];
++  /** Other pointer targets (a nub's target must not share any of them). */
++  const targets: Box[] = [];
++  for (const n of layout.nodes) {
++    const c = n.circle;
++    if (!c) continue;
++    // The circle with its outermost ring.
++    discs.push({ x: c.cx, y: c.cy, r: c.r + RING_OUT });
++    // A label under it.
++    if (!c.inside) boxes.push({ x: c.cx - c.labelW / 2, y: c.labelY, w: c.labelW, h: c.labelH });
++    // Its step mark (drawn while it's focused, and any node can be): the dot or ＋ with its 44 px
++    // target, the step's words, and the branch to it.
++    const m = stepMark(c, width, layout.height);
++    boxes.push({ x: m.x - 22, y: m.y - 22, w: 44, h: 44 });
++    targets.push({ x: m.x - 22, y: m.y - 22, w: 44, h: 44 });
++    if (n.step) boxes.push({ x: m.label.x, y: m.y - LABEL_LINE / 2 - 1, w: m.label.w, h: LABEL_LINE + 2 });
++    polys.push(m.branch);
++  }
++  // Branches by their centre lines (their width follows heat, which changes with every log): a nub
++  // keeps clear of the widest a branch gets.
++  const lines: number[][][] = layout.links.filter((l) => l.branch).map((l) => cubic(l.path));
++  if (layout.more) {
++    boxes.push(layout.more);
++    targets.push(layout.more);
++  }
++  return { discs, boxes, polys, lines, targets };
++}
++
++/** Half a branch's widest (P-48: 2.2 + 1.8 px at the hottest). */
++const BRANCH_HALF = 2;
++
++/** Points along a cubic path ("M x y C x y x y x y"). */
++function cubic(path: string): number[][] {
++  const n = path.match(/-?[\d.]+/g)!.map(Number);
++  const [p0, c1, c2, p3] = [0, 2, 4, 6].map((i) => [n[i], n[i + 1]]);
++  const out: number[][] = [];
++  for (let s = 0; s <= 24; s++) {
++    const t = s / 24;
++    const k = [(1 - t) ** 3, 3 * (1 - t) ** 2 * t, 3 * (1 - t) * t * t, t ** 3];
++    out.push([0, 1].map((i) => k[0] * p0[i] + k[1] * c1[i] + k[2] * c2[i] + k[3] * p3[i]));
++  }
++  return out;
++}
++
++/** Whether a disc comes within `R` of a polyline. */
++function discTouchesLine(cx: number, cy: number, R: number, p: number[][]): boolean {
++  for (let i = 1; i < p.length; i++) if (segDist(cx, cy, p[i - 1][0], p[i - 1][1], p[i][0], p[i][1]) < R) return true;
++  return false;
++}
++
++/** Everything `nubs` reads from a layout: the same key, the same nubs (a log that moves nothing reuses them). */
++function nubKey(layout: OverviewLayout, width: number): string {
++  const n = layout.nodes.map((x) => {
++    const c = x.circle;
++    return c ? [x.id, c.cx, c.cy, c.r, c.inside, c.labelW, c.labelY, c.labelH, c.stepY, !!x.step].join(',') : x.id;
++  });
++  const m = layout.more;
++  return JSON.stringify([width, layout.height, layout.summaryOnly, n, layout.links.map((l) => (l.branch ? l.path : '')), m && [m.x, m.y, m.w, m.h]]);
++}
++let last: { key: string; out: Record<Id, Nub> } | undefined;
++
++/** Where a nub at this angle would be on a node's circle. */
++const at = (c: { cx: number; cy: number; r: number }, a: number) => ({ x: c.cx + Math.cos(a) * (c.r + NUB_OUT), y: c.cy + Math.sin(a) * (c.r + NUB_OUT) });
++
++/**
++ * Each circle's ＋ nub (P-62): sticking out of its edge at the first angle (`ANGLES`) where its disc
++ * stays inside the picture and clear of every other circle and its rings, every label, every step
++ * mark (and its words and branch), every branch, "and more →" and the nubs placed before it. Its
++ * 44 px target is kept inside the picture. With no angle clear, the first that stays inside.
++ */
++export function nubs(layout: OverviewLayout, width: number): Record<Id, Nub> {
++  if (layout.summaryOnly) return {};
++  const key = nubKey(layout, width);
++  if (last?.key === key) return last.out;
++  const out = placeNubs(layout, width);
++  last = { key, out };
++  return out;
++}
++
++function placeNubs(layout: OverviewLayout, width: number): Record<Id, Nub> {
++  const out: Record<Id, Nub> = {};
++  const { discs, boxes, polys, lines, targets } = obstacles(layout, width);
++  const R = NUB_R + CLEAR;
++  const placed: Nub[] = [];
++  for (const n of layout.nodes) {
++    const c = n.circle;
++    if (!c) continue;
++    const inside = (p: { x: number; y: number }) => p.x - NUB_R >= 0 && p.x + NUB_R <= width && p.y - NUB_R >= 0 && p.y + NUB_R <= layout.height;
++    // The target reaches out from the circle along the nub's angle until it leaves the circle's middle
++    // (a tap there is the circle's), then stays inside the picture.
++    const hitAt = (a: number): Nub => {
++      const p = at(c, a);
++      const box = (k: number) => ({
++        x: Math.max(0, Math.min(width - NUB_HIT, c.cx + Math.cos(a) * k - NUB_HIT / 2)),
++        y: Math.max(0, Math.min(layout.height - NUB_HIT, c.cy + Math.sin(a) * k - NUB_HIT / 2)),
++        w: NUB_HIT,
++        h: NUB_HIT,
++      });
++      let d = c.r + NUB_OUT;
++      while (d < c.r + NUB_OUT + NUB_HIT && discTouchesBox(c.cx, c.cy, middle(c.r) + 1, box(d))) d += 1;
++      const b = box(d);
++      return { ...p, hx: b.x, hy: b.y };
++    };
++    const others = discs.filter((d) => d.x !== c.cx || d.y !== c.cy);
++    const clear = (q: Nub) => {
++      const hit = { x: q.hx, y: q.hy, w: NUB_HIT, h: NUB_HIT };
++      return (
++        inside(q) &&
++        !discTouchesBox(c.cx, c.cy, middle(c.r), hit) &&
++        discTouchesBox(q.x, q.y, 0.5, hit) &&
++        others.every((d) => Math.hypot(q.x - d.x, q.y - d.y) >= d.r + R && !discTouchesBox(d.x, d.y, d.r - RING_OUT, hit)) &&
++        boxes.every((b) => !discTouchesBox(q.x, q.y, R, b)) &&
++        targets.every((b) => !overlaps(hit, b)) &&
++        polys.every((poly) => !discTouchesPolygon(q.x, q.y, R, poly)) &&
++        lines.every((line) => !discTouchesLine(q.x, q.y, R + BRANCH_HALF, line)) &&
++        placed.every((o) => Math.hypot(q.x - o.x, q.y - o.y) >= 2 * R && !overlaps(hit, { x: o.hx, y: o.hy, w: NUB_HIT, h: NUB_HIT }))
++      );
++    };
++    const cands = ANGLES.map(hitAt);
++    const q = cands.find(clear) ?? cands.find(inside) ?? cands[0];
++    placed.push(q);
++    out[n.id] = { x: r1(q.x), y: r1(q.y), hx: r1(q.hx), hy: r1(q.hy) };
++  }
++  return out;
++}
++
++/** The actions strip's widest. */
++export const MENU_MAX_W = 352;
++/** Between the circle's outermost ring and the strip. */
++const MENU_GAP = 4;
++
++/**
++ * Where a node's actions strip goes (P-62), `w` × `h`, in a picture `area.w` × `area.h`: under the
++ * circle's rings, centred on it; flipped above when it doesn't fit below; kept inside the picture
++ * either way (it covers the band of labels under the row, never a circle of the other row).
++ */
++export function menuPlace(c: { cx: number; cy: number; r: number }, size: { w: number; h: number }, area: { w: number; h: number }): { x: number; y: number; above: boolean } {
++  const w = Math.min(size.w, area.w);
++  const x = Math.max(0, Math.min(area.w - w, c.cx - w / 2));
++  const below = c.cy + c.r + RING_OUT + MENU_GAP;
++  if (below + size.h <= area.h) return { x: r1(x), y: r1(below), above: false };
++  const above = c.cy - c.r - RING_OUT - MENU_GAP - size.h;
++  if (above >= 0) return { x: r1(x), y: r1(above), above: true };
++  return { x: r1(x), y: r1(Math.max(0, Math.min(area.h - size.h, below))), above: false };
++}
++
++/** The node's circle in a layout, for placing its actions. */
++export const circleOf = (layout: OverviewLayout, id: Id): LaidNode['circle'] => layout.nodes.find((n) => n.id === id)?.circle;
+diff --git a/src/storage/persistence.test.ts b/src/storage/persistence.test.ts
+index 5918a5a..f8ebfb3 100644
+--- a/src/storage/persistence.test.ts
++++ b/src/storage/persistence.test.ts
+@@ -1439,6 +1439,9 @@ describe('holding the data only while the page is visible (P-29 part B)', () =>
+       scopeUp: [],
+       setFocusMap: [undefined],
+       askAddStep: ['t1'],
++      // P-62: a node's quick actions, up or away (session only; a tap's attach is the draft's chip).
++      pressNode: ['t1'],
++      showActions: ['t1'],
+       // P-58: Home's sheet, out or away, and its section (session only).
+       openSheet: ['activities'],
+       closeSheet: [],
+diff --git a/src/store/quickActions.test.ts b/src/store/quickActions.test.ts
+new file mode 100644
+index 0000000..d232785
+--- /dev/null
++++ b/src/store/quickActions.test.ts
+@@ -0,0 +1,97 @@
++/** P-62: selecting a node pops up its quick actions; a second tap narrows (and puts them away). */
++import { beforeEach, describe, expect, it } from 'vitest';
++
++import { FocusMap } from '@/domain/focus';
++import { emptyData, Id } from '@/domain/types';
++
++import { useStore } from './useStore';
++
++const st = () => useStore.getState();
++
++beforeEach(() => {
++  useStore.setState({ data: emptyData(), undo: undefined, toast: undefined, selected: undefined, focus: undefined, scope: [], focusMap: undefined, actionsFor: undefined, homeFace: 'next', draft: { text: '', toIds: [] } });
++});
++
++/** make apparel ← draw, make apparel ← sew; guitar alone. */
++function world() {
++  const id: Record<string, Id> = {};
++  for (const n of ['make apparel', 'draw', 'sew', 'guitar']) id[n] = st().createThread(n);
++  const map: FocusMap = {
++    nodes: [
++      { id: id['make apparel'], name: 'make apparel', x: 60, y: 50, why: true },
++      { id: id.guitar, name: 'guitar', x: 240, y: 50, why: false },
++      { id: id.draw, name: 'draw', x: 34, y: 140, why: false },
++      { id: id.sew, name: 'sew', x: 94, y: 140, why: false },
++    ],
++    links: [
++      { from: id.draw, to: id['make apparel'] },
++      { from: id.sew, to: id['make apparel'] },
++    ],
++  };
++  st().setFocusMap(map);
++  return id;
++}
++
++describe('P-62: selecting a node', () => {
++  it('a tap focuses it and pops up its actions (said like a focus), without attaching or narrowing', () => {
++    const id = world();
++    const n = st().focusSaid.n;
++    st().pressNode(id.draw);
++    expect(st().actionsFor).toBe(id.draw);
++    expect(st().focus).toBe(id.draw);
++    expect(st().focusSaid).toEqual({ text: 'What’s next, draw, for make apparel', n: n + 1 });
++    expect(st().selected).toBeUndefined();
++    expect(st().draft.toIds).toEqual([]);
++    expect(st().scope).toEqual([]);
++  });
++
++  it('a tap on the focused parent first pops up its actions; the second narrows and puts them away; another node moves them', () => {
++    const id = world();
++    useStore.setState({ focus: id['make apparel'] });
++    st().pressNode(id['make apparel']);
++    expect(st().actionsFor).toBe(id['make apparel']);
++    expect(st().scope).toEqual([]);
++    st().pressNode(id['make apparel']);
++    expect(st().actionsFor).toBeUndefined();
++    expect(st().scope).toEqual([id['make apparel']]);
++    expect(st().focus).toBe(id['make apparel']);
++    st().pressNode(id.sew);
++    expect(st().actionsFor).toBe(id.sew);
++    st().pressNode(id.draw);
++    expect(st().actionsFor).toBe(id.draw);
++    expect(st().focus).toBe(id.draw);
++  });
++
++  it('a second tap on a node nothing feeds just puts the actions away', () => {
++    const id = world();
++    st().pressNode(id.guitar);
++    st().pressNode(id.guitar);
++    expect(st().actionsFor).toBeUndefined();
++    expect(st().scope).toEqual([]);
++    expect(st().focus).toBe(id.guitar);
++  });
++
++  it('with the log field open a tap attaches, as before (P-61), and pops nothing up', () => {
++    const id = world();
++    useStore.setState({ homeFace: 'log' });
++    st().pressNode(id.sew);
++    expect(st().actionsFor).toBeUndefined();
++    expect(st().draft.toIds).toEqual([id.sew]);
++    expect(st().focus).toBe(id.sew);
++  });
++
++  it('the nub pops them up (focusing the node) and `undefined` puts them away; a hidden or unknown node does nothing', () => {
++    const id = world();
++    st().showActions(id.sew);
++    expect(st().actionsFor).toBe(id.sew);
++    expect(st().focus).toBe(id.sew);
++    st().showActions(undefined);
++    expect(st().actionsFor).toBeUndefined();
++    st().setHidden(id.guitar, true);
++    st().pressNode(id.guitar);
++    st().showActions(id.guitar);
++    st().pressNode('nope');
++    expect(st().actionsFor).toBeUndefined();
++    expect(st().focus).toBe(id.sew);
++  });
++});
+diff --git a/src/store/useStore.ts b/src/store/useStore.ts
+index d2de373..78895e1 100644
+--- a/src/store/useStore.ts
++++ b/src/store/useStore.ts
+@@ -133,6 +133,8 @@ interface State {
+   focusMap?: FocusMap;
+   /** The picture's dashed ＋ (P-50) asked the What's next card to open its "＋ add one" field for this node; the card takes it. */
+   addStepFor?: Id;
++  /** P-62: the node whose quick actions are popped up on Home (one at a time). Session only. */
++  actionsFor?: Id;
+   /** The last focus or scope change, said politely to screen readers (P-50). */
+   focusSaid: { text: string; n: number };
+   /** The sheet pulled up from Home's handle (P-58): whether it's out, and the section it shows (kept for the session). */
+@@ -178,6 +180,15 @@ interface State {
+    * node with something feeding it inside the scope narrows to it (focus stays on it).
+    */
+   tapNode: (threadId: Id) => void;
++  /**
++   * P-62: a tap on a circle (or its button in the list). While the log field is open, as `tapNode`
++   * (it attaches, P-61). Otherwise it focuses the node and pops up its quick actions; a tap on the node
++   * whose actions are up puts them away and does a second tap's job (`tapNode`: narrows to it, when
++   * something feeds it).
++   */
++  pressNode: (threadId: Id) => void;
++  /** P-62: pops up a node's quick actions, focusing it (its ＋ nub); `undefined` puts them away. */
++  showActions: (threadId: Id | undefined) => void;
+   /** A swipe on the card (P-50): focus to the next (1) or previous (-1) chain in the scope. Never attaches. False at an end. */
+   moveFocus: (dir: 1 | -1) => boolean;
+   /** Up one scope level (P-50): the chip, Esc, Back. */
+@@ -360,6 +371,24 @@ export const useStore = create<State>()((set, get) => ({
+       };
+     }),
+ 
++  pressNode: (threadId) => {
++    const s = get();
++    const t = s.data.threads[threadId];
++    if (!t || t.hidden) return;
++    if (s.homeFace === 'log' || s.actionsFor === threadId) {
++      if (s.actionsFor) set({ actionsFor: undefined });
++      s.tapNode(threadId);
++    } else s.showActions(threadId);
++  },
++
++  showActions: (threadId) =>
++    set((s) => {
++      if (!threadId) return s.actionsFor ? { actionsFor: undefined } : {};
++      const t = s.data.threads[threadId];
++      if (!t || t.hidden) return {};
++      return { actionsFor: threadId, focus: threadId, focusSaid: { text: cardLabel(s.data, s.focusMap, threadId), n: s.focusSaid.n + 1 } };
++    }),
++
+   moveFocus: (dir) => {
+     const s = get();
+     if (!s.focusMap) return false;
+-- 
+2.43.0
+

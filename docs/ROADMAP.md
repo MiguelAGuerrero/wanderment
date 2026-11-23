@@ -37,6 +37,16 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-64 Brief B-07: the companion prompt and resumable stacks `[feature]` L
+*Status:* todo
+*Why:* owner, 2026-11-23 (D-12): Wanderment takes the stack. "What are you up to?" becomes the front
+door: it logs what you did, or opens / resumes a stack of stones from a lofty why down to something
+doable now. Mindstream's Focus model (`src/focus/model/session.js`, `sessionRunStore.js`: frames,
+contexts, park with "waiting on…", resume) is the reference, minus timers and completion.
+*Done when:* brief B-07 written (resolving text to the graph, stacks per chain, park/resume, how it
+sits beside Home's graph, what supersedes P-19, P-51–P-55, P-62, P-63), persona panel run, and the
+owner's go/no-go recorded as a decision.
+
 ### P-59 Step marks never cover a label `[ux]` S
 *Status:* todo
 *Why:* P-50 screenshots: the focused node's step dot or dashed ＋ can sit over a neighbour's label in
@@ -45,7 +55,9 @@ the three-column layout (sew's ＋ beside "feel productive").
 or circle at 350–600 px; unit test on the layout.
 
 ### P-62 Quick actions on a node `[feature]` `[a11y]` M
-*Status:* todo
+*Status:* blocked (parked by D-12) — built but failing verify (perf 1.30–1.37× over the 1.25× budget;
+`home-focus.spec.ts:376`). Work saved as `docs/product/parked/P-62-quick-actions.patch` (applies on
+5b07c64); resume by `git apply`, then memoise per-circle/nub/branch work and fix the focus test.
 *Why:* owner, 2026-11-23 (D-11): "a node can have a quick action … a plus sticking out of it …
 selecting a node will pop up quick actions."
 *Done when:*
@@ -395,6 +407,11 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   question is removed; each node has a ＋ and selecting it pops quick actions; a log pulses its
   path; the summary line, button list and "All" go; unattached logs show as loose labelled dots.
   → P-60 to P-63 (supersede P-49's toggle and P-50's "a tap attaches").
+- **D-12 Wanderment and Mindstream** — **answered 2026-11-23 by the owner:** Wanderment takes the
+  stack: port Mindstream's Focus model as chains (no timers, nodes never done); a companion prompt
+  ("what are you up to?") is Wanderment's front door; Mindstream keeps ThinkPad or retires. B-06
+  feature work pauses; P-62 parked. → P-64 (brief B-07). See
+  `docs/product/discovery/2026-11-23-mindstream-comparison.md`.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
