@@ -52,6 +52,14 @@ Wanderment is "life stones and milestones … large [stretches] of work", no des
 "just energy and mood" (shown by the picture, not entered: capture stays words only); Mindstream is
 the deliberate tool for working on them; D-12 stands (Wanderment keeps its own life-scale stack, no
 link to Mindstream); the wizard is light — one gentle question at most (e.g. "toward which stone?").
+*Journey and panel (2026-11-23):* mockups at https://claude.ai/artifact/GWjaYybmi4QxeBqTpGeHHp
+(private); persona panel `.polish/product/panel-B-07-{1,2,3}.md` (local). Owner's answers after the
+panel: the prompt is "What are we up to today?" with an "I'm not sure" door into suggestions (whys to
+orient by, the wanderer, then a why's concurrent wanders, then one stack); Return logs the line at
+once (loose) and the guess is a one-tap move with Undo; recency shows as warmth only, whys in fixed
+places at one size; **routines are not stones** — a routine is a stored template that surfaces as
+you type and either logs (Did it) or pushes one instance onto a stack, so stacks stay a queue of
+one-off work (needs design); popped stones sink into a dated trail in words, no strikethrough.
 *Done when:* brief B-07 written (resolving text to the graph, stacks per chain, park/resume, how it
 sits beside Home's graph, what supersedes P-19, P-51–P-55, P-62, P-63), persona panel run, and the
 owner's go/no-go recorded as a decision.

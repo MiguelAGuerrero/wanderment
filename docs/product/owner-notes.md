@@ -40,6 +40,20 @@ need a descriptive structure on it, just energy and mood. [Mindstream] is the de
 alternative when you actually go ahead and start implementing on those actions in a way that's
 [repeatable] and understandable for reflection [and] refinement." (voice transcription; bracketed
 words inferred.) Answers: keep D-12 as decided; capture words only, as today; keep a light wizard.
+Journey (same day, mockups): "a little bit more stylized and more emphasis on the prompt … like a
+big billboard … the suggestions are more so an afterthought because I don't want the suggestions to
+influence … where your energy is"; "what are you up to assumes that I have something in mind
+already … a more neutral prompt … respect the fact that I may not be up to anything"; "maybe [an]
+I'm not sure button could be the escape and that's a door to entering suggestions"; the compass is
+"just a preview of all your top level [nodes] as a guide to orient yourself … using the wanderer as a
+visual metaphor, attracting yourself to certain [nodes] … based on [recency]"; concurrency: "a stack
+by definition only works on one branch at a time, which is analogous to a wander … seeing all of the
+different [wanders] from a top level [node] isn't represented clearly"; all dark style.
+After the persona panel: Return logs now, re-file after; warmth only, fixed places; soften
+"working" → "What are we up to today?"; routines: "special support for routine actions that's
+different from the stack. The stack is a queue of work. A routine is a template from which work can
+be defined and pushed onto the [stack] … quick actions … stored and resolved as a task when you
+start [typing] in the text field."
 Led to: D-12; P-62 parked (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle
