@@ -43,6 +43,11 @@ _Empty. Write here — one line is enough._
 door: it logs what you did, or opens / resumes a stack of stones from a lofty why down to something
 doable now. Mindstream's Focus model (`src/focus/model/session.js`, `sessionRunStore.js`: frames,
 contexts, park with "waiting on…", resume) is the reference, minus timers and completion.
+*Owner's answers (2026-11-23):* it guesses did-vs-about-to from the words and you confirm with one
+tap; prompt first on opening, the graph a swipe away; when the words match nothing mapped, a short
+wizard of sorts distills the feeling into something actionable, giving what lands in the graph some
+structure ("less chaotic and freeform, but not as prescriptive as templates"); matching stays
+on-device (no AI model), so the wizard works by questions, not inference.
 *Done when:* brief B-07 written (resolving text to the graph, stacks per chain, park/resume, how it
 sits beside Home's graph, what supersedes P-19, P-51–P-55, P-62, P-63), persona panel run, and the
 owner's go/no-go recorded as a decision.

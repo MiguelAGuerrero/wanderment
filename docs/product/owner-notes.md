@@ -32,6 +32,9 @@ Answers: a deeper comparison first; the companion prompt is Wanderment's front d
 comparison (`discovery/2026-11-23-mindstream-comparison.md`): **Wanderment takes the stack**
 (port Mindstream's Focus model as chains, no timers, nodes never done; Mindstream keeps ThinkPad or
 retires); park P-62 until the direction is built out.
+B-07 shape (answers): guess did-vs-about-to, one tap confirms; prompt first, graph a swipe away;
+unmatched words → "a wizard of sorts that distills the feeling into something actionable … a
+structure … less chaotic and freeform, but not as prescriptive as templates"; on-device only.
 Led to: D-12; P-62 parked (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle
