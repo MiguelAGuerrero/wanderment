@@ -12,7 +12,7 @@
  * enters takes a free slot (`overviewLayout` takes the previous slots). No numbers are drawn.
  */
 import { groupByValue, valueThreads } from './emergence';
-import { STEP_ROOM, subtree } from './focus';
+import { subtree } from './focus';
 import { emptyHeatIndex, indexHeat, nodeHeat } from './heat';
 import { declaredWhys } from './model';
 import { homeThreads, warmth } from './selectors';
@@ -259,6 +259,38 @@ export function looseOverview(data: Data, opts: { now?: Date; shading?: boolean 
   return { mode: 'logs', links: [], dots, more: false, heat: {}, summary: texts.length ? `Lately: ${texts.join('; ')}.` : '' };
 }
 
+/** P-60: loose logs shown under the graph at most… */
+export const LOOSE_MAX = 3;
+/** …and only from the last three weeks (older ones are Earlier, as on the cards). */
+export const LOOSE_DAYS = 21;
+
+export interface LooseLog {
+  id: Id;
+  /** Its words, spaces collapsed. */
+  text: string;
+  /** Its recency (`warmth`, as P-48's heat) to the hundredth; 0 with the shading off. */
+  heat: number;
+  createdAt: string;
+}
+
+/**
+ * P-60: with wanders present, your last few logs that name no wander (no doing, no to) from the last
+ * three weeks, newest first, each with its words and recency (the strip under Home's graph).
+ */
+export function looseLogs(data: Data, opts: { now?: Date; shading?: boolean } = {}): LooseLog[] {
+  const { now = new Date(), shading = true } = opts;
+  const since = now.getTime() - LOOSE_DAYS * 864e5;
+  const out: Activity[] = [];
+  for (const a of Object.values(data.activities)) {
+    if (a.doingId || a.toIds.length || new Date(a.occurredAt).getTime() < since) continue;
+    if (out.length === LOOSE_MAX && newer(a, out[LOOSE_MAX - 1]) > 0) continue;
+    out.push(a);
+    out.sort(newer);
+    if (out.length > LOOSE_MAX) out.pop();
+  }
+  return out.map((a) => ({ id: a.id, text: a.text.trim().replace(/\s+/g, ' '), heat: shading ? Math.round(warmth(new Date(a.occurredAt), now) * 100) / 100 : 0, createdAt: a.createdAt }));
+}
+
 /** Longest staged step drawn under its node (P-34); longer ones end in "…". */
 export const STEP_CHARS = 40;
 
@@ -367,6 +399,14 @@ export interface LaidCircle {
   /** The label fits inside (in a text box `labelW` wide, one or two lines), or goes under the circle. */
   inside: boolean;
   labelW: number;
+  /**
+   * P-60: under the circle, the label's box starts here (below the outermost ring, `RING_OUT`, with a
+   * gap) and is at most `labelH` tall (two lines); the layout keeps that box clear of everything.
+   */
+  labelY: number;
+  labelH: number;
+  /** P-60: where the step mark's centre goes when this node is focused: in its row's step band, below every label. */
+  stepY: number;
 }
 export interface LaidLink {
   key: string;
@@ -443,22 +483,31 @@ const MORE_SLOTS = 2;
 /** Home's circles (P-48): the top row (the whys) biggest, the row beneath one size smaller. */
 export const TOP_R = 34;
 export const BOTTOM_R = 24;
-/** Room above a top-row circle for its rings (a why's second ring, the selection). */
+/** Room above a circle for its rings (a why's second ring, the selection). */
 const RING_PAD = 8;
+/** P-60: how far the outermost ring reaches beyond a circle's edge (the focus ring round a declared why). */
+export const RING_OUT = 8;
+/** P-60: between the outermost ring and a label under the circle. */
+const LABEL_GAP = 4;
 /** Labels: 12 px text in 14 px lines, at most two, inside the circle or (when they don't fit) under it. */
 export const LABEL_FONT = 12;
 export const LABEL_LINE = 14;
-const LABEL_H = 2 + 2 * LABEL_LINE;
-/** Roomy (Home, P-34): a top-row node's target with its label inside (taller than 44 px); a staged-step line goes under each node. */
+/** Two lines of label, at the text size (native text scales them). */
+const labelH = (fontScale: number) => Math.ceil(2 * LABEL_LINE * fontScale);
+/** A circle's rings, the gap and two lines of label under it. */
+const underH = (fontScale: number) => RING_OUT + LABEL_GAP + labelH(fontScale);
+const LABEL_H = underH(1);
+/** Roomy (Home, P-34): a top-row node's target with its label inside (taller than 44 px). */
 export const ROOMY_NODE = RING_PAD + 2 * TOP_R;
-export const STEP_H = 20;
+/** P-60: under each row's labels, a band for the focused node's step mark (its 44 px ＋ target included). */
+export const STEP_H = ROW;
 const ROOMY_GAP = 12;
-/** Where "and more →" goes on Home: under the top row, its label and its step line. */
+/** Where "and more →" goes on Home: under the top row, its labels and its step band. */
 const MORE_Y = ROOMY_NODE + LABEL_H + STEP_H;
 /** Home's bottom row of circles. */
 const BOTTOM_Y = MORE_Y + ROW;
-/** Roomy, with wanders: the top row, a 44 px band, the bottom row, each row with its labels and step line. */
-export const ROOMY_H = BOTTOM_Y + 2 * BOTTOM_R + LABEL_H + STEP_H;
+/** Roomy, with wanders: the top row, a 44 px band, the bottom row, each row with its labels and step band. */
+export const ROOMY_H = BOTTOM_Y + RING_PAD + 2 * BOTTOM_R + LABEL_H + STEP_H;
 /** Roomy, no wanders (P-57): one row per log, a dot with its words, each a 44 px target. */
 export const LOG_ROW = ROW;
 /** Compact layout: every link the same width (P-48: no width comes from a count). */
@@ -705,33 +754,40 @@ function circleLayout(ov: Overview, width: number, members: Thread[], slot: Reco
   const feeds = new Map<Id, Id[]>();
   if (ov.mode === 'whys') for (const l of ov.links) if (whyIds.has(l.to) && !whyIds.has(l.from)) feeds.set(l.from, [...(feeds.get(l.from) ?? []), l.to]);
   const colW = (width - GAP * (MAX_COLUMNS - 1)) / MAX_COLUMNS;
+  // P-60: each row is its circles (rings above them), then a band for labels that go under (below the
+  // outermost ring), then the step band; larger native text makes the label band taller.
+  const extra = underH(fontScale) - LABEL_H;
+  const moreY = MORE_Y + extra;
+  const bottomY = BOTTOM_Y + extra;
   const nodes: LaidNode[] = members
     .map((t) => {
       const i = slot[t.id];
       const top = i < MAX_COLUMNS;
       const r = top ? TOP_R : BOTTOM_R;
       const x = (i % MAX_COLUMNS) * (colW + GAP);
-      const y = top ? 0 : BOTTOM_Y;
-      const pad = top ? RING_PAD : 0;
+      const y = top ? 0 : bottomY;
       const fit = insideWidth(t.name, r, fontScale);
       const step = stagedStep(t);
       const kind: LaidNode['kind'] = whyIds.has(t.id) ? 'why' : feeds.has(t.id) ? 'feeder' : 'thread';
+      const cy = y + RING_PAD + r;
+      const labelY = cy + r + RING_OUT + LABEL_GAP;
+      const stepTop = cy + r + underH(fontScale);
       // Heat to the hundredth: a log a moment later doesn't redraw every circle and branch.
-      const circle: LaidCircle = { cx: r1(x + colW / 2), cy: y + pad + r, r, heat: Math.round((ov.heat[t.id] ?? 0) * 100) / 100, declared: declared.has(t.id), inside: fit !== undefined, labelW: fit ?? Math.floor(colW) };
-      return { key: t.id, id: t.id, kind, ...(feeds.has(t.id) && { under: feeds.get(t.id) }), ...(step && { step }), name: t.name, x, y, w: colW, h: pad + 2 * r + (fit === undefined ? LABEL_H : 0), circle };
+      const circle: LaidCircle = { cx: r1(x + colW / 2), cy, r, heat: Math.round((ov.heat[t.id] ?? 0) * 100) / 100, declared: declared.has(t.id), inside: fit !== undefined, labelW: fit ?? Math.floor(colW), labelY, labelH: labelH(fontScale), stepY: stepTop + STEP_H / 2 };
+      return { key: t.id, id: t.id, kind, ...(feeds.has(t.id) && { under: feeds.get(t.id) }), ...(step && { step }), name: t.name, x, y, w: colW, h: fit === undefined ? labelY + labelH(fontScale) - y : RING_PAD + 2 * r, circle };
     })
     .sort((a, b) => slot[a.id] - slot[b.id]);
   const perRow = Math.max(1, Math.floor(width / ROW));
   const pitch = width / perRow;
   return {
     summaryOnly: false,
-    height: ROOMY_H,
+    height: ROOMY_H + 2 * extra,
     nodes,
     links: branches(ov.links, nodes),
     dots: [],
     dotLines: [],
     stepH: STEP_H,
-    ...(ov.more && { more: { x: width - MORE_SLOTS * pitch, y: MORE_Y, w: MORE_SLOTS * pitch, h: ROW } }),
+    ...(ov.more && { more: { x: width - MORE_SLOTS * pitch, y: moreY, w: MORE_SLOTS * pitch, h: ROW } }),
     slots: { threads: slot, dots: {} },
   };
 }
@@ -770,27 +826,27 @@ export function scopeLayout(ov: Overview, all: OverviewLayout, rootId: Id, width
   const colW = (width - GAP * (MAX_COLUMNS - 1)) / MAX_COLUMNS;
   const nodes: LaidNode[] = [];
   let top = 0;
-  let room = 0;
   rows.forEach((row, d) => {
     row.sort((a, b) => a.circle!.cx - b.circle!.cx || a.circle!.cy - b.circle!.cy);
     const r = SCOPE_R[Math.min(d, SCOPE_R.length - 1)];
     const slotW = width / row.length;
-    let rowH = 0;
+    // P-60: as at All, labels under the circles below the outermost ring, then the row's step band.
+    const cy = top + RING_PAD + r;
+    const labelY = cy + r + RING_OUT + LABEL_GAP;
+    const stepTop = cy + r + underH(fontScale);
     row.forEach((n, i) => {
       const cx = slotW * (i + 0.5);
       const w = Math.max(44, Math.min(slotW, Math.max(colW, 2 * r + 16)));
       const fit = insideWidth(n.name, r, fontScale);
-      const h = RING_PAD + 2 * r + (fit === undefined ? LABEL_H : 0);
-      rowH = Math.max(rowH, h);
-      const circle: LaidCircle = { ...n.circle!, cx: r1(cx), cy: top + RING_PAD + r, r, inside: fit !== undefined, labelW: fit ?? Math.floor(w) };
-      room = Math.max(room, circle.cy + STEP_ROOM);
+      const h = fit === undefined ? labelY + labelH(fontScale) - top : RING_PAD + 2 * r;
+      const circle: LaidCircle = { ...n.circle!, cx: r1(cx), cy, r, inside: fit !== undefined, labelW: fit ?? Math.floor(w), labelY, labelH: labelH(fontScale), stepY: stepTop + STEP_H / 2 };
       nodes.push({ ...n, x: r1(cx - w / 2), y: top, w: r1(w), h, circle });
     });
-    top += rowH + SCOPE_GAP;
+    top = stepTop + STEP_H + SCOPE_GAP;
   });
   return {
     summaryOnly: false,
-    height: Math.max(ROOMY_H, Math.ceil(room), top - SCOPE_GAP),
+    height: Math.max(ROOMY_H, top - SCOPE_GAP),
     nodes,
     links: branches(links.filter((l) => inside.has(l.from) && inside.has(l.to)), nodes),
     dots: [],

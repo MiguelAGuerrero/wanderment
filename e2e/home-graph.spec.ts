@@ -8,8 +8,9 @@ import { bigBlob, legacyBlob, seedScript } from './graphFixture';
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
 
 const graph = (page: Page) => page.getByTestId('home-graph').filter({ visible: true });
-const picture = (page: Page) => page.getByRole('img').filter({ visible: true });
-/** Nodes and dots are pointer shortcuts (hidden from assistive tech), so they're found by test id. */
+// P-60: the picture is a group named by its summary (was an image), its circles buttons inside it.
+const picture = (page: Page) => page.getByRole('group').and(page.getByTestId('home-graph-picture')).filter({ visible: true });
+/** Nodes and dots are found by test id (P-60: nodes are buttons now; dots stay pointer shortcuts). */
 const node = (page: Page, id: string) => page.getByTestId(`graph-node-${id}`).filter({ visible: true });
 const nodes = (page: Page) => page.locator('[data-testid^="graph-node-"]').filter({ visible: true });
 const dots = (page: Page) => page.locator('[data-testid^="graph-dot-"]').filter({ visible: true });
@@ -89,7 +90,7 @@ test('a fresh app shows no graph; the first thread and a link appear as you log'
   await openHome(page);
   await expect(page.getByText('Log what you just did.')).toBeVisible();
   await expect(page.getByTestId('home-graph')).toHaveCount(0);
-  await expect(page.getByRole('img')).toHaveCount(0);
+  await expect(page.getByTestId('home-graph-picture')).toHaveCount(0); // P-60 (was: no img)
 
   // A plain "to draw" log: draw appears.
   await logCreating(page, 'sketch @draw', 'draw');
@@ -219,7 +220,8 @@ test('“and more →” opens Explore', async ({ page }) => {
   await expect(page.getByRole('tab', { name: 'List view' })).toBeVisible();
 });
 
-test('the graph is one accessible element: its summary, in names; nodes are out of the tab order', async ({ page }) => {
+// P-60: the picture is a group named by its summary; its circles are buttons in it, in reading order (were out of the tab order, with a list under the picture).
+test('the graph is named by its summary, in names; its circles are the buttons, in reading order', async ({ page }) => {
   await page.addInitScript(seedScript, world(['make apparel', 'get stronger']));
   await openHome(page);
   await expect(picture(page)).toHaveCount(1);
@@ -228,11 +230,11 @@ test('the graph is one accessible element: its summary, in names; nodes are out 
     'What it’s for: make apparel, fed by draw and sew; get stronger, fed by lift. Also: read. Lately: read; lift toward get stronger; draw toward make apparel; sew toward make apparel. And more.',
   );
   expect(name).not.toMatch(/\d|→/);
-  // Nothing inside is exposed or focusable.
-  await expect(picture(page).getByRole('button')).toHaveCount(0);
+  // P-60: the circles are the only things inside exposed or focusable (was: nothing), whys first.
+  await expect(picture(page).getByRole('button')).toHaveCount(6);
   const focusable = await picture(page).locator('[tabindex]:not([tabindex="-1"]), a[href], button').count();
-  expect(focusable).toBe(0);
-  // "Explore" is in the header (one of them); Tab from the header skips the nodes to the list.
+  expect(focusable).toBe(6);
+  // "Explore" is in the header (one of them); Tab from the header goes to the first circle (P-60: was the list's first button).
   await expect(openGraph(page)).toHaveCount(1);
   await page.getByRole('link', { name: 'Settings and backup' }).focus();
   await page.keyboard.press('Tab');
@@ -428,7 +430,8 @@ test('every log visibly lands: the newest dot is marked, even once the dots are 
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/home-graph-newest-dot.png` });
 });
 
-test('at 200 % zoom: only the summary (two lines) with “Explore” beside it, and the whole first card stays above the log box', async ({ page }) => {
+// P-60: the summary is no longer shown (it names the list); was "only the summary (two lines) with “Explore” beside it".
+test('at 200 % zoom: “Explore” and the list named by the summary, and the whole first card stays above the log box', async ({ page }) => {
   await page.setViewportSize({ width: 195, height: 422 });
   const names = ['make apparel', 'get stronger', 'sell prints', 'draw', 'sew', 'cut patterns', 'lift', 'run', 'photograph', 'frame'];
   const at = (from: string, to: string) => ({ from, to: [to], text: 'a', daysAgo: 1 });
@@ -446,20 +449,15 @@ test('at 200 % zoom: only the summary (two lines) with “Explore” beside it, 
   ['make apparel', 'get stronger', 'sell prints'].forEach((n, i) => (json.state.data.threads[n].declaredAt = new Date(Date.now() - (5 - i) * DAY).toISOString()));
   await page.addInitScript(seedScript, JSON.stringify(json));
   await openHome(page);
-  const summary = page.getByTestId('home-graph-summary').filter({ visible: true });
-  await expect(summary).toContainText('What it’s for: make apparel, fed by');
-  // 22 px lines (s.body).
-  expect((await summary.boundingBox())!.height).toBeLessThanOrEqual(2 * 22 + 1);
+  await expect(page.getByTestId('home-graph-summary')).toHaveCount(0);
+  await expect(page.getByRole('group', { name: /^What it’s for: make apparel, fed by/ })).toBeVisible();
   await expect(openGraph(page)).toBeVisible();
   await expect(openGraph(page)).toHaveCount(1);
   await expect(page.locator('[data-testid^="graph-node-"]')).toHaveCount(0);
-  await expect(page.getByRole('img')).toHaveCount(0);
+  await expect(page.getByTestId('home-graph-picture')).toHaveCount(0); // P-60 (was: no img)
   const box = (await openGraph(page).boundingBox())!;
   expect(box.height).toBeGreaterThanOrEqual(44);
   expect(box.x + box.width).toBeLessThanOrEqual(195);
-  // On the summary's row, not under it.
-  const s = (await summary.boundingBox())!;
-  expect(box.y).toBeLessThan(s.y + s.height);
   // The whole first card (its name and when it was last touched) is above the log box.
   const card = page.getByRole('button', { name: new RegExp(`^(${names.join('|')})\\s*\\S`) }).first();
   const c = (await card.boundingBox())!;

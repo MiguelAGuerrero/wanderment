@@ -9,7 +9,8 @@ const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for 
 
 const node = (page: Page, id: string) => page.getByTestId(`graph-node-${id}`).filter({ visible: true });
 const nodes = (page: Page) => page.locator('[data-testid^="graph-node-"]').filter({ visible: true });
-const picture = (page: Page) => page.getByRole('img').filter({ visible: true });
+// P-60: the picture is a group named by its summary (was an image).
+const picture = (page: Page) => page.getByRole('group').and(page.getByTestId('home-graph-picture')).filter({ visible: true });
 
 async function expectNoSeriousViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
@@ -158,16 +159,17 @@ test('circles by level, coloured by heat that flows upward; no dots; tapered bra
     expect(b.width).toBeGreaterThanOrEqual(44);
     expect(b.height).toBeGreaterThanOrEqual(44);
   }
-  // The accessible image and list are as before.
+  // The picture's name is as before; P-60: its circles are the list's buttons (named as the list under it was; their text is just the name).
   await expect(picture(page)).toHaveCount(1);
   await expect(picture(page)).toHaveAccessibleName(/^What it’s for: make apparel, fed by draw and sew; feel productive, fed by read; get stronger, nothing feeds it yet\. Lately: /);
-  await expect(page.getByRole('list', { name: 'What’s in the picture' }).getByRole('button')).toHaveText([
+  expect(await picture(page).getByRole('list', { name: 'What’s in the picture' }).getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toEqual([
     'make apparel, what it’s for',
     'feel productive, what it’s for',
     'get stronger, what it’s for',
+    // P-60: in reading order, left to right (the list's was the overview's: draw, sew, read).
     'draw, a wander',
-    'sew, a wander',
     'read, a wander',
+    'sew, a wander',
   ]);
   await expectNoSeriousViolations(page);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/p48-heat.png` });

@@ -65,7 +65,8 @@ test('the full path: what it’s all for → one next step → the graph with bo
 
   // ③ The graph with both; focus on the step, which says what the picture shows; the log box ready.
   await expect(three(page)).toBeFocused();
-  const summary = await page.getByTestId('home-graph-line').filter({ visible: true }).innerText();
+  // P-60: the summary isn't shown any more (was the line under the picture); it names the picture.
+  const summary = (await page.getByTestId('home-graph-picture').filter({ visible: true }).getAttribute('aria-label'))!;
   expect(summary).toContain('feel productive');
   await expect(three(page)).toHaveAccessibleName(`There it is. ${summary}`);
   await expect(three(page)).toContainText('It’s here whenever you get to it');
@@ -178,7 +179,7 @@ test('② stays put as the picture catches up: words typed the moment it appears
   await whyField(page).fill('feel calmer');
   await whyField(page).press('Enter');
   // The picture has caught up: it shows the why.
-  await expect(page.getByRole('img', { name: /feel calmer/ })).toBeVisible();
+  await expect(page.getByRole('group', { name: /feel calmer/ })).toBeVisible(); // P-60: a group (was an img)
   const stepField = page.getByRole('textbox', { name: 'One next step toward feel calmer' });
   await expect(stepField).toHaveValue('read a book');
   await stepField.press('Enter');

@@ -44,21 +44,6 @@ the three-column layout (sew's ＋ beside "feel productive").
 *Done when:* the step mark picks a free side (or sits under its node) so it never overlaps any label
 or circle at 350–600 px; unit test on the layout.
 
-### P-60 A calmer Home: fewer prompts, readable nodes, loose logs `[feature]` `[ux]` `[a11y]` M
-*Status:* todo
-*Why:* owner, 2026-11-23 (D-11; screenshots in docs/product/evidence/2026-11-23-*): "too many prompts
-… nodes are cropping with the text … icons way too small"; a new unattached log left no trace on
-Home.
-*Done when:*
-- Home no longer shows the summary line, the button list under the graph (screen readers reach nodes
-  as buttons in the picture and through the sheet) or the "All" label (only "‹ All · <node>" when
-  narrowed).
-- Labels never overlap a circle or its ring.
-- Header icons are 24 pt glyphs with 44 pt targets.
-- With wanders present, the last few unattached logs sit as labelled dots in a quiet strip below the
-  graph, fading with age; tapping one attaches it (or opens it); a new one glows briefly.
-- e2e at 390 px and 200 %.
-
 ### P-61 ＋ to log: autocomplete and attach before logging `[feature]` `[capture]` M
 *Status:* todo
 *Why:* owner, 2026-11-23 (D-11): "a simple plus button to add a log instead of the two tabs … if
@@ -451,6 +436,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-23 · P-60 — a calmer Home (D-11): no visible summary line, button list or "All" label (circles are the accessible buttons; a list only at the largest text); labels sit below every ring and never overlap; 24 pt header icons with 44 pt targets; with wanders, the last 3 unattached logs (21 days) sit as labelled dots below the graph, a new one glowing, tap to attach or open · evidence: `overview-calm.test.ts` (7), `e2e/home-calm.spec.ts` (12), spec updates marked P-60; perf 1.15–1.22× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-23 · P-58 — Wanders and Activities pull out from Home (D-10): no tab bar; a "Wanders and activities" handle under the slot pulls up one sheet (Wanders | Activities, each with its own log box), drag down / scrim / Close / Esc / Back to put it away; returning from a page keeps it open; /wanders and /activities redirect to it; DESIGN.md updated · evidence: `e2e/home-sheet.spec.ts` (11), `sheet.test.ts` ×2, 38 tab clicks → `openSheet` (P-58 notes); perf 1.14× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-22 · P-57 — logs show their words (owner's screenshot): with no wanders, Home's recent logs are rows, a heat-coloured dot and the log's words (cut short with "…", full text in the name), newest first, each opening its log; no cut-off "Lately" line in that state (the list is named by it for screen readers) · evidence: `overview-home.test.ts` (+4), e2e P-57 tests (4: the owner's two logs at 390 px, long text, 200 %, shading off) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · this commit
 - 2026-11-22 · P-50 — tap to focus, swipe to move, tap to narrow (B-06 slice 3, D-9): one ink ring marks focus, only the focused node's step is drawn (dot or dashed ＋), a tap also attaches the next log (visible chip, one log); swiping the card (or ‹ ›, arrow keys, screen-reader actions) moves focus between chains without attaching or zooming; tapping a focused parent narrows to its subtree with "‹ All · <node>", Esc/Back to go up; focus persists after a log; the "Toward X" row removed; DESIGN.md updated (D-9) · evidence: `focus.test.ts`, store `focus.test.ts`, `e2e/home-focus.spec.ts` (10), act-from-node rewritten; perf 1.12–1.19× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit

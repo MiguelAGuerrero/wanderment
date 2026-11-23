@@ -8,6 +8,7 @@ import { ExploreIcon, homeContentWidth, LiveGraph, useGraphIcon } from '@/compon
 import { useScopeNav } from '@/components/graph/scopeNav';
 import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
+import { SearchGlyph, SettingsGlyph } from '@/components/icons';
 import { HomeSheet, SheetHandle, useHomeSheet } from '@/components/sheet/HomeSheet';
 import { ShownProvider, useWhileShown } from '@/components/shown';
 import { headerWhys } from '@/domain/overview';
@@ -84,16 +85,12 @@ export default function Home() {
                 {wanders && graphIcon && <ExploreIcon style={styles.icon} />}
                 <Link href="/search" asChild>
                   <Pressable accessibilityRole="button" accessibilityLabel="Search" style={styles.icon}>
-                    <Text style={{ fontSize: 26, lineHeight: 30, color: C.muted }} {...decorative}>
-                      ⌕
-                    </Text>
+                    <SearchGlyph />
                   </Pressable>
                 </Link>
                 <Link href="/settings" asChild>
                   <Pressable accessibilityRole="button" accessibilityLabel="Settings and backup" style={styles.icon}>
-                    <Text style={{ fontSize: 20, color: C.muted }} {...decorative}>
-                      ⚙︎
-                    </Text>
+                    <SettingsGlyph />
                   </Pressable>
                 </Link>
               </View>

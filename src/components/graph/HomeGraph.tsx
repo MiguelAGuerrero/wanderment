@@ -4,15 +4,17 @@ import { Animated, Easing, LayoutChangeEvent, Platform, Pressable, StyleSheet, T
 import Svg, { Defs, Line, LinearGradient, Path, Polygon, Stop } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
+import { ExploreGlyph } from '@/components/icons';
 import { goUp, useReduceMotion } from '@/components/graph/scopeNav';
 import { useShown } from '@/components/shown';
 import { FocusMap, scopeIds, STEP_ADD_R, STEP_DOT_R, stepMark, validScope } from '@/domain/focus';
 import { heatFill, heatInk, heatLabel } from '@/domain/heat';
-import { BIG_TEXT, LABEL_FONT, LABEL_LINE, LaidDot, LaidDotLine, LaidLink, LaidNode, looseOverview, NARROW_W, overview, Overview, overviewLayout, OverviewLayout, pictureItems, scopeLayout } from '@/domain/overview';
+import { LooseLogs } from '@/components/graph/LooseLogs';
+import { BIG_TEXT, LABEL_FONT, LABEL_LINE, LaidDot, LaidDotLine, LaidLink, LaidNode, looseLogs, looseOverview, NARROW_W, RING_OUT, overview, Overview, overviewLayout, OverviewLayout, pictureItems, scopeLayout } from '@/domain/overview';
 import { whatsNextNode } from '@/domain/slot';
 import { Data, Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
-import { C, s } from '@/theme';
+import { C } from '@/theme';
 
 /** Content width on Home before it's measured: Screen's padding (20 each side) inside its 640 cap. */
 export const homeContentWidth = (windowWidth: number) => Math.min(windowWidth, 640) - 40;
@@ -46,9 +48,7 @@ export function ExploreIcon({ style }: { style: object }) {
   return (
     <Link href="/explore" asChild>
       <Pressable accessibilityRole="link" accessibilityLabel="Explore" style={style}>
-        <Text style={{ fontSize: 22, lineHeight: 26, color: C.muted }} {...decorative}>
-          ⋔
-        </Text>
+        <ExploreGlyph />
       </Pressable>
     </Link>
   );
@@ -84,6 +84,10 @@ export const LiveGraph = memo(function LiveGraph({ data, surfacing, firstRun }: 
   // P-50: the node the What's next card is on carries the ring (the default too: shown, never attached).
   const focus = useStore((st) => st.focus);
   const focusId = useMemo(() => whatsNextNode(d, focus), [d, focus]);
+  // P-60: with wanders, the last few logs that name none, under the graph.
+  const loose = useMemo(() => (ov && ov.mode !== 'logs' ? looseLogs(d, { shading }) : []), [ov, d, shading]);
+  const nodes = useMemo(() => (ov ? pictureItems(ov) : []), [ov]);
+  const shown = useShown();
   // Below the picture: when it goes (a why is named), nothing above it moves. It keeps one place in
   // the tree whether or not there's a picture yet, so the first run's step isn't mounted again (its
   // typed words and focus lost) when the deferred picture catches up with the data. Nothing logged
@@ -91,6 +95,7 @@ export const LiveGraph = memo(function LiveGraph({ data, surfacing, firstRun }: 
   return (
     <>
       {ov && <HomeGraph ov={ov} focusId={focusId} />}
+      {shown && <LooseLogs logs={loose} nodes={nodes} />}
       {firstRun || (offer && <WhyOffer canPutOff={!!ov} />)}
     </>
   );
@@ -151,12 +156,12 @@ function WhyOffer({ canPutOff }: { canPutOff: boolean }) {
 /**
  * Home's graph: whys and what feeds them, or (with no whys) your most active wanders, drawn as circles
  * coloured by heat with tapered branches between them (P-48); or, with no wanders, your recent logs
- * alone as dots, given room to breathe (`roomy`). The picture
- * is one accessible element: an image labelled with the summary in names; activating it does nothing
- * (its centre is never a target). Nodes, dots and "and more →" are pointer shortcuts. Under it, the
- * summary as one visible line, then the whys and wanders as buttons (the way through without
- * pointing). A wander or dot that stays keeps its place: the last layout's slots are passed back in.
- * Narrow screens and the largest text get the summary, "Explore" and the list, without the picture.
+ * alone as dots, given room to breathe (`roomy`). The picture is a group named by its summary (P-60:
+ * no longer shown as a line), holding each circle as a button ("feel productive, what it's for") in
+ * reading order; "and more →" and the step mark are pointer shortcuts (the card is their way through).
+ * A wander that stays keeps its place: the last layout's slots are passed back in. Narrow screens
+ * (200 % zoom) and the largest text get "Explore" and the list of whys and wanders as buttons, without
+ * the picture.
  */
 export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's next card's node: one ink ring, and its step. */ focusId?: Id }) {
   const { width: windowWidth, fontScale } = useWindowDimensions();
@@ -207,7 +212,7 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
 
   return (
     <View onLayout={onLayout} testID="home-graph" style={styles.graph}>
-      {ov.mode !== 'logs' && <ScopeChip scope={scope} names={allMap} picture={!summaryOnly} />}
+      {ov.mode !== 'logs' && <ScopeChip scope={scope} names={allMap} />}
       {/* No wanders (P-57): each recent log a dot with its words, at any width; the rows say what the
           "Lately" line did, so there's none. Its words (your logs) only while Home is shown. */}
       {ov.mode === 'logs' && focused && (
@@ -218,7 +223,7 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
         </View>
       )}
       {ov.mode !== 'logs' && !summaryOnly && (
-        <View accessible accessibilityRole="image" accessibilityLabel={ov.summary} onAccessibilityTap={() => {}} style={{ height: layout.height }} testID="home-graph-picture">
+        <View role="group" aria-label={ov.summary} style={{ height: layout.height }} testID="home-graph-picture">
           <Animated.View style={[StyleSheet.absoluteFill, zoom]} {...({ dataSet: { zoom: 'true' } } as object)}>
           <Svg width={width} height={layout.height} style={StyleSheet.absoluteFill} pointerEvents="none" {...decorative}>
             {/* Newest first in the layout; drawn last, so its lines are on top. */}
@@ -231,10 +236,14 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
             {ringed?.circle && <StepBranch node={ringed} width={width} height={layout.height} />}
           </Svg>
           {/* A tap on empty canvas clears the attach (P-35; focus stays, P-50); nodes take their own taps. */}
-          <Pressable onPress={() => select(undefined)} focusable={false} tabIndex={-1} {...noFocus} style={StyleSheet.absoluteFill} {...decorative}>
+          <Pressable onPress={() => select(undefined)} focusable={false} tabIndex={-1} {...noFocus} style={StyleSheet.absoluteFill} {...decorative} />
+          {/* P-60: the circles are the way through for screen readers and the keyboard, in reading order. */}
+          <View role="list" aria-label="What’s in the picture" style={StyleSheet.absoluteFill} pointerEvents="box-none">
             {layout.nodes.map((n) => (
               <Node key={n.key} node={n} focused={n.id === focusId} />
             ))}
+          </View>
+          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
             {ringed?.circle && <StepMarkView node={ringed} width={width} height={layout.height} />}
             {layout.dots.map((d) => (
               <Dot key={d.key} dot={d} />
@@ -247,43 +256,40 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
                 <Text style={[styles.moreText, styles.mask]}>and more →</Text>
               </Shortcut>
             )}
-          </Pressable>
+          </View>
           </Animated.View>
         </View>
       )}
-      {/* The summary in one line (two where the picture is hidden), with "Explore" beside it whenever
-          the header has no room for its icon: at 200 % zoom the first item stays above the log box. */}
-      {focused && ov.mode !== 'logs' && (
+      {/* P-60: no summary line (it names the picture). "Explore" whenever the header has no room for its icon. */}
+      {focused && ov.mode !== 'logs' && !icon && (
         <View style={styles.summaryRow}>
-          <Text style={[s.body, styles.summary, !summaryOnly && styles.line]} numberOfLines={summaryOnly ? 2 : 1} testID={summaryOnly ? 'home-graph-summary' : 'home-graph-line'}>
-            {ov.summary}
-          </Text>
-          {!icon && (
-            <Link href="/explore" asChild>
-              <Pressable accessibilityRole="link" style={styles.open}>
-                <Text style={styles.openText}>Explore</Text>
-              </Pressable>
-            </Link>
-          )}
+          <Link href="/explore" asChild>
+            <Pressable accessibilityRole="link" style={styles.open}>
+              <Text style={styles.openText}>Explore</Text>
+            </Pressable>
+          </Link>
         </View>
       )}
-      {focused && listed.length > 0 && (
-        <View style={styles.items} role="list" aria-label="What’s in the picture">
-          {listed.map((it) => (
-            <View key={it.id} role="listitem" style={styles.listItem}>
-              {/* Like a tap on its circle (P-50): focuses and attaches it, or (focused, with something feeding it) narrows to it. */}
-              <Pressable
-                onPress={() => tapNode(it.id)}
-                style={[styles.item, it.why && styles.itemWhy, it.id === focusId && styles.itemSelected]}
-                accessibilityRole="button"
-                {...(it.id === focusId && ({ 'aria-current': true } as object))}>
-                <Text style={styles.itemText} numberOfLines={2}>
-                  <Text style={[styles.itemName, it.why && styles.whyText]}>{it.name}</Text>
-                  <Text style={styles.itemRole}>{it.why ? ', what it’s for' : ', a wander'}</Text>
-                </Text>
-              </Pressable>
-            </View>
-          ))}
+      {/* With no picture (200 % zoom, the largest text), the whys and wanders as buttons, named by the summary. */}
+      {focused && summaryOnly && listed.length > 0 && (
+        <View role="group" aria-label={ov.summary} testID="home-graph-list">
+          <View style={styles.items} role="list" aria-label="What’s in the picture">
+            {listed.map((it) => (
+              <View key={it.id} role="listitem" style={styles.listItem}>
+                {/* Like a tap on its circle (P-50): focuses and attaches it, or (focused, with something feeding it) narrows to it. */}
+                <Pressable
+                  onPress={() => tapNode(it.id)}
+                  style={[styles.item, it.why && styles.itemWhy, it.id === focusId && styles.itemSelected]}
+                  accessibilityRole="button"
+                  {...(it.id === focusId && ({ 'aria-current': true } as object))}>
+                  <Text style={styles.itemText} numberOfLines={2}>
+                    <Text style={[styles.itemName, it.why && styles.whyText]}>{it.name}</Text>
+                    <Text style={styles.itemRole}>{it.why ? ', what it’s for' : ', a wander'}</Text>
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+          </View>
         </View>
       )}
     </View>
@@ -398,7 +404,9 @@ const Node = memo(
     a.circle?.heat === b.circle?.heat &&
     a.circle?.declared === b.circle?.declared &&
     a.circle?.inside === b.circle?.inside &&
-    a.circle?.labelW === b.circle?.labelW,
+    a.circle?.labelW === b.circle?.labelW &&
+    a.circle?.labelY === b.circle?.labelY &&
+    a.circle?.labelH === b.circle?.labelH,
 );
 
 /** A ring around a circle, `gap` px beyond its edge (P-48: a declared why's second ring; P-50: the focus). */
@@ -419,28 +427,36 @@ function NodeView({ node: n, focused }: { node: LaidNode; focused: boolean }) {
   if (!c) return null;
   const why = n.kind === 'why';
   return (
-    <>
-      <Shortcut
+    <View role="listitem" style={[styles.hit, { left: n.x, top: n.y, width: n.w, height: n.h }]}>
+      {/* P-60: a button named as the list under the picture named it; the focused one is current. */}
+      <Pressable
         onPress={() => useStore.getState().tapNode(n.id)}
+        accessibilityRole="button"
+        accessibilityLabel={`${n.name}${why ? ', what it’s for' : ', a wander'}`}
+        {...(focused && ({ 'aria-current': true } as object))}
+        {...noFocus}
         testID={`graph-node-${n.id}`}
-        data={{ kind: n.kind, ...(n.under && { under: n.under.join('|') }), ...(focused && { focused: 'true' }), heat: c.heat.toFixed(2), label: c.inside ? 'inside' : 'under' }}
-        style={[styles.hit, styles.nodeHit, { left: n.x, top: n.y, width: n.w, height: n.h }]}>
-        <View style={[styles.circle, { marginTop: c.cy - n.y - c.r, width: 2 * c.r, height: 2 * c.r, borderRadius: c.r, backgroundColor: heatFill(c.heat), borderColor: heatInk(c.heat) }]}>
+        {...({ dataSet: { kind: n.kind, ...(n.under && { under: n.under.join('|') }), ...(focused && { focused: 'true' }), heat: c.heat.toFixed(2), label: c.inside ? 'inside' : 'under' } } as object)}
+        style={[StyleSheet.absoluteFill, styles.nodeHit]}>
+        <View testID={`graph-circle-${n.id}`} style={[styles.circle, { marginTop: c.cy - n.y - c.r, width: 2 * c.r, height: 2 * c.r, borderRadius: c.r, backgroundColor: heatFill(c.heat), borderColor: heatInk(c.heat) }]}>
           {c.inside && (
             <Text style={[styles.label, styles.inside, { width: c.labelW, color: heatLabel(c.heat) }]} numberOfLines={2}>
               {n.name}
             </Text>
           )}
         </View>
+        {/* P-60: under the circle, wholly below its outermost ring, in the box the layout keeps clear. */}
         {!c.inside && (
-          <Text style={[styles.label, styles.under, why && styles.underWhy, { maxWidth: c.labelW }]} numberOfLines={2}>
-            {n.name}
-          </Text>
+          <View pointerEvents="none" style={[styles.underBox, { top: c.labelY - n.y, maxHeight: c.labelH }]}>
+            <Text testID={`graph-label-${n.id}`} style={[styles.label, styles.under, styles.mask, why && styles.underWhy, { maxWidth: c.labelW }]} numberOfLines={2}>
+              {n.name}
+            </Text>
+          </View>
         )}
         {c.declared && <Ring n={n} gap={4} width={1} color={heatInk(c.heat)} testID={`graph-why-ring-${n.id}`} />}
-        {focused && <Ring n={n} gap={c.declared ? 8 : 5} width={2} color={C.ink} testID={`graph-selected-${n.id}`} />}
-      </Shortcut>
-    </>
+        {focused && <Ring n={n} gap={c.declared ? RING_OUT : 5} width={2} color={C.ink} testID={`graph-selected-${n.id}`} />}
+      </Pressable>
+    </View>
   );
 }
 
@@ -479,21 +495,12 @@ function StepMarkView({ node: n, width, height }: { node: LaidNode; width: numbe
 }
 
 /**
- * P-50: the scope as a chip above the picture. At All, a quiet "All" (a heading, not a button), only
- * while the picture shows; in a scope, "‹ <where up goes> · <here>", which goes up one level (as do
- * Esc and Back).
+ * P-50: the scope as a chip above the picture: in a scope, "‹ <where up goes> · <here>", which goes up
+ * one level (as do Esc and Back). At All, nothing (P-60).
  */
-function ScopeChip({ scope, names, picture }: { scope: Id[]; names: FocusMap; picture: boolean }) {
+function ScopeChip({ scope, names }: { scope: Id[]; names: FocusMap }) {
   const name = (id: Id) => names.nodes.find((n) => n.id === id)?.name ?? '';
-  if (!scope.length) {
-    return picture ? (
-      <View style={styles.chipRow}>
-        <Text style={styles.chipAll} accessibilityRole="header" testID="scope-chip">
-          All
-        </Text>
-      </View>
-    ) : null;
-  }
+  if (!scope.length) return null;
   const here = name(scope[scope.length - 1]);
   const up = scope.length > 1 ? name(scope[scope.length - 2]) : 'All';
   return (
@@ -568,7 +575,9 @@ const styles = StyleSheet.create({
   ring: { position: 'absolute' },
   label: { fontSize: LABEL_FONT, lineHeight: LABEL_LINE, textAlign: 'center' },
   inside: { fontWeight: '600' },
-  under: { marginTop: 2, fontWeight: '500', color: C.ink, paddingHorizontal: 2 },
+  under: { fontWeight: '500', color: C.ink, paddingHorizontal: 2, ...(Platform.OS === 'web' && ({ overflowWrap: 'anywhere' } as object)) },
+  // P-60: the label's box under the circle (the layout's `labelY`), as wide as the target.
+  underBox: { position: 'absolute', left: 0, right: 0, alignItems: 'center', overflow: 'hidden' },
   underWhy: { fontWeight: '600' },
   // Text the branches pass behind: the page colour under it, so a line never runs through words.
   mask: { backgroundColor: C.bg },
@@ -580,7 +589,6 @@ const styles = StyleSheet.create({
   addStepText: { fontSize: 12, lineHeight: 14, color: C.muted },
   // P-50: the scope chip.
   chipRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28 },
-  chipAll: { fontSize: 13, fontWeight: '500', color: C.muted },
   chip: { minHeight: 44, marginVertical: -8, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: C.ink, justifyContent: 'center', maxWidth: '100%', backgroundColor: C.surface },
   chipText: { fontSize: 14, fontWeight: '600', color: C.ink },
   whyText: { fontWeight: '600', color: C.accentInk },
@@ -596,8 +604,6 @@ const styles = StyleSheet.create({
   moreText: { fontSize: 13, fontWeight: '500', color: C.accent },
   graph: { gap: 12, marginTop: 8 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  summary: { flex: 1 },
-  line: { color: C.muted },
   open: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
   openText: { color: C.accent, fontSize: 14, fontWeight: '500' },
   items: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

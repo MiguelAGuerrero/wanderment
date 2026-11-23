@@ -116,9 +116,9 @@ test.describe('at 390 px', () => {
     expect(Math.abs(d.x + d.width / 2 - c.x)).toBeGreaterThan(c.r);
     // The step line under every node is gone.
     await expect(page.getByText(/^↳ /).filter({ visible: true })).toHaveCount(0);
-    // At All, the chip is a quiet heading, not a button.
-    await expect(chip(page)).toHaveText('All');
-    await expect(page.getByRole('heading', { name: 'All', exact: true })).toBeVisible();
+    // P-60: at All there's no chip (was a quiet "All" heading), and no button.
+    await expect(chip(page)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'All', exact: true })).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^All/ })).toHaveCount(0);
     // Shown, never attached.
     await expect(toChips(page)).toHaveCount(0);
@@ -206,7 +206,7 @@ test.describe('at 390 px', () => {
     await expect(toast(page, 'Logged in draw better hands')).toBeVisible();
     // Nothing moved or zoomed; nothing was attached.
     expect(await centres(page)).toEqual(before);
-    await expect(chip(page)).toHaveText('All');
+    await expect(chip(page)).toHaveCount(0); // P-60: at All, no chip (was "All")
     await expect(toChips(page)).toHaveCount(0);
   });
 
@@ -265,8 +265,8 @@ test.describe('at 390 px', () => {
     const up = page.getByRole('button', { name: 'All · make apparel, back to All', exact: true });
     await expect(up).toHaveText('‹ All · make apparel');
     expect((await up.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    // The list is the scope's too.
-    await expect(list(page).getByRole('button')).toHaveText(['make apparel, what it’s for', 'draw, a wander', 'sew, a wander', 'draw better hands, a wander']);
+    // The list is the scope's too (P-60: the picture's circles, named as the list's buttons were; their text is just the name).
+    expect(await list(page).getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toEqual(['make apparel, what it’s for', 'draw, a wander', 'sew, a wander', 'draw better hands, a wander']);
     // A swipe walks this scope's chains only.
     await swipe(page, card(page), -140);
     await focusedOn(page, 'draw better hands');
@@ -281,7 +281,7 @@ test.describe('at 390 px', () => {
     // The chip goes up.
     await up.click();
     await expect(nodes(page)).toHaveCount(6);
-    await expect(chip(page)).toHaveText('All');
+    await expect(chip(page)).toHaveCount(0); // P-60: at All, no chip (was "All")
     await expect(said(page)).toHaveText('Showing all');
     await focusedOn(page, 'make apparel');
     // Esc goes up.

@@ -146,10 +146,10 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
  * picture, on a short tapered branch (thin at the dot), with its words further out. Inside the
  * picture, `width` × `height`.
  */
-export function stepMark(c: { cx: number; cy: number; r: number }, width: number, height: number): StepMark {
+export function stepMark(c: { cx: number; cy: number; r: number; /** P-60: the row's step band (below every label), when the layout has one. */ stepY?: number }, width: number, height: number): StepMark {
   const side: 1 | -1 = c.cx >= width / 2 ? -1 : 1;
   const x = Math.min(width - STEP_ADD_R - 1, Math.max(STEP_ADD_R + 1, c.cx + side * (c.r + OUT)));
-  const y = Math.min(height - STEP_ADD_R - 1, c.cy + DOWN);
+  const y = Math.min(height - STEP_ADD_R - 1, c.stepY ?? c.cy + DOWN);
   const o = [c.cx + side * (c.r - 1), c.cy + 3];
   // From the dot up to the circle's side: a cubic that leaves the dot upward and meets the circle level.
   const p0 = [x - 2 * side, y - 7];

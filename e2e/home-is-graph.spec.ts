@@ -200,7 +200,8 @@ test('“Not now” hides the offer for good, across a reload', async ({ page })
   await expect(offer(page)).toHaveCount(0);
 });
 
-test('with wanders: the graph, the staged step under its node, the summary line and a list to act from', async ({ page }) => {
+// P-60: no summary line and no list under the picture; the circles are the buttons, named as the list's were.
+test('with wanders: the graph, the staged step under its node, and its circles to act from', async ({ page }) => {
   await page.addInitScript(seedScript, withWhy());
   await openHome(page);
   await expect(nodes(page)).toHaveCount(5);
@@ -215,17 +216,17 @@ test('with wanders: the graph, the staged step under its node, the summary line 
   expect(Math.abs(step.x + step.width / 2 - (draw.x + draw.width / 2))).toBeGreaterThan(24);
   // Node targets have room to breathe: taller than 44 px.
   expect(draw.height).toBeGreaterThan(44);
-  // The summary is visible, in one line.
-  await expect(line(page)).toHaveText(/^What it’s for: make apparel, fed by draw and sew\./);
-  expect((await line(page).boundingBox())!.height).toBeLessThanOrEqual(23);
-  // The list after the summary: the whys and wanders in the picture, with their roles, in reading order.
+  // P-60: the summary isn't shown (was one line); it names the picture.
+  await expect(line(page)).toHaveCount(0);
+  await expect(page.getByTestId('home-graph-picture')).toHaveAccessibleName(/^What it’s for: make apparel, fed by draw and sew\./);
+  // The whys and wanders in the picture, with their roles, in reading order (P-60: the circles; was a list under the summary).
   const items = pictureList(page).getByRole('button');
-  await expect(items).toHaveText(['make apparel, what it’s for', 'draw, a wander', 'sew, a wander', 'get stronger, a wander', 'lift, a wander']);
+  expect(await items.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')))).toEqual(['make apparel, what it’s for', 'sew, a wander', 'draw, a wander', 'get stronger, a wander', 'lift, a wander']); // P-60: reading order (the list had draw before sew)
   for (const b of await items.all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await expectNoSeriousViolations(page);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/p34-with-wanders.png` });
   // Activating one focuses the wander (P-50); its page opens from the card's name ("Open draw").
-  await items.nth(1).click();
+  await items.nth(2).click(); // P-60: draw is third in reading order (was second in the list)
   await page.getByRole('link', { name: 'Open draw', exact: true }).click();
   await expect(page).toHaveURL(/\/thread\/draw$/);
 });
@@ -281,12 +282,14 @@ test('the bridge still works after a log from Home, right above the log box', as
   await expect(bridge).toHaveCount(0);
 });
 
-test('at 200 % zoom: no picture; the summary, Explore and the list, its first item above the log box', async ({ page }) => {
+// P-60: the summary isn't shown (was: "the summary, Explore and the list"); it names the list.
+test('at 200 % zoom: no picture; Explore and the list named by the summary, its first item above the log box', async ({ page }) => {
   await page.setViewportSize({ width: 195, height: 422 });
   await page.addInitScript(seedScript, withWhy());
   await openHome(page);
-  await expect(page.getByRole('img')).toHaveCount(0);
-  await expect(page.getByTestId('home-graph-summary').filter({ visible: true })).toContainText('What it’s for: make apparel');
+  await expect(page.getByTestId('home-graph-picture')).toHaveCount(0); // P-60 (was: no img)
+  await expect(page.getByTestId('home-graph-summary')).toHaveCount(0);
+  await expect(page.getByRole('group', { name: /^What it’s for: make apparel/ })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Explore', exact: true })).toBeVisible();
   const first = pictureList(page).getByRole('button').first();
   await expect(first).toHaveText('make apparel, what it’s for');
