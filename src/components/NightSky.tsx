@@ -16,7 +16,7 @@ const HILLS_H = 220;
 const native = Platform.OS !== 'web';
 
 /** A loop between two values (twinkle: opacity; the lantern: opacity and size), or nothing when still. */
-function useLoop(still: boolean, ms: number, delay = 0) {
+export function useLoop(still: boolean, ms: number, delay = 0) {
   const v = useMemo(() => new Animated.Value(0), []);
   useEffect(() => {
     v.setValue(0);
@@ -34,9 +34,10 @@ function useLoop(still: boolean, ms: number, delay = 0) {
  * the path starts. Purely decorative (hidden from screen readers, never in the way of a tap). A few
  * stars twinkle and the lantern breathes, only while `still` is false (Reduce Motion, or the screen
  * isn't in front, stills them: twinkling stars hold a soft middle glow). With shading off (`warm`
- * false) the lantern's glow is silver.
+ * false) the lantern's glow is silver. Without `ground` (P-66, under a star) it's only the sky: no
+ * hills, path or lantern.
  */
-export function NightSky({ still, warm }: { still: boolean; warm: boolean }) {
+export function NightSky({ still, warm, ground = true }: { still: boolean; warm: boolean; ground?: boolean }) {
   const tw1 = useLoop(still, 4000);
   const tw2 = useLoop(still, 6000, 1500);
   const lamp = useLoop(still, 2600);
@@ -62,32 +63,36 @@ export function NightSky({ still, warm }: { still: boolean; warm: boolean }) {
         const opacity = still ? 0.7 : v.interpolate({ inputRange: [0, 1], outputRange: [0.35, 1] });
         return <Animated.View key={i} style={[style, { opacity }]} testID="sky-twinkle" />;
       })}
-      <View style={styles.hills}>
-        <Svg width="100%" height={HILLS_H} viewBox={`0 0 390 ${HILLS_H}`} preserveAspectRatio="none">
-          <Path d="M0 48 C 60 16 120 38 170 22 S 280 -14 330 6 S 380 26 390 16 V220 H0 Z" fill={N.hillFar} />
-          <Path d="M0 100 C 90 76 170 104 250 84 S 360 76 390 88 V220 H0 Z" fill={N.hillNear} />
-          <Path d="M195 132 C 190 106 214 92 206 76 S 178 56 192 40" fill="none" stroke={N.path} strokeWidth={2} strokeDasharray="2 6" strokeLinecap="round" />
-        </Svg>
-      </View>
-      <Animated.View
-        testID="sky-lantern"
-        style={[
-          styles.lamp,
-          still
-            ? { opacity: 0.9 }
-            : { opacity: lamp.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }), transform: [{ scale: lamp.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }] },
-        ]}>
-        <Svg width={140} height={140}>
-          <Defs>
-            <RadialGradient id="lamp" cx="50%" cy="50%" r="50%">
-              <Stop offset="0" stopColor={glow} stopOpacity={0.55} />
-              <Stop offset="1" stopColor={glow} stopOpacity={0} />
-            </RadialGradient>
-          </Defs>
-          <Circle cx={70} cy={70} r={70} fill="url(#lamp)" />
-        </Svg>
-      </Animated.View>
-      <View style={styles.core} />
+      {ground && (
+        <>
+          <View style={styles.hills}>
+            <Svg width="100%" height={HILLS_H} viewBox={`0 0 390 ${HILLS_H}`} preserveAspectRatio="none">
+              <Path d="M0 48 C 60 16 120 38 170 22 S 280 -14 330 6 S 380 26 390 16 V220 H0 Z" fill={N.hillFar} />
+              <Path d="M0 100 C 90 76 170 104 250 84 S 360 76 390 88 V220 H0 Z" fill={N.hillNear} />
+              <Path d="M195 132 C 190 106 214 92 206 76 S 178 56 192 40" fill="none" stroke={N.path} strokeWidth={2} strokeDasharray="2 6" strokeLinecap="round" />
+            </Svg>
+          </View>
+          <Animated.View
+            testID="sky-lantern"
+            style={[
+              styles.lamp,
+              still
+                ? { opacity: 0.9 }
+                : { opacity: lamp.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }), transform: [{ scale: lamp.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }] },
+            ]}>
+            <Svg width={140} height={140}>
+              <Defs>
+                <RadialGradient id="lamp" cx="50%" cy="50%" r="50%">
+                  <Stop offset="0" stopColor={glow} stopOpacity={0.55} />
+                  <Stop offset="1" stopColor={glow} stopOpacity={0} />
+                </RadialGradient>
+              </Defs>
+              <Circle cx={70} cy={70} r={70} fill="url(#lamp)" />
+            </Svg>
+          </Animated.View>
+          <View style={styles.core} />
+        </>
+      )}
     </View>
   );
 }

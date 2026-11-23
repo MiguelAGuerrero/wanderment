@@ -30,7 +30,23 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   else…* (any wander, or a new one). The guess is P-61's matching on the line, then on its longest
   words. Each move is one tap with Undo; leaving without a tap keeps the line as it is. Reduce Motion
   stills the sky; at large text and in short windows the big line steps down so the field stays above
-  the keyboard. Until P-66, "I'm not sure" opens Map.
+  the keyboard. **I'm not sure** looks up (P-66).
+- **Look up** (P-66, `/sky`): "Not sure." over the night sky, and your whys as **stars** — declared
+  (oldest mark first), then earned, at most six — each in a **fixed place** taken from its id (never
+  from heat or order), all **one size**. How lately a star was walked shows only as warmth (silver to
+  amber) and up to eight **twinkling motes** (relative to heat, never a number); with the shading off
+  there's no warmth and no motes; under Reduce Motion the motes hold a soft glow. For a screen reader
+  the stars are a list of buttons in that fixed order, "<why>, last walked <when>". "Back to typing"
+  returns to the prompt.
+- **Under a star** (`/star/<id>`): the star and its name; on the hills its **landmarks** (the wanders
+  feeding it), each a flag with a dotted trail from camp, names in a row above every flag (never on a
+  trail); under them one card per landmark with its next step (or "＋ Add a next step") and the note
+  on its latest activity. The one walked most lately is warm; beyond three, "More wanders…". A why
+  with one wander opens that **trail** directly (with none, its own).
+- **On the trail** (`/trail/<id>`): its star and name, "Here's where we left off", the next step in
+  large type, the note on a paper tag, **Did it** (logs the step, as Map's ✓, with Undo; focus moves
+  on) or "＋ Add a next step", and **footprints**: its latest five activities in dated words (today,
+  on Tuesday, last week, in March), never counts.
 - **Map** (was Home, unchanged): on the Map (owner, D-11) the **What's next · <node>** card is
   always shown (its step and ✓, or "＋ add one"), with a round **＋** beside it that opens the log
   field (on web, typing opens it). As you type it suggests matching staged steps, then past entries,

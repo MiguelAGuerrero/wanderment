@@ -31,8 +31,8 @@ const focusSoon = (el: () => Focusable) => {
 /**
  * The trailhead (P-65, B-07 slice 1): Home is a night sky and one question. The field ("nothing yet
  * is fine") offers P-61's suggestions only once you type; Return logs exactly as typed, loose, and
- * the words become the billboard ("Kept, loose · Undo", then "Move it?"). "I’m not sure" and "Map"
- * open the graph (Map; P-66 gives "I’m not sure" its own look up).
+ * the words become the billboard ("Kept, loose · Undo", then "Move it?"). "Map" opens the graph;
+ * "I’m not sure" looks up at the sky (P-66, `/sky`).
  */
 export function Trailhead() {
   const shown = useIsFocused();
@@ -86,7 +86,7 @@ export function Trailhead() {
                   {PROMPT}
                 </Text>
                 <Composer night autocomplete arrow placeholder="nothing yet is fine" label={PROMPT} logOptions={TRAIL} onLogged={() => true} />
-                <Link href="/map" asChild>
+                <Link href="/sky" asChild>
                   <Pressable style={styles.unsure}>
                     <Svg width={14} height={14} viewBox="0 0 24 24" {...decorative}>
                       <Path d="M12 2 L13.6 10.4 L22 12 L13.6 13.6 L12 22 L10.4 13.6 L2 12 L10.4 10.4Z" fill={warm ? N.lantern : N.silver} />

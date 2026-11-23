@@ -207,7 +207,7 @@ test.describe('the trailhead', () => {
     await expect(await looseOnMap(page, LINE)).toBeVisible();
   });
 
-  test('Map shows today’s graph, one tap away; I’m not sure opens it too (for now); Back, the ‹ or Esc return to the prompt', async ({ page }) => {
+  test('Map shows today’s graph, one tap away; I’m not sure looks up (P-66); Back, the ‹ or Esc return to the prompt', async ({ page }) => {
     await open(page);
     await page.getByRole('link', { name: 'Map', exact: true }).click();
     await expect(page).toHaveURL(/\/wanderment\/map$/);
@@ -219,7 +219,14 @@ test.describe('the trailhead', () => {
     await page.goBack();
     await expect(field(page)).toBeVisible();
 
+    // P-66: "I’m not sure" looks up at the sky (it opened Map until then); Back returns to the prompt.
     await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await expect(page).toHaveURL(/\/wanderment\/sky$/);
+    await expect(page.getByRole('heading', { name: 'Not sure.', exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(field(page)).toBeVisible();
+
+    await page.getByRole('link', { name: 'Map', exact: true }).click();
     await expect(page).toHaveURL(/\/wanderment\/map$/);
     const back = page.getByRole('button', { name: 'Back to the prompt', exact: true });
     expect((await back.boundingBox())!.width).toBeGreaterThanOrEqual(44);

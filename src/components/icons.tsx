@@ -43,11 +43,11 @@ export function SettingsGlyph() {
   );
 }
 
-/** ‹ Back to the prompt (Map's header, P-65). */
-export function BackGlyph() {
+/** ‹ Back to the prompt (Map's header, P-65); on the night screens (P-66) in a light `color`. */
+export function BackGlyph({ color = C.body }: { color?: string }) {
   return (
     <Svg {...props} testID="icon-back">
-      <Path d="M15 5l-7 7 7 7" stroke={C.body} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15 5l-7 7 7 7" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

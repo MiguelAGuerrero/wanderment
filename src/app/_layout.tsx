@@ -10,7 +10,7 @@ import { UpdateBanner } from '@/components/UpdateBanner';
 import { registerServiceWorker } from '@/pwa/serviceWorker';
 import { reloadKeepingDraft, startPersistence } from '@/storage/persistence';
 import { StorageStatus, useStore } from '@/store/useStore';
-import { C, s } from '@/theme';
+import { C, N, s } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 registerServiceWorker();
@@ -60,6 +60,10 @@ export default function RootLayout() {
           {/* Home is the trailhead (P-65); Map is the graph, whose sheet holds Wanders and Activities (P-58). */}
           <Stack.Screen name="index" />
           <Stack.Screen name="map" />
+          {/* "I’m not sure" (P-66): the sky, under a star, on the trail. */}
+          <Stack.Screen name="sky" options={{ contentStyle: { backgroundColor: N.bg } }} />
+          <Stack.Screen name="star/[id]" options={{ contentStyle: { backgroundColor: N.bg } }} />
+          <Stack.Screen name="trail/[id]" options={{ contentStyle: { backgroundColor: N.bg } }} />
           <Stack.Screen name="wanders" />
           <Stack.Screen name="activities" />
           <Stack.Screen name="thread/[id]" />

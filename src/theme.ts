@@ -35,6 +35,12 @@ export const N = {
   /** The lantern's glow with shading off: no warmth. */
   silver: '#C9C7D9',
   surface: '#1A1830',
+  /** P-66: a trail not walked lately, and the cards under a star. */
+  trail: '#6E6890',
+  card: 'rgba(30, 26, 46, 0.92)',
+  /** P-66: the note's paper tag on a trail. */
+  tag: '#F3E9D8',
+  tagInk: '#2A2238',
 };
 
 export const font = {

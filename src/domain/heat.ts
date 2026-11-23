@@ -50,25 +50,30 @@ export function nodeHeat(data: Data, ids: Iterable<Id>, opts: { now?: Date; shad
     index = emptyHeatIndex();
     for (const a of Object.values(data.activities)) indexHeat(index, a);
   }
-  const { latest, feeders } = index;
   for (const id of wanted) {
-    // Everything beneath it, each once (so a cycle ends).
-    let best: string | undefined;
-    const seen = new Set<Id>([id]);
-    const stack = [id];
-    while (stack.length) {
-      const n = stack.pop()!;
-      const at = latest.get(n);
-      if (at !== undefined && (best === undefined || at > best)) best = at;
-      for (const f of feeders.get(n) ?? []) {
-        if (seen.has(f)) continue;
-        seen.add(f);
-        stack.push(f);
-      }
-    }
+    const best = latestUnder(index, id);
     out[id] = best === undefined ? 0 : warmth(new Date(best), now);
   }
   return out;
+}
+
+/** When the most recent activity on a node or anything feeding it happened (ISO), transitively; undefined if never. */
+export function latestUnder({ latest, feeders }: HeatIndex, id: Id): string | undefined {
+  // Everything beneath it, each once (so a cycle ends).
+  let best: string | undefined;
+  const seen = new Set<Id>([id]);
+  const stack = [id];
+  while (stack.length) {
+    const n = stack.pop()!;
+    const at = latest.get(n);
+    if (at !== undefined && (best === undefined || at > best)) best = at;
+    for (const f of feeders.get(n) ?? []) {
+      if (seen.has(f)) continue;
+      seen.add(f);
+      stack.push(f);
+    }
+  }
+  return best;
 }
 
 // ─── Colours ───────────────────────────────────────────────────────────────
