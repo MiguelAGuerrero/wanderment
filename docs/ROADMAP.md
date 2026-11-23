@@ -62,7 +62,15 @@ you type and either logs (Did it) or pushes one instance onto a stack, so stacks
 one-off work. Routines come two ways: inferred (autocomplete resolves similar past work, to log or
 push) and declared (tick "Keep as a routine" when a stack clears); two sizes: a pebble (one
 repeatable stone, "Draw for 15 minutes") and a workflow (a whole saved stack, pushed in one tap);
-declared routines surface as quick actions on their why; popped stones sink into a dated trail in words, no strikethrough.
+declared routines surface as quick actions on their why. **One picture (owner, 2026-11-23):**
+the owner's images are metaphors to distill, not literal features. The app is a wanderer under a
+night sky: whys are **stars** (steer by, never reached; fixed places, recency only as warmth);
+milestones are reachable **landmarks**; a wander is a **trail** toward a landmark (several trails
+under one star = concurrency); the top of a stack is the **next waypoint**; logs are
+**footprints** (loose logs are stray steps); where you left off is **camp** (a note, "waiting
+on…"); routines are **desire paths** (inferred) and **marked routes** (declared); the front door is
+the **trailhead**; "I'm not sure" is **looking up**; the graph is the **map**. Diegetic and
+whimsical in the visuals, plain in the words (few metaphor words on screen); popped stones sink into a dated trail in words, no strikethrough.
 *Done when:* brief B-07 written (resolving text to the graph, stacks per chain, park/resume, how it
 sits beside Home's graph, what supersedes P-19, P-51–P-55, P-62, P-63), persona panel run, and the
 owner's go/no-go recorded as a decision.

@@ -63,6 +63,12 @@ want this to be repeat work." Sizes: "Draw for 15 minutes … would be a stone o
 pebble, but I do like the idea of saving entire work stacks as a repeatable workflow … reference the
 entire stack rather than [queuing] a whole bunch of different pebbles." Declared routines surface on
 their why.
+One picture: "you're taking my terms literally and I don't mean for you to do that. I want you to
+distill my metaphors into a coherent idea … one app idea … resolving it to fit the imagery of
+wandering." On landmarks: "landmarks have definite position, but … a more subtle aspect may have
+been Polaris … you can't ever reach Polaris, but you can reach a landmark." Words: visuals, few
+words. Reaction to stars/landmarks/trails/camp: "more thrilled having this move into a more
+[diegetic] way that feels more whimsical and less … sterile."
 Led to: D-12; P-62 parked (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle
