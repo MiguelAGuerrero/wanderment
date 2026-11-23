@@ -43,7 +43,7 @@ function world() {
 
 async function open(page: Page) {
   await page.addInitScript(seedScript, world());
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   await expect(logPlus(page)).toBeVisible(); // P-61: was the What’s next tab
 }
 
@@ -242,7 +242,7 @@ test.describe('at 390 px', () => {
     // Back again puts the sheet away before leaving Home.
     await page.goBack();
     await expectClosed(page);
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
   });
 
   test('the browser’s Back closes the sheet before leaving Home', async ({ page }) => {
@@ -250,7 +250,7 @@ test.describe('at 390 px', () => {
     await expectOpen(page, 'Wanders');
     await page.goBack();
     await expectClosed(page);
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
     await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible();
     // Opened and closed again by Esc, it doesn't leave a Back step behind it.
     await handle(page).click();
@@ -261,7 +261,7 @@ test.describe('at 390 px', () => {
     await expectOpen(page, 'Wanders');
     await page.goBack();
     await expectClosed(page);
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
   });
 
   test('it slides, but under Reduce Motion it just appears and goes', async ({ page }) => {
@@ -299,7 +299,7 @@ test('deep links to /wanders and /activities open Home with the sheet on that se
   await page.addInitScript(seedScript, world());
   await page.goto('./activities');
   await expectOpen(page, 'Activities');
-  await expect(page).toHaveURL(/\/wanderment\/$/);
+  await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
   await expect(dialog(page).getByText('cooked dinner', { exact: true })).toBeVisible();
   await page.goBack();
   await expectClosed(page);

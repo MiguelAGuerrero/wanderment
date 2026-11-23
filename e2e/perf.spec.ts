@@ -15,7 +15,7 @@ async function timedLog(page: Page, text: string) {
 test('logging stays quick on Home and Activities with a large history', async ({ page }) => {
   test.slow();
   await page.addInitScript(seedScript, bigBlob(220, 4000));
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   // P-34: the list is on the Wanders tab; Home's heading shows once the data has loaded.
   await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible({ timeout: 20_000 });
   const home = await timedLog(page, 'home log');

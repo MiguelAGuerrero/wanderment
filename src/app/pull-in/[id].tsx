@@ -10,7 +10,7 @@ import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
-const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+const goBack = () => (router.canGoBack() ? router.back() : router.replace('/map'));
 
 /**
  * After naming a thread: earlier activities that mention it, to pull in with one tap.

@@ -59,7 +59,7 @@ const CHAINS = ['draw better hands', 'sew', 'read'];
 
 async function open(page: Page) {
   await page.addInitScript(seedScript, world());
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   await expect(logPlus(page)).toBeVisible(); // P-61: was the What’s next tab
   await expect(nodes(page)).toHaveCount(6);
 }
@@ -298,7 +298,7 @@ test.describe('at 390 px', () => {
     await expect(nodes(page)).toHaveCount(4);
     await page.goBack();
     await expect(nodes(page)).toHaveCount(6);
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
     await expect(logPlus(page)).toBeVisible(); // P-61: was the What’s next tab
 
     // Two levels: the chip names both, and each way up goes one level.
@@ -312,7 +312,7 @@ test.describe('at 390 px', () => {
     await expect(up).toBeVisible();
     await page.goBack();
     await expect(nodes(page)).toHaveCount(6);
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
   });
 
   test('narrowing zooms from where the node was, but not under Reduce Motion', async ({ page }) => {
@@ -388,7 +388,7 @@ test.describe('at 200 % zoom (195 px: no picture)', () => {
   test.use({ viewport: { width: 195, height: 422 } });
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(seedScript, world());
-    await page.goto('./');
+    await page.goto('./map'); // P-65: graph moved to Map
     await expect(logPlus(page)).toBeVisible(); // P-61: was the What’s next tab
   });
 

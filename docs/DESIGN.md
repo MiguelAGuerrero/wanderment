@@ -10,26 +10,40 @@ These came out of the design sessions and several rounds of persona reviews. Cha
 - A wander can be created with just a name. If nothing flows into it, it simply fades.
 - A wander can be marked as **what it's for** (a "why"): a direction, not a goal — no target, progress
   or deadline. A why can be declared (named up front) or earned (most activity flows into it); both
-  look the same on Home and both fade to Earlier when nothing flows in. _(Owner decision D-4.)_
+  look the same on Map and both fade to Earlier when nothing flows in. _(Owner decision D-4.)_
   At most **three** are declared at once, all visible: declaring a fourth offers a swap (you pick
   which one steps back, nothing is chosen for you), and hiding a declared wander unmarks it (Undo
   restores both). No counts are shown.
 - The **next** belongs to the activity's doing wander, else its first "to".
 
 ## Interaction
-- **Capture is sacred.** One line, Return logs, as typed. Nothing is required.
-  On Home (owner, D-11, 2026-11-23) the **What's next · <node>** card is always shown (its step and
-  ✓, or "＋ add one"), with a round **＋** beside it that opens the log field (on web, typing opens
-  it). As you type it suggests matching staged steps, then past entries, then nodes; a tap attaches
-  (and a step suggestion completes that step); while it's open, tapping a node attaches it. Return
-  logs exactly what's typed, and nothing attaches without a tap. The card's node is only shown.
+- **Capture is sacred.** One line, Return logs, as typed. Nothing is required, and nothing attaches
+  without a tap.
+- **The trailhead is Home** (owner, D-13, 2026-11-23; P-65): a night sky over dark hills, a lantern
+  where the path starts, and one large line, **"Where are we wandering today?"**, with the field
+  ("nothing yet is fine") under it and an outlined **I'm not sure** below; **Map** sits in a corner.
+  Nothing else: no wanders, stars or suggestions before you type. As you type, P-61's suggestions
+  (staged steps, then past entries, then wanders) appear under the field; a tap attaches. **Return
+  logs at once, exactly as typed, loose** (no toast): your words become the billboard, with
+  "Kept, loose · Undo", and below it, quietly, **Move it?** — *Next on <guessed wander>* (only while
+  that wander has no step: a step is never overwritten), *Log toward <guessed wander>*, *Somewhere
+  else…* (any wander, or a new one). The guess is P-61's matching on the line, then on its longest
+  words. Each move is one tap with Undo; leaving without a tap keeps the line as it is. Reduce Motion
+  stills the sky; at large text and in short windows the big line steps down so the field stays above
+  the keyboard. Until P-66, "I'm not sure" opens Map.
+- **Map** (was Home, unchanged): on the Map (owner, D-11) the **What's next · <node>** card is
+  always shown (its step and ✓, or "＋ add one"), with a round **＋** beside it that opens the log
+  field (on web, typing opens it). As you type it suggests matching staged steps, then past entries,
+  then nodes; a tap attaches (and a step suggestion completes that step); while it's open, tapping a
+  node attaches it. Return logs exactly what's typed. The card's node is only shown. Its ‹ (or Esc
+  with nothing else to do, or Back) returns to the trailhead.
 - `@` opens up to 3 wander suggestions (prefix match, then recency). **Tap** (or **Tab** on web) picks. Return never picks or creates a wander; an unmatched `@word` stays plain text.
 - A "doing" can be *suggested* from words in the sentence (dashed chip) but is never applied silently.
 - The next-step **crumb** hangs under each wander card. Tapping it **loads** the text into the log box with the wander as doing — it doesn't complete anything. If you've already started a line, your words stay and a removable "↳ step" chip says the line counts as that step (D-6). Logging turns it into an activity and clears the next (only if the step hasn't changed since it was loaded).
-- After logging, the owning wander shows one quiet "+ What's next? (optional)" line. Ignoring it leaves no trace.
-- Toast: "Logged" or "Logged → <node>" (no question; D-11), one action (Undo), body opens details, ≥ 6 s, pauses while held, doesn't auto-dismiss under a screen reader.
+- After logging on Map, the owning wander shows one quiet "+ What's next? (optional)" line. Ignoring it leaves no trace.
+- Toast (Map and other screens; the trailhead says it on its billboard): "Logged" or "Logged → <node>" (no question; D-11), one action (Undo), body opens details, ≥ 6 s, pauses while held, doesn't auto-dismiss under a screen reader.
 - Recency is neutral: "last touched 2d", an "Earlier" section after 21 days, warmth halves every 14 days, and the shading can be turned off.
-- **The graph is Home** (P-34): declared whys head it (then earned ones, then the wanders beside
+- **The graph is Map** (P-34; Home until P-65): declared whys head it (then earned ones, then the wanders beside
   them) as circles, each level below one size smaller, declared whys with a second ring. A circle's
   colour is its **heat**: the warmth of the most recent activity on it or anything feeding it, never a
   sum (owner, D-9, 2026-11-22). Doing → to links are tapered branches, and no width comes from a
@@ -44,7 +58,7 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   a gentle "+ What's it all for?" offers to name one ("Not now" hides it for good). The picture's circles are
   buttons (the way through without pointing); its summary is their group's name, not a visible line,
   and only at the largest text does a list replace the picture (D-11). With wanders present, your last
-  few unattached logs sit as labelled dots below the graph (tap to attach); there's no "All" label. There is no tab bar (owner, D-10): a handle at the bottom of Home pulls up one sheet with two
+  few unattached logs sit as labelled dots below the graph (tap to attach); there's no "All" label. There is no tab bar (owner, D-10): a handle at the bottom of Map pulls up one sheet with two
   sections, **Wanders** (the cards; a plain **YOUR WANDERS** list until value headers are earned) and
   **Activities**; drag down, Esc or Back puts it away. The single-centre view is **Explore**.
 - **Screens show actions and data, not explanations** (owner, 2026-11-22). What something means is

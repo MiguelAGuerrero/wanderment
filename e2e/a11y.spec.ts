@@ -43,7 +43,7 @@ test('Home, Activities, thread page and details have no serious accessibility vi
   await expect(page.getByText('You left off')).toBeVisible();
   await expectNoSeriousViolations(page);
 
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await page.getByText('read a novel').filter({ visible: true }).click();
   await expect(page.getByRole('textbox', { name: 'What you did' })).toBeVisible();
@@ -199,7 +199,7 @@ test('the thread page with the "what it’s for" swap row open has no serious ac
 test('the waiting screen (another tab has the data) has no serious accessibility violations, and says what failed (P-29)', async ({ page, context }) => {
   await openHome(page);
   const second = await context.newPage();
-  await second.goto('./');
+  await second.goto('./map'); // P-65: graph moved to Map
   // Read out once, as an alert.
   await expect(second.getByRole('alert')).toHaveText(
     'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.',

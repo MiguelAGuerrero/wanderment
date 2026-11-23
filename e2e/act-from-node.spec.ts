@@ -161,7 +161,7 @@ test('without pointing: the list focuses, focus stays on it; nothing is attached
   const item = list(page).getByRole('button', { name: 'draw, a wander', exact: true });
   await item.focus();
   await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/\/wanderment\/$/);
+  await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
   await expect(card(page)).toHaveAccessibleName('What’s next, draw, for make apparel: sketch a hand');
   await expect(page.getByTestId('home-focus-said')).toHaveText('What’s next, draw, for make apparel: sketch a hand');
   await expect(item).toBeFocused();

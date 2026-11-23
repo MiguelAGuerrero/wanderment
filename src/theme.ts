@@ -17,6 +17,26 @@ export const C = {
   quietBg: '#EFECE5',
 };
 
+/** The trailhead's night (P-65, B-07): sky, hills, lantern; text and lines readable on it. */
+export const N = {
+  skyTop: '#0B0D1C',
+  skyMid: '#1B1933',
+  skyLow: '#2B2238',
+  bg: '#0E1020',
+  hillFar: '#17142A',
+  hillNear: '#0D0B17',
+  path: '#3A3555',
+  line: '#3A3555',
+  ink: '#F5F3EE',
+  muted: '#B9B6CC',
+  faint: '#9C99B3',
+  lantern: '#F2B48C',
+  lanternCore: '#FFF3E6',
+  /** The lantern's glow with shading off: no warmth. */
+  silver: '#C9C7D9',
+  surface: '#1A1830',
+};
+
 export const font = {
   display: 'SpaceGrotesk', // falls back to system if not loaded
 };

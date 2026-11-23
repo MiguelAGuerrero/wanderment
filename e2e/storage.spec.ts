@@ -54,7 +54,7 @@ test('a second tab waits instead of showing stale data', async ({ page, context 
   const second = await context.newPage();
   const secondErrors: Error[] = [];
   second.on('pageerror', (e) => secondErrors.push(e));
-  await second.goto('./');
+  await second.goto('./map'); // P-65: graph moved to Map
   await expect(second.getByText(/open in another tab/)).toBeVisible({ timeout: 20_000 });
   await expect(second.getByRole('textbox')).toHaveCount(0);
 
@@ -74,7 +74,7 @@ test('in the localStorage fallback a second tab is blocked too (no last-writer-w
   await openHome(page);
   await logLine(page, 'first tab');
   const second = await context.newPage();
-  await second.goto('./');
+  await second.goto('./map'); // P-65: graph moved to Map
   await expect(second.getByText(/open in another tab/)).toBeVisible();
   await expect(second.getByRole('textbox')).toHaveCount(0);
 });
@@ -87,7 +87,7 @@ test('a page whose files another copy holds without the tab lock (a suspended We
   await expect(page.getByText('Logged', { exact: true })).toBeVisible();
 
   const second = await context.newPage();
-  await second.goto('./');
+  await second.goto('./map'); // P-65: graph moved to Map
   const elsewhere = second.getByText(/^Wanderment is still open somewhere else in this browser/);
   await expect(elsewhere).toBeVisible({ timeout: 20_000 });
   await expect(second.getByText(/^Details: open · .*Access Handle/)).toBeVisible();

@@ -6,9 +6,9 @@ import { caretAfterEdit, mentionAt, mentionEnd, replaceActiveMention, suggestDoi
 import { LogSuggestion, pickSuggestion, suggestLogs } from '@/domain/logSuggest';
 import { findThreadByName } from '@/domain/model';
 import { Id } from '@/domain/types';
-import { holdsData, recentThreadOrder, sameDraft, useStore } from '@/store/useStore';
+import { holdsData, LogOptions, recentThreadOrder, sameDraft, useStore } from '@/store/useStore';
 import { decorative } from '@/components/a11y';
-import { C, s } from '@/theme';
+import { C, N, s } from '@/theme';
 
 /**
  * The one-line log box. Return always logs, exactly as typed.
@@ -24,6 +24,9 @@ export function Composer({
   onEmptyEscape,
   onEmptyBlur,
   onLogged,
+  night,
+  label,
+  logOptions,
 }: {
   presetDoingId?: Id;
   placeholder?: string;
@@ -40,6 +43,12 @@ export function Composer({
   onEmptyBlur?: () => void;
   /** After a log: true when focus was taken care of (Home: the box went away with its face). */
   onLogged?: () => boolean;
+  /** The trailhead (P-65): a bare underlined line on the night sky, the send ↑ only once there are words. */
+  night?: boolean;
+  /** The field's name, when it isn't the placeholder (the trailhead: its question). */
+  label?: string;
+  /** Passed to every log from this box (the trailhead: `trail`). */
+  logOptions?: LogOptions;
 }) {
   const data = useStore((st) => st.data);
   const draft = useStore((st) => st.draft);
@@ -195,7 +204,7 @@ export function Composer({
 
   // While reconnecting, the store remembers the line and logs it once the data is back.
   const submit = () => {
-    if (!log({ doingId })) return;
+    if (!log({ doingId }, logOptions)) return;
     if (onLogged?.()) inputRef.current?.blur();
     else inputRef.current?.focus();
   };
@@ -237,8 +246,17 @@ export function Composer({
   const stepThread = draft.fromNextOf ? data.threads[draft.fromNextOf] : undefined;
   const step = stepThread?.next && stepThread.next === draft.fromNextText ? { name: stepThread.name, text: stepThread.next } : undefined;
 
+  const suggestionList = logSuggestions.length > 0 && (
+    // P-61. RN's Role type has no "listbox"; react-native-web passes any ARIA role through.
+    <View style={[styles.suggestions, night && styles.nightSuggestions]} role={'listbox' as 'list'} aria-label="Suggestions" testID="log-suggestions">
+      {logSuggestions.map((sg, i) => (
+        <LogOption key={`${sg.kind}:${sg.kind === 'past' ? sg.text : sg.threadId}`} sg={sg} first={i === 0} night={night} onPress={() => pickLog(sg)} />
+      ))}
+    </View>
+  );
+
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, night && styles.nightWrap]}>
       {Platform.OS === 'web' && (
         <View style={styles.srOnly} accessibilityLiveRegion="polite">
           <Text>{announcement}</Text>
@@ -270,16 +288,9 @@ export function Composer({
         </View>
       )}
 
-      {logSuggestions.length > 0 && (
-        // P-61. RN's Role type has no "listbox"; react-native-web passes any ARIA role through.
-        <View style={styles.suggestions} role={'listbox' as 'list'} aria-label="Suggestions" testID="log-suggestions">
-          {logSuggestions.map((sg, i) => (
-            <LogOption key={`${sg.kind}:${sg.kind === 'past' ? sg.text : sg.threadId}`} sg={sg} first={i === 0} onPress={() => pickLog(sg)} />
-          ))}
-        </View>
-      )}
+      {!night && suggestionList}
 
-      <View style={styles.box}>
+      <View style={[styles.box, night && styles.nightBox]}>
         {reconnecting && (
           // Over the space above the box, so nothing moves while it shows.
           <Text style={styles.reconnecting} numberOfLines={1}>
@@ -360,8 +371,8 @@ export function Composer({
               onSelectionChange={onSelectionChange}
               selection={placeCaret}
               placeholder={placeholder}
-              placeholderTextColor={C.faint}
-              style={[styles.input, styles.field]}
+              placeholderTextColor={night ? N.faint : C.faint}
+              style={[styles.input, styles.field, night && styles.nightInput]}
               returnKeyType="done"
               submitBehavior="submit"
               // react-native-web ignores submitBehavior and blurs on Enter, a moment later (a 0 ms
@@ -371,27 +382,31 @@ export function Composer({
               onSubmitEditing={submit}
               onBlur={onBlur}
               onKeyPress={onKeyPress as never}
-              accessibilityLabel={placeholder}
+              accessibilityLabel={label ?? placeholder}
             />
           </View>
           {/* The same "Log" (and width) while reconnecting, dimmed; pressing it still counts. */}
+          {!(night && !draft.text.trim()) && (
           <Pressable
             onPress={submit}
-            style={[s.primaryBtn, arrow && styles.arrow, !draft.text.trim() ? { opacity: 0.4 } : reconnecting && styles.logWaiting]}
+            style={[s.primaryBtn, arrow && styles.arrow, night && styles.nightSend, !draft.text.trim() ? { opacity: 0.4 } : reconnecting && styles.logWaiting]}
             disabled={!draft.text.trim()}
             accessibilityRole="button"
             accessibilityLabel={reconnecting ? 'Log, reconnecting' : arrow ? 'Log' : undefined}
           >
             {arrow ? (
-              <Text style={[s.primaryBtnText, styles.arrowText]} {...decorative}>
+              <Text style={[s.primaryBtnText, styles.arrowText, night && { color: N.bg }]} {...decorative}>
                 ↑
               </Text>
             ) : (
               <Text style={s.primaryBtnText}>Log</Text>
             )}
           </Pressable>
+          )}
         </View>
       </View>
+      {/* P-65: on the trailhead the field is near the top, so its suggestions come under it. */}
+      {night && suggestionList}
     </View>
   );
 }
@@ -400,20 +415,20 @@ export function Composer({
  * One of the log field's suggestions (P-61): a staged step (✓ "Clean my car · feel productive"), a past
  * entry ("cooked dinner · feel productive") or a wander ("→ draw"). Its name starts with what it shows.
  */
-function LogOption({ sg, first, onPress }: { sg: LogSuggestion; first: boolean; onPress: () => void }) {
+function LogOption({ sg, first, night, onPress }: { sg: LogSuggestion; first: boolean; night?: boolean; onPress: () => void }) {
   const main = sg.kind === 'node' ? sg.name : sg.text;
   const where = sg.kind === 'step' ? sg.name : sg.kind === 'past' ? sg.targetName : undefined;
   const label = `${main}${where ? ` · ${where}` : ''}, ${sg.kind === 'step' ? 'its next step' : sg.kind === 'past' ? 'logged before' : 'attach'}`;
   return (
-    <Pressable onPress={onPress} style={[styles.suggestion, styles.logOption, first && { borderTopWidth: 0 }]} role="option" aria-selected={false} aria-label={label}>
-      <Text style={styles.suggestionText} numberOfLines={2}>
+    <Pressable onPress={onPress} style={[styles.suggestion, styles.logOption, night && styles.nightOption, first && { borderTopWidth: 0 }]} role="option" aria-selected={false} aria-label={label}>
+      <Text style={[styles.suggestionText, night && { color: N.ink }]} numberOfLines={2}>
         {sg.kind !== 'past' && (
-          <Text style={styles.optionMark} {...decorative}>
+          <Text style={[styles.optionMark, night && { color: N.lantern }]} {...decorative}>
             {sg.kind === 'step' ? '✓ ' : '→ '}
           </Text>
         )}
         {main}
-        {where && <Text style={styles.optionWhere}> · {where}</Text>}
+        {where && <Text style={[styles.optionWhere, night && { color: N.muted }]}> · {where}</Text>}
       </Text>
     </Pressable>
   );
@@ -456,4 +471,11 @@ const styles = StyleSheet.create({
   arrow: { width: 44, paddingHorizontal: 0 },
   arrowText: { fontSize: 20, lineHeight: 24 },
   reconnecting: { position: 'absolute', left: 16, right: 16, bottom: '100%', marginBottom: 2, fontSize: 12, color: C.muted },
+  // P-65: the trailhead's line on the night sky (mockup Sky1): no card, an underline, light words.
+  nightWrap: { backgroundColor: 'transparent', paddingHorizontal: 0 },
+  nightBox: { backgroundColor: 'transparent', borderWidth: 0, borderBottomWidth: 2, borderColor: N.line, borderRadius: 0, paddingLeft: 0, minHeight: 56, justifyContent: 'center' },
+  nightInput: { color: N.ink, fontSize: 18, lineHeight: 24 },
+  nightSuggestions: { backgroundColor: N.surface, borderColor: N.line },
+  nightOption: { borderTopColor: N.line },
+  nightSend: { backgroundColor: N.lantern },
 });

@@ -42,3 +42,12 @@ export function SettingsGlyph() {
     </Svg>
   );
 }
+
+/** ‹ Back to the prompt (Map's header, P-65). */
+export function BackGlyph() {
+  return (
+    <Svg {...props} testID="icon-back">
+      <Path d="M15 5l-7 7 7 7" stroke={C.body} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}

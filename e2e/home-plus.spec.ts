@@ -48,7 +48,7 @@ function owner() {
 
 async function open(page: Page) {
   await page.addInitScript(seedScript, owner());
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   await expect(plus(page)).toBeVisible();
 }
 
@@ -238,7 +238,7 @@ test.describe('＋ to log', () => {
 });
 
 test('with no wanders the field rests open (unfocused) above the card; a log keeps it open', async ({ page }) => {
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   await expect(box(page)).toBeVisible();
   await expect(box(page)).not.toBeFocused();
   await expect(card(page)).toHaveAccessibleName('What’s next: nothing staged');

@@ -60,7 +60,7 @@ function world() {
 
 async function open(page: Page) {
   await page.addInitScript(seedScript, world());
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   await expect(plus(page)).toBeVisible();
 }
 
@@ -245,7 +245,7 @@ test.describe('with no wanders', () => {
 
   // P-61: the field rests open above the card (was: the slot opens on Log with the toggle; What’s next behind a tab).
   test('the field rests open (unfocused) above the card, which has nothing staged, and a log keeps it open', async ({ page }) => {
-    await page.goto('./');
+    await page.goto('./map'); // P-65: graph moved to Map
     await expect(box(page)).toBeVisible();
     // Opening never focuses the field.
     await expect(box(page)).not.toBeFocused();
@@ -263,7 +263,7 @@ test.describe('with no wanders', () => {
 
   // P-61: the field goes away (was: the slot flips to What’s next).
   test('once a log names a wander, the field goes away and the card is for it', async ({ page }) => {
-    await page.goto('./');
+    await page.goto('./map'); // P-65: graph moved to Map
     await box(page).fill('scales @play guitar');
     await page.getByRole('option', { name: /New wander “play guitar”/ }).click();
     await box(page).press('Enter');

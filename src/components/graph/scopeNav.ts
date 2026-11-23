@@ -23,8 +23,13 @@ export function goUp() {
  * Home's ways up (P-50) while Home is shown: Esc (in a scope, up one level; at All, it clears an
  * attach, keeping the line), the browser's Back on web (narrowing pushes an entry that keeps the
  * router's own state, so the router stays where it is) and Android's Back.
+ * P-65: on Map, Esc at All with nothing attached and nothing focused calls `onTop` (back to the prompt).
  */
-export function useScopeNav(focused: boolean) {
+export function useScopeNav(focused: boolean, onTop?: () => void) {
+  const top = useRef(onTop);
+  useEffect(() => {
+    top.current = onTop;
+  }, [onTop]);
   const depth = useStore((st) => st.scope.length);
   const was = useRef(depth);
   useEffect(() => {
@@ -45,6 +50,7 @@ export function useScopeNav(focused: boolean) {
           const st = useStore.getState();
           if (st.scope.length) goUp();
           else if (st.selected) st.select(undefined);
+          else if (document.activeElement === document.body || !document.activeElement) top.current?.();
         }, 0);
       const onPop = () => useStore.getState().scope.length && useStore.getState().scopeUp();
       document.addEventListener('keydown', onKey, true);

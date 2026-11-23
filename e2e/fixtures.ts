@@ -119,7 +119,7 @@ export async function logLine(page: Page, text: string) {
  * Home opens with its log field away (open while there are no wanders), so the box or ＋ shows it.
  */
 export async function openHome(page: Page) {
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   await expect(visibleLogBox(page).or(logPlus(page)).first()).toBeVisible();
 }
 

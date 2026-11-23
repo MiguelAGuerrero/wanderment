@@ -36,7 +36,7 @@ async function home(browser: Browser, graph: boolean) {
   page.on('pageerror', (e) => errors.push(e));
   const swapped = graph ? () => 0 : await dropGraph(page);
   await page.addInitScript(seedScript, bigBlob(220, 4000));
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   // P-34: the list is on the Wanders tab; Home's heading shows once the data has loaded.
   await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByTestId('home-graph-picture')).toHaveCount(graph ? 1 : 0);

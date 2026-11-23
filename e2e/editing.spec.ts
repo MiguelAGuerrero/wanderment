@@ -106,7 +106,7 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
   // Nothing was renamed.
   await page.reload();
   await expect(page.getByText('make apparel', { exact: true }).filter({ visible: true })).toBeVisible();
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   await expect(page.getByRole('button', { name: /^play guitar\s*\S/ })).toHaveCount(1);
   await expect(page.getByRole('button', { name: /^make apparel\s*\S/ })).toHaveCount(1);
 
@@ -122,7 +122,7 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
   await expect(page.getByText('sew clothes', { exact: true }).filter({ visible: true })).toBeVisible();
 
   // A hidden thread's name is taken too, and the message says where to find it.
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   await page.getByRole('button', { name: /^play guitar\s*\S/ }).click();
   await page.getByRole('link', { name: 'Open play guitar', exact: true }).click();
   await page.getByRole('button', { name: 'Hide' }).click();

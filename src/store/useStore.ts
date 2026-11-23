@@ -27,6 +27,7 @@ import { Selection, selectToward, unselect } from '@/domain/select';
 import { SheetSection } from '@/domain/sheet';
 import { cardLabel, HomeFace, restingFace, whatsNextNode } from '@/domain/slot';
 import { lastActivities } from '@/domain/selectors';
+import { applyMove, Move } from '@/domain/trailhead';
 import { Data, emptyData, Id } from '@/domain/types';
 
 /** What's currently in the log box. Shared so a crumb on Home can load into it. */
@@ -61,6 +62,16 @@ export interface LogOptions {
    * stays, and while reconnecting it's refused out loud instead of waiting like a Return.
    */
   keepLine?: boolean;
+  /** Return on the trailhead (P-65): no toast; the line is kept for its billboard (`kept`). */
+  trail?: boolean;
+}
+
+/** The line Return just kept on the trailhead (P-65), and where "Move it?" moved it. Session only. */
+export interface Kept {
+  activityId: Id;
+  /** As logged (the billboard keeps showing it after "Next on" takes the log out). */
+  text: string;
+  moved?: { kind: 'toward' | 'next'; threadId: Id };
 }
 
 /** Where data lives: SQLite (normal), the first release's localStorage format (web fallback). */
@@ -162,6 +173,8 @@ interface State {
   saveError?: string;
   /** Return pressed while reconnecting (P-29). */
   toLog?: ToLog;
+  /** The trailhead's billboard (P-65). */
+  kept?: Kept;
 
   setDraft: (patch: Partial<Draft>) => void;
   clearDraft: () => void;
@@ -239,6 +252,15 @@ interface State {
   putOffWhy: () => boolean;
   /** The first run is over (finished, skipped, or a log came in): it never shows again. */
   endFirstRun: () => boolean;
+  /** "Move it?" on the trailhead (P-65): one tap moves the kept line (`applyMove`); false when refused. */
+  moveKept: (move: Move) => boolean;
+  /**
+   * The billboard's Undo (P-65): after a move, the line is loose again (and Undo once more takes it
+   * out); otherwise the line goes and its words go back in the field.
+   */
+  undoKept: () => boolean;
+  /** The billboard goes (a new line, or the trailhead was left); the line stays as it is. */
+  leaveKept: () => void;
 }
 
 const emptyDraft = (): Draft => ({ text: '', toIds: [] });
@@ -420,11 +442,15 @@ export const useStore = create<State>()((set, get) => ({
         // Home's log field goes away (P-61; it stays open while there's no wander).
         homeFace: restingFace(res.data) === 'next' ? 'next' : get().homeFace,
         promptNextFor: owner && !res.data.threads[owner]?.next ? owner : undefined,
-        toast: {
-          message: where ? `Logged → ${where}` : 'Logged',
-          ...(bridge && { detail: BRIDGE_QUESTION }),
-          activityId: res.activity.id,
-        },
+        // P-65: the trailhead says it on its billboard instead.
+        toast: opts?.trail
+          ? undefined
+          : {
+              message: where ? `Logged → ${where}` : 'Logged',
+              ...(bridge && { detail: BRIDGE_QUESTION }),
+              activityId: res.activity.id,
+            },
+        kept: opts?.trail ? { activityId: res.activity.id, text: res.activity.text } : get().kept,
         toLog: undefined,
       });
       return res.activity.id;
@@ -597,6 +623,35 @@ export const useStore = create<State>()((set, get) => ({
   setShowShading: gated<State['setShowShading']>(false, (on) => change({ showShading: on })),
   putOffWhy: gated<State['putOffWhy']>(false, () => change({ whyOfferOff: true })),
   endFirstRun: gated<State['endFirstRun']>(false, () => change({ firstRunDone: true })),
+
+  moveKept: gated<State['moveKept']>(false, (move) => {
+    const { kept, data } = get();
+    if (!kept || kept.moved) return false;
+    const res = applyMove(data, kept.activityId, move);
+    if (!res) return false;
+    set({
+      data: res.data,
+      undo: undoEntry(data, res.data),
+      kept: { ...kept, moved: { kind: move.kind === 'next' ? 'next' : 'toward', threadId: res.threadId } },
+    });
+    return true;
+  }),
+
+  undoKept: gated<State['undoKept']>(false, () => {
+    const { kept, undo, draft } = get();
+    if (!kept || !undo) return false;
+    const data = applyUndo(get().data, undo);
+    const a = data.activities[kept.activityId];
+    if (kept.moved && a) {
+      // Loose again; the next Undo takes the line out, as the one before the move would have.
+      set({ data, undo: undoEntry(deleteActivity(data, a.id), data), kept: { activityId: a.id, text: kept.text } });
+    } else {
+      set({ data, undo: undefined, kept: undefined, draft: draft.text.trim() ? draft : { ...emptyDraft(), text: kept.text } });
+    }
+    return true;
+  }),
+
+  leaveKept: () => set((s) => (s.kept ? { kept: undefined } : {})),
 }));
 
 /** Threads ordered by most recent use, for autocomplete ranking. */

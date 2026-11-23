@@ -245,7 +245,7 @@ test('Explore opens the old graph view (with its List view), from Home and from 
   await expect(page.getByRole('heading', { name: /^Flows into |flows to$/ }).first()).toBeVisible();
   await expectNoSeriousViolations(page);
   await page.getByRole('button', { name: '‹ Back' }).click();
-  await expect(page).toHaveURL(/\/wanderment\/$/);
+  await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
   await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible();
 
   // From a wander's page, centred on that wander.

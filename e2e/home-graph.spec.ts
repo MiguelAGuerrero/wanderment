@@ -473,7 +473,7 @@ test('at 200 % zoom: “Explore” and the list named by the summary, and the wh
 test('with a large history the graph is there with the list, and logging stays quick', async ({ page }) => {
   test.slow();
   await page.addInitScript(seedScript, bigBlob(220, 4000));
-  await page.goto('./');
+  await page.goto('./map'); // P-65: graph moved to Map
   // P-34: the list is on the Wanders tab; Home's heading shows once the data has loaded.
   await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible({ timeout: 20_000 });
   // Rendered in the same pass as the list (no second wait).
