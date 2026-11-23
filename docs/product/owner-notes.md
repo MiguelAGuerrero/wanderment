@@ -69,6 +69,10 @@ wandering." On landmarks: "landmarks have definite position, but … a more subt
 been Polaris … you can't ever reach Polaris, but you can reach a landmark." Words: visuals, few
 words. Reaction to stars/landmarks/trails/camp: "more thrilled having this move into a more
 [diegetic] way that feels more whimsical and less … sterile."
+Motes: "for each of the stars, if there is a lot of work or activity around it, there should be a
+little bit of a visual indicator … twinkling dots that slowly fade in and out, and the number … is
+directly correlated with its activity level. It doesn't have to be an exact amount, it's just
+relative based on the heat that we were using before."
 Led to: D-12; P-62 parked (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle

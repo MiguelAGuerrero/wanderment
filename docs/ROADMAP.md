@@ -70,7 +70,10 @@ under one star = concurrency); the top of a stack is the **next waypoint**; logs
 **footprints** (loose logs are stray steps); where you left off is **camp** (a note, "waiting
 on…"); routines are **desire paths** (inferred) and **marked routes** (declared); the front door is
 the **trailhead**; "I'm not sure" is **looking up**; the graph is the **map**. Diegetic and
-whimsical in the visuals, plain in the words (few metaphor words on screen); popped stones sink into a dated trail in words, no strikethrough.
+whimsical in the visuals, plain in the words (few metaphor words on screen). Stars carry
+**twinkling motes** that slowly fade in and out; how many is relative to the star's heat (as today:
+the warmth of the latest activity on it or anything feeding it, never a sum), never an exact count
+or number; still under Reduce Motion; popped stones sink into a dated trail in words, no strikethrough.
 *Done when:* brief B-07 written (resolving text to the graph, stacks per chain, park/resume, how it
 sits beside Home's graph, what supersedes P-19, P-51–P-55, P-62, P-63), persona panel run, and the
 owner's go/no-go recorded as a decision.
