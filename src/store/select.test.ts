@@ -17,7 +17,7 @@ describe('acting from a node (P-35)', () => {
     st().setDraft({ text: 'sketched a hand ' });
     const id = st().log()!;
     expect(st().data.activities[id]).toMatchObject({ text: 'sketched a hand', toIds: [draw] });
-    expect(st().toast?.message).toBe('Logged → to draw');
+    expect(st().toast?.message).toBe('Logged → draw'); // P-61 (was “Logged → to draw”)
     expect(st().selected).toBeUndefined();
     // The next line goes nowhere unless chosen.
     st().setDraft({ text: 'cooked dinner' });
@@ -43,7 +43,7 @@ describe('acting from a node (P-35)', () => {
     expect(st().draft).toEqual({ text: 'sketch a hand', toIds: [], doingId: draw, fromNextOf: draw, fromNextText: 'sketch a hand' });
     st().log({ doingId: draw });
     expect(st().data.threads[draw].next).toBeUndefined();
-    expect(st().toast?.message).toBe('Logged in draw');
+    expect(st().toast?.message).toBe('Logged → draw'); // P-61 (was “Logged in draw”)
     expect(st().selected).toBeUndefined();
   });
 

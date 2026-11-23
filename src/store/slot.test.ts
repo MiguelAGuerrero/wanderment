@@ -29,7 +29,7 @@ describe('Home’s slot (P-49)', () => {
     const id = st().log({ text: 'sketch a hand', doingId: draw, toIds: [], fromNextOf: draw, fromNextText: 'sketch a hand' }, { keepLine: true })!;
     expect(st().data.activities[id]).toMatchObject({ text: 'sketch a hand', doingId: draw, toIds: [] });
     expect(st().data.threads[draw].next).toBeUndefined();
-    expect(st().toast).toMatchObject({ message: 'Logged in draw', activityId: id });
+    expect(st().toast).toMatchObject({ message: 'Logged → draw', activityId: id }); // P-61 (was “Logged in draw”)
     // Typed text is never dropped; the selection lasted one log, and its "to" chip went with it.
     expect(st().draft).toEqual({ text: 'half a thought', toIds: [] });
     expect(st().selected).toBeUndefined();

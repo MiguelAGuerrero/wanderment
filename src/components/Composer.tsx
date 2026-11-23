@@ -3,6 +3,7 @@ import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, Vi
 
 import { useShown } from '@/components/shown';
 import { caretAfterEdit, mentionAt, mentionEnd, replaceActiveMention, suggestDoing, suggestThreads } from '@/domain/compose';
+import { LogSuggestion, pickSuggestion, suggestLogs } from '@/domain/logSuggest';
 import { findThreadByName } from '@/domain/model';
 import { Id } from '@/domain/types';
 import { holdsData, recentThreadOrder, sameDraft, useStore } from '@/store/useStore';
@@ -18,18 +19,25 @@ import { C, s } from '@/theme';
 export function Composer({
   presetDoingId,
   placeholder = 'What did you just do?',
-  bridge,
   arrow,
+  autocomplete,
   onEmptyEscape,
+  onEmptyBlur,
   onLogged,
 }: {
   presetDoingId?: Id;
   placeholder?: string;
-  bridge?: boolean;
-  /** Home's Log face (P-49): the send button is one ↑ (still named "Log"; the toggle says "Log"). */
+  /** Home's log field (P-49): the send button is one ↑ (still named "Log"). */
   arrow?: boolean;
-  /** Web: Esc in an empty box (Home: back to What's next). */
+  /**
+   * Home (P-61): as you type, matching staged steps, past entries and wanders are offered; a tap
+   * fills and attaches (a step's chip says the line completes it). Return never picks one.
+   */
+  autocomplete?: boolean;
+  /** Web: Esc in an empty box (Home: the field goes away). */
   onEmptyEscape?: () => void;
+  /** Focus left an empty box with nothing attached (Home: a tap outside puts the field away). */
+  onEmptyBlur?: () => void;
   /** After a log: true when focus was taken care of (Home: the box went away with its face). */
   onLogged?: () => boolean;
 }) {
@@ -98,16 +106,24 @@ export function Composer({
   const highlightEnd = mention ? (mentionEnd(draft.text, caret!, suggestions[activeIndex]?.name ?? mention.query) ?? mention.end) : 0;
   const suggestedDoing = !doingId && !mention ? suggestDoing(data, draft.text, draft.toIds) : undefined;
 
+  // P-61: what the line could be (never with the @ menu, nor for the line a pick or Esc already answered).
+  /** The line a pick filled in, or Esc closed the suggestions for: they stay away until it changes. */
+  const [answered, setAnswered] = useState<string>();
+  const logSuggestions =
+    autocomplete && !mention && answered !== draft.text ? suggestLogs(data, draft.text, recentThreadOrder(data)) : [];
+  /** What a pick did, said once (P-61). */
+  const [picked, setPicked] = useState({ text: '', n: 0 });
+
 
   const announcement = open
     ? suggestions.length
       ? `${suggestions.length} ${suggestions.length === 1 ? 'wander matches' : 'wanders match'}, ${suggestions[activeIndex].name} selected`
       : 'No wanders match'
-    : '';
+    : picked.text;
   useEffect(() => {
     // Web uses the live region below; native screen readers get an announcement.
     if (announcement && Platform.OS !== 'web') AccessibilityInfo.announceForAccessibility(announcement);
-  }, [announcement]);
+  }, [announcement, picked.n]);
 
   const onChangeText = (text: string) => {
     // The web input already has its new selection; native may report it after the text, so until
@@ -152,9 +168,34 @@ export function Composer({
     // Offer (quietly, after logging) to pull in earlier activities that mention it.
     setPullInOffer(id);
   };
+  /** P-61: a tap on a suggestion fills and attaches (`pickSuggestion`), says so, and keeps the caret in the box at the end. */
+  const pickLog = (sg: LogSuggestion) => {
+    const { line, said } = pickSuggestion(useStore.getState().draft, sg);
+    const text = line.text;
+    setDraft(line);
+    setAnswered(text);
+    setPicked({ text: said, n: picked.n + 1 });
+    setSel({ start: text.length, end: text.length, text });
+    inputRef.current?.focus();
+    const el = Platform.OS === 'web' ? (inputRef.current as unknown as HTMLInputElement | null) : null;
+    requestAnimationFrame(() => el?.setSelectionRange?.(text.length, text.length));
+  };
+
+  // P-61: focus left an empty line with nothing on it (Home puts the field away). Judged a moment
+  // later, so focus coming straight back (a pick, a chip) doesn't count.
+  const onBlur = () => {
+    if (!onEmptyBlur) return;
+    setTimeout(() => {
+      const d = useStore.getState().draft;
+      if (d.text.trim() || d.toIds.length || d.doingId || d.fromNextOf) return;
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.activeElement === (inputRef.current as unknown as Element | null)) return;
+      onEmptyBlur();
+    }, 0);
+  };
+
   // While reconnecting, the store remembers the line and logs it once the data is back.
   const submit = () => {
-    if (!log({ doingId }, { bridge })) return;
+    if (!log({ doingId })) return;
     if (onLogged?.()) inputRef.current?.blur();
     else inputRef.current?.focus();
   };
@@ -163,6 +204,12 @@ export function Composer({
     if (Platform.OS !== 'web') return;
     const key = e.nativeEvent.key;
     if (!open) {
+      // P-61: Esc closes the suggestions first (the line stays).
+      if (key === 'Escape' && logSuggestions.length) {
+        e.preventDefault?.();
+        setAnswered(draft.text);
+        return;
+      }
       // Handled here, so Home's Esc (which clears a selection) leaves it be.
       if (key === 'Escape' && onEmptyEscape && !draft.text.trim()) {
         e.preventDefault?.();
@@ -223,6 +270,15 @@ export function Composer({
         </View>
       )}
 
+      {logSuggestions.length > 0 && (
+        // P-61. RN's Role type has no "listbox"; react-native-web passes any ARIA role through.
+        <View style={styles.suggestions} role={'listbox' as 'list'} aria-label="Suggestions" testID="log-suggestions">
+          {logSuggestions.map((sg, i) => (
+            <LogOption key={`${sg.kind}:${sg.kind === 'past' ? sg.text : sg.threadId}`} sg={sg} first={i === 0} onPress={() => pickLog(sg)} />
+          ))}
+        </View>
+      )}
+
       <View style={styles.box}>
         {reconnecting && (
           // Over the space above the box, so nothing moves while it shows.
@@ -233,7 +289,7 @@ export function Composer({
         {(chips.length > 0 || step || suggestedDoing) && (
           <View style={styles.chipRow}>
             {chips.map((c, i) => (
-              <View key={c.id + c.kind} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View key={c.id + c.kind} style={styles.chipWrap}>
                 {c.kind === 'to' && (i === 0 || chips[i - 1].kind === 'doing') && (
                   <Text style={styles.to} {...decorative}>
                     → to
@@ -250,7 +306,7 @@ export function Composer({
                   }}
                   accessibilityRole="button"
                   accessibilityLabel={`${c.kind === 'doing' ? 'Doing' : 'To'}: ${c.label}. Remove`}
-                  style={styles.hit}>
+                  style={[styles.hit, styles.stepHit]}>
                   <View style={[styles.smallChip, c.kind === 'doing' ? styles.doingChip : s.chipAccent]}>
                     <Text style={[styles.smallChipText, c.kind === 'doing' ? { color: '#fff' } : s.chipAccentText]}>{c.label} ×</Text>
                   </View>
@@ -265,7 +321,8 @@ export function Composer({
                 style={[styles.hit, styles.stepHit]}>
                 <View style={[styles.smallChip, styles.stepChip]}>
                   <Text style={[styles.smallChipText, s.chipAccentText]}>
-                    <Text {...decorative}>↳ </Text>
+                    {/* P-61: on Home it's the step the line completes. */}
+                    <Text {...decorative}>{autocomplete ? '✓ ' : '↳ '}</Text>
                     {step.text} ×
                   </Text>
                 </View>
@@ -312,6 +369,7 @@ export function Composer({
               // a new line had begun. Where focus goes after a log is `submit`'s call alone.
               blurOnSubmit={false}
               onSubmitEditing={submit}
+              onBlur={onBlur}
               onKeyPress={onKeyPress as never}
               accessibilityLabel={placeholder}
             />
@@ -338,6 +396,29 @@ export function Composer({
   );
 }
 
+/**
+ * One of the log field's suggestions (P-61): a staged step (✓ "Clean my car · feel productive"), a past
+ * entry ("cooked dinner · feel productive") or a wander ("→ draw"). Its name starts with what it shows.
+ */
+function LogOption({ sg, first, onPress }: { sg: LogSuggestion; first: boolean; onPress: () => void }) {
+  const main = sg.kind === 'node' ? sg.name : sg.text;
+  const where = sg.kind === 'step' ? sg.name : sg.kind === 'past' ? sg.targetName : undefined;
+  const label = `${main}${where ? ` · ${where}` : ''}, ${sg.kind === 'step' ? 'its next step' : sg.kind === 'past' ? 'logged before' : 'attach'}`;
+  return (
+    <Pressable onPress={onPress} style={[styles.suggestion, styles.logOption, first && { borderTopWidth: 0 }]} role="option" aria-selected={false} aria-label={label}>
+      <Text style={styles.suggestionText} numberOfLines={2}>
+        {sg.kind !== 'past' && (
+          <Text style={styles.optionMark} {...decorative}>
+            {sg.kind === 'step' ? '✓ ' : '→ '}
+          </Text>
+        )}
+        {main}
+        {where && <Text style={styles.optionWhere}> · {where}</Text>}
+      </Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
   wrap: { paddingHorizontal: 12, paddingVertical: 8, gap: 8, backgroundColor: C.bg },
   box: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.dashed, borderRadius: 24, padding: 4, paddingLeft: 16, gap: 2 },
@@ -355,6 +436,8 @@ const styles = StyleSheet.create({
   smallChip: { minHeight: 30, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
   smallChipText: { fontSize: 13, fontWeight: '500', color: C.ink },
   doingChip: { backgroundColor: C.ink, borderColor: C.ink },
+  /** P-61: a long wander's name wraps inside its chip too (a suggestion can attach any wander). */
+  chipWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, maxWidth: '100%' },
   /** Long steps wrap inside the chip instead of running off the box. */
   stepHit: { flexShrink: 1, maxWidth: '100%' },
   stepChip: { backgroundColor: C.crumbBg, borderColor: C.dashed, alignItems: 'flex-start' },
@@ -364,6 +447,9 @@ const styles = StyleSheet.create({
   suggestionActive: { backgroundColor: C.accentTint },
   suggestionText: { fontSize: 16, color: C.ink },
   hint: { fontSize: 12, color: C.accentInk },
+  logOption: { justifyContent: 'flex-start', paddingVertical: 6 },
+  optionMark: { color: C.accent, fontWeight: '600' },
+  optionWhere: { color: C.muted },
   srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 },
   /** Dimmed, but still readable (it can be pressed: the line logs once the data is back). */
   logWaiting: { backgroundColor: C.muted },

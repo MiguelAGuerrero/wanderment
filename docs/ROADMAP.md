@@ -44,20 +44,6 @@ the three-column layout (sew's ＋ beside "feel productive").
 *Done when:* the step mark picks a free side (or sits under its node) so it never overlaps any label
 or circle at 350–600 px; unit test on the layout.
 
-### P-61 ＋ to log: autocomplete and attach before logging `[feature]` `[capture]` M
-*Status:* todo
-*Why:* owner, 2026-11-23 (D-11): "a simple plus button to add a log instead of the two tabs … if
-you're gonna type something you already did it can auto complete … or you can tap it on the graph";
-remove "Toward something — or just itself?".
-*Done when:*
-- The What's next / Log toggle goes: the What's next card is always shown, with a round ＋ at the
-  bottom right that raises the log field (with the keyboard).
-- As you type, matching staged steps, past entries and nodes are suggested ("Clean my car · feel
-  productive"); one tap fills and attaches, and completes a matching step; tapping a node while the
-  field is open attaches it.
-- The bridge question and the toast's question are removed; the toast is "Logged · Undo".
-- DESIGN.md's capture and bridge rules are updated.
-
 ### P-62 Quick actions on a node `[feature]` `[a11y]` M
 *Status:* todo
 *Why:* owner, 2026-11-23 (D-11): "a node can have a quick action … a plus sticking out of it …
@@ -78,6 +64,7 @@ budget.
 
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
+*Note (2026-11-23):* after P-48–P-61 the ratio reads 1.13–1.23×, once 1.33× on a 4-worker run; cleanup of the unused bridge store code (`bridgeFor`, `attachToNew`, `BRIDGE_QUESTION`) belongs with this.
 *Why:* `e2e/home-graph-perf.spec.ts` swings 1.19–1.43× against its 1.25× budget with a 4,000-log
 history (CI red on 2026-11-22 before P-38; P-38 pulled for it). The graph's deferred work after each
 log is the cost; P-38 waits on this.
@@ -436,6 +423,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-23 · P-61 — ＋ to log (D-11): the What's next / Log toggle is gone; the What's next card is always shown with a round ＋ that opens the log field; as you type it suggests staged steps ("✓ Clean my car · feel productive": a tap attaches and completes it), past entries (re-attaching their target), then nodes; tapping a node while open attaches; the "Toward something — or just itself?" bridge and the toast's question are removed (toast: "Logged → <node>"); DESIGN.md updated · evidence: `logSuggest.test.ts` (11, 8 mutants killed), `e2e/home-plus.spec.ts` (10), spec updates marked P-61; perf 1.13–1.23× (one 4-worker run 1.33×) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-23 · P-60 — a calmer Home (D-11): no visible summary line, button list or "All" label (circles are the accessible buttons; a list only at the largest text); labels sit below every ring and never overlap; 24 pt header icons with 44 pt targets; with wanders, the last 3 unattached logs (21 days) sit as labelled dots below the graph, a new one glowing, tap to attach or open · evidence: `overview-calm.test.ts` (7), `e2e/home-calm.spec.ts` (12), spec updates marked P-60; perf 1.15–1.22× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-23 · P-58 — Wanders and Activities pull out from Home (D-10): no tab bar; a "Wanders and activities" handle under the slot pulls up one sheet (Wanders | Activities, each with its own log box), drag down / scrim / Close / Esc / Back to put it away; returning from a page keeps it open; /wanders and /activities redirect to it; DESIGN.md updated · evidence: `e2e/home-sheet.spec.ts` (11), `sheet.test.ts` ×2, 38 tab clicks → `openSheet` (P-58 notes); perf 1.14× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-22 · P-57 — logs show their words (owner's screenshot): with no wanders, Home's recent logs are rows, a heat-coloured dot and the log's words (cut short with "…", full text in the name), newest first, each opening its log; no cut-off "Lately" line in that state (the list is named by it for screen readers) · evidence: `overview-home.test.ts` (+4), e2e P-57 tests (4: the owner's two logs at 390 px, long text, 200 %, shading off) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier) · this commit

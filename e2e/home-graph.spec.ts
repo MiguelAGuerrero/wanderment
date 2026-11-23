@@ -328,9 +328,9 @@ test('the first run: with one thread the graph is compact, so the first card’s
   const next = page.getByRole('textbox', { name: 'Optional next step for play guitar' });
   await next.fill('learn the F chord');
   await next.press('Enter');
-  // A loose line: the bridge asks, the toast shows, and the first-thread banner is up.
+  // A loose line: the toast shows, and the first-thread banner is up. (P-61: no bridge asks any more; was: visible.)
   await logLine(page, 'read a novel');
-  await expect(page.getByRole('group', { name: 'Attach what you just logged' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Attach what you just logged' })).toHaveCount(0);
   await expect(page.getByText('Your first wander.')).toBeVisible();
   const crumb = page.getByRole('button', { name: 'learn the F chord Log this' });
   const c = (await crumb.boundingBox())!;
@@ -353,13 +353,16 @@ test('the first card and its crumb stay above the log box at 390 × 844', async 
   expect(cardBox.y + cardBox.height).toBeLessThan(logTop);
 });
 
-test('on a short screen with the graph showing, a plain log’s bridge is in view', async ({ page }) => {
+// P-61 (D-11): the bridge is gone (was: "…a plain log’s bridge is in view"); the toast is plain “Logged”.
+test('on a short screen with the graph showing, a plain log says “Logged” in view and asks nothing', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 667 });
   await page.addInitScript(seedScript, world(['make apparel']));
   await openHome(page);
   await expect(picture(page)).toBeVisible();
   await logLine(page, 'read a novel');
-  await expect(page.getByRole('group', { name: 'Attach what you just logged' })).toBeInViewport();
+  await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeInViewport();
+  await expect(page.getByRole('group', { name: 'Attach what you just logged' })).toHaveCount(0);
+  await expect(page.getByText('Toward something — or just itself?')).toHaveCount(0);
 });
 
 test('at 125 % zoom the picture still shows', async ({ page }) => {

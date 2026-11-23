@@ -1,13 +1,13 @@
 import { Link } from 'expo-router';
 import { ComponentRef, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityActionEvent, AccessibilityInfo, Animated, PanResponder, PanResponderGestureState, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AccessibilityActionEvent, AccessibilityInfo, Animated, BackHandler, PanResponder, PanResponderGestureState, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
 import { useShown } from '@/components/shown';
 import { Composer } from '@/components/Composer';
 import { useGraphNarrow } from '@/components/graph/HomeGraph';
 import { stepFocus, validScope } from '@/domain/focus';
-import { cardLabel, HomeFace, whatsNextNode } from '@/domain/slot';
+import { cardLabel, whatsNextNode } from '@/domain/slot';
 import { Id } from '@/domain/types';
 import { holdsData, useStore } from '@/store/useStore';
 import { C } from '@/theme';
@@ -62,16 +62,17 @@ const typing = () => {
 };
 
 /**
- * Home's bottom (P-49): one slot, two faces, and the toggle under it. "What's next · <node>" shows that
- * wander's staged step with ✓ (one tap logs it), or "＋ add one"; "Log" is the log box. Only one face
- * shows at a time. Home opens on What's next (on Log while there's no wander) and goes back to it
- * after a log. On web, typing while nothing editable has focus switches to Log, starting the line.
+ * Home's bottom (P-61, D-11): the What's next card, always shown, and a round ＋ beside its corner
+ * that raises the log field above it (focus goes in: the person asked). "What's next · <node>" shows
+ * that wander's staged step with ✓ (one tap logs it), or "＋ add one". Esc or a tap outside with an
+ * empty line, or Android's Back, put the field away; so does a log (while there's no wander it rests
+ * open). On web, typing while nothing editable has focus opens it, starting the line.
  * The card's node is the focus (P-50): it's only shown, never attached to a log by itself. Swiping the
  * card (or ‹ › on web, the arrow keys in it, a screen reader's actions) moves it between the scope's
  * chains; slim peeks at the edges show there's more.
  */
-export function HomeSlot({ bridge }: { bridge?: boolean }) {
-  const face = useStore((st) => st.homeFace);
+export function HomeSlot() {
+  const open = useStore((st) => st.homeFace === 'log');
   const showHomeFace = useStore((st) => st.showHomeFace);
   const focusLogBox = useStore((st) => st.focusLogBox);
   const data = useStore((st) => st.data);
@@ -90,11 +91,11 @@ export function HomeSlot({ bridge }: { bridge?: boolean }) {
   }, [map, scope, node]);
   const screenFocused = useShown();
   const [{ pan, drag, swiped }] = useState(swipe);
-  const nextTab = useRef<Focusable>(null);
-  /** The page is taking the data back (P-29): the Log face says so over its box; What's next, over its card. */
+  const plus = useRef<Focusable>(null);
+  /** The page is taking the data back (P-29): the field says so over its box; the card, over itself. */
   const reconnecting = !useStore(holdsData);
 
-  // Web: a printable key while nothing editable has focus starts the line on the Log face. Space
+  // Web: a printable key while nothing editable has focus opens the field and starts the line. Space
   // still presses a focused button; shortcuts (Ctrl, ⌘, Alt) and IME composition are left alone.
   useEffect(() => {
     if (Platform.OS !== 'web' || !screenFocused || typeof document === 'undefined') return;
@@ -112,48 +113,46 @@ export function HomeSlot({ bridge }: { bridge?: boolean }) {
     return () => document.removeEventListener('keydown', onKey);
   }, [screenFocused]);
 
-  // Switching faces is announced (not the face Home opens on).
-  const [seenFace, setSeenFace] = useState(face);
-  const [said, setSaid] = useState({ text: '', n: 0 });
-  if (seenFace !== face) {
-    setSeenFace(face);
-    setSaid({ text: face === 'log' ? 'Log' : 'What’s next', n: said.n + 1 });
-  }
-  const announced = useRef(0);
+  // Android's Back puts the open field away first.
   useEffect(() => {
-    // Web uses the live region below.
-    if (said.n === announced.current || Platform.OS === 'web') return;
-    announced.current = said.n;
-    if (screenFocused) AccessibilityInfo.announceForAccessibility(said.text);
-  }, [said, screenFocused]);
+    if (Platform.OS !== 'android' || !screenFocused || !open) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      showHomeFace('next');
+      return true;
+    });
+    return () => sub.remove();
+  }, [screenFocused, open, showHomeFace]);
 
-  // Esc in the empty box: back to What's next, focus on its tab.
+  // Esc in the empty field: it goes away, and focus goes back to ＋.
   const onEmptyEscape = () => {
     showHomeFace('next');
-    focusSoon(nextTab);
+    focusSoon(plus);
   };
-  // A log from the box: back on What's next (focus on its tab), unless it stays on Log (no wanders).
+  // A tap outside with nothing in it: it goes away (focus is where the tap put it).
+  const onEmptyBlur = () => {
+    if (useStore.getState().homeFace === 'log') showHomeFace('next');
+  };
+  // After a log the field goes away (focus back on ＋), unless it rests open (no wanders).
   const onLogged = () => {
     if (useStore.getState().homeFace !== 'next') return false;
-    focusSoon(nextTab);
+    focusSoon(plus);
     return true;
   };
 
   return (
     <View testID="home-slot">
-      {Platform.OS === 'web' && (
-        <View style={styles.srOnly} accessibilityLiveRegion="polite" testID="home-slot-said">
-          <Text>{said.text}</Text>
-        </View>
-      )}
       <FocusSaid screenFocused={screenFocused} />
-      {face === 'next' && (
-        <View style={styles.face} {...pan.panHandlers}>
+      {/* Kept mounted (its line, caret and chips stay) and out of sight and reach while it's away. */}
+      <View style={open ? undefined : styles.gone} testID="home-log-field">
+        <Composer arrow autocomplete onEmptyEscape={onEmptyEscape} onEmptyBlur={onEmptyBlur} onLogged={onLogged} />
+      </View>
+      <View style={styles.face}>
+        <View style={styles.cardSlot} {...pan.panHandlers}>
           {/* Slim peeks: there's another chain that way. */}
           {canPrev && <View style={[styles.peek, styles.peekL]} testID="whats-next-peek-prev" {...decorative} />}
           {canNext && <View style={[styles.peek, styles.peekR]} testID="whats-next-peek-next" {...decorative} />}
           <Animated.View style={{ transform: [{ translateX: drag }] }}>
-            {reconnecting && (
+            {reconnecting && !open && (
               // As over the log box: over the space above the card, so nothing moves while it shows.
               <Text style={styles.reconnecting} numberOfLines={1}>
                 Reconnecting…
@@ -162,27 +161,15 @@ export function HomeSlot({ bridge }: { bridge?: boolean }) {
             {node ? <NextCard id={node} canPrev={canPrev} canNext={canNext} swiped={swiped} /> : <EmptyCard />}
           </Animated.View>
         </View>
-      )}
-      {/* Kept mounted (its line, caret and menu state stay) and out of sight and reach on What's next. */}
-      <View style={face === 'log' ? undefined : styles.gone}>
-        <Composer bridge={bridge} arrow onEmptyEscape={onEmptyEscape} onLogged={onLogged} />
-      </View>
-      <View style={styles.seg} role="tablist" aria-label="What’s next or Log">
-        <SegTab label="What’s next" face="next" current={face} tabRef={nextTab} onPress={() => showHomeFace('next')} />
-        <SegTab label="Log" face="log" current={face} onPress={focusLogBox} />
+        {!open && (
+          <Pressable ref={plus} onPress={focusLogBox} accessibilityRole="button" accessibilityLabel="Log something" style={styles.plus} testID="log-plus">
+            <Text style={styles.plusText} {...decorative}>
+              ＋
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
-  );
-}
-
-function SegTab({ label, face, current, tabRef, onPress }: { label: string; face: HomeFace; current: HomeFace; tabRef?: React.Ref<Focusable>; onPress: () => void }) {
-  const on = face === current;
-  return (
-    <Pressable ref={tabRef} onPress={onPress} role="tab" aria-selected={on} accessibilityState={{ selected: on }} style={[styles.tab, on && styles.tabOn]}>
-      <Text style={[styles.tabText, on && styles.tabTextOn]} numberOfLines={1}>
-        {label}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -364,7 +351,7 @@ function NavButton({ label, glyph, enabled, onPress }: { label: string; glyph: s
   );
 }
 
-/** No wander to stage a step for (Home's slot rests on Log then). */
+/** No wander to stage a step for (Home's log field rests open then). */
 function EmptyCard() {
   return (
     <View style={styles.card} role="region" aria-label="What’s next: nothing staged" testID="whats-next">
@@ -376,7 +363,11 @@ function EmptyCard() {
 
 const styles = StyleSheet.create({
   // P-50: a drag here is a swipe, never a text selection (which would turn the next drag into a text drag).
-  face: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, userSelect: 'none' },
+  face: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, userSelect: 'none', flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
+  cardSlot: { flex: 1, minWidth: 0 },
+  // P-61: the round ＋ at the card's bottom-right corner (56 pt), clear of ✓.
+  plus: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  plusText: { fontSize: 30, lineHeight: 34, color: '#FFFFFF', fontWeight: '500' },
   gone: { display: 'none' },
   card: { backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.ink, borderRadius: 16, paddingTop: 7, paddingBottom: 6, paddingLeft: 16, paddingRight: 6, gap: 2 },
   // P-50: the name is the way to its page (a 44 px target), with ‹ › beside it on web.
@@ -390,8 +381,9 @@ const styles = StyleSheet.create({
   navText: { fontSize: 22, lineHeight: 26, color: C.ink },
   navOff: { color: C.dashed },
   peek: { position: 'absolute', top: 22, height: 48, width: 7, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line },
-  peekL: { left: 2, borderLeftWidth: 0, borderTopRightRadius: 6, borderBottomRightRadius: 6 },
-  peekR: { right: 2, borderRightWidth: 0, borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
+  // In the face's padding (left) and the gap before ＋ (right), outside the card.
+  peekL: { left: -10, borderLeftWidth: 0, borderTopRightRadius: 6, borderBottomRightRadius: 6 },
+  peekR: { right: -8, borderRightWidth: 0, borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 },
   step: { flex: 1, fontSize: 18, lineHeight: 24, fontWeight: '600', color: C.ink },
   empty: { fontWeight: '500', color: C.muted, paddingVertical: 12 },
@@ -401,11 +393,6 @@ const styles = StyleSheet.create({
   add: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 12 },
   addText: { fontSize: 17, fontWeight: '500', color: C.accent },
   field: { minHeight: 48, marginRight: 10, fontSize: 17, color: C.ink, borderBottomWidth: 1.5, borderColor: C.ink },
-  seg: { flexDirection: 'row', marginHorizontal: 12, marginBottom: 8, borderWidth: 1, borderColor: C.line, borderRadius: 14, overflow: 'hidden', backgroundColor: C.surface },
-  tab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  tabOn: { backgroundColor: C.ink },
-  tabText: { fontSize: 15, fontWeight: '500', color: C.muted },
-  tabTextOn: { color: '#FFFFFF', fontWeight: '600' },
   reconnecting: { position: 'absolute', left: 16, right: 16, bottom: '100%', marginBottom: 2, fontSize: 12, color: C.muted },
   srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 },
 });

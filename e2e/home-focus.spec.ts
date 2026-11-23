@@ -2,7 +2,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
-import { expect, logBox, logLine, showLogFace, slotTab, test } from './fixtures';
+import { expect, logBox, logLine, logPlus, showLogFace, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -60,7 +60,7 @@ const CHAINS = ['draw better hands', 'sew', 'read'];
 async function open(page: Page) {
   await page.addInitScript(seedScript, world());
   await page.goto('./');
-  await expect(slotTab(page, 'What’s next')).toBeVisible();
+  await expect(logPlus(page)).toBeVisible(); // P-61: was the What’s next tab
   await expect(nodes(page)).toHaveCount(6);
 }
 
@@ -85,12 +85,12 @@ async function swipe(page: Page, from: Locator, dx: number) {
   await page.mouse.up();
 }
 
-/** The ring is on `id` (and only there); on What's next, the card is too. */
+/** The ring is on `id` (and only there); so is the card (P-61: always shown; was: when on What's next). */
 const focusedOn = async (page: Page, id: string) => {
   await expect(rings(page)).toHaveCount(1);
   await expect(rings(page)).toHaveAttribute('data-testid', `graph-selected-${id}`);
   await expect(node(page, id)).toHaveAttribute('data-focused', 'true');
-  if (await slotTab(page, 'What’s next').getAttribute('aria-selected') === 'true') await expect(card(page)).toHaveAccessibleName(NAME[id]);
+  await expect(card(page)).toHaveAccessibleName(NAME[id]);
 };
 
 /** The zoom after a scope change has come to rest. */
@@ -124,7 +124,6 @@ test.describe('at 390 px', () => {
     await expect(toChips(page)).toHaveCount(0);
     await showLogFace(page);
     await expect(toChips(page)).toHaveCount(0);
-    await slotTab(page, 'What’s next').click();
     // The name opens the wander's page (44 px).
     const name = card(page).getByRole('link', { name: 'Open draw better hands', exact: true });
     expect((await name.boundingBox())!.height).toBeGreaterThanOrEqual(44);
@@ -134,7 +133,8 @@ test.describe('at 390 px', () => {
     await expect(page).toHaveURL(/\/thread\/draw%20better%20hands$|\/thread\/draw better hands$/);
   });
 
-  test('a tap focuses a circle and attaches it for one log: the ring, the card and the “to” chip follow; after the log only the chip is gone', async ({ page }) => {
+  // P-61: a tap attaches only while the log field is open (was: every tap attached).
+  test('a tap focuses a circle (and, with the log field open, attaches it for one log): the ring, the card and the “to” chip follow; after the log only the chip is gone', async ({ page }) => {
     await node(page, 'sew').click();
     await focusedOn(page, 'sew');
     // No step: a dashed ＋ where the dot would be; no step words anywhere in the picture.
@@ -143,11 +143,15 @@ test.describe('at 390 px', () => {
     await expect(card(page).getByRole('button', { name: 'add one: a next step for sew' })).toBeVisible();
     await expect(said(page)).toHaveText(NAME.sew);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/p50-4-no-step.png` });
-    // The tap attached it: the Log face's solid, removable chip.
+    // With the field away, the tap attached nothing; with it open, a tap attaches: its solid, removable chip.
+    await expect(toChips(page)).toHaveCount(0);
     await showLogFace(page);
+    await expect(toChips(page)).toHaveCount(0);
+    await node(page, 'sew').click();
+    await expect(said(page)).toHaveText('Attached to sew');
     await expect(page.getByRole('button', { name: 'To: sew. Remove', exact: true })).toBeVisible();
     await logLine(page, 'pinned a hem');
-    await expect(toast(page, 'Logged → to sew')).toBeVisible();
+    await expect(toast(page, 'Logged → sew')).toBeVisible(); // P-61: was “Logged → to sew”
     // Focus stays (the ring persists); the attach is used up.
     await focusedOn(page, 'sew');
     await expect(toChips(page)).toHaveCount(0);
@@ -167,11 +171,11 @@ test.describe('at 390 px', () => {
     await expect(page.getByTestId('graph-step-dot-sew')).toBeVisible();
     await expect(page.getByTestId('graph-add-step-sew')).toHaveCount(0);
     await expect(card(page)).toHaveAccessibleName('What’s next, sew, for make apparel: cut the pattern');
-    // From the Log face too: it comes back to What’s next.
+    // From the open log field too: it goes away (P-61; was: back to What’s next from the Log face).
     await node(page, 'draw').click();
     await showLogFace(page);
     await page.getByTestId('graph-add-step-draw').click();
-    await expect(slotTab(page, 'What’s next')).toHaveAttribute('aria-selected', 'true');
+    await expect(logPlus(page)).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'What’s next for draw' })).toBeFocused();
   });
 
@@ -203,7 +207,7 @@ test.describe('at 390 px', () => {
     await focusedOn(page, 'draw better hands');
     // ✓ still works with a clean tap, and only then.
     await check.click();
-    await expect(toast(page, 'Logged in draw better hands')).toBeVisible();
+    await expect(toast(page, 'Logged → draw better hands')).toBeVisible(); // P-61: was “Logged in draw better hands”
     // Nothing moved or zoomed; nothing was attached.
     expect(await centres(page)).toEqual(before);
     await expect(chip(page)).toHaveCount(0); // P-60: at All, no chip (was "All")
@@ -295,7 +299,7 @@ test.describe('at 390 px', () => {
     await page.goBack();
     await expect(nodes(page)).toHaveCount(6);
     await expect(page).toHaveURL(/\/wanderment\/$/);
-    await expect(slotTab(page, 'What’s next')).toBeVisible();
+    await expect(logPlus(page)).toBeVisible(); // P-61: was the What’s next tab
 
     // Two levels: the chip names both, and each way up goes one level.
     await node(page, 'make apparel').click();
@@ -340,14 +344,14 @@ test.describe('at 390 px', () => {
     expect((await scales()).filter((s) => s !== 1)).toEqual([]);
   });
 
+  // P-61: the tap that attaches is made with the log field open (was: a tap, then the line); the card stays in view (was: back to What’s next).
   test('Esc at All clears an attach and keeps the line; a tap on empty canvas too; focus stays either way', async ({ page }) => {
-    await node(page, 'sew').click();
     await logBox(page).fill('half a seam');
+    await node(page, 'sew').click();
     await expect(page.getByRole('button', { name: 'To: sew. Remove', exact: true })).toBeVisible();
     await logBox(page).press('Escape');
     await expect(toChips(page)).toHaveCount(0);
     await expect(logBox(page)).toHaveValue('half a seam');
-    await slotTab(page, 'What’s next').click();
     await focusedOn(page, 'sew');
 
     await node(page, 'read').click();
@@ -359,7 +363,8 @@ test.describe('at 390 px', () => {
     await focusedOn(page, 'read');
   });
 
-  test('without pointing, the list does what a tap does: focus, attach, narrow; screen readers hear each change', async ({ page }) => {
+  // P-61: with the log field away a tap no longer attaches (was: "focus, attach, narrow"; one “to” chip).
+  test('without pointing, the list does what a tap does: focus, narrow; screen readers hear each change', async ({ page }) => {
     const sew = list(page).getByRole('button', { name: 'sew, a wander', exact: true });
     await sew.focus();
     await page.keyboard.press('Enter');
@@ -367,7 +372,7 @@ test.describe('at 390 px', () => {
     await expect(sew).toHaveAttribute('aria-current', 'true');
     await expect(sew).toBeFocused();
     await expect(said(page)).toHaveText(NAME.sew);
-    await expect(toChips(page)).toHaveCount(1);
+    await expect(toChips(page)).toHaveCount(0);
     const ma = list(page).getByRole('button', { name: 'make apparel, what it’s for', exact: true });
     await ma.focus();
     await page.keyboard.press('Enter');
@@ -384,7 +389,7 @@ test.describe('at 200 % zoom (195 px: no picture)', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(seedScript, world());
     await page.goto('./');
-    await expect(slotTab(page, 'What’s next')).toBeVisible();
+    await expect(logPlus(page)).toBeVisible(); // P-61: was the What’s next tab
   });
 
   test('the list and the card still focus, move and narrow, with no serious accessibility violations', async ({ page }) => {
@@ -408,6 +413,6 @@ test.describe('at 200 % zoom (195 px: no picture)', () => {
     await expectNoSeriousViolations(page);
     await up.click();
     await expect(list(page).getByRole('button')).toHaveCount(6);
-    await expect(slotTab(page, 'Log')).toBeInViewport();
+    await expect(logPlus(page)).toBeInViewport(); // P-61: was the Log tab
   });
 });

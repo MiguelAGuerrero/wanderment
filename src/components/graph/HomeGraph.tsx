@@ -1,5 +1,5 @@
 import { Link, router } from 'expo-router';
-import { memo, ReactNode, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, ReactNode, useCallback, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import Svg, { Defs, Line, LinearGradient, Path, Polygon, Stop } from 'react-native-svg';
 
@@ -176,6 +176,11 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
   // Laid out again only when something changes, from where things were last time (kept while Home
   // is mounted, never stored): React's "adjust state while rendering" pattern.
   const select = useStore((st) => st.select);
+  const tapCanvas = useCallback(() => {
+    select(undefined);
+    const st = useStore.getState();
+    if (st.homeFace === 'log' && !st.draft.text.trim()) st.showHomeFace('next');
+  }, [select]);
   const tapNode = useStore((st) => st.tapNode);
   const storedScope = useStore((st) => st.scope);
   const [laid, setLaid] = useState<{ ov: Overview; width: number; fontScale: number; layout: OverviewLayout }>();
@@ -235,8 +240,8 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
             ))}
             {ringed?.circle && <StepBranch node={ringed} width={width} height={layout.height} />}
           </Svg>
-          {/* A tap on empty canvas clears the attach (P-35; focus stays, P-50); nodes take their own taps. */}
-          <Pressable onPress={() => select(undefined)} focusable={false} tabIndex={-1} {...noFocus} style={StyleSheet.absoluteFill} {...decorative} />
+          {/* A tap on empty canvas clears the attach (P-35; focus stays, P-50) and, with nothing typed, puts the log field away (P-61); nodes take their own taps. */}
+          <Pressable onPress={tapCanvas} focusable={false} tabIndex={-1} {...noFocus} style={StyleSheet.absoluteFill} {...decorative} />
           {/* P-60: the circles are the way through for screen readers and the keyboard, in reading order. */}
           <View role="list" aria-label="What’s in the picture" style={StyleSheet.absoluteFill} pointerEvents="box-none">
             {layout.nodes.map((n) => (
@@ -276,7 +281,7 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
           <View style={styles.items} role="list" aria-label="What’s in the picture">
             {listed.map((it) => (
               <View key={it.id} role="listitem" style={styles.listItem}>
-                {/* Like a tap on its circle (P-50): focuses and attaches it, or (focused, with something feeding it) narrows to it. */}
+                {/* Like a tap on its circle (P-50): focuses it (and with the log field open attaches it, P-61), or (focused, with something feeding it) narrows to it. */}
                 <Pressable
                   onPress={() => tapNode(it.id)}
                   style={[styles.item, it.why && styles.itemWhy, it.id === focusId && styles.itemSelected]}
@@ -419,7 +424,8 @@ function Ring({ n, gap, width, color, testID }: { n: LaidNode; gap: number; widt
 /**
  * A node as a circle coloured by its heat (P-48), its label inside when it fits, else under it. A
  * declared why has a second thin ring; the focus (P-50: the What's next card's node) is one ink ring.
- * A tap focuses and attaches it, or, focused already, narrows to it (`tapNode`). Its page opens from
+ * A tap focuses it (and, while the log field is open, attaches it: P-61), or, focused already, narrows
+ * to it (`tapNode`). Its page opens from
  * the card's name.
  */
 function NodeView({ node: n, focused }: { node: LaidNode; focused: boolean }) {

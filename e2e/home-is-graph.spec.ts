@@ -268,18 +268,19 @@ test('the Wanders tab shows the list that was Home: headers, cards and crumbs, �
   await expectNoSeriousViolations(page);
 });
 
-test('the bridge still works after a log from Home, right above the log box', async ({ page }) => {
+// P-61 (D-11): no bridge after a log from Home (was: "the bridge still works … right above the log box");
+// the loose log is attached from the strip under the graph (P-60) instead.
+test('a plain log from Home asks nothing; it’s attached from the loose strip under the graph', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 667 });
   await page.addInitScript(seedScript, withWhy());
   await openHome(page);
   await logLine(page, 'read a novel');
-  const bridge = page.getByRole('group', { name: 'Attach what you just logged' });
-  await expect(bridge).toBeInViewport();
-  expect((await bridge.boundingBox())!.y + (await bridge.boundingBox())!.height).toBeLessThanOrEqual((await logBox(page).boundingBox())!.y);
+  await expect(page.getByRole('group', { name: 'Attach what you just logged' })).toHaveCount(0);
+  await expect(page.getByText('Toward something — or just itself?')).toHaveCount(0);
   await expectNoSeriousViolations(page);
-  await bridge.getByRole('button', { name: 'Attach to draw' }).click();
+  await page.getByRole('list', { name: 'Logs without a wander' }).getByRole('button', { name: 'read a novel', exact: true }).click();
+  await page.getByRole('button', { name: '→ to draw: attach', exact: true }).click();
   await expect(page.getByText('Attached → to draw', { exact: true }).filter({ visible: true })).toBeVisible();
-  await expect(bridge).toHaveCount(0);
 });
 
 // P-60: the summary isn't shown (was: "the summary, Explore and the list"); it names the list.

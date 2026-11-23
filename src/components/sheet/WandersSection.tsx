@@ -1,10 +1,8 @@
 import { Link, router } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
-import { useShown, useWhileShown } from '@/components/shown';
 import { ThreadCard } from '@/components/ThreadCard';
 import { candidatesForThread, groupByValue, valueHeader, valueThreads, whyValue } from '@/domain/emergence';
 import { findThreadByName } from '@/domain/model';
@@ -16,23 +14,10 @@ import { C, s } from '@/theme';
 /**
  * The Wanders section of Home's sheet (P-58; the Wanders tab of P-34): what Home was before the graph
  * became Home — your wanders as cards with their crumbs, under "TO …" headers once a value has
- * emerged, and the bridge after a plain log.
+ * emerged. P-61 (D-11): no bridge after a plain log (it was shared with Home, so it went from both).
  */
 export function WandersSection() {
-  // Brings the bridge into view when it appears, even if the list was scrolled.
-  const bridgeFor = useStore((st) => st.bridgeFor);
   const data = useStore((st) => st.data);
-  const dismissBridge = useStore((st) => st.dismissBridge);
-  // The bridge is one moment where you logged: it goes when the section is left. The section stays
-  // mounted, so this runs when it's hidden, and when it's shown too (in case anything set it while
-  // it was in the background).
-  useWhileShown(
-    useShown(),
-    useCallback(() => {
-      dismissBridge();
-      return dismissBridge;
-    }, [dismissBridge]),
-  );
   const { current, earlier } = useMemo(() => homeThreads(data), [data]);
   const firstThread = Object.keys(data.activities).length <= 2 && current.length === 1 ? current[0] : undefined;
 
@@ -53,12 +38,10 @@ export function WandersSection() {
   );
 
   return (
-    <Screen bridge scrollToTopOn={bridgeFor} edges={['bottom']}>
+    <Screen edges={['bottom']}>
       <Text style={s.h1} accessibilityRole="header">
         Wanders
       </Text>
-
-      <LogBridge />
 
       {firstThread && (
         <View style={styles.banner}>

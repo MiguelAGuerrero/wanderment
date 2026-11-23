@@ -50,15 +50,22 @@ function world() {
 }
 
 describe('a tap focuses and attaches', () => {
-  it('focuses the node, puts its “to” chip on the line, and says the card’s new name with its path', () => {
+  // P-61 (was: a tap always attached, P-50): with the log field away a tap only focuses; open, it attaches.
+  it('focuses the node and says the card’s new name with its path; only with the log field open does it put its “to” chip on the line', () => {
     const id = world();
     const n = st().focusSaid.n;
     st().tapNode(id.hands);
     expect(st().focus).toBe(id.hands);
-    expect(st().selected).toEqual({ id: id.hands, added: true });
-    expect(st().draft.toIds).toEqual([id.hands]);
+    expect(st().selected).toBeUndefined();
+    expect(st().draft.toIds).toEqual([]);
     expect(st().focusSaid).toEqual({ text: 'What’s next, hands, toward draw, for make apparel: sketch a hand', n: n + 1 });
     expect(st().scope).toEqual([]);
+    useStore.setState({ homeFace: 'log' });
+    st().tapNode(id.sew);
+    expect(st().focus).toBe(id.sew);
+    expect(st().selected).toEqual({ id: id.sew, added: true });
+    expect(st().draft.toIds).toEqual([id.sew]);
+    expect(st().focusSaid).toEqual({ text: 'Attached to sew', n: n + 2 });
   });
 
   it('a second tap on a focused node with something feeding it narrows to it; focus stays; again does nothing more', () => {
@@ -125,6 +132,7 @@ describe('a swipe moves focus, never attaches, never re-zooms', () => {
 
   it('a swipe keeps an attach made by an earlier tap (only the chip removes it)', () => {
     const id = world();
+    useStore.setState({ homeFace: 'log' }); // P-61: a tap attaches only with the log field open.
     st().tapNode(id.sew);
     st().moveFocus(-1);
     expect(st().focus).toBe(id.hands);
@@ -160,6 +168,7 @@ describe('going up', () => {
 describe('a log keeps focus and uses up the attach', () => {
   it('after a log toward the tapped node, focus (the ring) stays and the chip is gone', () => {
     const id = world();
+    useStore.setState({ homeFace: 'log' }); // P-61: a tap attaches only with the log field open.
     st().tapNode(id.sew);
     st().setDraft({ text: 'pinned a hem' });
     const a = st().log()!;

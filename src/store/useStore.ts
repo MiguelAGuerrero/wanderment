@@ -115,7 +115,11 @@ interface State {
   selected?: Selection;
   /** Bumped when a selection made without pointing (the list on Home) moves focus to its context row. */
   selectFocus: number;
-  /** Which face Home's bottom slot shows (P-49): "What's next" or "Log". Session only. */
+  /**
+   * Home's log field (P-61): 'log' while it's open above the What's next card (raised by ＋, typing on
+   * web, a crumb), 'next' while it's put away (the card is always shown). Session only. It rests open
+   * only while there's no wander (`restingFace`).
+   */
   homeFace: HomeFace;
   /**
    * The node Home's What's next card is on (P-50: one ink ring), once tapped, swiped to or kept by a
@@ -162,16 +166,16 @@ interface State {
   setDraft: (patch: Partial<Draft>) => void;
   clearDraft: () => void;
   loadNext: (threadId: Id) => void;
-  /** Shows a face of Home's slot (P-49), without moving focus. */
+  /** Opens ('log') or puts away ('next') Home's log field (P-61), without moving focus. */
   showHomeFace: (face: HomeFace) => void;
-  /** Hands focus to the log box (on Home, its Log face shows): a tap on the toggle, typing, the bridge. */
+  /** Hands focus to the log box (on Home, its field opens): the ＋, typing on web, an example. */
   focusLogBox: () => void;
   /** Selects a wander on Home (its "to" chip goes on the line), or clears the selection (`undefined`). */
   select: (threadId: Id | undefined, opts?: { focus?: boolean }) => void;
   /**
-   * A tap on a circle on Home, or its button in the list (P-50): focuses it and attaches it for the
-   * next log (the tap is the consent). Tapped again while focused, a node with something feeding it
-   * inside the scope narrows to it (focus stays on it).
+   * A tap on a circle on Home, or its button in the list (P-50): focuses it; while the log field is
+   * open (P-61) it also attaches it to the line (the tap is the consent). Tapped again while focused, a
+   * node with something feeding it inside the scope narrows to it (focus stays on it).
    */
   tapNode: (threadId: Id) => void;
   /** A swipe on the card (P-50): focus to the next (1) or previous (-1) chain in the scope. Never attaches. False at an end. */
@@ -342,10 +346,18 @@ export const useStore = create<State>()((set, get) => ({
       const map = s.focusMap;
       const scope = map ? validScope(map, s.scope) : [];
       const narrow = current === threadId && !!map && canNarrow(map, scope, threadId);
-      const { draft, selection } = selectToward(s.draft, s.selected, threadId);
-      // Said either way, so a press always answers (the card's name, or the new scope).
-      const said = narrow ? `Showing ${t.name}` : cardLabel(s.data, map, threadId);
-      return { focus: threadId, draft, selected: selection, ...(narrow && { scope: [...scope, threadId] }), focusSaid: { text: said, n: s.focusSaid.n + 1 } };
+      // P-61: only while the log field is open does a tap attach; otherwise it only focuses.
+      const attach = s.homeFace === 'log';
+      const chosen = attach ? selectToward(s.draft, s.selected, threadId) : undefined;
+      // Said either way, so a press always answers (the card's name, or the new scope, and the attach).
+      const said = narrow ? `Showing ${t.name}` : attach ? '' : cardLabel(s.data, map, threadId);
+      const text = attach ? `${said ? `${said}. ` : ''}Attached to ${t.name}` : said;
+      return {
+        focus: threadId,
+        ...(chosen && { draft: chosen.draft, selected: chosen.selection }),
+        ...(narrow && { scope: [...scope, threadId] }),
+        focusSaid: { text, n: s.focusSaid.n + 1 },
+      };
     }),
 
   moveFocus: (dir) => {
@@ -393,6 +405,8 @@ export const useStore = create<State>()((set, get) => ({
       const ownerName = owner ? res.data.threads[owner]?.name : undefined;
       const firstTo = res.activity.toIds[0] ? res.data.threads[res.activity.toIds[0]]?.name : undefined;
       const bridge = !!opts?.bridge && !owner;
+      // P-61: "Logged", and where it went when it went somewhere (no question).
+      const where = firstTo ?? ownerName;
       set({
         bridgeFor: bridge ? res.activity.id : undefined,
         // A selection (the attach) lasts one log; focus stays where it was (P-50), even when it was
@@ -403,11 +417,11 @@ export const useStore = create<State>()((set, get) => ({
         undo: undoEntry(data, res.data),
         // A one-tap log from outside the box keeps its line (without the selection's chip).
         draft: opts?.keepLine ? unselect(draft, selected) : emptyDraft(),
-        // Home's slot goes back to What's next (it stays on Log while there's no wander, P-49).
+        // Home's log field goes away (P-61; it stays open while there's no wander).
         homeFace: restingFace(res.data) === 'next' ? 'next' : get().homeFace,
         promptNextFor: owner && !res.data.threads[owner]?.next ? owner : undefined,
         toast: {
-          message: firstTo ? `Logged → to ${firstTo}` : ownerName ? `Logged in ${ownerName}` : 'Logged',
+          message: where ? `Logged → ${where}` : 'Logged',
           ...(bridge && { detail: BRIDGE_QUESTION }),
           activityId: res.activity.id,
         },

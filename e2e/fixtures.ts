@@ -38,43 +38,50 @@ const LOG_BOX = 'What did you just do?';
 // (hidden) log box can still match first.
 const visibleLogBox = (page: Page) => page.getByRole('textbox', { name: LOG_BOX }).filter({ visible: true });
 
-/** P-49: Home's own log box, shown (the Log face) or not. */
+/** P-49: Home's own log box, shown (its field open, P-61) or not. */
 const homeLogBox = (page: Page) => page.getByTestId('home-slot').locator(`input[aria-label="${LOG_BOX}"]`);
 
-/** P-49: a tab of the toggle under Home's slot ("What’s next" or "Log"). */
-export const slotTab = (page: Page, name: 'What’s next' | 'Log') => page.getByRole('tab', { name, exact: true }).filter({ visible: true });
+/** P-61: Home's round ＋ ("Log something"), there while its log field is away. */
+export const logPlus = (page: Page) => page.getByRole('button', { name: 'Log something', exact: true }).filter({ visible: true });
 
 /**
- * P-49: on Home the log box is the slot's Log face. Getting to it is navigation (like `toHome`): once
- * a log box or Home's toggle is there, if it's the toggle, tap "Log" (which focuses the box) and let
- * go of focus again, so a test's own focus checks stay about what the app did.
+ * P-61 (was P-49's Log face): on Home the log box is the field the ＋ raises. Getting to it is
+ * navigation (like `toHome`): once a log box or Home's ＋ is there, if it's the ＋, tap it (which
+ * focuses the box) and let go of focus again — without the field going away, as a tap outside would —
+ * so a test's own focus checks stay about what the app did.
  */
 export async function showLogFace(page: Page, timeout?: number) {
   if (!(await onWhatsNext(page, timeout))) return;
   const box = visibleLogBox(page);
-  await slotTab(page, 'Log').click();
+  await logPlus(page).click();
   await expect(box).toBeFocused();
-  await box.evaluate((el) => (el as HTMLElement).blur());
+  // A blur with an empty line puts the field away (P-61): this one is the test's, not the person's.
+  await box.evaluate((el) => {
+    const stop = (e: Event) => e.stopImmediatePropagation();
+    el.addEventListener('blur', stop, { capture: true, once: true });
+    el.addEventListener('focusout', stop, { capture: true, once: true });
+    (el as HTMLElement).blur();
+  });
 }
 
-/** Waits until a log box or Home's toggle is there; true when it's Home on its What's next face. */
+/** Waits until a log box or Home's ＋ is there; true when it's Home with its log field away. */
 async function onWhatsNext(page: Page, timeout?: number) {
   const box = visibleLogBox(page);
-  await expect(box.or(slotTab(page, 'Log')).first()).toBeVisible({ timeout });
+  await expect(box.or(logPlus(page)).first()).toBeVisible({ timeout });
   return (await box.count()) === 0;
 }
 
-/** Locator methods that use the box (so on Home they go to the Log face first). */
+/** Locator methods that use the box (so on Home they open its field first). */
 const USES_BOX = new Set(['fill', 'press', 'pressSequentially', 'type', 'click', 'tap', 'dblclick', 'focus', 'clear', 'selectText', 'boundingBox', 'evaluate', 'inputValue', 'screenshot', 'scrollIntoViewIfNeeded']);
-/** Assertions about the box being there (a `not.` one never switches). */
+/** Assertions about the box being there (a `not.` one never opens it). */
 const EXPECTS_BOX = new Set(['to.be.visible', 'to.be.editable', 'to.be.enabled', 'to.be.in.viewport']);
 /** Assertions that hold for Home's box as it is, shown or not: its line, and whether it has focus (it can't while out of sight). */
 const AS_IT_IS = new Set(['to.have.value', 'to.be.focused']);
 
 /**
- * The visible log box. On Home (P-49) it's the Log face of the slot: anything that uses it, or expects
- * it to be there, switches to that face first (`showLogFace`); its line and focus are checked as they
- * are, without switching.
+ * The visible log box. On Home (P-61) it's the field the ＋ raises: anything that uses it, or expects
+ * it to be there, opens it first (`showLogFace`); its line and focus are checked as they are, without
+ * opening it.
  */
 export const logBox = (page: Page): Locator =>
   new Proxy(visibleLogBox(page), {
@@ -108,12 +115,12 @@ export async function logLine(page: Page, text: string) {
 }
 
 /**
- * Opens the app on Home and waits until data has loaded (the blocked screen has no log box). P-49:
- * Home opens on its slot's What's next face (Log while there are no wanders), so either shows it.
+ * Opens the app on Home and waits until data has loaded (the blocked screen has no log box). P-61:
+ * Home opens with its log field away (open while there are no wanders), so the box or ＋ shows it.
  */
 export async function openHome(page: Page) {
   await page.goto('./');
-  await expect(visibleLogBox(page).or(slotTab(page, 'Log')).first()).toBeVisible();
+  await expect(visibleLogBox(page).or(logPlus(page)).first()).toBeVisible();
 }
 
 /** P-58: the sheet pulled up from Home's handle (Wanders | Activities). */
@@ -145,7 +152,7 @@ export async function openWanders(page: Page) {
 export async function toHome(page: Page) {
   if (await sheet(page).isVisible()) await sheet(page).getByRole('button', { name: 'Close', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Wanderment', level: 1 }).filter({ visible: true })).toBeVisible();
-  // P-49: Home's own box is in its slot (shown or not); every other box is gone.
-  await expect(slotTab(page, 'Log')).toBeVisible();
+  // P-61: Home's own box is in its slot (shown or not); every other box is gone.
+  await expect(page.getByTestId('home-slot').filter({ visible: true })).toBeVisible();
   await expect(page.locator(`input[aria-label="${LOG_BOX}"]:not([data-testid="home-slot"] *)`).filter({ visible: true })).toHaveCount(0);
 }

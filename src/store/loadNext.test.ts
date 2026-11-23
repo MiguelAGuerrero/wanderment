@@ -74,7 +74,7 @@ describe('"Log this" with text in the box keeps it (D-6)', () => {
     const id = st().log()!;
     expect(st().data.activities[id]).toMatchObject({ text: 'half a page of sketches', doingId: y, toIds: [] });
     expect(nextOf(y)).toBeUndefined();
-    expect(st().toast).toEqual({ message: 'Logged in play guitar', activityId: id });
+    expect(st().toast).toEqual({ message: 'Logged → play guitar', activityId: id }); // P-61 (was “Logged in play guitar”)
   });
 
   it('logging does not clear a step that was edited after it was loaded', () => {

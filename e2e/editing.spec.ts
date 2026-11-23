@@ -7,7 +7,7 @@ async function makeThreads(page: Page, names: string[]) {
     await logBox(page).fill(`started @${name}`);
     await page.getByRole('option', { name: `+ New wander “${name}”` }).click();
     await logBox(page).press('Enter');
-    await expect(page.getByText('Logged → to', { exact: false })).toBeVisible();
+    await expect(page.getByText('Logged →', { exact: false })).toBeVisible(); // P-61: was “Logged → to”
   }
 }
 
@@ -43,7 +43,7 @@ test('keyboard: ↑/↓ move through suggestions, Tab picks, Esc closes, Enter a
   await logBox(page).press('Escape');
   await expect(first).toHaveCount(0);
   await logBox(page).press('Enter');
-  await expect(page.getByText('Logged → to make apparel')).toBeVisible();
+  await expect(page.getByText('Logged → make apparel')).toBeVisible(); // P-61: was “Logged → to make apparel”
   await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('sketched a logo for @make', { exact: true }).filter({ visible: true })).toBeVisible();
   await expect(page.getByText('demo @make', { exact: true }).filter({ visible: true })).toBeVisible();

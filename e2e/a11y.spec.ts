@@ -1,7 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, openSheet, openWanders, test } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, openWanders, test, toHome } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 /** Fails on serious or critical axe violations, printing what and where. */
@@ -133,7 +133,9 @@ test('the import preview (P-04) has no serious accessibility violations; its but
   await expectNoSeriousViolations(page);
 });
 
-test('the bridge after a log, and its name field, have no serious accessibility violations at 390 px', async ({ page }) => {
+// P-61 (D-11): the bridge is gone (was: "the bridge after a log, and its name field, …"); what offers
+// a long wander's name after a log now is the log field's suggestions, before the log.
+test('the log field’s suggestions with a long wander name have no serious accessibility violations at 390 px', async ({ page }) => {
   const long = 'practise the long slow patient art of baking sourdough every single weekend morning';
   await openWanders(page);
   // Longer than the @ menu takes, so it's named with "+ New thread" (shown once something is logged).
@@ -144,27 +146,25 @@ test('the bridge after a log, and its name field, have no serious accessibility 
   await name.press('Enter');
   await expect(page.getByRole('button', { name: new RegExp(`^${long}`) })).toBeVisible();
   await logLine(page, 'read a novel');
+  await expect(page.getByRole('group', { name: 'Attach what you just logged' })).toHaveCount(0);
+  await toHome(page);
+  await logBox(page).pressSequentially('pract');
 
-  const bridge = page.getByRole('group', { name: 'Attach what you just logged' });
-  await expect(bridge).toBeVisible();
+  const list = page.getByRole('listbox', { name: 'Suggestions' });
+  await expect(list).toBeVisible();
   await expectNoSeriousViolations(page);
 
-  // The long name wraps inside its chip instead of running off the 390 px screen.
-  const chip = bridge.getByRole('button', { name: `Attach to ${long}` });
-  const chipBox = (await chip.boundingBox())!;
-  expect(chipBox.x + chipBox.width).toBeLessThanOrEqual(390);
-  const oneLine = (await bridge.getByRole('button', { name: '+ name it' }).boundingBox())!;
-  expect(chipBox.height).toBeGreaterThan(oneLine.height);
-  expect(await chip.evaluate((el) => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight)).toBe(true);
+  // The long name wraps inside its option instead of running off the 390 px screen.
+  const option = list.getByRole('option', { name: `${long}, attach` });
+  const optionBox = (await option.boundingBox())!;
+  expect(optionBox.x + optionBox.width).toBeLessThanOrEqual(390);
+  expect(optionBox.height).toBeGreaterThanOrEqual(44);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
-  for (const button of await bridge.getByRole('button').all()) {
-    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  }
 
-  await bridge.getByRole('button', { name: '+ name it' }).click();
-  const field = page.getByRole('textbox', { name: 'Name the wander it was toward' });
-  await expect(field).toBeFocused();
-  expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await option.click();
+  const chip = page.getByRole('button', { name: `To: ${long}. Remove` });
+  expect((await chip.boundingBox())!.x + (await chip.boundingBox())!.width).toBeLessThanOrEqual(390);
+  expect((await chip.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   await expectNoSeriousViolations(page);
 });
 

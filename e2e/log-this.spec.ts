@@ -38,7 +38,7 @@ test('with text in the box, Home’s “Log this” keeps it and the line counts
 
 
   await logBox(page).press('Enter');
-  await expect(page.getByText('Logged in play guitar', { exact: true })).toBeVisible();
+  await expect(page.getByText('Logged → play guitar', { exact: true })).toBeVisible(); // P-61: was “Logged in play guitar”
   await expect(page.getByRole('button', { name: /^play guitar\s*half a page of sketches/ })).toBeVisible();
   await expect(homeCrumb(page)).toHaveCount(0);
   await expect(chip).toHaveCount(0);
@@ -60,7 +60,7 @@ test('removing the step chip logs the line as typed in the thread and leaves the
   await expect(homeCrumb(page)).toBeVisible();
 
   await logBox(page).press('Enter');
-  await expect(page.getByText('Logged in play guitar', { exact: true })).toBeVisible();
+  await expect(page.getByText('Logged → play guitar', { exact: true })).toBeVisible(); // P-61: was “Logged in play guitar”
   await expect(page.getByRole('button', { name: /^play guitar\s*half a page of sketches/ })).toBeVisible();
   await expect(homeCrumb(page)).toBeVisible();
 });
@@ -102,7 +102,7 @@ test('the thread page’s “Log this” keeps the text the same way', async ({ 
   await expect(page.getByRole('button', { name: STEP_CHIP })).toBeVisible();
 
   await box.press('Enter');
-  await expect(page.getByText('Logged in play guitar', { exact: true }).filter({ visible: true })).toBeVisible();
+  await expect(page.getByText('Logged → play guitar', { exact: true }).filter({ visible: true })).toBeVisible(); // P-61: was “Logged in play guitar”
   await expect(page.getByRole('button', { name: /^half a page of sketches/ })).toBeVisible();
   await expect(page.getByRole('button', { name: '+ What’s next? Set a next step' })).toBeVisible();
 });
@@ -138,7 +138,7 @@ test('a second crumb replaces the first crumb’s untouched step, and only its o
   await page.getByRole('button', { name: 'sketch a hand Log this' }).click();
   await expect(logBox(page)).toHaveValue('sketch a hand');
   await logBox(page).press('Enter');
-  await expect(page.getByText('Logged in draw')).toBeVisible();
+  await expect(page.getByText('Logged → draw')).toBeVisible(); // P-61: was “Logged in draw”
   await expect(homeCrumb(page)).toBeVisible();
   await expect(page.getByRole('button', { name: 'sketch a hand Log this' })).toHaveCount(0);
 });

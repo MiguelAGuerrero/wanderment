@@ -6,7 +6,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, slotTab, test } from './fixtures';
+import { expect, logBox, logLine, logPlus, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -44,7 +44,7 @@ function world() {
 async function open(page: Page) {
   await page.addInitScript(seedScript, world());
   await page.goto('./');
-  await expect(slotTab(page, 'What’s next')).toBeVisible();
+  await expect(logPlus(page)).toBeVisible(); // P-61: was the What’s next tab
 }
 
 /** The sheet is out and has come to rest (Home's bottom is out of sight under it). */
@@ -88,11 +88,10 @@ async function twitch(page: Page, from: Box, dir: 1 | -1) {
 test.describe('at 390 px', () => {
   test.beforeEach(async ({ page }) => open(page));
 
-  test('no tab bar: Home is the only screen, with the handle under the What’s next / Log slot', async ({ page }) => {
+  // P-61: the slot is the What’s next card and ＋ (was: "…under the What’s next / Log slot", whose toggle was Home's only tablist).
+  test('no tab bar: Home is the only screen, with the handle under the What’s next card and ＋', async ({ page }) => {
     for (const name of ['Home', 'Wanders', 'Activities']) await expect(page.getByRole('tab', { name, exact: true })).toHaveCount(0);
-    // The only tablist on Home is the slot's own toggle.
-    await expect(page.getByRole('tablist')).toHaveCount(1);
-    await expect(page.getByRole('tablist', { name: 'What’s next or Log' })).toBeVisible();
+    await expect(page.getByRole('tablist')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Wanders', exact: true })).toHaveCount(0);
 
     await expect(handle(page)).toBeVisible();
@@ -100,9 +99,11 @@ test.describe('at 390 px', () => {
     const h = (await handle(page).boundingBox())!;
     expect(h.height).toBeGreaterThanOrEqual(44);
     expect(h.width).toBeGreaterThanOrEqual(44);
-    // Under the slot's toggle, at the very bottom of the screen.
-    const toggle = (await page.getByRole('tablist', { name: 'What’s next or Log' }).boundingBox())!;
-    expect(h.y).toBeGreaterThanOrEqual(toggle.y + toggle.height);
+    // Under the slot (the card and ＋), at the very bottom of the screen.
+    for (const above of [page.getByRole('region', { name: /^What’s next/ }), logPlus(page)]) {
+      const b = (await above.boundingBox())!;
+      expect(h.y).toBeGreaterThanOrEqual(b.y + b.height);
+    }
     expect(h.y + h.height).toBeLessThanOrEqual(844);
     expect(h.y + h.height).toBeGreaterThan(844 - 24);
     await expectNoSeriousViolations(page);
@@ -140,9 +141,9 @@ test.describe('at 390 px', () => {
     await page.keyboard.press('Escape');
     await expectClosed(page);
     await expect(handle(page)).toBeFocused();
-    // Home is back as it was: its heading and its slot (on What's next).
+    // Home is back as it was: its heading and its slot (P-61: the log field away, ＋ there; was: on What's next).
     await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible();
-    await expect(slotTab(page, 'What’s next')).toHaveAttribute('aria-selected', 'true');
+    await expect(logPlus(page)).toBeVisible();
   });
 
   test('the sections switch with the tabs at its top, and it reopens on the last one; the scrim and Close put it away', async ({ page }) => {
@@ -169,9 +170,9 @@ test.describe('at 390 px', () => {
     await expect(handle(page)).toBeFocused();
   });
 
-  test('on web it’s reachable by keyboard: Tab from the toggle to the handle, Enter opens, Esc closes', async ({ page }) => {
-    await slotTab(page, 'What’s next').focus();
-    await page.keyboard.press('Tab');
+  // P-61: from ＋ (was: from the toggle, two Tabs).
+  test('on web it’s reachable by keyboard: Tab from ＋ to the handle, Enter opens, Esc closes', async ({ page }) => {
+    await logPlus(page).focus();
     await page.keyboard.press('Tab');
     await expect(handle(page)).toBeFocused();
     await page.keyboard.press('Enter');
@@ -202,10 +203,10 @@ test.describe('at 390 px', () => {
   test('each section logs from its own box, as the tabs did; Home’s slot stays out of it', async ({ page }) => {
     await handle(page).click();
     await expectOpen(page, 'Wanders');
-    // The Wanders section's box: a plain log asks the bridge there.
+    // The Wanders section's box: a plain log (P-61: asks nothing there either; was: the bridge asked there).
     await logLine(page, 'stretched');
     await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toHaveCount(1);
-    await expect(dialog(page).getByRole('group', { name: 'Attach what you just logged' })).toBeVisible();
+    await expect(dialog(page).getByRole('group', { name: 'Attach what you just logged' })).toHaveCount(0);
     await expectOpen(page, 'Wanders');
 
     await section(page, 'Activities').click();

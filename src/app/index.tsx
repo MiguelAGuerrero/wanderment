@@ -6,7 +6,6 @@ import { decorative } from '@/components/a11y';
 import { moveFocus, useFirstRun } from '@/components/FirstRun';
 import { ExploreIcon, homeContentWidth, LiveGraph, useGraphIcon } from '@/components/graph/HomeGraph';
 import { useScopeNav } from '@/components/graph/scopeNav';
-import { LogBridge } from '@/components/LogBridge';
 import { Screen } from '@/components/Screen';
 import { SearchGlyph, SettingsGlyph } from '@/components/icons';
 import { HomeSheet, SheetHandle, useHomeSheet } from '@/components/sheet/HomeSheet';
@@ -27,29 +26,26 @@ const EXAMPLES = ['practiced guitar', 'edited a clip', 'leg day', 'sketched for 
 export default function Home() {
   const data = useStore((st) => st.data);
   const setDraft = useStore((st) => st.setDraft);
-  const dismissBridge = useStore((st) => st.dismissBridge);
+  const focusLogBox = useStore((st) => st.focusLogBox);
   const select = useStore((st) => st.select);
   const showHomeFace = useStore((st) => st.showHomeFace);
   const ready = useStore((st) => st.storage.state === 'ready');
   // P-58: Home is in front while it's focused and its sheet is away.
   const { sheet, homeRef, handleRef, tabRefs } = useHomeSheet();
   const shown = useIsFocused() && !sheet.open;
-  // The bridge and an attached wander (P-35's selection) are one moment on Home: they go when Home is
-  // left (focus and scope stay, P-50): another screen, or its sheet pulled out. Home stays mounted,
-  // so this runs when it's left, and when it's back too (in case anything set them meanwhile).
+  // An attached wander (P-35's selection) is one moment on Home: it goes when Home is left (focus and
+  // scope stay, P-50): another screen, or its sheet pulled out. Home stays mounted, so this runs when
+  // it's left, and when it's back too (in case anything set it meanwhile). P-61: no bridge any more.
   useWhileShown(
     shown,
     useCallback(() => {
-      const leave = () => {
-        dismissBridge();
-        select(undefined);
-      };
+      const leave = () => select(undefined);
       leave();
       return leave;
-    }, [dismissBridge, select]),
+    }, [select]),
   );
-  // The slot (P-49) opens on What's next whenever Home is shown (on Log while there's no wander),
-  // once the data is there to say which.
+  // The log field (P-61) is away whenever Home is shown (open while there's no wander), once the data
+  // is there to say which.
   useWhileShown(
     shown,
     useCallback(() => {
@@ -76,7 +72,7 @@ export default function Home() {
       {/* Under the open sheet (a modal dialog), Home is out of reach of assistive tech and the keyboard. */}
       <View ref={homeRef} style={styles.home} {...(sheet.open ? decorative : {})}>
         <ShownProvider value={!sheet.open}>
-          <Screen bridge slot aboveLog={<LogBridge style={styles.bridge} />} below={<SheetHandle sheet={sheet} handleRef={handleRef} />} bottomHidden={sheet.settled}>
+          <Screen slot below={<SheetHandle sheet={sheet} handleRef={handleRef} />} bottomHidden={sheet.settled}>
             <View style={styles.header}>
               <Text ref={title} {...(Platform.OS === 'web' ? { tabIndex: -1 } : {})} style={[s.h1, styles.title, tightHeader && { fontSize: 24 }]} numberOfLines={1} accessibilityRole="header">
                 Wanderment
@@ -109,7 +105,11 @@ export default function Home() {
                   <Text style={s.meta}>Try one — tap to fill the box below</Text>
                   <View style={styles.wrap}>
                     {EXAMPLES.map((e) => (
-                      <Pressable key={e} onPress={() => setDraft({ text: e })} style={s.chip} accessibilityRole="button">
+                      <Pressable key={e} onPress={() => {
+                          // P-61: the example goes in the log field, which opens.
+                          setDraft({ text: e });
+                          focusLogBox();
+                        }} style={s.chip} accessibilityRole="button">
                         <Text style={s.chipText}>{e}</Text>
                       </Pressable>
                     ))}
@@ -139,5 +139,4 @@ const styles = StyleSheet.create({
   hero: { fontSize: 26, fontWeight: '600', color: C.ink, lineHeight: 32 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   at: { backgroundColor: C.accentTint, color: C.accentInk },
-  bridge: { marginHorizontal: 12, marginTop: 8 },
 });

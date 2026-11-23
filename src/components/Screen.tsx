@@ -20,7 +20,6 @@ export function Screen({
   presetDoingId,
   placeholder,
   footer,
-  bridge,
   scrollToTopOn,
   aboveLog,
   slot,
@@ -34,13 +33,11 @@ export function Screen({
   placeholder?: string;
   /** Replaces the log box (e.g. the attach-mode card on the graph). */
   footer?: ReactNode;
-  /** Home only: a log with no thread offers the bridge ("Toward something — or just itself?"). */
-  bridge?: boolean;
-  /** When this changes to a value, the content scrolls back to the top (Home: the bridge appeared). */
+  /** When this changes to a value, the content scrolls back to the top. */
   scrollToTopOn?: string;
-  /** Shown right above the log box (Home: the bridge, where logging happens). */
+  /** Shown right above the log box. */
   aboveLog?: ReactNode;
-  /** Home (P-49): the log box is one face of a slot with "What's next" (HomeSlot). */
+  /** Home (P-61): the What's next card, with ＋ raising the log field above it (HomeSlot). */
   slot?: boolean;
   /** Under the log box (Home, P-58: the sheet's handle). */
   below?: ReactNode;
@@ -69,7 +66,7 @@ export function Screen({
               <>
                 <PullInOffer />
                 {aboveLog}
-                {slot ? <HomeSlot bridge={bridge} /> : <Composer presetDoingId={presetDoingId} placeholder={placeholder} bridge={bridge} />}
+                {slot ? <HomeSlot /> : <Composer presetDoingId={presetDoingId} placeholder={placeholder} />}
               </>
             )}
             {below}
