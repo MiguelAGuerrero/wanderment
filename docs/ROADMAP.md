@@ -38,7 +38,7 @@ _Empty. Write here — one line is enough._
 ## Now
 
 ### P-64 Brief B-07: the companion prompt and resumable stacks `[feature]` L
-*Status:* todo
+*Status:* in-progress — brief written (`docs/product/briefs/B-07-night-sky.md`), panel synthesized; waiting on D-13
 *Why:* owner, 2026-11-23 (D-12): Wanderment takes the stack. "What are you up to?" becomes the front
 door: it logs what you did, or opens / resumes a stack of stones from a lofty why down to something
 doable now. Mindstream's Focus model (`src/focus/model/session.js`, `sessionRunStore.js`: frames,
@@ -446,6 +446,11 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   ("what are you up to?") is Wanderment's front door; Mindstream keeps ThinkPad or retires. B-06
   feature work pauses; P-62 parked. → P-64 (brief B-07). See
   `docs/product/discovery/2026-11-23-mindstream-comparison.md`.
+- **D-13 B-07: under the night sky** — waiting on the owner. Brief:
+  `docs/product/briefs/B-07-night-sky.md`. Go on slice 1 (the trailhead front door), then 2–6, with
+  DESIGN.md's "graph is Home" and Home-capture rules updated? And reword STRATEGY.md's refusal of
+  "milestones" to "no schedules, deadlines or progress toward a goal" so landmarks and saved routes
+  fit? Recommended: go, and reword.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
