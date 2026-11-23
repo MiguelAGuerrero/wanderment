@@ -73,6 +73,8 @@ Motes: "for each of the stars, if there is a lot of work or activity around it, 
 little bit of a visual indicator … twinkling dots that slowly fade in and out, and the number … is
 directly correlated with its activity level. It doesn't have to be an exact amount, it's just
 relative based on the heat that we were using before."
+Naming: "instead of saying stacks they're gonna be a different metaphor — trails, journey, a wander
+for example." Answer: wander (drawn as a trail).
 Led to: D-12; P-62 parked (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle

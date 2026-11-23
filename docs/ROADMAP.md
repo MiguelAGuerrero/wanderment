@@ -73,7 +73,9 @@ the **trailhead**; "I'm not sure" is **looking up**; the graph is the **map**. D
 whimsical in the visuals, plain in the words (few metaphor words on screen). Stars carry
 **twinkling motes** that slowly fade in and out; how many is relative to the star's heat (as today:
 the warmth of the latest activity on it or anything feeding it, never a sum), never an exact count
-or number; still under Reduce Motion; popped stones sink into a dated trail in words, no strikethrough.
+or number; still under Reduce Motion. On screen the word is **wander**, never "stack" (owner,
+2026-11-23): "Another wander", "Other wanders under …"; it is drawn as a trail. Landmark labels are
+placed clear of trails; popped stones sink into a dated trail in words, no strikethrough.
 *Done when:* brief B-07 written (resolving text to the graph, stacks per chain, park/resume, how it
 sits beside Home's graph, what supersedes P-19, P-51–P-55, P-62, P-63), persona panel run, and the
 owner's go/no-go recorded as a decision.
