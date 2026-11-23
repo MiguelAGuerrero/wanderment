@@ -75,6 +75,8 @@ directly correlated with its activity level. It doesn't have to be an exact amou
 relative based on the heat that we were using before."
 Naming: "instead of saying stacks they're gonna be a different metaphor — trails, journey, a wander
 for example." Answer: wander (drawn as a trail).
+Prompt, in the metaphor: "where do you feel like heading today? … which path are you on today? Or
+where are you wandering off to now?" Chosen: "Where are we wandering today?"
 Led to: D-12; P-62 parked (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle

@@ -75,7 +75,8 @@ whimsical in the visuals, plain in the words (few metaphor words on screen). Sta
 the warmth of the latest activity on it or anything feeding it, never a sum), never an exact count
 or number; still under Reduce Motion. On screen the word is **wander**, never "stack" (owner,
 2026-11-23): "Another wander", "Other wanders under …"; it is drawn as a trail. Landmark labels are
-placed clear of trails; popped stones sink into a dated trail in words, no strikethrough.
+placed clear of trails. The front-door prompt is **"Where are we wandering today?"** (owner,
+2026-11-23, replacing "What are we up to today?"); popped stones sink into a dated trail in words, no strikethrough.
 *Done when:* brief B-07 written (resolving text to the graph, stacks per chain, park/resume, how it
 sits beside Home's graph, what supersedes P-19, P-51–P-55, P-62, P-63), persona panel run, and the
 owner's go/no-go recorded as a decision.
