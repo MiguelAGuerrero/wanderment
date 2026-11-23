@@ -54,6 +54,15 @@ After the persona panel: Return logs now, re-file after; warmth only, fixed plac
 different from the stack. The stack is a queue of work. A routine is a template from which work can
 be defined and pushed onto the [stack] … quick actions … stored and resolved as a task when you
 start [typing] in the text field."
+Routines, refined: "two design philosophies … it's inferred … via auto complete … resolve some very
+similar work you've done in the past and brings that up again for you to select or [push] onto the
+stack … another is … when you're done with a stack, you can declare it as a routine like a checkbox
+… quick actions … resurfaced for you so … you can quickly just tap … and not have to worry about the
+exact wording … I'm a fan of minimalism … [but] there is some value in just declaring something as I
+want this to be repeat work." Sizes: "Draw for 15 minutes … would be a stone on the stack like a
+pebble, but I do like the idea of saving entire work stacks as a repeatable workflow … reference the
+entire stack rather than [queuing] a whole bunch of different pebbles." Declared routines surface on
+their why.
 Led to: D-12; P-62 parked (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle
