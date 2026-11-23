@@ -1,6 +1,6 @@
 # B-06 — The intention stack
 
-**Status:** paused (D-12, 2026-11-23: Wanderment takes the stack; see B-07 via P-64) · **Decision:** D-9 → go at revision 12, 2026-11-22 (→ P-48 to P-55) · **Theme:** Seeing flow / Know the why / Warm return · **Date:** 2026-11-22
+**Status:** superseded by B-07 (D-13, 2026-11-23); was paused (D-12, 2026-11-23: Wanderment takes the stack; see B-07 via P-64) · **Decision:** D-9 → go at revision 12, 2026-11-22 (→ P-48 to P-55) · **Theme:** Seeing flow / Know the why / Warm return · **Date:** 2026-11-22
 
 _Built up over one conversation: the sections below are in the order they were decided. The current design is the mockup page (7 frames) published 2026-11-22 and the owner's answers at the end; research: [discovery/2026-11-22-intention-stack](../discovery/2026-11-22-intention-stack.md)._
 

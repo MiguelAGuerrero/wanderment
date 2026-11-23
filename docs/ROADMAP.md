@@ -37,76 +37,15 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-64 Brief B-07: the companion prompt and resumable stacks `[feature]` L
-*Status:* in-progress — brief written (`docs/product/briefs/B-07-night-sky.md`), panel synthesized; waiting on D-13
-*Why:* owner, 2026-11-23 (D-12): Wanderment takes the stack. "What are you up to?" becomes the front
-door: it logs what you did, or opens / resumes a stack of stones from a lofty why down to something
-doable now. Mindstream's Focus model (`src/focus/model/session.js`, `sessionRunStore.js`: frames,
-contexts, park with "waiting on…", resume) is the reference, minus timers and completion.
-*Owner's answers (2026-11-23):* it guesses did-vs-about-to from the words and you confirm with one
-tap; prompt first on opening, the graph a swipe away; when the words match nothing mapped, a short
-wizard of sorts distills the feeling into something actionable, giving what lands in the graph some
-structure ("less chaotic and freeform, but not as prescriptive as templates"); matching stays
-on-device (no AI model), so the wizard works by questions, not inference. Refined the same day:
-Wanderment is "life stones and milestones … large [stretches] of work", no descriptive structure —
-"just energy and mood" (shown by the picture, not entered: capture stays words only); Mindstream is
-the deliberate tool for working on them; D-12 stands (Wanderment keeps its own life-scale stack, no
-link to Mindstream); the wizard is light — one gentle question at most (e.g. "toward which stone?").
-*Journey and panel (2026-11-23):* mockups at https://claude.ai/artifact/GWjaYybmi4QxeBqTpGeHHp
-(private); persona panel `.polish/product/panel-B-07-{1,2,3}.md` (local). Owner's answers after the
-panel: the prompt is "What are we up to today?" with an "I'm not sure" door into suggestions (whys to
-orient by, the wanderer, then a why's concurrent wanders, then one stack); Return logs the line at
-once (loose) and the guess is a one-tap move with Undo; recency shows as warmth only, whys in fixed
-places at one size; **routines are not stones** — a routine is a stored template that surfaces as
-you type and either logs (Did it) or pushes one instance onto a stack, so stacks stay a queue of
-one-off work. Routines come two ways: inferred (autocomplete resolves similar past work, to log or
-push) and declared (tick "Keep as a routine" when a stack clears); two sizes: a pebble (one
-repeatable stone, "Draw for 15 minutes") and a workflow (a whole saved stack, pushed in one tap);
-declared routines surface as quick actions on their why. **One picture (owner, 2026-11-23):**
-the owner's images are metaphors to distill, not literal features. The app is a wanderer under a
-night sky: whys are **stars** (steer by, never reached; fixed places, recency only as warmth);
-milestones are reachable **landmarks**; a wander is a **trail** toward a landmark (several trails
-under one star = concurrency); the top of a stack is the **next waypoint**; logs are
-**footprints** (loose logs are stray steps); where you left off is **camp** (a note, "waiting
-on…"); routines are **desire paths** (inferred) and **marked routes** (declared); the front door is
-the **trailhead**; "I'm not sure" is **looking up**; the graph is the **map**. Diegetic and
-whimsical in the visuals, plain in the words (few metaphor words on screen). Stars carry
-**twinkling motes** that slowly fade in and out; how many is relative to the star's heat (as today:
-the warmth of the latest activity on it or anything feeding it, never a sum), never an exact count
-or number; still under Reduce Motion. On screen the word is **wander**, never "stack" (owner,
-2026-11-23): "Another wander", "Other wanders under …"; it is drawn as a trail. Landmark labels are
-placed clear of trails. The front-door prompt is **"Where are we wandering today?"** (owner,
-2026-11-23, replacing "What are we up to today?"); popped stones sink into a dated trail in words, no strikethrough.
-*Done when:* brief B-07 written (resolving text to the graph, stacks per chain, park/resume, how it
-sits beside Home's graph, what supersedes P-19, P-51–P-55, P-62, P-63), persona panel run, and the
-owner's go/no-go recorded as a decision.
-
-### P-59 Step marks never cover a label `[ux]` S
+### P-65 The trailhead: a night-sky prompt is Home `[feature]` `[capture]` `[a11y]` M
 *Status:* todo
-*Why:* P-50 screenshots: the focused node's step dot or dashed ＋ can sit over a neighbour's label in
-the three-column layout (sew's ＋ beside "feel productive").
-*Done when:* the step mark picks a free side (or sits under its node) so it never overlaps any label
-or circle at 350–600 px; unit test on the layout.
-
-### P-62 Quick actions on a node `[feature]` `[a11y]` M
-*Status:* blocked (parked by D-12) — built but failing verify (perf 1.30–1.37× over the 1.25× budget;
-`home-focus.spec.ts:376`). Work saved as `docs/product/parked/P-62-quick-actions.patch` (applies on
-5b07c64); resume by `git apply`, then memoise per-circle/nub/branch work and fix the focus test.
-*Why:* owner, 2026-11-23 (D-11): "a node can have a quick action … a plus sticking out of it …
-selecting a node will pop up quick actions."
-*Done when:*
-- Each node shows a small ＋ nub.
-- Selecting a node pops up its actions beside it: log toward it, ＋ under it, add a step, move it
-  under another node, open.
-- Tapping outside closes them.
-- Screen readers get the same actions; 44 pt targets.
-
-### P-63 A log pulses its path `[feature]` `[a11y]` S
-*Status:* todo
-*Why:* owner, 2026-11-23 (D-11): "tap clean my car as a way of pulsing that entire graph."
-*Done when:* after a log toward a node, a brief glow travels from it up its branches to the top
-(about a second, once), and the circles warm; under Reduce Motion they just warm; perf within
-budget.
+*Why:* B-07 slice 1 (D-13 go, 2026-11-23). `docs/product/briefs/B-07-night-sky.md`.
+*Done when:* opening shows only the night sky, "Where are we wandering today?", "nothing yet is
+fine", "I'm not sure" and "Map" (today's graph, unchanged, one tap away); suggestions appear only
+once you type (P-61's); Return logs exactly as typed, loose, with Undo; your words become the
+billboard and "Move it?" offers on top of / toward the guessed wander / somewhere else, each one tap
+with Undo; leaving keeps the line; Reduce Motion stills the sky; large text keeps the field above
+the keyboard; DESIGN.md's Home and capture rules updated; e2e + axe.
 
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
@@ -126,36 +65,42 @@ genuinely lacks a feature); any browser that can't run SQLite lands in the fallb
 
 ## Next
 
-### P-51 The Log face: attach by chip, words first, ✓ the step `[feature]` `[capture]` M
+### P-66 Look up, and under a star `[feature]` `[a11y]` M
 *Status:* todo
-*Why:* B-06 slice 4. Logging toward anything, and completing a step in your own words.
-*Done when:*
-- The chip is dashed when offered and solid × when attached, for one log.
-- The suggestion follows the words, then the focus; @ / ▾ picks another target; tapping a circle
-  while typing attaches it.
-- An optional "✓ <step>" chip (off by default) makes the words complete that step.
-- Tapping the toast offers Move to… and ↺ Put the step back (Full tier: the activity records the
-  step it completed).
+*Why:* B-07 slice 2.
+*Done when:* "I'm not sure" shows whys as stars in fixed places at one size, warmth and twinkling
+motes by heat (relative, never a number), a fixed-order list for screen readers ("…, last walked
+today"); a star shows its wanders as landmarks and trails with each one's next step and note, labels
+clear of trails; a wander's trail screen shows the top step, Did it and footprints in dated words; a
+why with one wander opens its trail; shading-off and Reduce Motion honoured; e2e + axe.
 
-### P-52 Edit a step: rewrite and set down `[feature]` S
+### P-67 Step stacks `[data]` `[feature]` M
 *Status:* todo
-*Why:* B-06 slice 5. Tap the step to edit it; Set down (Undo); ↓ Smaller once P-19 lands.
+*Why:* B-07 slice 3 (absorbs P-19).
+*Done when:* an ordered stack of steps per wander (additive migration; `next` kept as the top for
+older versions and older exports); "Nearer step" pushes; Did it pops into an activity; set down with
+Undo; a cleared stack shows "Reached"; export/import round-trip; migration + persistence tests,
+mutation-checked; verify --full.
 
-### P-53 ＋ a node, with a pending home `[feature]` `[data]` M
+### P-68 Camp: a note and "waiting on…" per wander `[data]` `[feature]` S
 *Status:* todo
-*Why:* B-06 slice 6. A new node from Home, placed under its scope. A stored pending home (owner,
-D-9) reverses "links are never stored". Full tier: migration, export and import.
+*Why:* B-07 slice 4.
+*Done when:* a per-wander note and optional waiting-on, edited on the trail and the camp sheet,
+shown under each trail; switching or closing keeps everything; stored, exported, round-trips; e2e.
 
-### P-54 The node sheet and the ⌕ list `[feature]` `[a11y]` M
+### P-69 Routines: desire paths and marked routes `[data]` `[feature]` M
 *Status:* todo
-*Why:* B-06 slice 7. A long-press opens rename / what it's for / ＋ under / open / hide; ⌕ lists
-every node by why with its step, which is also the way through for screen readers.
+*Why:* B-07 slice 5.
+*Done when:* typing brings up similar past entries as desire paths (no storage); "Mark this route"
+on a cleared stack saves a route and a step can be kept as a pebble; both show as chips under their
+star and in typing; pushing a route re-creates its steps; nothing pushed without a tap; stored,
+exported, round-trips; e2e.
 
-### P-55 Cold start: first node, first step `[feature]` S
+### P-70 B-07 cleanup `[feature]` S
 *Status:* todo
-*Why:* B-06 slice 8. It replaces P-36's card on an empty app (prototype
-https://claude.ai/artifact/MK9U9cfvuDmuuPJ4rM1foB): name a direction, one step, then land on the new
-Home.
+*Why:* B-07 slice 6.
+*Done when:* DESIGN.md fully describes the night sky (model, stacks, camp, routines, visuals); the
+perf spec measures Map and the trailhead separately; leftovers of the graph-first Home removed.
 
 ### P-44 Screens without explanations `[ux]` `[a11y]` M
 *Status:* todo
@@ -194,13 +139,6 @@ scolds a month later; the examples read as moods only.
 and an end (keeping "feel productive"); placeholder "A feeling, a reason or an end, in your own
 words"; the step prompt reads "a next step, if one comes to mind · it can wait"; a why's list button
 names its staged step for screen readers, and the summary never repeats it; tests updated.
-
-### P-43 A why's page `[feature]` M
-*Status:* todo
-*Why:* B-05 slice 5 (D-8): a why's page is any wander's page.
-*Done when:* "What it's for" under the title; "Steps" becomes "What's fed it" (hidden when empty);
-"Anything else toward this?" lists recent unattached logs to link (a tap, with Undo); one verb,
-Rename.
 
 ### P-32 Take-back conflicts and leftovers `[data]` `[platform]` S
 *Status:* todo
@@ -257,16 +195,6 @@ match can be neither picked nor created.
 `bigBlob`-sized data.
 
 
-### P-16 Whys as headers on Home `[feature]` M
-*Status:* todo
-*Why:* B-01 slice 3: declared whys head Home immediately, merged with earned values.
-*Done when:* declared whys render as "TO …" headers with "+ a way toward it", merged with earned
-ones; fade to Earlier after 90 days with no inflow; "why here?" covers declared and earned; `@`
-ranks declared whys first; domain tests for grouping/fading/merging; e2e with 0/1/3 whys. Includes
-B-01 panel refinements 1, 5, 6, 7, 10: "why here?" in names; a why with no recent inflow steps back
-to a quiet line and returns on new inflow; remove from the header; real sentence-case headings;
-"+ a thread toward it" only once it presets a visible "to".
-
 ### P-17 Gentle live animation `[feature]` `[a11y]` S
 *Status:* todo
 *Why:* B-01 slice 3c: new nodes and links ease in and glow briefly, then settle.
@@ -281,31 +209,6 @@ live throughout.
 *Done when:* first-open card with one field + "+ another" (up to 3), "You can change these any
 time", "Let it surface" as an equal path (no trace), one value-shaped example; logging dismisses it
 for good; e2e for declare, let-it-surface and log-during-card; axe. (B-01 panel refinement 9.)
-
-### P-19 A step toward this `[data]` `[feature]` M
-*Status:* todo
-*Why:* B-02 slice 1 (D-5 go, model A): a next step can hold a smaller step on top — one staged at
-a time — forming chains of intention ("toward …").
-*Done when:* stacked steps per thread (additive migration; export carries the whole stack and
-round-trips, `next` stays the top for older versions); "+ a step toward this" (one step per tap),
-remove, "let these go" (Undo) and "done it already" (Undo) behind ✎ on the thread page; logging the
-top surfaces the one beneath, calmly; the logged activity keeps "toward …" as plain text; toast
-"Logged in X, toward Y" spoken once; Home crumb shows top + "toward …", wraps, accessible name starts
-with the visible text; only the top is loggable; no "chain" wording, no counts; domain + migration +
-mutation-checked persistence tests; e2e; axe. (B-02 panel refinements 1–6, 9, 10.)
-
-### P-20 Make a step a thread `[feature]` S
-*Status:* todo
-*Why:* B-02 slice 2: a step that becomes a pursuit can be promoted — on request only.
-*Done when:* promote from ✎; its first log presets a visible "to" chip toward the step's why (never
-applied silently); toast "Now a thread, toward X. Undo"; the original crumb shows what remains;
-focus lands on the result; the live graph shows the link once logged; e2e. (Refinement 7.)
-
-### P-21 The "toward" view on the thread page `[ux]` S
-*Status:* todo
-*Why:* B-02 slice 3: see the staged steps as one sentence ("A → toward B → toward C").
-*Done when:* collapsed disclosure with expanded state and list semantics; staged steps only, no
-dates/ticks/numbers; *Earlier* rows show the top only; e2e + axe. (Refinement 8.)
 
 ### P-25 Find in the graph: matches in memory `[feature]` S
 *Status:* todo
@@ -446,7 +349,8 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   ("what are you up to?") is Wanderment's front door; Mindstream keeps ThinkPad or retires. B-06
   feature work pauses; P-62 parked. → P-64 (brief B-07). See
   `docs/product/discovery/2026-11-23-mindstream-comparison.md`.
-- **D-13 B-07: under the night sky** — waiting on the owner. Brief:
+- **D-13 B-07: under the night sky** — **answered 2026-11-23 by the owner: go, and reword
+  STRATEGY.md's refusal** (→ P-65 to P-70). Brief:
   `docs/product/briefs/B-07-night-sky.md`. Go on slice 1 (the trailhead front door), then 2–6, with
   DESIGN.md's "graph is Home" and Home-capture rules updated? And reword STRATEGY.md's refusal of
   "milestones" to "no schedules, deadlines or progress toward a goal" so landmarks and saved routes
@@ -479,6 +383,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-23 · P-64 — brief B-07 "Under the night sky" (`docs/product/briefs/B-07-night-sky.md`): prompt-first trailhead, whys as stars, wanders as trails with step stacks, camp, routines; persona panel (6 personas, 3 panelists) synthesized; owner answered D-13 go and reworded STRATEGY · evidence: mockups https://claude.ai/artifact/GWjaYybmi4QxeBqTpGeHHp, `.polish/product/panel-B-07-{1,2,3}.md` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (docs only) · this commit
 - 2026-11-23 · P-61 — ＋ to log (D-11): the What's next / Log toggle is gone; the What's next card is always shown with a round ＋ that opens the log field; as you type it suggests staged steps ("✓ Clean my car · feel productive": a tap attaches and completes it), past entries (re-attaching their target), then nodes; tapping a node while open attaches; the "Toward something — or just itself?" bridge and the toast's question are removed (toast: "Logged → <node>"); DESIGN.md updated · evidence: `logSuggest.test.ts` (11, 8 mutants killed), `e2e/home-plus.spec.ts` (10), spec updates marked P-61; perf 1.13–1.23× (one 4-worker run 1.33×) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-23 · P-60 — a calmer Home (D-11): no visible summary line, button list or "All" label (circles are the accessible buttons; a list only at the largest text); labels sit below every ring and never overlap; 24 pt header icons with 44 pt targets; with wanders, the last 3 unattached logs (21 days) sit as labelled dots below the graph, a new one glowing, tap to attach or open · evidence: `overview-calm.test.ts` (7), `e2e/home-calm.spec.ts` (12), spec updates marked P-60; perf 1.15–1.22× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-23 · P-58 — Wanders and Activities pull out from Home (D-10): no tab bar; a "Wanders and activities" handle under the slot pulls up one sheet (Wanders | Activities, each with its own log box), drag down / scrim / Close / Esc / Back to put it away; returning from a page keeps it open; /wanders and /activities redirect to it; DESIGN.md updated · evidence: `e2e/home-sheet.spec.ts` (11), `sheet.test.ts` ×2, 38 tab clicks → `openSheet` (P-58 notes); perf 1.14× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
@@ -508,6 +413,9 @@ Newest first. One line per batch: date · items · commit.
 ## Cut on purpose
 
 Merge threads, pinning. Don't build them.
+- Superseded by B-07 (D-13, 2026-11-23): B-06's remaining slices P-51–P-55, P-59, P-63; P-62
+  (quick actions on a node; patch kept at `docs/product/parked/P-62-quick-actions.patch`); P-16,
+  P-19 (folded into P-67), P-20, P-21, P-43.
 - P-38 (keep log dots) and P-41/P-42 (B-05's link and offer flows): superseded by B-06 revision 12
   (energy shown as heat, no dots; Log face attach; ＋ node; the cold start), 2026-11-22.
 (Splitting next steps into hidden "then" pieces was cut here too; **D-5 reversed it** in a narrower

@@ -77,7 +77,9 @@ Naming: "instead of saying stacks they're gonna be a different metaphor — trai
 for example." Answer: wander (drawn as a trail).
 Prompt, in the metaphor: "where do you feel like heading today? … which path are you on today? Or
 where are you wandering off to now?" Chosen: "Where are we wandering today?"
-Led to: D-12; P-62 parked (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
+`/product P-64`: brief B-07 written; owner answered D-13 **go**, and **reword** STRATEGY.md's
+refusal to "no schedules, deadlines or progress toward a goal".
+Led to: D-12; P-62 parked; B-07; D-13 → P-65 to P-70 (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle
 > This UI is very confusing, and the nodes are cropping with the text. There's too many prompts trying

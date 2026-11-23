@@ -27,7 +27,8 @@ DESIGN.md's *never* list is the product's identity, not a constraint to work aro
 streaks, % complete, timers, notifications, badge counts, and nothing created or attached without a
 tap. An idea borrowed from another app is changed to fit these, or it isn't used.
 
-No plans for the how: no steps-to-goal, milestones or schedules — a next step is one optional crumb,
+No schedules, deadlines or progress toward a goal _(reworded by the owner, D-13, 2026-11-23: was
+"no steps-to-goal, milestones or schedules"; a landmark is a wander's name, not a target)_ — a next step is one optional crumb,
 never a plan. _(Owner decision D-4, 2026-11-21.)_ A step can hold a smaller step toward it, one at a
 time: nothing is planned ahead, nothing is counted, only the top is ever staged. _(D-5.)_
 

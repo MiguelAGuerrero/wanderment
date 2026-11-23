@@ -1,6 +1,6 @@
 # B-07 — Under the night sky: a prompt at the trailhead, wanders you can pick back up
 
-**Status:** proposed · **Decision:** D-13 · **Theme:** Warm return / Capture anywhere / Know the why · **Date:** 2026-11-23
+**Status:** building · **Decision:** D-13 → go, 2026-11-23 (→ P-65 to P-70; STRATEGY reworded) · **Theme:** Warm return / Capture anywhere / Know the why · **Date:** 2026-11-23
 
 Mockups: "Front door journey" canvas, https://claude.ai/artifact/GWjaYybmi4QxeBqTpGeHHp (private),
 bottom row "Under the night sky" (A–F). Rows above it are earlier, more literal drafts kept for
