@@ -35,6 +35,7 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   stills the sky; at large text and in short windows the big line steps down so the field stays above
   the keyboard, and the ground (hills, path, lantern) is drawn only where it fits below the content,
   which scrolls above it — never under a control. **I'm not sure** looks up (P-66).
+- **One home** (owner, D-15; P-74): the trailhead, the sky, a star and a trail are one place — the night drawn once, your recent lines as faint unlabelled stars and your whys as guiding stars at rest, Map a signpost by the lantern; a session is one layer over it (`/sky`, `/star/…`, `/trail/…` open it already tilted), left by its Back, Esc or tapping the ground, and it ends by itself after a choice (it waits under assistive tech).
 - **Look up** (P-66, `/sky`): only the small question over the night sky, and your whys as **stars** — declared
   (oldest mark first), then earned, at most six — each in a **fixed place** taken from its id (never
   from heat or order), all **one size**. How lately a star was walked shows only as warmth (silver to

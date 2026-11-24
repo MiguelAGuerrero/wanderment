@@ -62,7 +62,7 @@ export const moteCount = (heat: number) => Math.max(1, Math.round(clamp(heat) * 
 const byCreated = (a: { id: Id; createdAt: string }, b: { id: Id; createdAt: string }) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /** FNV-1a: a small, stable hash of an id. */
-function hash(s: string): number {
+export function hash(s: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);

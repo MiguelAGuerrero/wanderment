@@ -37,8 +37,22 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-74 One home: the sky at rest, sessions over it `[feature]` `[a11y]` L
+*Status:* in-progress
+*Why:* B-08 slice 2, reshaped by D-15 (one home).
+*Also when:* the trailhead and the sky are one home — at rest your recent lines as faint unlabelled
+stars, guiding stars brighter, Map a labelled signpost by the lantern; "I'm not sure" and tapping a
+star tilt up into a session layer that folds in today's star and trail screens; a session ends by
+itself after a choice and the camera comes down to the lantern; `/sky`, `/star`, `/trail` open the
+home already tilted; never any "away N days" or withering.
+*Done when:* "I'm not sure" shows recent lines as stars (the last ~60 days or ~12 lines, whichever is
+more) — lit ones glowing by warmth, settled ones dim, a just-settled one twinkling — and whys as
+brighter fixed guiding stars (accent colour only for them); tapping a lit star brings back Done it /
+First step / Toward…; screen-reader list with headings (guiding stars, lines newest first with state
+in each name, then constellations once P-76 lands); hit areas ≥ 44 pt; Reduce Motion; e2e + axe.
+
 ### P-73 The rise: lines become stars `[feature]` `[data]` `[capture]` `[a11y]` M
-*Status:* todo
+*Status:* in-progress
 *Why:* B-08 slice 1 (D-14 go with changes). `docs/product/briefs/B-08-constellations.md`.
 *One home (D-15):* built as the first camera tilt of the one home (B-08 "One home"), not a separate
 landing screen.
@@ -70,20 +84,6 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
-
-### P-74 One home: the sky at rest, sessions over it `[feature]` `[a11y]` L
-*Status:* todo
-*Why:* B-08 slice 2, reshaped by D-15 (one home).
-*Also when:* the trailhead and the sky are one home — at rest your recent lines as faint unlabelled
-stars, guiding stars brighter, Map a labelled signpost by the lantern; "I'm not sure" and tapping a
-star tilt up into a session layer that folds in today's star and trail screens; a session ends by
-itself after a choice and the camera comes down to the lantern; `/sky`, `/star`, `/trail` open the
-home already tilted; never any "away N days" or withering.
-*Done when:* "I'm not sure" shows recent lines as stars (the last ~60 days or ~12 lines, whichever is
-more) — lit ones glowing by warmth, settled ones dim, a just-settled one twinkling — and whys as
-brighter fixed guiding stars (accent colour only for them); tapping a lit star brings back Done it /
-First step / Toward…; screen-reader list with headings (guiding stars, lines newest first with state
-in each name, then constellations once P-76 lands); hit areas ≥ 44 pt; Reduce Motion; e2e + axe.
 
 ### P-75 Kinds `[feature]` `[data]` `[capture]` `[a11y]` S
 *Status:* todo

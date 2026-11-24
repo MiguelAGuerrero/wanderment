@@ -57,7 +57,8 @@ test.describe('transitions through the picture', () => {
     await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
     await expect(shown(page, 'look-up')).toHaveAttribute('data-passage', 'none');
     await expect(shown(page, 'look-up')).toHaveAttribute('data-moving', 'false');
-    const hills = shown(page, 'look-up').getByTestId('sky-ground');
+    // P-74: the sky is drawn once by the one home, not inside each screen (was `shown(page, 'look-up').getByTestId('sky-ground')`).
+    const hills = page.getByTestId('sky-ground');
     const glyphs = shown(page, 'look-up').getByTestId('passage-stars');
     const at = { hills: await transforms(hills), glyphs: await opacities(glyphs) };
     expect(at.hills.every((t) => t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)')).toBe(true);

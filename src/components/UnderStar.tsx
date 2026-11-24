@@ -1,5 +1,4 @@
 import { Redirect, router, useIsFocused } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { ComponentRef, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,8 +7,8 @@ import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg'
 import { decorative } from '@/components/a11y';
 import { useReduceMotion } from '@/components/graph/scopeNav';
 import { BackGlyph } from '@/components/icons';
-import { NightSky } from '@/components/NightSky';
-import { campWalk, from, PassageStars, usePassage, Veil, Wanderer } from '@/components/passage';
+import { useHome } from '@/components/Home';
+import { campWalk, from, PassageStars, Wanderer } from '@/components/passage';
 import { StarGlyph, useMotes } from '@/components/StarGlyph';
 import { useEscBack } from '@/components/useEscBack';
 import { landmarkName, landmarks, SCENE_H, skyStars, starScene, starTarget } from '@/domain/sky';
@@ -21,8 +20,8 @@ const display = Platform.select({ web: '"Space Grotesk", SpaceGrotesk, system-ui
 const MAX_W = 640;
 const web = Platform.OS === 'web';
 
-/** Back to the sky: where it came from, or the sky when this was opened first. */
-const toSky = () => (router.canGoBack() ? router.back() : router.replace('/sky'));
+/** Back to the sky: where it came from, or (opened first) the home at rest (P-74). */
+const toSky = () => (router.canGoBack() ? router.back() : router.replace('/'));
 const openTrail = (threadId: Id, starId: Id) => router.push(`/trail/${encodeURIComponent(threadId)}?star=${encodeURIComponent(starId)}`);
 
 /**
@@ -32,6 +31,7 @@ const openTrail = (threadId: Id, starId: Id) => router.push(`/trail/${encodeURIC
  * "＋ Add a next step") and latest note. The order is fixed (when each was made, then name); the one
  * walked lately is only warm (not with the shading off) and says so in its card's name. Beyond three,
  * "More wanders…" lists the rest. A why with one wander (or none) opens that trail instead (`starTarget`).
+ * P-74: a session over the one home (the home draws the sky; under a star, without its hills).
  */
 export function UnderStar({ id }: { id: Id }) {
   const shown = useIsFocused();
@@ -45,7 +45,7 @@ export function UnderStar({ id }: { id: Id }) {
   useEscBack(shown, toSky);
   // P-72: the landmarks rise and the wanderer walks to camp (back from a trail, down to camp); focus to the why's name.
   const heading = useRef<ComponentRef<typeof Text>>(null);
-  const passage = usePassage('star', shown, () => heading.current);
+  const { passage } = useHome('star', () => heading.current);
 
   const why = data.threads[id];
   const star = useMemo(() => skyStars(data, { shading }).find((s) => s.thread.id === id), [data, shading, id]);
@@ -62,15 +62,10 @@ export function UnderStar({ id }: { id: Id }) {
 
   return (
     <View style={styles.screen} testID="under-star" {...passage.mark}>
-      {shown && <StatusBar style="light" />}
-      <NightSky still={still} warm={shading} ground={false} passage={passage} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <ScrollView {...(web ? { tabIndex: -1 } : {})} contentContainerStyle={[styles.content, { width: w }]}>
-          <View style={styles.top}>
-            <Pressable onPress={toSky} accessibilityRole="button" accessibilityLabel="Back to the sky" style={styles.back}>
-              <BackGlyph color={N.muted} />
-            </Pressable>
-          </View>
+          {/* Room for Back, which comes last in the Tab order (P-74: heading, content, then the way out). */}
+          <View style={styles.top} />
           <View style={styles.head}>
             <PassageStars s={passage}>
               <StarGlyph size={52} heat={heat} motes={motes} loops={loops} still={still} />
@@ -159,18 +154,24 @@ export function UnderStar({ id }: { id: Id }) {
               )}
             </View>
           )}
+          <View style={styles.backRow}>
+            <Pressable onPress={toSky} accessibilityRole="button" accessibilityLabel="Back to the sky" style={styles.back}>
+              <BackGlyph color={N.muted} />
+            </Pressable>
+          </View>
         </ScrollView>
       </SafeAreaView>
-      <Veil s={passage} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: N.bg },
+  // The home draws the night behind it (P-74).
+  screen: { flex: 1 },
   fill: { flex: 1 },
   content: { flexGrow: 1, alignSelf: 'center', paddingBottom: 32 },
-  top: { flexDirection: 'row', paddingHorizontal: 8, paddingTop: 8 },
+  top: { height: 8 + 44 },
+  backRow: { position: 'absolute', top: 8, left: 8 },
   back: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   head: { alignItems: 'center', gap: 14, paddingHorizontal: 28, paddingBottom: 12 },
   // Focused on arrival only so a screen reader starts there (never by Tab): no focus box.

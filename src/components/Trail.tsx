@@ -1,15 +1,12 @@
 import { Redirect, router, useIsFocused } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { ComponentRef, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
-import { useReduceMotion } from '@/components/graph/scopeNav';
 import { BackGlyph } from '@/components/icons';
-import { NightSky } from '@/components/NightSky';
-import { usePassage, Veil } from '@/components/passage';
+import { useHome } from '@/components/Home';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { Toast } from '@/components/Toast';
 import { useEscBack } from '@/components/useEscBack';
@@ -35,7 +32,9 @@ const focusSoon = (el: () => Focusable) => {
  * one) and its name at the top; "Here’s where we left off" and its next step in large type (or
  * "＋ Add a next step"); its latest note on a paper tag; **Did it** logs the step as done (the Map card's
  * ✓, with Undo in the toast); and footprints, its latest activities in dated words (never counts).
- * Back goes to the star it came from (or the sky).
+ * Back goes to the star it came from (or the sky). P-74: a session over the one home; after Did it
+ * (Undo first) it ends by itself and the camera comes down to the lantern (`endSoon`); opened first
+ * (a link), Back lands on the home at rest.
  */
 export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const shown = useIsFocused();
@@ -43,7 +42,6 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const shading = useStore((st) => st.showShading);
   const log = useStore((st) => st.log);
   const setNext = useStore((st) => st.setNext);
-  const reduce = useReduceMotion();
   const { width, height, fontScale } = useWindowDimensions();
   const [adding, setAdding] = useState(false);
   const [step, setStep] = useState('');
@@ -51,7 +49,9 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const didRef = useRef<ComponentRef<typeof View>>(null);
   // P-72: the wanderer walks up the path; focus to the wander's name.
   const heading = useRef<ComponentRef<typeof Text>>(null);
-  const passage = usePassage('trail', shown, () => heading.current);
+  const { passage, endSoon } = useHome('trail', () => heading.current);
+  // Opened first (a link, PWA restore): there's nothing behind it in the home but the home at rest.
+  const [cameFrom] = useState(() => router.canGoBack());
 
   const thread = data.threads[id];
   const why = starId && data.threads[starId] && !data.threads[starId].hidden ? data.threads[starId] : undefined;
@@ -61,8 +61,8 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const tag = useMemo(() => latestNote(data, id), [data, id]);
   const steps = useMemo(() => footprints(data, id), [data, id]);
   // Came from a star with several wanders: back to them; else back to the sky.
-  const backTo = why && starTarget(data, why.id).startsWith('/star/') ? `/star/${encodeURIComponent(why.id)}` : '/sky';
-  const back = () => (router.canGoBack() ? router.back() : router.replace(backTo));
+  const toWanders = cameFrom && !!why && starTarget(data, why.id).startsWith('/star/');
+  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   useEscBack(shown && !!thread && !thread.hidden, back);
   if (!thread || thread.hidden) return <Redirect href="/sky" />;
 
@@ -73,7 +73,10 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const did = () => {
     const t = useStore.getState().data.threads[id];
     if (!t?.next) return;
-    if (log({ text: t.next, doingId: id, toIds: [], fromNextOf: id, fromNextText: t.next }, { keepLine: true })) focusSoon(() => addRef.current);
+    if (!log({ text: t.next, doingId: id, toIds: [], fromNextOf: id, fromNextText: t.next }, { keepLine: true })) return;
+    focusSoon(() => addRef.current);
+    // A choice: Undo shows, then the session ends by itself (it waits under assistive tech).
+    endSoon();
   };
   const cancel = () => {
     setStep('');
@@ -92,15 +95,10 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const tint = starTint(overhead?.heat ?? 0);
   return (
     <View style={styles.screen} testID="trail" {...passage.mark}>
-      {shown && <StatusBar style="light" />}
-      <NightSky still={reduce || !shown} warm={shading} passage={passage} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <ScrollView {...(web ? { tabIndex: -1 } : {})} contentContainerStyle={[styles.content, { width: w }]} keyboardShouldPersistTaps="handled">
-          <View style={styles.top}>
-            <Pressable onPress={back} accessibilityRole="button" accessibilityLabel={backTo === '/sky' ? 'Back to the sky' : 'Back to the wanders'} style={styles.backBtn}>
-              <BackGlyph color={N.muted} />
-            </Pressable>
-          </View>
+          {/* Room for Back, which comes last in the Tab order (P-74: heading, content, then the way out). */}
+          <View style={styles.top} />
           <View style={styles.head}>
             {overhead && (
               <>
@@ -180,21 +178,27 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
               ))}
             </View>
           )}
+          <View style={styles.backRow}>
+            <Pressable onPress={back} accessibilityRole="button" accessibilityLabel={toWanders ? 'Back to the wanders' : 'Back to the sky'} style={styles.backBtn}>
+              <BackGlyph color={N.muted} />
+            </Pressable>
+          </View>
         </ScrollView>
         <View style={styles.toastSlot} pointerEvents="box-none">
           <Toast />
         </View>
       </SafeAreaView>
-      <Veil s={passage} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: N.bg },
+  // The home draws the night behind it (P-74).
+  screen: { flex: 1 },
   fill: { flex: 1 },
   content: { flexGrow: 1, alignSelf: 'center', paddingBottom: 120 },
-  top: { flexDirection: 'row', paddingHorizontal: 8, paddingTop: 8 },
+  top: { height: 8 + 44 },
+  backRow: { position: 'absolute', top: 8, left: 8 },
   backBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   head: { alignItems: 'center', gap: 6, paddingHorizontal: 28 },
   why: { color: N.muted, fontSize: 13, textAlign: 'center' },

@@ -1,15 +1,12 @@
 import { Link, useIsFocused } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
 import { Composer } from '@/components/Composer';
-import { useReduceMotion } from '@/components/graph/scopeNav';
-import { NightSky } from '@/components/NightSky';
-import { usePassage, Veil } from '@/components/passage';
+import { useHome, useKeyboardUp } from '@/components/Home';
 import { useWhileShown } from '@/components/shown';
 import { Toast } from '@/components/Toast';
 import { GROUND_H, groundFits, moveOffer, promptSize } from '@/domain/trailhead';
@@ -22,22 +19,6 @@ const TRAIL: LogOptions = { trail: true };
 const web = Platform.OS === 'web';
 /** The big type: Space Grotesk where it's installed, else the system's sans (never the browser's serif default). */
 const display = Platform.select({ web: '"Space Grotesk", SpaceGrotesk, system-ui, -apple-system, "Segoe UI", sans-serif', default: undefined });
-
-/** Native: whether the keyboard is up (it covers the ground then, so there's none). Web: never known. */
-function useKeyboardUp() {
-  const [up, setUp] = useState(false);
-  useEffect(() => {
-    if (web) return;
-    const ios = Platform.OS === 'ios';
-    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setUp(true));
-    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setUp(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
-  return up;
-}
 
 /** A key that types a character (not a shortcut, not Space or Enter), pressed outside any field. */
 const typesInto = (e: KeyboardEvent) => {
@@ -55,8 +36,9 @@ const focusSoon = (el: () => Focusable) => {
 /**
  * The trailhead (P-65, B-07 slice 1): Home is a night sky and one question. The field ("nothing yet
  * is fine") offers P-61's suggestions only once you type; Return logs exactly as typed, loose, and
- * the words become the billboard ("Kept, loose · Undo", then "Move it?"). "Map" opens the graph;
- * "I’m not sure" looks up at the sky (P-66, `/sky`).
+ * the words become the billboard ("Kept, loose · Undo", then "Move it?"). "I’m not sure" looks up at
+ * the sky (P-66, `/sky`). P-74: this is the one home's ground at rest — the night (with your lines as
+ * faint stars) is drawn by the home around it, and Map is a labelled signpost by the lantern.
  */
 export function Trailhead() {
   const shown = useIsFocused();
@@ -65,9 +47,8 @@ export function Trailhead() {
   const leaveKept = useStore((st) => st.leaveKept);
   const focusLogBox = useStore((st) => st.focusLogBox);
   const warm = useStore((st) => st.showShading);
-  const reduce = useReduceMotion();
-  // P-72: coming back down from the sky (or Map), the hills rise into place; the field keeps its focus.
-  const passage = usePassage('trailhead', shown);
+  // P-72/P-74: coming back down from the sky (or Map), the camera comes down to the lantern; the field keeps its focus.
+  const { passage } = useHome('trailhead');
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardUp();
@@ -96,8 +77,6 @@ export function Trailhead() {
   const size = promptSize({ width, height, fontScale });
   return (
     <View style={styles.screen} testID="trailhead" {...passage.mark}>
-      {shown && <StatusBar style="light" />}
-      <NightSky still={reduce || !shown} warm={warm} ground={ground} passage={passage} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
@@ -107,13 +86,8 @@ export function Trailhead() {
             style={ground && { marginBottom: Math.max(0, GROUND_H - insets.bottom) }}
             contentContainerStyle={[styles.content, width < 360 && styles.narrow]}
             keyboardShouldPersistTaps="handled">
-            <View style={styles.top}>
-              <Link href="/map" asChild>
-                <Pressable style={styles.mapLink}>
-                  <Text style={styles.mapText}>Map</Text>
-                </Pressable>
-              </Link>
-            </View>
+            {/* Where Map was (P-74: it's a signpost by the lantern now), so the question stays where it was. */}
+            <View style={styles.top} />
             {board ? (
               <Billboard kept={board} />
             ) : (
@@ -132,13 +106,23 @@ export function Trailhead() {
                 </Link>
               </View>
             )}
+            {/* P-74: Map is a labelled signpost by the lantern, after the field and I’m not sure (Tab order). */}
+            <View style={styles.post}>
+              <Link href="/map" asChild>
+                <Pressable style={styles.mapLink} testID="map-signpost">
+                  <Svg width={14} height={18} viewBox="0 0 14 18" {...decorative}>
+                    <Path d="M2 1 V17 M2 2 H12 L9.5 5 L12 8 H2" fill="none" stroke={N.faint} strokeWidth={1.4} strokeLinejoin="round" strokeLinecap="round" />
+                  </Svg>
+                  <Text style={styles.mapText}>Map</Text>
+                </Pressable>
+              </Link>
+            </View>
           </ScrollView>
           <View style={styles.toastSlot} pointerEvents="box-none">
             <Toast />
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
-      <Veil s={passage} />
     </View>
   );
 }
@@ -276,13 +260,15 @@ function MoveButton({ label, onPress }: { label: string; onPress: () => void }) 
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: N.bg },
+  // The home draws the night behind it (P-74).
+  screen: { flex: 1 },
   fill: { flex: 1 },
   content: { flexGrow: 1, paddingHorizontal: 28, paddingBottom: 32, maxWidth: 640, width: '100%', alignSelf: 'center' },
   // 200 % zoom: room for the placeholder.
   narrow: { paddingHorizontal: 16 },
-  top: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 12 },
-  mapLink: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
+  top: { height: 12 + 44 },
+  post: { marginTop: 'auto', paddingTop: 24, flexDirection: 'row', justifyContent: 'flex-end' },
+  mapLink: { minHeight: 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 },
   mapText: { color: N.muted, fontSize: 15 },
   ask: { marginTop: '18%', gap: 24 },
   prompt: { fontFamily: display, fontWeight: '700', color: N.ink, letterSpacing: -1.5 },

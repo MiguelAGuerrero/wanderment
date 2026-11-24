@@ -371,12 +371,14 @@ test.describe('look up, and under a star', () => {
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(/\/wanderment\/$/);
     await expect(page.getByRole('textbox', { name: PROMPT, exact: true })).toBeVisible();
-    // Opened on its own, Esc still finds a way: the trail to the sky, the sky to the prompt.
+    // Opened on its own, Esc still finds a way: P-74, down to the home at rest (was: the trail to the sky).
     await page.goto('./trail/a%20calm%20space');
     await expect(page.getByRole('heading', { name: 'a calm space', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page).toHaveURL(/\/wanderment\/sky$/);
+    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page.getByRole('textbox', { name: PROMPT, exact: true })).toBeVisible();
     // Esc in a field is the field's (it doesn't leave the trail).
+    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
     await star(page, 'a calm space').click();
     await button(page, 'Add a next step').click();
     await page.getByRole('textbox', { name: 'A next step', exact: true }).press('Escape');

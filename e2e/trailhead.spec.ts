@@ -107,7 +107,8 @@ test.describe('the trailhead', () => {
     await expect(field(page)).toHaveAttribute('placeholder', 'nothing yet is fine');
     await expect(field(page)).toHaveValue('');
     // Nothing else to press, nothing to steer you: two links, no buttons (the send ↑ comes with words).
-    await expect(page.getByRole('link').filter({ visible: true })).toHaveText(['Map', 'I’m not sure']);
+    // P-74: Map is a signpost by the lantern, after I’m not sure (Tab order: field, I’m not sure, Map); was ['Map', 'I’m not sure'].
+    await expect(page.getByRole('link').filter({ visible: true })).toHaveText(['I’m not sure', 'Map']);
     await expect(page.getByRole('button').filter({ visible: true })).toHaveCount(0);
     await expect(suggestions(page)).toHaveCount(0);
     // None of today's Home: no graph, no What's next, no ＋, no sheet handle.

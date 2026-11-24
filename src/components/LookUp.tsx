@@ -1,12 +1,11 @@
 import { Link, router, useIsFocused } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
 import { ComponentRef, useMemo, useRef } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReduceMotion } from '@/components/graph/scopeNav';
-import { NightSky } from '@/components/NightSky';
-import { PassageStars, usePassage, Veil } from '@/components/passage';
+import { useHome } from '@/components/Home';
+import { PassageStars } from '@/components/passage';
 import { StarGlyph, useMotes } from '@/components/StarGlyph';
 import { PROMPT } from '@/components/Trailhead';
 import { useEscBack } from '@/components/useEscBack';
@@ -36,6 +35,7 @@ const toPrompt = () => (router.canGoBack() ? router.back() : router.replace('/')
  * (`starPlaces`), one size; how lately each was walked shows only as warmth and twinkling motes. For a
  * screen reader the stars are a list of buttons in a fixed order (declared, then earned), each named
  * "<why>, last walked <when>". A star opens what's under it (or, with one wander, its trail).
+ * P-74: a session over the one home (the camera looks up; the home draws the sky, dimmed behind it).
  */
 export function LookUp() {
   const shown = useIsFocused();
@@ -46,7 +46,7 @@ export function LookUp() {
   const loops = useMotes(still);
   // P-72: looking up, the hills sink and the stars fade in (back from a star, the hills come back up); focus to the question.
   const heading = useRef<ComponentRef<typeof Text>>(null);
-  const passage = usePassage('sky', shown, () => heading.current);
+  const { passage } = useHome('sky', () => heading.current);
   const { width, height, fontScale } = useWindowDimensions();
   // The largest text sizes: a plain list of the stars, in the same order (P-66 fix).
   const asList = skyAsList(fontScale);
@@ -71,8 +71,6 @@ export function LookUp() {
 
   return (
     <View style={styles.screen} testID="look-up" {...passage.mark}>
-      {shown && <StatusBar style="light" />}
-      <NightSky still={still} warm={shading} ground={ground} passage={passage} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <ScrollView {...(web ? { tabIndex: -1 } : {})} contentContainerStyle={[styles.content, { width: w }]}>
           <View style={styles.head}>
@@ -155,13 +153,13 @@ export function LookUp() {
           </View>
         </ScrollView>
       </SafeAreaView>
-      <Veil s={passage} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: N.bg },
+  // The home draws the night behind it (P-74).
+  screen: { flex: 1 },
   fill: { flex: 1 },
   content: { flexGrow: 1, alignSelf: 'center', paddingBottom: 24 },
   head: { paddingHorizontal: 28, paddingTop: 40, paddingBottom: 28, gap: 6 },

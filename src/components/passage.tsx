@@ -44,13 +44,14 @@ export type PassageState = {
  * Arriving from another place, focus moves to `focus()` (web; the screen's heading), the same under
  * Reduce Motion, when nothing moves.
  */
-export function usePassage(place: Place, shown: boolean, focus?: () => Focusable): PassageState {
+export function usePassage(place: Place | undefined, shown: boolean, focus?: () => Focusable): PassageState {
   const p = useMemo(() => new Animated.Value(1), []);
   // `n` counts arrivals, so the same transition twice in a row still runs.
   const [run, setRun] = useState({ passage: STILL, moving: false, n: 0 });
   // Before paint, so the first frame drawn is already the transition's start.
   useLayoutEffect(() => {
-    if (!shown) return;
+    // P-74: the one home knows its place once the session (or the trailhead) in it says so.
+    if (!shown || !place) return;
     const from = last;
     last = place;
     const t = passageFor(from, place, { reduce: reduceMotionNow() });
@@ -78,7 +79,7 @@ export function usePassage(place: Place, shown: boolean, focus?: () => Focusable
       timing.stop();
     };
   }, [moving, n, passage.ms, p]);
-  const motion = motionFor(passage, place);
+  const motion = motionFor(passage, place ?? 'trailhead');
   const mark = { dataSet: { passage: passage.kind, reverse: String(passage.reverse), moving: String(moving) } };
   return { passage, motion, p, moving, mark };
 }
