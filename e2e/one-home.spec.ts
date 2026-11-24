@@ -121,7 +121,12 @@ test.describe('one home', () => {
   });
 
   test('many lines: at most ~80 faint stars', async ({ page }) => {
-    await openHome(page, bigBlob(220, 4000));
+    // A 4,000-line history takes ~4 s to open here and ~14 s on a CI-speed CPU (E2E_SLOW=4); that load
+    // time is P-46's to bring down — this test is about the cap, so it waits for the load.
+    test.setTimeout(60_000);
+    await open(page, bigBlob(220, 4000));
+    await expect(field(page)).toBeVisible({ timeout: 40_000 });
+    await expect(home(page)).toHaveAttribute('data-camera', 'rest');
     const n = await page.getByTestId('rest-line').count();
     expect(n).toBeGreaterThan(12);
     expect(n).toBeLessThanOrEqual(80);

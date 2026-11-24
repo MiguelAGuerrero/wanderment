@@ -2,7 +2,7 @@ import { expect, Locator, Page, test as base } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
 /** Every test fails if the page throws an uncaught error. */
-export const test = base.extend<{ errors: Error[]; swScope: string }>({
+export const test = base.extend<{ errors: Error[]; swScope: string; cpu: void }>({
   // A test's simulated deploys (`request.post('/__e2e/bump-sw')`, e2e/serve.mjs) reach only its own
   // pages: its context and its `request` share one cookie.
   swScope: [
@@ -18,6 +18,20 @@ export const test = base.extend<{ errors: Error[]; swScope: string }>({
       await use(context.request);
     },
     { scope: 'test' },
+  ],
+  // E2E_SLOW=<rate> slows the page's CPU (Chrome DevTools throttling) to CI-runner speed or worse, so
+  // timing races that pass on a fast machine show up before a push (scripts/polish/verify.sh's
+  // "e2e-ci-like" step). Off by default.
+  cpu: [
+    async ({ page }, use) => {
+      const rate = Number(process.env.E2E_SLOW || 0);
+      if (rate > 1) {
+        const cdp = await page.context().newCDPSession(page);
+        await cdp.send('Emulation.setCPUThrottlingRate', { rate });
+      }
+      await use();
+    },
+    { auto: true },
   ],
   errors: [
     async ({ page }, use) => {

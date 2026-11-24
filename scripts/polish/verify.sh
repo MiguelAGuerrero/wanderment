@@ -3,7 +3,8 @@
 # A passing run writes .polish/verified = the tree hash it verified; scripts/polish/land.sh and the
 # git guard hook only let that exact tree be pushed. CI then runs the whole e2e suite on main.
 #
-#   scripts/polish/verify.sh          # default (fast): unit, types, lint, build, changed + smoke e2e
+#   scripts/polish/verify.sh          # default (fast): unit, types, lint, build, changed + smoke e2e,
+#                                     # then the changed specs again at CI speed (E2E_SLOW=4, no retries)
 #   scripts/polish/verify.sh --full   # everything: the whole e2e suite (stored data, storage, sync)
 #   scripts/polish/verify.sh --full --repeat-changed=5   # + changed specs ×5, retries off (flake hunt)
 #   scripts/polish/verify.sh --quick  # no build, no e2e, no stamp
@@ -83,6 +84,15 @@ if { [ "$mode" = fast ] || [ "$mode" = full ]; } && [ $failed = 0 ]; then
       # shellcheck disable=SC2086
       step e2e-changed env E2E_PREBUILT=1 npx playwright test $specs --reporter=dot
     fi
+  fi
+  # CI-speed pass (owner, 2026-11-24: "proper CI pre-gates"): the changed specs again with the page's
+  # CPU throttled to a CI runner's speed or slower (e2e/fixtures.ts, E2E_SLOW), two workers and no
+  # retries — timing races that pass on a fast machine fail here, before the push, instead of turning
+  # the deploy red. E2E_CI_SLOW=0 skips it (not for landings).
+  if [ $failed = 0 ] && [ "${E2E_CI_SLOW:-4}" != 0 ]; then
+    specs=$(changed_specs | tr '\n' ' ')
+    # shellcheck disable=SC2086
+    [ -n "$specs" ] && step e2e-ci-like env E2E_PREBUILT=1 E2E_SLOW="${E2E_CI_SLOW:-4}" npx playwright test $specs --workers=2 --retries=0 --reporter=dot
   fi
   if [ $failed = 0 ] && [ "$repeat" -gt 0 ]; then
     specs=$(changed_specs | tr '\n' ' ')

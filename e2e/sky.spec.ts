@@ -343,8 +343,10 @@ test.describe('look up, and under a star', () => {
       if (width === 390) await lookUp(page);
       else await page.reload();
       if (width === 390) await star(page, ILLUSTRATE).click();
-      // Wait for the screen (`all()` doesn't wait).
+      // Wait for the screen (`all()` doesn't wait), and for its landmarks to finish rising (P-72): the
+      // flags and trails move while they rise, so boxes measured mid-passage can overlap the labels.
       await expect(page.getByTestId('landmark-label').filter({ visible: true })).toHaveCount(3);
+      await expect(page.locator('[data-moving="true"]')).toHaveCount(0);
       const labels = await Promise.all((await page.getByTestId('landmark-label').filter({ visible: true }).all()).map(box));
       const marks = await Promise.all((await page.locator('[data-testid="landmark-flag"], [data-testid="star-trail"]').all()).map(box));
       expect(labels.length).toBe(3);

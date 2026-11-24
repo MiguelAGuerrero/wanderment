@@ -18,6 +18,13 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — "Deploys are failing"
+> Deploys are failing. Ensure we have proper CI pre-gates so this don't keep happening
+
+Found: the site still deployed (deploy only needed the build job); the run went red because two e2e
+tests were flaky on CI's slower CPU (failOnFlakyTests). Led to: P-78 — the deploy waits for the whole
+e2e suite; verify.sh runs the changed specs again at CI speed before any push; both flakes fixed.
+
 ## 2026-11-24 — The landing after Return; transitions
 Evidence: `evidence/2026-11-24-landing-after-return.png` (typed "Testing out wanderment", pressed
 Return: "New line", the words, "✓ Kept, loose · Undo", "Move it? / Somewhere else…").
