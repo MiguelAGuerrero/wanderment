@@ -27,7 +27,7 @@ import { Selection, selectToward, unselect } from '@/domain/select';
 import { SheetSection } from '@/domain/sheet';
 import { cardLabel, HomeFace, restingFace, whatsNextNode } from '@/domain/slot';
 import { lastActivities } from '@/domain/selectors';
-import { firstStep, settle, toward, undoFirstStep } from '@/domain/rise';
+import { Choice, firstStep, riseSaid, settle, toward, undoFirstStep } from '@/domain/rise';
 import { Data, emptyData, Id } from '@/domain/types';
 
 /** What's currently in the log box. Shared so a crumb on Home can load into it. */
@@ -68,16 +68,7 @@ export interface LogOptions {
   done?: boolean;
 }
 
-/** What was chosen in the rise (P-73); its Undo takes it back. */
-export type Choice =
-  /** Sent up with the done chip: settled at once; Undo takes the line back out. */
-  | { kind: 'done' }
-  /** Done it. */
-  | { kind: 'settled' }
-  /** ↳ First step: the line went toward this wander (made, or found by name). */
-  | { kind: 'step'; threadId: Id }
-  /** Toward… */
-  | { kind: 'toward'; threadId: Id };
+export type { Choice };
 
 /** The line Return just sent up (P-73's rise; P-65's billboard), and what was chosen for it. Session only. */
 export interface Kept {
@@ -192,6 +183,11 @@ interface State {
   kept?: Kept;
   /** P-73: the trailhead's done chip — sticky until turned off or the home is left. Session only, never stored. */
   doneChip: boolean;
+  /**
+   * A rise that ended after a choice (audit F1): its Undo went on in the toast. Only while `undo` is
+   * still `entry` does the toast's Undo take back that choice the rise's way (`undoRise`).
+   */
+  riseUndo?: { kept: Kept; entry: UndoEntry };
 
   setDraft: (patch: Partial<Draft>) => void;
   clearDraft: () => void;
@@ -336,6 +332,22 @@ const refused: Refused = { ok: false, reason: 'reconnecting' };
 function change(patch: Partial<State> | ((s: State) => Partial<State>)): true {
   useStore.setState(patch);
   return true;
+}
+
+/**
+ * Takes back what the rise did for `kept` (P-73): its choice (First step: only what it made), or with
+ * none — or the done chip's, whose choice was the Return — the Return itself (the line goes, and its
+ * words go back in an empty field). What's left to undo after a choice is that Return, unless the
+ * line was opened again from the sky (logged long before).
+ */
+function undoRise(s: Pick<State, 'data' | 'draft'>, kept: Kept, undo: UndoEntry): Partial<State> {
+  const { did, ...was } = kept;
+  if (!did || did.kind === 'done') {
+    return { data: applyUndo(s.data, undo), undo: undefined, kept: undefined, draft: s.draft.text.trim() ? s.draft : { ...emptyDraft(), text: kept.text } };
+  }
+  const data = did.kind === 'step' ? undoFirstStep(s.data, undo, did.threadId) : applyUndo(s.data, undo);
+  const line = data.activities[kept.activityId];
+  return { data, undo: line && !kept.reopened ? undoEntry(deleteActivity(data, line.id), data) : undefined, kept: was };
 }
 
 export const useStore = create<State>()((set, get) => ({
@@ -629,8 +641,13 @@ export const useStore = create<State>()((set, get) => ({
   ),
 
   undoLast: gated<State['undoLast']>(false, () => {
-    const { undo, data } = get();
-    if (undo) set({ data: applyUndo(data, undo), undo: undefined, toast: undefined, promptNextFor: undefined });
+    const s = get();
+    const { undo, data, riseUndo } = s;
+    if (undo && riseUndo?.entry === undo) {
+      // A rise's choice, in the toast once its session ended (audit F1): taken back as the rise would.
+      const { kept: _kept, undo: _undo, ...back } = undoRise(s, riseUndo.kept, undo);
+      set({ ...back, undo: undefined, riseUndo: undefined, toast: undefined, promptNextFor: undefined });
+    } else if (undo) set({ data: applyUndo(data, undo), undo: undefined, riseUndo: undefined, toast: undefined, promptNextFor: undefined });
     return true;
   }),
 
@@ -684,21 +701,23 @@ export const useStore = create<State>()((set, get) => ({
   }),
 
   undoKept: gated<State['undoKept']>(false, () => {
-    const { kept, undo, draft, data } = get();
-    // Nothing chosen yet (a line just sent up, or opened again from the sky): nothing of its own to undo.
-    if (!kept?.did || !undo) return false;
-    const { did, ...was } = kept;
-    if (did.kind === 'done') {
-      // Sent up with the done chip: the line goes, and its words go back in the field.
-      set({ data: applyUndo(data, undo), undo: undefined, kept: undefined, draft: draft.text.trim() ? draft : { ...emptyDraft(), text: kept.text } });
-      return true;
-    }
-    const back = did.kind === 'step' ? undoFirstStep(data, undo, did.threadId) : applyUndo(data, undo);
-    set({ data: back, undo: undefined, kept: was });
+    const s = get();
+    const { kept, undo } = s;
+    // A line opened again from the sky has nothing of its own to undo until a choice.
+    if (!kept || !undo || (kept.reopened && !kept.did)) return false;
+    set(undoRise(s, kept, undo));
     return true;
   }),
 
-  leaveKept: (activityId) => set((s) => (s.kept && (!activityId || s.kept.activityId === activityId) ? { kept: undefined } : {})),
+  leaveKept: (activityId) =>
+    set((s) => {
+      if (!s.kept || (activityId && s.kept.activityId !== activityId)) return {};
+      // After a choice its Undo goes on in the home's toast (audit F1: ≥ 6 s, held, waits under a screen reader).
+      if (s.kept.did && s.undo) {
+        return { kept: undefined, riseUndo: { kept: s.kept, entry: s.undo }, toast: { message: riseSaid(s.data, s.kept.activityId, s.kept.did), activityId: s.kept.activityId } };
+      }
+      return { kept: undefined };
+    }),
 
   keepLoose: (activityId) => {
     const a = get().data.activities[activityId];

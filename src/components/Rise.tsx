@@ -1,5 +1,5 @@
 import { useIsFocused } from 'expo-router';
-import { ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ComponentRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
@@ -11,10 +11,10 @@ import { starIn } from '@/components/passage';
 import { useWhileShown } from '@/components/shown';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { useEscBack } from '@/components/useEscBack';
-import { litGlow, looksLit } from '@/domain/rise';
+import { litGlow, looksLit, riseSaid } from '@/domain/rise';
 import { GROUND_H, groundFits, promptSize } from '@/domain/trailhead';
-import { Data, Id } from '@/domain/types';
-import { Kept, recentThreadOrder, useStore } from '@/store/useStore';
+import { Id } from '@/domain/types';
+import { recentThreadOrder, useStore } from '@/store/useStore';
 import { N } from '@/theme';
 
 const web = Platform.OS === 'web';
@@ -34,25 +34,14 @@ const focusSoon = (el: () => Focusable) => {
   if (web) requestAnimationFrame(() => (el() as unknown as HTMLElement | null)?.focus?.());
 };
 
-/** What the rise's status line says (announced politely); nothing while the line is just lit. */
-function status(kept: Kept, data: Data): string {
-  const name = (id: Id) => data.threads[id]?.name ?? '';
-  const a = data.activities[kept.activityId];
-  const did = kept.did;
-  if (did?.kind === 'done' || did?.kind === 'settled') return 'Settled';
-  if (did?.kind === 'toward') return `Toward ${name(did.threadId)}`;
-  if (did?.kind === 'step') return data.threads[did.threadId]?.next ? `First step on ${name(did.threadId)}` : `Toward ${name(did.threadId)}`;
-  const attached = a ? (a.doingId ?? a.toIds[0]) : undefined;
-  return attached ? `Logged → ${name(attached)}` : '';
-}
-
 /**
  * The rise (P-73, B-08 slice 1; D-15's first tilt of the one home): Return sends your line up — the
  * camera looks up and the words are the session's heading (focused). A lit line has quiet choices:
  * **Done it** (✦) settles it (a twinkle, it dims, "Settled", Undo); **↳ First step** opens a step field
  * (only its Return makes the wander, named with your words; Esc or Cancel makes nothing); the corner
  * **Toward…** attaches it to a wander. Each has Undo on the line (no timer); then the session ends by
- * itself (it waits under assistive tech). A done-chip line arrives settled with its Undo. Typing
+ * itself (it waits under assistive tech) and the Undo goes on in the home's toast (audit F1). Before a
+ * choice, Undo takes the Return back (audit F4). A done-chip line arrives settled with its Undo. Typing
  * starts a new line; New line, Esc or the ground leave, and the line stays as it is. Opened without
  * its session (a reload, an old link), it isn't reopened: the home at rest, the line a star in its sky.
  */
@@ -81,6 +70,9 @@ export function Rise({ id }: { id: Id }) {
   const [stepping, setStepping] = useState(false);
   const [step, setStep] = useState('');
   const [towardOpen, setTowardOpen] = useState(false);
+  // New line and Toward… are drawn at the top but come last in reading order (audit F6): room kept for them.
+  const [topH, setTopH] = useState(56);
+  const hasUndo = useStore((st) => !!st.undo);
 
   // The session is this line's while it's shown; leaving ends it (the line stays as it is).
   useWhileShown(
@@ -102,7 +94,8 @@ export function Rise({ id }: { id: Id }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
   // Web: typing (outside a field) starts the next line with what's typed (B-08: the rise never blocks typing).
-  useEffect(() => {
+  // From the first commit, so a key pressed as the camera starts to tilt isn't lost (audit F3).
+  useLayoutEffect(() => {
     if (!web || !shown || typeof document === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
       if (!typesInto(e)) return;
@@ -143,7 +136,9 @@ export function Rise({ id }: { id: Id }) {
   const free = !kept.did && !a.doingId;
   const canSettle = !kept.did && a.lit === true;
   const canToward = free && wanders.length > 0;
-  const said = status(kept, data);
+  const said = riseSaid(data, id, kept.did);
+  // A choice's Undo, or (audit F4) before one, the Return's — not for a line opened again from the sky.
+  const canUndo = hasUndo && (!!kept.did || !kept.reopened);
 
   const chose = (ok: boolean) => {
     if (!ok) return;
@@ -177,17 +172,7 @@ export function Rise({ id }: { id: Id }) {
           {...(web ? { tabIndex: -1 } : {})}
           style={ground && { marginBottom: Math.max(0, GROUND_H - insets.bottom) }}
           contentContainerStyle={[styles.content, { width: w }, width < 360 && styles.narrow]} keyboardShouldPersistTaps="handled">
-          <View style={styles.top}>
-            <Pressable onPress={leave} accessibilityRole="button" style={styles.again}>
-              <Text style={styles.againText}>New line</Text>
-            </Pressable>
-            {canToward && !towardOpen && (
-              <Pressable ref={towardRef} onPress={() => setTowardOpen(true)} accessibilityRole="button" style={styles.corner}>
-                <Text style={styles.quietText}>Toward…</Text>
-              </Pressable>
-            )}
-          </View>
-
+          <View style={{ height: topH }} />
           {/* The star: lit, a star in night ink with its glow (never the accent colour); settled, a dim point. */}
           {/* It rises from below as the camera looks up (P-72's passage; still under Reduce Motion), and twinkles as it settles. */}
           <Animated.View style={[styles.star, starIn(passage.p)]} {...decorative}>
@@ -206,18 +191,6 @@ export function Rise({ id }: { id: Id }) {
           <Text ref={heading} accessibilityRole="header" {...(web ? { tabIndex: -1 } : {})} style={[styles.words, { fontSize: size, lineHeight: Math.round(size * 1.05) }]} testID="trail-words">
             {kept.text}
           </Text>
-
-          <View style={styles.status}>
-            <View style={styles.statusText} accessibilityLiveRegion="polite" role="status">
-              <Text style={styles.statusWords}>{said}</Text>
-            </View>
-            {/* Undo takes back the choice; it waits (no timer). */}
-            {kept.did && (
-              <Pressable ref={undoRef} onPress={undo} accessibilityRole="button" style={styles.undo}>
-                <Text style={styles.undoText}>Undo</Text>
-              </Pressable>
-            )}
-          </View>
 
           {stepping ? (
             <View style={styles.stepRow}>
@@ -271,6 +244,30 @@ export function Rise({ id }: { id: Id }) {
               </View>
             )
           )}
+
+          <View style={styles.status}>
+            <View style={styles.statusText} accessibilityLiveRegion="polite" role="status">
+              <Text style={styles.statusWords}>{said}</Text>
+            </View>
+            {/* Undo takes back the choice (or the Return); it waits (no timer). */}
+            {canUndo && (
+              <Pressable ref={undoRef} onPress={undo} accessibilityRole="button" style={styles.undo}>
+                <Text style={styles.undoText}>Undo</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {/* Drawn at the top, read last: New line (left) and the corner Toward… (right). */}
+          <View style={[styles.top, { left: width < 360 ? 16 : 28, right: width < 360 ? 16 : 28 }]} onLayout={(e) => setTopH(Math.max(56, Math.ceil(e.nativeEvent.layout.height)))}>
+            {canToward && !towardOpen && (
+              <Pressable ref={towardRef} onPress={() => setTowardOpen(true)} accessibilityRole="button" style={styles.corner}>
+                <Text style={styles.quietText}>Toward…</Text>
+              </Pressable>
+            )}
+            <Pressable onPress={leave} accessibilityRole="button" style={styles.again}>
+              <Text style={styles.againText}>New line</Text>
+            </Pressable>
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
@@ -284,8 +281,9 @@ const styles = StyleSheet.create({
   content: { flexGrow: 1, alignSelf: 'center', paddingHorizontal: 28, paddingBottom: 32, gap: 16 },
   // 200 % zoom: room for the words.
   narrow: { paddingHorizontal: 16 },
-  top: { minHeight: 12 + 44, paddingTop: 12, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  again: { minHeight: 44, justifyContent: 'center' },
+  // row-reverse: Toward… (first in it) on the right, New line pushed to the left.
+  top: { position: 'absolute', top: 0, minHeight: 12 + 44, paddingTop: 12, flexDirection: 'row-reverse', flexWrap: 'wrap', alignItems: 'center', gap: 8 },
+  again: { minHeight: 44, justifyContent: 'center', marginRight: 'auto' },
   againText: { fontFamily: display, fontSize: 18, fontWeight: '500', color: N.muted },
   corner: { minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 4 },
   star: { alignSelf: 'flex-start', marginTop: 16 },

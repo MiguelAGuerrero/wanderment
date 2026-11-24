@@ -1,5 +1,5 @@
 import { Link, router, useIsFocused } from 'expo-router';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useLayoutEffect, useMemo } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -37,15 +37,16 @@ export function Trailhead() {
   const logOptions = useMemo<LogOptions>(() => ({ trail: true, done: doneChip }), [doneChip]);
   const warm = useStore((st) => st.showShading);
   // P-72/P-74: coming back down from the sky (or Map), the camera comes down to the lantern; the field keeps its focus.
-  const { passage } = useHome('trailhead');
+  const { passage, tilting } = useHome('trailhead');
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardUp();
   // The ground (hills, path, lantern) only where it fits below the content, which then scrolls above it (P-65 fix).
   const ground = groundFits({ height, insets: insets.top + insets.bottom }) && !keyboardUp;
   // Return sent a line up (or one logged once the data was back): it rises, a session over the home (P-73).
-  // Read from the store, not the render: a rise just left has ended its session by now.
-  useEffect(() => {
+  // Read from the store, not the render: a rise just left has ended its session by now. In the same
+  // commit as the Return, so a key pressed right after it reaches the rise (audit F3).
+  useLayoutEffect(() => {
     const id = useStore.getState().kept?.activityId;
     if (shown && id) router.push(subjectHref({ kind: 'line', activityId: id }));
   }, [shown, keptId]);
@@ -73,8 +74,16 @@ export function Trailhead() {
               <Text accessibilityRole="header" style={[styles.prompt, { fontSize: size, lineHeight: size }]}>
                 {PROMPT}
               </Text>
-              <Composer night autocomplete arrow openWanders placeholder="nothing yet is fine" label={PROMPT} logOptions={logOptions} onLogged={() => true} />
+              <Composer night autocomplete arrow openWanders placeholder="nothing yet is fine" label={PROMPT} logOptions={logOptions}
+                onLogged={() => {
+                  // The line rises: an Esc before it lands still comes back down (audit F3).
+                  tilting();
+                  return true;
+                }}
+              />
               {/* P-73: the done chip, by the field — once you've typed, and while it's on (sticky). */}
+              {/* Its room is kept before you type, so nothing below moves on the first key (audit F7). */}
+              {!(typed || doneChip) && <View style={styles.chipRoom} testID="done-chip-room" />}
               {(typed || doneChip) && (
                 <Pressable
                   onPress={() => setDoneChip(!doneChip)}
@@ -90,7 +99,7 @@ export function Trailhead() {
                 </Pressable>
               )}
               <Link href="/sky" asChild>
-                <Pressable style={styles.unsure}>
+                <Pressable style={styles.unsure} onPressIn={tilting}>
                   <Svg width={14} height={14} viewBox="0 0 24 24" {...decorative}>
                     <Path d="M12 2 L13.6 10.4 L22 12 L13.6 13.6 L12 22 L10.4 13.6 L2 12 L10.4 10.4Z" fill={warm ? N.lantern : N.silver} />
                   </Svg>
@@ -137,6 +146,7 @@ const styles = StyleSheet.create({
   // The done chip (P-73): quiet off, ink on; one tap toggles.
   chip: { alignSelf: 'flex-start', minHeight: 44, minWidth: 44, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, borderRadius: 22, borderWidth: 1.5, borderColor: N.line, borderStyle: 'dashed' },
   chipOn: { borderStyle: 'solid', borderColor: N.ink },
+  chipRoom: { height: 44 },
   chipText: { color: N.muted, fontSize: 15 },
   chipTextOn: { color: N.ink, fontWeight: '600' },
   toastSlot: { position: 'absolute', left: 0, right: 0, bottom: 0 },

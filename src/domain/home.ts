@@ -123,3 +123,22 @@ export const RETURN_BEAT_MS = 1600;
 export function endsByItself({ web, screenReader, input }: { web: boolean; screenReader: boolean; input?: 'pointer' | 'keyboard' }): boolean {
   return web ? input === 'pointer' : !screenReader;
 }
+
+/** A downward drag on a session this long (px) leaves it, like tapping the ground (audit F5). */
+export const SWIPE_LEAVE_PX = 60;
+/** …or a fling this fast (px/ms) over at least half of it. */
+const FLING = 0.8;
+
+type Swipe = { dx: number; dy: number; vy?: number; atTop: boolean; inField?: boolean };
+/** Mostly downward: the drag is clearly vertical. */
+const downward = ({ dx, dy }: Swipe) => dy > 0 && dy > 2 * Math.abs(dx);
+
+/**
+ * Whether a drag on a session may become the swipe out: it's going down, from content that isn't
+ * scrolled (there a drag down scrolls it) and not from a field (a drag there selects text).
+ */
+export const swipeStarts = (s: Swipe): boolean => s.atTop && !s.inField && s.dy >= 8 && downward(s);
+
+/** Whether the swipe, let go, leaves the session: far enough down, or a fling. */
+export const swipeLeaves = (s: Swipe): boolean =>
+  s.atTop && !s.inField && downward(s) && (s.dy >= SWIPE_LEAVE_PX || (s.dy >= SWIPE_LEAVE_PX / 2 && (s.vy ?? 0) >= FLING));

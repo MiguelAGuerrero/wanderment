@@ -1,7 +1,7 @@
 import { router, Slot, useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ComponentRef, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, Keyboard, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, GestureResponderEvent, Keyboard, PanResponder, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Line, Path } from 'react-native-svg';
 
@@ -12,7 +12,7 @@ import { NightSky } from '@/components/NightSky';
 import { PassageState, usePassage, Veil } from '@/components/passage';
 import { useWhileShown } from '@/components/shown';
 import { STAR_PATH } from '@/components/StarGlyph';
-import { endsByItself, RestSky, restSky, RETURN_BEAT_MS } from '@/domain/home';
+import { endsByItself, RestSky, restSky, RETURN_BEAT_MS, swipeLeaves, swipeStarts } from '@/domain/home';
 import { Place } from '@/domain/passage';
 import { groundFits } from '@/domain/trailhead';
 import { useStore } from '@/store/useStore';
@@ -34,6 +34,11 @@ type HomeContext = {
   leave: () => void;
   /** After a choice: the session ends by itself after a short beat, unless assistive tech may be waiting. */
   endSoon: () => void;
+  /**
+   * The trailhead is starting a tilt (I'm not sure, Return): an Esc pressed before the session has
+   * arrived still leaves it, as soon as it does (audit F3: the navigation lands a moment later).
+   */
+  tilting: () => void;
 };
 const Ctx = createContext<HomeContext | null>(null);
 
@@ -68,8 +73,25 @@ export function useKeyboardUp() {
   return up;
 }
 
+/** An Esc this soon after a tilt starts, before its session has arrived, still leaves it (audit F3). */
+const TILT_ESC_MS = 1500;
+
 /** Leaving a session: back to the trailhead in the history if it's there, else it replaces the session. */
 const toRest = () => router.dismissTo('/');
+
+/**
+ * Where a drag starts (audit F5). Web: in a field (a drag selects text), and whether anything it's in
+ * is scrolled (a drag down there scrolls it). Native: the drag is only offered after the content (its
+ * ScrollView) has passed on it, so it counts as at the top.
+ */
+function dragFrom(target: EventTarget | null): { atTop: boolean; inField: boolean } {
+  if (!web || typeof document === 'undefined') return { atTop: true, inField: false };
+  let el = target as HTMLElement | null;
+  if (!(el instanceof HTMLElement)) return { atTop: true, inField: false };
+  const inField = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable;
+  for (; el && el !== document.body; el = el.parentElement) if (el.scrollTop > 0) return { atTop: false, inField };
+  return { atTop: true, inField };
+}
 
 /**
  * One home (P-74, B-08 "One home", D-15): the trailhead, the sky, a star and a trail are one place.
@@ -140,17 +162,84 @@ export function Home() {
     };
   }, [ending, shown]);
 
+  // An Esc during a tilt that hasn't landed yet (audit F3): remembered, and the session leaves on arrival.
+  const tilt = useRef<{ since: number; esc: boolean }>(undefined);
+  const tilting = useCallback(() => {
+    tilt.current = { since: Date.now(), esc: false };
+  }, []);
+  useEffect(() => {
+    if (!web || typeof document === 'undefined') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && tilt.current && Date.now() - tilt.current.since < TILT_ESC_MS) tilt.current.esc = true;
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, []);
+
   const arrive = useCallback((p: HomePlace, focus?: () => Focusable) => {
+    const pending = tilt.current;
+    tilt.current = undefined;
     focusRef.current = focus;
     setEnding(0);
     setPlace(p);
+    if (pending?.esc && p !== 'trailhead' && Date.now() - pending.since < TILT_ESC_MS) setTimeout(toRest, 0);
   }, []);
   // P-73: the trailhead's done chip lasts while you're in the home; leaving it (Map, Settings…) turns it off.
   useWhileShown(
     shown,
     useCallback(() => () => setDoneChip(false), [setDoneChip]),
   );
-  const ctx = useMemo<HomeContext>(() => ({ passage, arrive, leave: toRest, endSoon }), [passage, arrive, endSoon]);
+  // The swipe down (audit F5): a downward drag on a session leaves it, as tapping the ground does. Never
+  // from scrolled content or a field; nothing moves with it, so Reduce Motion changes nothing.
+  // Native: a responder, offered the drag only once the content (its ScrollView) passes it on.
+  const swipe = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_e: GestureResponderEvent, g) => up && swipeStarts({ dx: g.dx, dy: g.dy, atTop: true }),
+        onPanResponderTerminationRequest: () => false,
+        onPanResponderRelease: (_e, g) => {
+          if (swipeLeaves({ dx: g.dx, dy: g.dy, vy: g.vy, atTop: true })) toRest();
+        },
+      }),
+    [up],
+  );
+  // Web: the pointer, from press to release (a browser that scrolls instead cancels it). A drag that
+  // leaves isn't also a tap on what it started on.
+  useEffect(() => {
+    if (!web || !up || !shown || typeof document === 'undefined') return;
+    let start: { x: number; y: number; t: number; atTop: boolean; inField: boolean } | undefined;
+    const down = (e: PointerEvent) => {
+      start = e.button === 0 ? { x: e.clientX, y: e.clientY, t: e.timeStamp, ...dragFrom(e.target) } : undefined;
+    };
+    const cancel = () => (start = undefined);
+    const release = (e: PointerEvent) => {
+      const s = start;
+      start = undefined;
+      if (!s) return;
+      const dy = e.clientY - s.y;
+      if (!swipeLeaves({ dx: e.clientX - s.x, dy, vy: dy / Math.max(1, e.timeStamp - s.t), atTop: s.atTop, inField: s.inField })) return;
+      const eat = (c: MouseEvent) => {
+        c.preventDefault();
+        c.stopPropagation();
+      };
+      document.addEventListener('click', eat, { capture: true, once: true });
+      setTimeout(() => document.removeEventListener('click', eat, true), 0);
+      toRest();
+    };
+    // Selected words would be dragged away instead (and the pointer cancelled): a session drags nothing out.
+    const noDrag = (e: DragEvent) => e.preventDefault();
+    document.addEventListener('pointerdown', down, true);
+    document.addEventListener('pointerup', release, true);
+    document.addEventListener('pointercancel', cancel, true);
+    document.addEventListener('dragstart', noDrag, true);
+    return () => {
+      document.removeEventListener('dragstart', noDrag, true);
+      document.removeEventListener('pointerdown', down, true);
+      document.removeEventListener('pointerup', release, true);
+      document.removeEventListener('pointercancel', cancel, true);
+    };
+  }, [up, shown]);
+  const ctx = useMemo<HomeContext>(() => ({ passage, arrive, leave: toRest, endSoon, tilting }), [passage, arrive, endSoon, tilting]);
   // Only while it's in front (Map over it logs without redrawing the home's sky).
   const sky = useMemo(() => (shown ? restSky(data, new Date(), { shading }) : undefined), [shown, data, shading]);
 
@@ -159,9 +248,11 @@ export function Home() {
       {shown && <StatusBar style="light" />}
       <NightSky still={reduce || !shown} warm={shading} ground={!!place && ground} passage={place ? passage : undefined} />
       {sky && <Stars sky={sky} camera={camera} />}
-      <Ctx.Provider value={ctx}>
-        <Slot />
-      </Ctx.Provider>
+      <View style={styles.layer} testID="home-layer" {...(up && !web ? swipe.panHandlers : {})}>
+        <Ctx.Provider value={ctx}>
+          <Slot />
+        </Ctx.Provider>
+      </View>
       {/* Tapping the ground (the lantern) leaves a session: for a pointer only; its Back control and Esc are the named ways. */}
       {up && ground && fits && (
         <View onStartShouldSetResponder={() => true} onResponderRelease={toRest} {...decorative} style={styles.groundTap} testID="home-ground" />
@@ -225,6 +316,7 @@ function Stars({ sky, camera }: { sky: RestSky; camera: Animated.Value }) {
 
 const styles = StyleSheet.create({
   home: { flex: 1, backgroundColor: N.bg },
+  layer: { flex: 1 },
   // Dimmer than any text (P-66's rule for the sky's dots).
   line: { position: 'absolute', width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: N.ink, opacity: 0.45 },
   guide: { position: 'absolute', width: GUIDE, height: GUIDE, opacity: 0.85 },

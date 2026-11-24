@@ -81,3 +81,28 @@ export function toward(data: Data, activityId: Id, threadId: Id): Data | undefin
   if (!data.activities[activityId] || !t || t.hidden) return undefined;
   return attachActivity(data, activityId, threadId, 'doing');
 }
+
+/** What was chosen in the rise; its Undo takes it back. */
+export type Choice =
+  /** Sent up with the done chip: settled at once; Undo takes the line back out. */
+  | { kind: 'done' }
+  /** Done it. */
+  | { kind: 'settled' }
+  /** ↳ First step: the line went toward this wander (made, or found by name). */
+  | { kind: 'step'; threadId: Id }
+  /** Toward… */
+  | { kind: 'toward'; threadId: Id };
+
+/**
+ * What the rise's status line says (announced politely), and the toast once the session has ended
+ * with Undo still to hand (audit F1): nothing while a line is just lit (no hint lines).
+ */
+export function riseSaid(data: Data, activityId: Id, did?: Choice): string {
+  const name = (id: Id) => data.threads[id]?.name ?? '';
+  if (did?.kind === 'done' || did?.kind === 'settled') return 'Settled';
+  if (did?.kind === 'toward') return `Toward ${name(did.threadId)}`;
+  if (did?.kind === 'step') return data.threads[did.threadId]?.next ? `First step on ${name(did.threadId)}` : `Toward ${name(did.threadId)}`;
+  const a = data.activities[activityId];
+  const attached = a ? (a.doingId ?? a.toIds[0]) : undefined;
+  return attached ? `Logged → ${name(attached)}` : '';
+}

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { applyUndo, undoEntry } from './diff';
 import { restSky } from './home';
 import { logActivity } from './model';
-import { firstStep, LIT_FLOOR, litGlow, looksLit, settle, toward, undoFirstStep } from './rise';
+import { firstStep, LIT_FLOOR, litGlow, looksLit, riseSaid, settle, toward, undoFirstStep } from './rise';
 import { Data, emptyData, Thread } from './types';
 
 const DAY = 864e5;
@@ -212,5 +212,19 @@ describe('toward (Toward…)', () => {
     expect(toward(k.data, k.id, 'secret')).toBeUndefined();
     expect(toward(k.data, k.id, 'nope')).toBeUndefined();
     expect(toward(k.data, 'gone', 'draw')).toBeUndefined();
+  });
+});
+
+describe('riseSaid: what the rise (and, once it has ended, the toast) says about a choice', () => {
+  it('Settled, Toward X, First step on X (Toward X when its step was kept), Logged → X for a line attached at capture, nothing while lit', () => {
+    const k = lit('sketch hands');
+    expect(riseSaid(k.data, k.id)).toBe('');
+    expect(riseSaid(k.data, k.id, { kind: 'settled' })).toBe('Settled');
+    expect(riseSaid(k.data, k.id, { kind: 'done' })).toBe('Settled');
+    expect(riseSaid(k.data, k.id, { kind: 'toward', threadId: 'draw' })).toBe('Toward draw');
+    expect(riseSaid(k.data, k.id, { kind: 'step', threadId: 'cook' })).toBe('First step on cook');
+    expect(riseSaid(k.data, k.id, { kind: 'step', threadId: 'draw' })).toBe('Toward draw');
+    const attached = logActivity(world(), { text: 'x', doingId: 'cook', lit: true }, NOW);
+    expect(riseSaid(attached.data, attached.activity.id)).toBe('Logged → cook');
   });
 });

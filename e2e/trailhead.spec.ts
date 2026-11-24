@@ -168,10 +168,21 @@ test.describe('the trailhead', () => {
     await expect(field(page)).toHaveCount(0);
     await expect(page.getByRole('heading', { name: LINE, exact: true })).toBeVisible();
     await expect(words(page)).toBeFocused();
-    // Nothing chosen, nothing to undo.
-    await expect(button(page, 'Undo')).toHaveCount(0);
     await button(page, NEW_LINE).click();
     await expect(await looseOnMap(page, LINE)).toBeVisible();
+  });
+
+  test('audit F4: before any choice, Undo takes the Return back — the line goes, its words back in the field (as “Kept, loose · Undo” did)', async ({ page }) => {
+    await open(page);
+    await keep(page, LINE);
+    await expect(button(page, 'Undo')).toBeVisible();
+    expect((await button(page, 'Undo').boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await button(page, 'Undo').click();
+    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(words(page)).toHaveCount(0);
+    await expect(field(page)).toHaveValue(LINE);
+    await expect(field(page)).toBeFocused();
+    await expect(await looseOnMap(page, LINE)).toHaveCount(0);
   });
 
   test('leaving keeps the line: it stays loose, and coming back is the question again', async ({ page }) => {
@@ -356,14 +367,15 @@ test.describe('the trailhead', () => {
     await expect(field(page)).toHaveValue('');
   });
 
-  test('fix 6: Map is one Shift+Tab from the field, and no scroller is a Tab stop', async ({ page }) => {
+  // P-74 tab order: the field, I’m not sure, then Map (a signpost by the lantern); was “Map is one Shift+Tab from the field”.
+  test('fix 6: Tab goes field → I’m not sure → Map, and no scroller is a Tab stop', async ({ page }) => {
     await open(page);
     await expect(field(page)).toBeFocused();
-    await page.keyboard.press('Shift+Tab');
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('link', { name: 'I’m not sure', exact: true })).toBeFocused();
+    await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Map', exact: true })).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(field(page)).toBeFocused();
-    await page.keyboard.press('Tab');
+    await page.keyboard.press('Shift+Tab');
     await expect(page.getByRole('link', { name: 'I’m not sure', exact: true })).toBeFocused();
     // Nothing that only scrolls takes a Tab stop (here, or on the sky).
     const scrollStops = () =>

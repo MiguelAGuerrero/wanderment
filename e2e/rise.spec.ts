@@ -59,7 +59,10 @@ async function send(page: Page, text: string) {
 /** The sky's loose lines (the reachable stars), by accessible name. */
 async function looseNames(page: Page) {
   await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
-  const names = await page.getByRole('group', { name: 'Loose', exact: true }).getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+  // The sky is ready (its strays drawn) before reading them and leaving (audit F2).
+  const group = page.getByRole('group', { name: 'Loose', exact: true });
+  await expect(group.getByRole('button').first()).toBeVisible();
+  const names = await group.getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
   await page.keyboard.press('Escape');
   await expect(field(page)).toBeVisible();
   return names;
@@ -86,9 +89,9 @@ test.describe('the rise', () => {
     await expect(button(page, 'Done it')).toHaveText('✦ Done it');
     await expect(button(page, 'First step')).toHaveText('↳ First step');
     for (const gone of ['Kept, loose', 'Move it?', 'Somewhere else…', /^Return /]) await expect(page.getByText(gone)).toHaveCount(0);
-    // The status says nothing until a choice; nothing to undo.
+    // The status says nothing until a choice; Undo there takes the Return back (audit F4).
     await expect(page.getByRole('status')).toHaveText('');
-    await expect(button(page, 'Undo')).toHaveCount(0);
+    await expect(button(page, 'Undo')).toBeVisible();
     // Lit stars are night ink, never the accent colour.
     const fills = await star(page).locator('path, circle').evaluateAll((els) => els.map((e) => e.getAttribute('fill')));
     expect(fills.length).toBeGreaterThan(0);
@@ -124,10 +127,10 @@ test.describe('the rise', () => {
     await page.waitForTimeout(3000);
     await expect(button(page, 'Undo')).toBeVisible();
     await expect(page).toHaveURL(RISEN);
-    // Undo: lit again, the choices back.
+    // Undo: lit again, the choices back (and an Undo for the Return itself, audit F4).
     await page.keyboard.press('Enter');
     await expect(star(page)).toHaveAttribute('data-state', 'lit');
-    await expect(button(page, 'Undo')).toHaveCount(0);
+    await expect(page.getByRole('status')).toHaveText('');
     await expect(button(page, 'Done it')).toBeVisible();
     // Again, then once more: lit.
     await button(page, 'Done it').focus();
@@ -139,7 +142,7 @@ test.describe('the rise', () => {
     expect(await looseNames(page)).toContain(`${LINE}, today, lit`);
   });
 
-  test('Done it with a pointer: Undo shows, then the session ends by itself and the field has focus; the line stays settled', async ({ page }) => {
+  test('Done it with a pointer: Undo shows, then the session ends by itself and the field has focus; the Undo goes on in the toast (audit F1)', async ({ page }) => {
     await open(page);
     await send(page, LINE);
     await button(page, 'Done it').click();
@@ -148,6 +151,20 @@ test.describe('the rise', () => {
     await expect(field(page)).toBeFocused();
     await expect(page.getByTestId('home')).toHaveAttribute('data-camera', 'rest');
     await expect(lit(page)).toHaveCount(0);
+    // The toast: “Settled · Undo”, still there well after the session ended.
+    await expect(page.getByText('Settled', { exact: true }).filter({ visible: true })).toBeVisible();
+    await page.waitForTimeout(2000);
+    await button(page, 'Undo').click();
+    await expect(lit(page)).toHaveCount(1);
+    await page.reload();
+    expect(await looseNames(page)).toContain(`${LINE}, today, lit`);
+  });
+
+  test('Done it with a pointer, left alone: the line stays settled', async ({ page }) => {
+    await open(page);
+    await send(page, LINE);
+    await button(page, 'Done it').click();
+    await expect(page).toHaveURL(AT_REST, { timeout: 5000 });
     await page.reload();
     expect(await looseNames(page)).toContain(`${LINE}, today`);
   });
@@ -343,14 +360,17 @@ test.describe('the rise', () => {
     expect(['none', 'matrix(1, 0, 0, 1, 0, 0)']).toContain(scale);
   });
 
-  test('keyboard only: Tab goes from the words to Done it, then First step (New line and Toward… sit above); Esc leaves, and the field has focus', async ({ page }) => {
+  test('keyboard only (audit F6): Tab goes words → Done it → First step → Undo → Toward… → New line, though the last two sit above; Esc leaves, and the field has focus', async ({ page }) => {
     await open(page);
     await send(page, LINE);
     await expect(words(page)).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(button(page, 'Done it')).toBeFocused();
-    await page.keyboard.press('Tab');
-    await expect(button(page, 'First step')).toBeFocused();
+    for (const name of ['Done it', 'First step', 'Undo', 'Toward…', 'New line']) {
+      await page.keyboard.press('Tab');
+      await expect(button(page, name)).toBeFocused();
+    }
+    // Drawn at the top all the same.
+    expect((await button(page, 'New line').boundingBox())!.y).toBeLessThan((await words(page).boundingBox())!.y);
+    expect((await button(page, 'Toward…').boundingBox())!.y).toBeLessThan((await words(page).boundingBox())!.y);
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(AT_REST);
     await expect(field(page)).toBeFocused();
@@ -367,5 +387,50 @@ test.describe('the rise', () => {
     expect(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y).toBe(true);
     await expectNoSeriousViolations(page);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/p73-rise-200.png`, fullPage: true });
+  });
+
+  test('audit F3: Esc pressed as the session starts to tilt still leaves (the sky, and the rise)', async ({ page }) => {
+    await open(page);
+    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(AT_REST);
+    await expect(field(page)).toBeFocused();
+    await field(page).fill(LINE);
+    await field(page).press('Enter');
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(AT_REST);
+    await expect(field(page)).toBeFocused();
+  });
+
+  test('audit F5: a downward drag on the session leaves it; a short one, or an upward one, doesn’t; Reduce Motion the same', async ({ page }) => {
+    for (const reduce of [false, true]) {
+      await page.emulateMedia({ reducedMotion: reduce ? 'reduce' : 'no-preference' });
+      if (!reduce) await open(page);
+      else await page.goto('./');
+      await send(page, LINE);
+      const b = (await words(page).boundingBox())!;
+      const drag = async (dy: number) => {
+        await page.mouse.move(b.x + 40, b.y + 10);
+        await page.mouse.down();
+        await page.mouse.move(b.x + 40, b.y + 10 + dy / 2, { steps: 4 });
+        await page.mouse.move(b.x + 40, b.y + 10 + dy, { steps: 4 });
+        await page.mouse.up();
+      };
+      await drag(30);
+      await drag(-120);
+      await expect(page).toHaveURL(RISEN);
+      await drag(120);
+      await expect(page).toHaveURL(AT_REST);
+      await expect(field(page)).toBeVisible();
+    }
+  });
+
+  test('audit F7: the done chip’s row is kept before the first key — “I’m not sure” doesn’t move as you start typing', async ({ page }) => {
+    await open(page);
+    const unsure = page.getByRole('link', { name: 'I’m not sure', exact: true });
+    const before = (await unsure.boundingBox())!.y;
+    await field(page).pressSequentially('r');
+    await expect(chip(page)).toBeVisible();
+    expect((await unsure.boundingBox())!.y).toBe(before);
   });
 });

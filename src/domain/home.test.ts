@@ -13,6 +13,9 @@ import {
   Subject,
   subjectHref,
   subjectPlace,
+  SWIPE_LEAVE_PX,
+  swipeLeaves,
+  swipeStarts,
 } from './home';
 import { skyStars } from './sky';
 import { Data, emptyData } from './types';
@@ -149,5 +152,31 @@ describe('sessions: what a session over the home is about', () => {
   it('after a short beat (time to see Undo first)', () => {
     expect(RETURN_BEAT_MS).toBeGreaterThanOrEqual(1000);
     expect(RETURN_BEAT_MS).toBeLessThanOrEqual(3000);
+  });
+});
+
+describe('the swipe down out of a session (P-73 audit F5)', () => {
+  it('a mostly-downward drag of at least SWIPE_LEAVE_PX leaves; a shorter one, an upward or sideways one, doesn’t', () => {
+    expect(SWIPE_LEAVE_PX).toBeGreaterThanOrEqual(50);
+    expect(SWIPE_LEAVE_PX).toBeLessThanOrEqual(80);
+    expect(swipeLeaves({ dx: 0, dy: SWIPE_LEAVE_PX, atTop: true })).toBe(true);
+    expect(swipeLeaves({ dx: 20, dy: 120, atTop: true })).toBe(true);
+    expect(swipeLeaves({ dx: 0, dy: SWIPE_LEAVE_PX - 1, atTop: true })).toBe(false);
+    expect(swipeLeaves({ dx: 0, dy: -120, atTop: true })).toBe(false);
+    expect(swipeLeaves({ dx: 100, dy: 90, atTop: true })).toBe(false);
+  });
+
+  it('a fast fling counts from a little less', () => {
+    expect(swipeLeaves({ dx: 0, dy: 40, vy: 1.2, atTop: true })).toBe(true);
+    expect(swipeLeaves({ dx: 0, dy: 20, vy: 2, atTop: true })).toBe(false);
+  });
+
+  it('never on content that is scrolled (a drag down there scrolls it), nor from a field', () => {
+    expect(swipeStarts({ dx: 0, dy: 12, atTop: false })).toBe(false);
+    expect(swipeLeaves({ dx: 0, dy: 200, atTop: false })).toBe(false);
+    expect(swipeStarts({ dx: 0, dy: 12, atTop: true, inField: true })).toBe(false);
+    expect(swipeStarts({ dx: 0, dy: 12, atTop: true })).toBe(true);
+    expect(swipeStarts({ dx: 0, dy: 4, atTop: true })).toBe(false);
+    expect(swipeStarts({ dx: 30, dy: 12, atTop: true })).toBe(false);
   });
 });

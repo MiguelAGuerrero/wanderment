@@ -67,6 +67,101 @@ describe('Return on the trailhead', () => {
   });
 });
 
+describe('Undo of the Return itself (audit F4: as the retired “Kept, loose · Undo” did)', () => {
+  it('before any choice, Undo takes the line back out and puts the words back in the field', () => {
+    const id = send('half a seam');
+    expect(st().undoKept()).toBe(true);
+    expect(st().data.activities[id]).toBeUndefined();
+    expect(st().kept).toBeUndefined();
+    expect(st().draft.text).toBe('half a seam');
+  });
+
+  it('words typed since stay in the field', () => {
+    send('half a seam');
+    st().setDraft({ text: 'something else' });
+    st().undoKept();
+    expect(st().draft.text).toBe('something else');
+  });
+
+  it('a line opened again from the sky has no Return of its own to undo', () => {
+    st().setDraft({ text: 'earlier' });
+    const id = st().log()!;
+    st().keepLoose(id);
+    expect(st().undoKept()).toBe(false);
+    expect(st().data.activities[id]).toBeDefined();
+  });
+});
+
+describe('the session ends after a choice: Undo goes on in the home’s toast (audit F1)', () => {
+  it('Done it, then the session ends (leaveKept): the toast says “Settled” with Undo, which lights it again', () => {
+    const id = send('sketch hands');
+    st().settleKept();
+    st().leaveKept(id);
+    expect(st().kept).toBeUndefined();
+    expect(st().toast).toEqual({ message: 'Settled', activityId: id });
+    expect(st().undoLast()).toBe(true);
+    expect(st().data.activities[id].lit).toBe(true);
+    expect(st().data.activities[id].settledAt).toBeUndefined();
+    expect(st().toast).toBeUndefined();
+  });
+
+  it('Toward…: “Toward draw”, Undo detaches', () => {
+    const { draw } = seed();
+    const id = send('sketched');
+    st().towardKept(draw);
+    st().leaveKept(id);
+    expect(st().toast?.message).toBe('Toward draw');
+    st().undoLast();
+    expect(st().data.activities[id].doingId).toBeUndefined();
+  });
+
+  it('↳ First step: Undo removes what it made (a wander used since stays, without the step)', () => {
+    const id = send('learn watercolour');
+    st().firstStepKept('buy a brush');
+    const tid = st().data.activities[id].doingId!;
+    st().leaveKept(id);
+    expect(st().toast?.message).toBe('First step on learn watercolour');
+    st().undoLast();
+    expect(st().data.threads[tid]).toBeUndefined();
+    expect(st().data.activities[id]).toMatchObject({ doingId: undefined, lit: true });
+
+    const again = send('learn oils');
+    st().firstStepKept('buy oils');
+    const oils = st().data.activities[again].doingId!;
+    st().leaveKept(again);
+    // Something else goes toward it meanwhile (the toast's Undo is still for the first step).
+    const undo = st().undo;
+    useStore.setState({ data: { ...st().data, activities: { ...st().data.activities, x: { id: 'x', text: 'x', occurredAt: '2026-01-01T00:00:00.000Z', createdAt: '2026-01-01T00:00:00.000Z', doingId: oils, toIds: [] } } } });
+    expect(st().undo).toBe(undo);
+    st().undoLast();
+    expect(st().data.threads[oils]).toMatchObject({ name: 'learn oils', next: undefined });
+  });
+
+  it('a done-chip line: “Settled”, Undo takes it back out and puts its words in an empty field', () => {
+    st().setDoneChip(true);
+    const id = send('read a chapter');
+    st().leaveKept(id);
+    expect(st().toast).toEqual({ message: 'Settled', activityId: id });
+    st().undoLast();
+    expect(st().data.activities[id]).toBeUndefined();
+    expect(st().draft.text).toBe('read a chapter');
+  });
+
+  it('leaving with no choice made leaves no toast; a later change’s Undo is never mistaken for the choice’s', () => {
+    const { draw } = seed();
+    const id = send('a');
+    st().leaveKept(id);
+    expect(st().toast).toBeUndefined();
+    const b = send('b');
+    st().towardKept(draw);
+    st().leaveKept(b);
+    st().removeActivity(id);
+    st().undoLast();
+    expect(st().data.activities[id]).toBeDefined();
+    expect(st().data.activities[b].doingId).toBe(draw);
+  });
+});
+
 describe('the done chip', () => {
   it('three Returns in a row: three settled lines (never lit), each the rise’s subject in turn, with the chip still on', () => {
     st().setDoneChip(true);
@@ -116,7 +211,7 @@ describe('the done chip', () => {
 });
 
 describe('Done it', () => {
-  it('settles the lit line (lit dropped, settledAt set); Undo lights it again; Undo twice does nothing more', () => {
+  it('settles the lit line (lit dropped, settledAt set); Undo lights it again; Undo once more takes the Return back (audit F4)', () => {
     const id = send('sketch hands');
     expect(st().settleKept()).toBe(true);
     expect(st().data.activities[id].lit).toBeUndefined();
@@ -128,12 +223,16 @@ describe('Done it', () => {
     expect(st().data.activities[id].lit).toBe(true);
     expect(st().data.activities[id].settledAt).toBeUndefined();
     expect(st().kept).toEqual({ activityId: id, text: 'sketch hands' });
-    expect(st().undoKept()).toBe(false);
-    expect(st().data.activities[id]).toBeDefined();
     // And again.
     expect(st().settleKept()).toBe(true);
     expect(st().undoKept()).toBe(true);
     expect(st().data.activities[id].lit).toBe(true);
+    // Then the Return itself: the line goes, its words back in the field.
+    expect(st().undoKept()).toBe(true);
+    expect(st().data.activities[id]).toBeUndefined();
+    expect(st().kept).toBeUndefined();
+    expect(st().draft.text).toBe('sketch hands');
+    expect(st().undoKept()).toBe(false);
   });
 
   it('a line that isn’t lit (the done chip’s) can’t be settled again', () => {

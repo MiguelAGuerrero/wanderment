@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { Platform } from 'react-native';
 
 /**
@@ -8,10 +8,11 @@ import { Platform } from 'react-native';
  */
 export function useEscBack(shown: boolean, back: () => void) {
   const latest = useRef(back);
-  useEffect(() => {
+  useLayoutEffect(() => {
     latest.current = back;
   }, [back]);
-  useEffect(() => {
+  // From the first commit (audit F3): an Esc pressed as the session starts to tilt isn't lost.
+  useLayoutEffect(() => {
     if (!shown || Platform.OS !== 'web' || typeof document === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
