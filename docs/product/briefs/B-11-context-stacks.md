@@ -71,6 +71,10 @@ to nothing).
 - **Pause** (on the running screen) is a declaration that you can't go on, or can't right now. It opens
   the **paused screen** for that run: **Resume**; **Switch to** another paused run or something else —
   switching is only ever done here, explicitly; or **Stop**.
+- **Switching starts at your own level** (frames `n5`, `n6`): the paused screen first offers the run's
+  **siblings** (the other runs under the same parent); **↑ Up** shows the parent's level, and so on up
+  to the foundations; **↓ Into it** goes back down. Shown as a **List** or as the **Map**, the same
+  thing two ways.
 - **Stop** is exiting to the **home screen**: nothing is running, you're done with the app for now. The
   run is not ended; it stays at its step under its foundation.
 - **Home** ("Nothing running") is the Map with "I'm going to…" beneath it: every **foundation**,

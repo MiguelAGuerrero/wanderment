@@ -18,6 +18,15 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Switching starts at your own level
+"Another quality of life feature … the default level for which you are presented threads to switch to
+when you pause should be at the same level … of that stack. So if we're going to have deeply nested
+concurrent calls at any layer, you should be able to swap siblings and then proceed [to] go up to
+parent and zip up or switch entire foundations. And we could present that either as a list view or a
+graph."
+*Interpretation:* the paused screen offers the run's siblings first; "Up" shows the parent's level, and
+so on up to foundations; shown as a list or as the map. Led to: B-11 frames n5, n6.
+
 ## 2026-11-24 — Stop is exiting to home; Pause is where you switch
 "Stop is just the state when nothing is running, and so when you stop you just [get brought] back to
 the home screen — think of it like exiting your video game. You're going back to effectively the screen
