@@ -18,6 +18,16 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — A stack loops until you pop it
+On "is a stack re-run by default?": "I have two philosophies. A stack can be rerun by default until
+you pop it off your context. So effectively, you're going to always loop until you define a state of
+done. So that way, you don't necessarily have to keep redefining the work that has to be done. So you
+can run through your routine effectively at the bottommost level until you feel like you're done. Then
+you pop it off the stack at any level you like and continue." (The rest of the questions to follow.)
+*Interpretation:* pieces inside a block loop; "done" is something you declare, not the end of a list;
+declaring it pops that level off your context and you carry on with the level above. The second
+philosophy was not stated yet — asked.
+
 ## 2026-11-24 — A declaration of intent; the stack is your intuition, not a plan
 "when you open the app, you're making a declaration of intent, saying, I'm going to do this now. So
 you're not opening up this app as a reflection tool, but as a way of orienting yourself towards what
