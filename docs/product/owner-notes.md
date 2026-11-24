@@ -18,6 +18,20 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — No round screen; an escape hatch; loops can have a number of times
+"maybe the roundup screen can just go. You don't necessarily need that because [it] is already inferred
+by the presence of a done button or maybe some other indication. And maybe for quality of life, there
+should be like an escape hatch to … escape your execution context. So if you're in a loop, you can just
+choose like, I'm done with this loop for whatever reason … much like a break statement … Maybe you don't
+feel like the current workflow is working and you don't feel the need to refine it then and there. So
+you might break and just continue on in sequence. And also there is some idea that maybe loops should
+have iterations, an iteration count, or a way to stop itself without always prompting the user. So
+let's say you want to specify a loop of 3, you can do that by the definition of the routine itself.
+Like how many times? 3 times. How many times until I'm done, for example."
+*Interpretation:* a loop comes round silently; a way out of the level you're in is always on the runner
+(carry on with what's next above); a routine's repeat can be "until I'm done" or a number of times, and
+a counted loop ends by itself.
+
 ## 2026-11-24 — The step is a sticky note; long steps should lead to a breakdown
 On the three-button runner: "The block seems a little bit too stretched. It should be the size of a
 sticky note and centered — that way the blank space between the top and bottom portions of the viewer

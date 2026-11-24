@@ -28,8 +28,8 @@ in a structure that opens to any depth, with no measure of what's left.
 - **Step** — a line of your words.
 - **Routine** — a named, ordered sequence kept in *reference* ("Your routines"). Each item is a step or
   another routine. It has one mark, the divider **↻ Repeat from here**: items above it run once (setup),
-  items below repeat until you say done. A new routine has the divider at the top (it loops, the
-  default); with no divider it runs once through. A routine can't contain itself.
+  items below repeat — **until you say done** (the default) or **a number of times** you set. A new
+  routine has the divider at the top (it loops, the default); with no divider it runs once through. A routine can't contain itself.
 - **Blank** — an optional input in a routine's name or steps ("Apply to ▢ employer"). It never asks:
   unfilled, it reads as its own word. Filling it is a choice, and values used before are offered.
 - **Run** (the owner's "thread") — a routine being carried out: the routine, what filled its blanks, a
@@ -133,11 +133,16 @@ tapping it opens See it all), **the step as one block**, and **three buttons in 
 Break it down, Next** (Next the one filled button, lowest). When the step is a routine the middle
 button reads **Step in**: the same slot, the same meaning — go deeper. Nothing on this screen says
 anything about repeating, shows "then", or carries tags; that belongs to the routine's Blocks / Read it.
-**Done is offered where it makes sense:** after Next on the last step of a repeating part the runner
-shows that the round is finished, with **Again** (filled — a loop goes on unless you say otherwise) and
-**Done with <name>**. That is the only place the runner mentions the loop. A part that runs once simply
-finishes on its last Next, with Undo. Leaving mid-pass, changing the words and going back a step are
-behind a tap on the block; "Done with <name>" is also in the Paused screen's menu.
+**The way out is always there** (owner, decided; replaces the end-of-round screen, which is gone). The
+context line carries a compact **Done** at its right end: it leaves the level you are in, for whatever
+reason, and carries on with what comes next above it; at the top it ends the run. It leaves an Undo.
+A repeating part comes round again silently on Next — no interstitial. Changing the words, going back
+a step and See it all are behind a tap on the note.
+**A repeat can have a number of times** (owner, decided). The divider's setting is **until I'm done**
+(the default) or **a number of times**, chosen in the routine ("Repeat from here · 3 times"; Read it:
+"Then repeat 3 times:"). A counted loop ends by itself after its last pass, like a part that runs once,
+with "Finished <name> · Undo". The runner never shows which pass you are on. *(This is a number you
+set, not a tally of what you did; DESIGN.md's "no counts" is reworded to say so.)*
 
 **The step is a sticky note** (owner, decided). On the runner the step is a fixed, roughly square note,
 centred, with empty space above and below — the space is what gives it focus. It never stretches. **A
