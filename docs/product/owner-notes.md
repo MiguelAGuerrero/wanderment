@@ -18,6 +18,26 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Drop the metaphor: pixel-art context stacks
+> I think the visual metaphor is being a little bit of a bottleneck, and it's distracting from the
+> core user experience of maintaining several ambitions through stacks. So let's reimagine the whole
+> metaphor, and let's be very, I guess, programmatic about it, be very pixel art, and just let's focus
+> on context stacks. The [Wanderment] aspect can be fulfilled through that instead of having these
+> elaborate diegetic UIs for now. So let's be very simple. Like a stack could just look like Tetris or
+> something. And the core user experience is you define a stack, a pursuit. So you have your values and
+> goals and feelings you want to chase, not necessarily big, explicit plans, and you just add to the
+> stack of how you're going to go about that. Every layer can have its own substack, and you can zoom
+> in and zoom out as needed. And context switching is effectively switching where your energy for the
+> day goes towards a type of feeling, outcome, etc. Now, I want you to refine this idea and ask any open
+> questions … across UI, UX, feature set, minimalism versus breadth and depth, and have this be, again,
+> [run past the personas].
+
+Interpretation (by /product): a new direction that supersedes the night-sky picture (B-07/B-08/B-09/
+B-10's visuals). The core is **context stacks**: a pursuit (a feeling, value or goal) is a stack;
+layers are the ways you go about it; any layer can hold its own substack; zoom in and out; choosing
+today's stack is the context switch. Pixel art, Tetris-like, programmatic, simple. B-10 (D-17) is
+superseded before a decision. Led to: B-11 (concept, mockups, panel, open questions).
+
 ## 2026-11-24 — "Nothing feels right": reimagine the UI and UX
 > I need you to reimagine the UI and UX because this is getting close but nothing feels right.
 
