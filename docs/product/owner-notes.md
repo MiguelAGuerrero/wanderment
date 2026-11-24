@@ -18,6 +18,15 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — "Nothing feels right": reimagine the UI and UX
+> I need you to reimagine the UI and UX because this is getting close but nothing feels right.
+
+Answers: what's off — too many parts, the look, the flow; the core job — capture, seeing where you're
+heading, and picking up where you left off, balanced; how far — keep the bones, refine; the feel —
+calm journals and playful worlds. After the first drafts and a UI audit: a line is **done by default**,
+**↗ Pursue** to head toward it (reverses D-14's default); **Pick up** as a quiet line by the lantern;
+**the wanderer walks**; a brief with revised mockups and a panel before building. Led to: B-10, D-17.
+
 ## 2026-11-24 — Wandering is a focus view
 > When wandering, it should be a focus view, simple and a simple action to decompose. Not sure what
 > the right word is to suit the metaphor but the look and feel should be like a [Pomodoro] with the

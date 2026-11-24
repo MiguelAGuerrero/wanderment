@@ -386,6 +386,8 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   go** (feed: a random few drawn once a day; last three weeks, a calm sky beyond; Map's depth into the
   lit map and the sheet) → P-79 to P-83. Brief:
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
+- **D-17 B-10: fewer parts — a calm journal in a playful world** — waiting on the owner. Brief:
+  `docs/product/briefs/B-10-refined-home.md` (UI audit folded into the v-frames; panel running).
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
