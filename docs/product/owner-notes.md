@@ -79,6 +79,19 @@ Prompt, in the metaphor: "where do you feel like heading today? … which path a
 where are you wandering off to now?" Chosen: "Where are we wandering today?"
 `/product P-64`: brief B-07 written; owner answered D-13 **go**, and **reword** STRATEGY.md's
 refusal to "no schedules, deadlines or progress toward a goal".
+Building B-07 (2026-11-23/24): "defer all testing into the very end for velocity and iteration, but
+ensure test first. At the end, an adversarial audit of the UI and user experience, and a persona
+panel to see the improvements." After the audit and panel: a floor of one mote; dark Map in this
+batch; drop the big "Not sure."; typing opens a trail; loose lines on the sky; keyboard stays down.
+Constellations (2026-11-24): "logging still should happen independent of a why. And stars in the
+sky should just be your recent activity. And then constellations can be derived from that when you
+see a picture form. That's a working metaphor, not an explicit concept to be named in the app … as
+you interface with the prompt and you start noticing that you're resolving to the same sorts of
+activities, maybe there's something to be said there … clustering … creativity, reading, research,
+watching a video, planning … but there's still room to have logging for the sake of logging. And
+then seeing emergence from that." Answers: each log is a star; draw clusters and offer "Name this?"
+quietly; whys become guiding stars; kinds as "a set of quick action buttons … standard across all
+types of productivity apps … or just have it be freeform".
 Led to: D-12; P-62 parked; B-07; D-13 → P-65 to P-70 (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle

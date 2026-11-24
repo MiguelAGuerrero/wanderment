@@ -37,15 +37,18 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-65 The trailhead: a night-sky prompt is Home `[feature]` `[capture]` `[a11y]` M
+### P-71 Brief B-08: constellations — stars are logs, patterns emerge `[feature]` L
 *Status:* todo
-*Why:* B-07 slice 1 (D-13 go, 2026-11-23). `docs/product/briefs/B-07-night-sky.md`.
-*Done when:* opening shows only the night sky, "Where are we wandering today?", "nothing yet is
-fine", "I'm not sure" and "Map" (today's graph, unchanged, one tap away); suggestions appear only
-once you type (P-61's); Return logs exactly as typed, loose, with Undo; your words become the
-billboard and "Move it?" offers on top of / toward the guessed wander / somewhere else, each one tap
-with Undo; leaving keeps the line; Reduce Motion stills the sky; large text keeps the field above
-the keyboard; DESIGN.md's Home and capture rules updated; e2e + axe.
+*Why:* owner, 2026-11-24: "logging still should happen independent of a why … stars in the sky
+should just be your recent activity … constellations can be derived from that when you see a
+picture form. That's a working metaphor, not an explicit concept to be named in the app." Answers:
+each log is a star; constellations are drawn as faint lines and, tapped, quietly offer "Name this?"
+(a wander or why only on a tap); a why you name becomes a brighter fixed guiding star (Polaris) with
+its wanders and trails on the ground; clustering on-device from words plus an optional standard
+vocabulary of kinds offered as quick-action chips while logging ("read, make, research, watch,
+plan…"), freeform always allowed. Open: a fixed set of kinds, or a standard set you can add to.
+*Done when:* brief B-08 written (data: an optional kind per log; capture change; the sky's new
+meaning; how B-07's star screens change), persona panel run, owner's go/no-go recorded.
 
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
@@ -64,15 +67,6 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
-
-### P-66 Look up, and under a star `[feature]` `[a11y]` M
-*Status:* todo
-*Why:* B-07 slice 2.
-*Done when:* "I'm not sure" shows whys as stars in fixed places at one size, warmth and twinkling
-motes by heat (relative, never a number), a fixed-order list for screen readers ("…, last walked
-today"); a star shows its wanders as landmarks and trails with each one's next step and note, labels
-clear of trails; a wander's trail screen shows the top step, Did it and footprints in dated words; a
-why with one wander opens its trail; shading-off and Reduce Motion honoured; e2e + axe.
 
 ### P-67 Step stacks `[data]` `[feature]` M
 *Status:* todo
@@ -383,6 +377,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-24 · P-65, P-66 (B-07 slices 1–2) — the trailhead is Home: a night sky, "Where are we wandering today?", Return logs at once (loose) with Undo, a quiet "Move it?" (never overwrites a staged step), typing offers "Open <wander>", "I'm not sure" → look up: whys as stars in fixed places at one size, warmth and motes by heat (floor of one), recent loose lines as stray footprints with Move it?; under a star: landmarks in a fixed order, cards that name their wander, trails; a wander's trail: "Here's where we left off", Did it, footprints in words; Esc goes back; the graph moved unchanged to Map, now in the night palette · evidence: `e2e/trailhead.spec.ts`, `e2e/sky.spec.ts`, `e2e/dark-map.spec.ts`, `src/domain/{trailhead,sky,heat}.test.ts`, `src/store/trailhead.test.ts`; specs' entry route `/` → `/map` marked P-65 · audit: 8 reported · 8 reproduced · 8 fixed · 0 deferred (adversarial UI/UX audit, different model, some reasoned rather than reproduced; plus a persona panel on the built screens, all six up to yes / leaning yes; tests written first and run at the end, owner's rule) · this commit
 - 2026-11-23 · P-64 — brief B-07 "Under the night sky" (`docs/product/briefs/B-07-night-sky.md`): prompt-first trailhead, whys as stars, wanders as trails with step stacks, camp, routines; persona panel (6 personas, 3 panelists) synthesized; owner answered D-13 go and reworded STRATEGY · evidence: mockups https://claude.ai/artifact/GWjaYybmi4QxeBqTpGeHHp, `.polish/product/panel-B-07-{1,2,3}.md` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (docs only) · this commit
 - 2026-11-23 · P-61 — ＋ to log (D-11): the What's next / Log toggle is gone; the What's next card is always shown with a round ＋ that opens the log field; as you type it suggests staged steps ("✓ Clean my car · feel productive": a tap attaches and completes it), past entries (re-attaching their target), then nodes; tapping a node while open attaches; the "Toward something — or just itself?" bridge and the toast's question are removed (toast: "Logged → <node>"); DESIGN.md updated · evidence: `logSuggest.test.ts` (11, 8 mutants killed), `e2e/home-plus.spec.ts` (10), spec updates marked P-61; perf 1.13–1.23× (one 4-worker run 1.33×) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
 - 2026-11-23 · P-60 — a calmer Home (D-11): no visible summary line, button list or "All" label (circles are the accessible buttons; a list only at the largest text); labels sit below every ring and never overlap; 24 pt header icons with 44 pt targets; with wanders, the last 3 unattached logs (21 days) sit as labelled dots below the graph, a new one glowing, tap to attach or open · evidence: `overview-calm.test.ts` (7), `e2e/home-calm.spec.ts` (12), spec updates marked P-60; perf 1.15–1.22× · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
