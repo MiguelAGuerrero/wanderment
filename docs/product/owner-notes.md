@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — One version per name; fork a thread, copy a routine
+On "next pass: the routine as named?": "Yes, references to routines changes to the invoker's context.
+So that way the user isn't taken aback by different versions of the same routine. That said, there
+should be a way for users to fork a thread that's completely independent of its originating context.
+And maybe by fork, not necessarily mean just copying a thread over and pasting it and having that be a
+concurrent thread, but also allow user to copy and paste routines so they can tweak it a little bit and
+still have the overall shape that they want to work for in that thread too."
+*Interpretation:* a name always means one routine — no silent versions; a revision lives only in the
+run that made it. Variation is explicit: copy a run into an independent one, or copy a routine into a
+new routine to tweak.
+
 ## 2026-11-24 — A loop is opt-out; popping is revising; the outer loop restores the inner ones
 "A loop, again, is opt-out. So if a user wants to pop the loop off of the current running thread, they
 can, and redefine what those next steps can be. So this is like a form of revision or a way to hatch

@@ -41,7 +41,7 @@ different values, each parked at its own step, carried out at your leisure — t
 one job hunt, each at a different point. Child runs can have their own. This is the app's concurrency:
 there is no "waiting" state; a run is simply left at the step it was on.
 
-**Seven verbs.**
+**Eight verbs.**
 | Verb | What it does |
 |---|---|
 | **Declare** | Start a run: a routine from reference, or something typed (a one-off). |
@@ -51,6 +51,7 @@ there is no "waiting" state; a run is simply left at the step it was on.
 | **Switch** | Leave this run at its step and go to another, at any level. Closing the app is the same. |
 | **Break it down** | Turn a step into a sequence in place. Unnamed: it stays while it runs, then leaves. |
 | **Group** | The reverse: choose neighbouring steps, name them, and they become one routine in reference. |
+| **Copy** | A routine as a new routine, or a run as its own independent run. |
 
 **A run is a working copy** (owner). The run holds context; the named routine stays as it is in
 reference. Inside a run you can pop a loop off and put other steps in its place — a revision, or a way
@@ -58,6 +59,12 @@ out of how you'd planned to go about it — and only this run changes ("Keep in 
 permanent). Every pass of a loop is "until you feel done": then you pop it, or you leave it there.
 Popping an inner loop ends it **for this pass**; when the outer loop comes round again, its inner
 routines are there again, fresh.
+
+**One version per name; variation is explicit** (owner). A name always means one routine: on the
+outer loop's next pass an inner routine is the routine as named, so nobody meets two versions of the
+same thing. To vary, you **copy**: *Copy as a new routine* (keep the shape, tweak it, give it its own
+name) or *Copy as its own run* (an independent run from the same place, with this run's revisions, tied
+to nothing).
 
 **Named and unnamed.** Only named routines live in reference. Anything unnamed (a typed one-off, a
 breakdown) is gone from the lists when its run ends, but typing what it said finds it ("You've done
@@ -155,8 +162,7 @@ as things to add; a reusable routine is named as such for screen readers. A rout
    current frame set; how "Choose steps" is entered.
 4. Later, only if it can be made simple: a step that waits while the rest of its sequence carries on.
 5. Whether history records anything beyond ended runs.
-6. On the outer loop's next pass, are this run's own revisions to an inner routine kept, or is it the
-   routine as named (proposed: as named — "start fresh"; keep a revision with "Keep in <routine>")?
+6. (Settled: on the next pass it is the routine as named.)
 7. Whether today's wanders are copied across by a tap, or left as history only.
 
 ## 9. Slices (as the implementation review recommends)
