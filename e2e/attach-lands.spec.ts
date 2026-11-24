@@ -113,6 +113,8 @@ test.describe('attaching lands where you’re looking (P-82)', () => {
     await button(page, 'First step').click();
     await page.getByRole('textbox', { name: 'First step' }).fill('three balls');
     await page.getByRole('textbox', { name: 'First step' }).press('Enter');
+    // A choice made from the keyboard waits (as for a screen reader): leave it with New line.
+    await button(page, 'New line').click();
     await expect(page).toHaveURL(AT_REST);
     await expect(landed(page)).toHaveText('learn to juggle → learn to juggle');
     await expect(page.getByText('First step on learn to juggle', { exact: true })).toBeVisible();

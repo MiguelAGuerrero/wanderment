@@ -30,11 +30,52 @@ const AFTER_DRAG_MS = 600;
 const native = Platform.OS !== 'web';
 const web = () => Platform.OS === 'web' && typeof window !== 'undefined';
 const ours = () => web() && !!(window.history.state as Record<string, unknown> | null)?.[KEY];
+/** The location is the home at rest (`/` or `/sky`, under the app's base path). */
+const atHome = () => /\/(sky)?$/.test(window.location.pathname);
+/** The section the sheet's history entry was left on (`true` from before it said which). */
+const sectionOf = (state: unknown): SheetSection | undefined => {
+  const v = (state as Record<string, unknown> | null)?.[KEY];
+  return v === 'wanders' || v === 'activities' ? v : v ? 'wanders' : undefined;
+};
+/**
+ * The page was reloaded (by you, or by an update's own reload) or come back to by Back/Forward on the
+ * sheet's entry: the sheet is out again on that section, as it would be if it were in the URL (fold-in
+ * 8), so a reload keeps you where you were. Read once, before anything renders (the router may rewrite
+ * the entry's state), so the home comes up with the sheet already out (no slide), as a deep link does.
+ */
+if (web() && typeof performance !== 'undefined') {
+  const nav = performance.getEntriesByType?.('navigation')[0] as PerformanceNavigationTiming | undefined;
+  const back = nav && (nav.type === 'reload' || nav.type === 'back_forward') ? sectionOf(window.history.state) : undefined;
+  if (back) useStore.getState().openSheet(back);
+}
 /** P-84: marks the entry a search pushed, so Back clears the search before it puts the sheet away. */
 const SEARCH_KEY = 'wandermentSearch';
 const searchOurs = () => web() && !!(window.history.state as Record<string, unknown> | null)?.[SEARCH_KEY];
+/**
+ * The router rewrites the entry it lands on (Back from an activity's page opened from the sheet) with its own
+ * state only, a moment after the pop. That dropped the sheet's mark, so a second visit to that page made soon
+ * after (before the mark was put back) came back with a Back that read as "Back from the sheet" and put it
+ * away, toast and all. A rewrite of the same entry (same URL) keeps our marks instead.
+ */
+if (web()) {
+  const replace = window.history.replaceState.bind(window.history);
+  window.history.replaceState = (state: unknown, unused: string, url?: string | URL | null) => {
+    const was = window.history.state as Record<string, unknown> | null;
+    const same = url == null || new URL(url, window.location.href).href === window.location.href;
+    const marks = same && was && state && typeof state === 'object' ? Object.fromEntries([KEY, SEARCH_KEY].filter((k) => k in was && !(k in state)).map((k) => [k, was[k]])) : {};
+    replace(Object.keys(marks).length ? { ...(state as object), ...marks } : state, unused, url);
+  };
+}
 
 type Focusable = ComponentRef<typeof View> | null;
+
+/** Web: what the last press started on (a drag is only the grabber's or the sheet top's if it started there). */
+let pressedOn: EventTarget | null = null;
+if (web() && typeof document !== 'undefined') document.addEventListener('pointerdown', (e) => (pressedOn = e.target), true);
+const startedIn = (id: string) => pressedOn instanceof Node && !!document.getElementById(id)?.contains(pressedOn);
+/** The views a drag starts on (`nativeID`s): the grabber's area pulls the sheet out, the sheet's top puts it away. */
+export const GRAB_ID = 'home-sheet-grab';
+const TOP_ID = 'home-sheet-top';
 
 /** Moves focus (web) or the screen reader (native) to an element. */
 function focusOn(el: Focusable) {
@@ -87,7 +128,9 @@ function motion(height: number, open: boolean, setLayer: (v: boolean) => void, s
    */
   const pan = (from: 'open' | 'closed', begin: () => void, to: (g: PanResponderGestureState) => number, end: (g: PanResponderGestureState) => void, cancel: () => void) => {
     let dragging = false;
-    const claim = (_: unknown, g: PanResponderGestureState) => vertical(g);
+    // Web: a mouse's moves go to whatever is under it, so a drag that started elsewhere (on the field) would be
+    // claimed once it passes over; only one that started here is (fold-in 10). Native: a touch keeps its target.
+    const claim = (_: unknown, g: PanResponderGestureState) => vertical(g) && (native || startedIn(from === 'open' ? TOP_ID : GRAB_ID));
     const stop = () => {
       if (!dragging) return false;
       dragging = false;
@@ -172,6 +215,7 @@ function motion(height: number, open: boolean, setLayer: (v: boolean) => void, s
  */
 export function useHomeSheet() {
   const open = useStore((st) => st.sheet.open);
+  const section = useStore((st) => st.sheet.section);
   const focused = useIsFocused();
   const reduce = useReduceMotion();
   const { height: windowHeight } = useWindowDimensions();
@@ -226,20 +270,26 @@ export function useHomeSheet() {
     if (!web() || !focused || !open || pushed.current === seen.n) return;
     pushed.current = seen.n;
     const t = setTimeout(() => {
-      if (useStore.getState().sheet.open && !ours()) window.history.pushState({ ...(window.history.state as object | null), [KEY]: true }, '');
+      const st = useStore.getState().sheet;
+      // Only once the location is the home's: coming back to it (Back from a wander's page remounts the home)
+      // the browser's Back may still be on its way, and a push then would land on that page's entry.
+      if (st.open && !ours() && atHome()) window.history.pushState({ ...(window.history.state as object | null), [KEY]: st.section }, '');
     }, 0);
     return () => clearTimeout(t);
   }, [focused, open, seen]);
   // Back in front with it still out (Back from a wander's page): the router lands on that entry and
   // rewrites it with its own state only; once it has (it waits up to 100 ms for the browser), mark it
   // ours again, so putting the sheet away steps back over it.
+  // The entry also says which section is out (a tab switch updates it), so a reload comes back to it.
   useEffect(() => {
     if (!web() || !focused || !open) return;
     const t = setTimeout(() => {
-      if (useStore.getState().sheet.open && !ours()) window.history.replaceState({ ...(window.history.state as object | null), [KEY]: true }, '');
+      const st = useStore.getState().sheet;
+      if (st.open && sectionOf(window.history.state) !== st.section && !searchOurs())
+        window.history.replaceState({ ...(window.history.state as object | null), [KEY]: st.section }, '');
     }, 150);
     return () => clearTimeout(t);
-  }, [focused, open]);
+  }, [focused, open, section]);
 
   // While Home is in front with the sheet out: Esc and Back put it away first.
   useEffect(() => {
@@ -290,7 +340,7 @@ export function HomeSheet({ sheet, tabRefs }: { sheet: HomeSheetCtl; tabRefs: Re
   const height = searching ? searchSheetHeight(sheet.height, windowHeight) : sheet.height;
 
   return (
-    <View style={[StyleSheet.absoluteFill, !sheet.layer && styles.gone]} pointerEvents="box-none">
+    <View style={[StyleSheet.absoluteFill, styles.layer, !sheet.layer && styles.gone]} pointerEvents="box-none">
       {/* The scrim: a tap on it (over Home's header) puts the sheet away. Pointer only; Esc, Back and Close are the other ways. */}
       <Animated.View
         style={[StyleSheet.absoluteFill, styles.scrim, { opacity: searching ? 0 : scrim }]}
@@ -308,7 +358,7 @@ export function HomeSheet({ sheet, tabRefs }: { sheet: HomeSheetCtl; tabRefs: Re
         onAccessibilityEscape={sheet.close}
         style={[styles.sheet, { height, transform: [{ translateY: sheet.pos }] }]}
         {...{ dataSet: { detent: searching ? 'low' : 'full' } }}>
-        <View {...sheet.sheetPan.panHandlers} style={styles.top}>
+        <View nativeID={TOP_ID} {...sheet.sheetPan.panHandlers} style={styles.top}>
           {/* The grab bar: a tap (pointer) or a drag down puts it away; Close is the named way (P-83, fold-in 10). */}
           <View onStartShouldSetResponder={() => true} onResponderRelease={sheet.tapClose} style={styles.grabHit} {...decorative}>
             <View style={styles.grab} />
@@ -474,6 +524,9 @@ function SheetPlaces() {
 }
 
 const styles = StyleSheet.create({
+  // The sheet slid partly away (translated below the screen) must never make the page scrollable: a field
+  // focused in it then would scroll the whole page, sky and all (web: `clip`, which can't be scrolled).
+  layer: { overflow: (Platform.OS === 'web' ? 'clip' : 'hidden') as 'hidden' },
   gone: { display: 'none' },
   grab: { width: 36, height: 4, borderRadius: 2, backgroundColor: M.dashed },
   // Dark Map: the scrim darkens (the ink is light on the night palette).

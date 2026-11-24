@@ -35,7 +35,7 @@ export type PassageState = {
   p: Animated.Value;
   moving: boolean;
   /** For the screen's root: what it played (`data-passage`, `data-reverse`) and whether it's still moving. */
-  mark: object;
+  mark: { dataSet: Record<string, string> };
 };
 
 /**

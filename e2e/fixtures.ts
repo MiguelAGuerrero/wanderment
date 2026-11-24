@@ -87,7 +87,10 @@ export async function openSheet(page: Page, section: 'Wanders' | 'Activities') {
   await expect(tab).toBeVisible();
   if ((await tab.getAttribute('aria-selected')) !== 'true') await tab.click();
   await expect(tab).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByRole('button', { name: 'Wanders and activities', exact: true })).toHaveAttribute('aria-expanded', 'true');
+  // The grabber is in the home, which is inert under the open sheet (so not a role in the tree then): by its test id.
+  await expect(page.getByTestId('home-sheet-handle')).toHaveAttribute('aria-expanded', 'true');
+  // At rest: the home's composer is out of sight under it (was: Map's slot hidden), so only the sheet's own words are there.
+  await expect(page.getByTestId('field-box')).toHaveCount(0);
 }
 
 /** P-34/P-58: opens the Wanders list (the cards that were Home before the graph) once data has loaded: /wanders opens Home's sheet on it. */

@@ -60,6 +60,8 @@ async function expectOpen(page: Page, on: 'Wanders' | 'Activities') {
   await expect(dialog(page)).toBeVisible();
   await expect(section(page, on)).toHaveAttribute('aria-selected', 'true');
   await expect(field(page)).toHaveCount(0);
+  // At rest, not still sliding up: the home's composer is out of sight under it (its field box isn't drawn).
+  await expect(page.getByTestId('field-box')).toHaveCount(0);
 }
 
 /** The sheet is away: Home is back, its handle reachable again. */

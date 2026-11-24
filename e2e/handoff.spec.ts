@@ -443,8 +443,8 @@ test.describe('without the service worker (the wasm comes from the network)', ()
     await openHome(page);
     await logLine(page, 'watered the plants');
     await expect(page.getByText('Logged', { exact: true })).toBeVisible();
-    await page.getByRole('link', { name: 'Search' }).click();
-    const search = page.getByRole('textbox', { name: 'Search' });
+    // P-83/P-84: the sheet's Search field (was Map's Search link to /search; Map is retired).
+    const search = page.getByRole('dialog').getByRole('textbox', { name: 'Search', exact: true });
     await setVisibility(page, 'hidden');
     const restore = await cutWasm(page);
     const failed = failedTry(page);
@@ -452,7 +452,7 @@ test.describe('without the service worker (the wasm comes from the network)', ()
     await failed;
     await search.fill('plants');
     await search.press('Enter');
-    await page.getByText('watered the plants', { exact: true }).filter({ visible: true }).click();
+    await page.getByRole('dialog').getByText('watered the plants', { exact: true }).filter({ visible: true }).click();
     await expect(page.getByRole('textbox', { name: 'Note' })).toBeVisible();
     await expect(page.getByText('Just a moment — reconnecting.', { exact: true })).toHaveCount(0);
     restore();

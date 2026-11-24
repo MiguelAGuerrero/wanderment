@@ -1,5 +1,5 @@
 import { router, useIsFocused } from 'expo-router';
-import { ReactNode, useDeferredValue, useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { ReactNode, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Polyline } from 'react-native-svg';
@@ -9,7 +9,7 @@ import { Composer } from '@/components/Composer';
 import { useReduceMotion } from '@/components/graph/scopeNav';
 import { useHome, useKeyboardUp } from '@/components/Home';
 import { DarkProvider } from '@/components/palette';
-import { HomeSheet, SHEET_NAME, useHomeSheet } from '@/components/sheet/HomeSheet';
+import { GRAB_ID, HomeSheet, SHEET_NAME, useHomeSheet } from '@/components/sheet/HomeSheet';
 import { ShownProvider } from '@/components/shown';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { Toast } from '@/components/Toast';
@@ -109,8 +109,11 @@ export function Trailhead({ lit = false }: { lit?: boolean }) {
   const top = mapTop({ guideTop: guides ? Math.max(8, Math.ceil(GUIDE_BAND_END * height) + 12 - insets.top) : undefined, band: bandHeight(Math.max(band.rows, bandRows.rows)) });
   const layout = restLayout({ room: restRoom.shape === shape ? Math.max(restRoom.room, room) : room, top, fontScale });
   // The ground stands below the rows while it still fits there (typing's suggestions take its place).
-  const ground = room > 0 && layout.ground && room - (top + layout.rowH * FEED_ROWS) >= GROUND_H - 0.5 && !keyboardUp;
-  useEffect(() => rest({ ground, lift: composerH }), [rest, ground, composerH]);
+  // While suggestions are open the composer grows over where the ground stood: it hides in the same frame
+  // (said by the composer before paint; the room measured after would leave it a frame under the grabber).
+  const [suggesting, setSuggesting] = useState(false);
+  const ground = room > 0 && layout.ground && room - (top + layout.rowH * FEED_ROWS) >= GROUND_H - 0.5 && !keyboardUp && !suggesting;
+  useLayoutEffect(() => rest({ ground, lift: composerH }), [rest, ground, composerH]);
 
   // P-84: the sheet's search lights the stars above. Every matching line is a star in the sky left in
   // view over the lowered sheet, placed from its id; a bright line of the feed that matches stays where
@@ -140,6 +143,9 @@ export function Trailhead({ lit = false }: { lit?: boolean }) {
   const [placed, setPlaced] = useState<{ key: string; stars: Record<Id, StarPlace> }>({ key: '', stars: {} });
   if (placed.key !== starKey) setPlaced({ key: starKey, stars: searchSky ? placeStars(placed.stars, searchSky.starIds, { rows: searchSky.rows, taken: searchSky.taken }) : {} });
   const stars = placed.stars;
+  // The sheet out and at rest covers the composer (both detents) and, unless its search shows the sky, the map.
+  const covered = sheet.settled;
+  const [fieldH, setFieldH] = useState(0);
   useEffect(() => () => rest(undefined), [rest]);
 
   // Return sent a line up (or one logged once the data was back), or a line on the map was tapped:
@@ -157,22 +163,39 @@ export function Trailhead({ lit = false }: { lit?: boolean }) {
   }, [shown, focusLogBox]);
 
   // P-81: "I'm not sure" lights the map (`/sky`), and again dims it; Esc and Back dim it too (the sheet first).
+  // Lighting is a navigation that lands a moment later: an Esc pressed before it has still dims it (as audit F3's tilt).
+  const lighting = useRef<false | 'asked' | 'esc'>(false);
   const toggle = () => {
     clearLanded();
     if (lit) dim();
-    else router.push(subjectHref({ kind: 'whys' }));
+    else {
+      lighting.current = 'asked';
+      router.push(subjectHref({ kind: 'whys' }));
+      // Only while it's on its way (it lands within a frame or two).
+      setTimeout(() => (lighting.current = false), 1500);
+    }
   };
+  const litNow = useRef(lit);
+  useLayoutEffect(() => {
+    litNow.current = lit;
+    if (!lit) return;
+    const esc = lighting.current === 'esc';
+    lighting.current = false;
+    if (esc) dim();
+  }, [lit]);
   useEffect(() => {
-    if (!lit || !shown || !web || typeof document === 'undefined') return;
+    if (!shown || !web || typeof document === 'undefined') return;
     // Something nearer (the suggestions, the @ menu, the sheet) handles its own Esc first; judged once it has.
     const onKey = (e: KeyboardEvent) =>
       e.key === 'Escape' &&
       setTimeout(() => {
-        if (!e.defaultPrevented && !useStore.getState().sheet.open) dim();
+        if (e.defaultPrevented || useStore.getState().sheet.open) return;
+        if (litNow.current) dim();
+        else if (lighting.current) lighting.current = 'esc';
       }, 0);
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [lit, shown]);
+  }, [shown]);
 
   const open = (id: Id) => {
     tilting();
@@ -223,7 +246,7 @@ export function Trailhead({ lit = false }: { lit?: boolean }) {
   );
 
   return (
-    <View style={styles.screen} testID="trailhead" {...passage.mark} {...{ dataSet: { lit: lit ? 'on' : 'off' } }}>
+    <View style={styles.screen} testID="trailhead" {...{ dataSet: { ...passage.mark.dataSet, lit: lit ? 'on' : 'off' } }}>
       {/* Under the open sheet (a modal dialog), the home is out of reach of assistive tech and the keyboard. */}
       <View ref={homeRef} style={styles.fill} {...(sheet.open ? decorative : {})}>
         <ShownProvider value={!sheet.open}>
@@ -243,17 +266,23 @@ export function Trailhead({ lit = false }: { lit?: boolean }) {
                     <Text accessibilityRole="header" style={collapsed ? styles.collapsed : styles.prompt} testID="composer-heading">
                       {PROMPT}
                     </Text>
-                    <Composer night autocomplete arrow openWanders placeholder="nothing yet is fine" label={PROMPT} logOptions={logOptions} chips={chips}
-                      onLogged={() => {
-                        // The line rises: an Esc before it lands still comes back down (audit F3).
-                        tilting();
-                        return true;
-                      }}
-                    />
+                    {/* Under the settled sheet the field isn't drawn (as Map's slot wasn't): the sheet's own log box shares the
+                        line, so its words, @ highlight and chips exist once. Its room is kept, so nothing above it moves. */}
+                    <View onLayout={(e) => !covered && setFieldH(Math.round(e.nativeEvent.layout.height))} style={covered ? { height: fieldH } : undefined}>
+                      {!covered && (
+                        <Composer night autocomplete arrow openWanders placeholder="nothing yet is fine" label={PROMPT} logOptions={logOptions} chips={chips} onSuggesting={setSuggesting}
+                          onLogged={() => {
+                            // The line rises: an Esc before it lands still comes back down (audit F3).
+                            tilting();
+                            return true;
+                          }}
+                        />
+                      )}
+                    </View>
                   </View>
                   {/* P-83: the grabber, drawn at the composer's top edge, read after its controls: a 44 pt button (tap, Enter)
                       with an expanded state; a swipe up that starts on it pulls the sheet out (never one over the field). */}
-                  <View {...sheet.handlePan.panHandlers} style={styles.grabWrap}>
+                  <View nativeID={GRAB_ID} {...sheet.handlePan.panHandlers} style={styles.grabWrap}>
                     <Pressable
                       ref={handleRef}
                       testID="home-sheet-handle"
@@ -268,7 +297,7 @@ export function Trailhead({ lit = false }: { lit?: boolean }) {
                   </View>
                 </ScrollView>
                 <View style={styles.map} onLayout={(e) => onRoom(Math.round(e.nativeEvent.layout.height))} testID="live-map" {...{ dataSet: { mode: layout.list ? 'list' : 'picture' } }}>
-                  {room > 0 && (
+                  {room > 0 && !(covered && !searchSky) && (
                     <Feed
                       lines={lines}
                       list={layout.list}

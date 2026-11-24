@@ -11,7 +11,7 @@ import { starIn } from '@/components/passage';
 import { useWhileShown } from '@/components/shown';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { useEscBack } from '@/components/useEscBack';
-import { litGlow, looksLit, riseSaid } from '@/domain/rise';
+import { canGoToward, litGlow, looksLit, riseSaid } from '@/domain/rise';
 import { GROUND_H, groundFits, promptSize } from '@/domain/trailhead';
 import { Id } from '@/domain/types';
 import { recentThreadOrder, useStore } from '@/store/useStore';
@@ -135,7 +135,8 @@ export function Rise({ id }: { id: Id }) {
   const glow = litGlow(a, now, shading);
   const free = !kept.did && !a.doingId;
   const canSettle = !kept.did && a.lit === true;
-  const canToward = free && wanders.length > 0;
+  // Fix (c): never for a line that already went somewhere (the status line says where instead).
+  const canToward = free && canGoToward(a) && wanders.length > 0;
   const said = riseSaid(data, id, kept.did);
   // A choice's Undo, or (audit F4) before one, the Return's — not for a line opened again from the sky.
   const canUndo = hasUndo && (!!kept.did || !kept.reopened);

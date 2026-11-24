@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ComponentRef, ReactNode, useEffect, useRef, useState } from 'react';
+import { ComponentRef, ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { useShown } from '@/components/shown';
@@ -32,6 +32,7 @@ export function Composer({
   logOptions,
   openWanders,
   chips: chipRow,
+  onSuggesting,
 }: {
   presetDoingId?: Id;
   placeholder?: string;
@@ -61,6 +62,8 @@ export function Composer({
    * after it; the suggestions open above them, so the field and its chips never move as you type.
    */
   chips?: ReactNode;
+  /** Whether suggestions (or the @ menu) are open, said before the frame that draws them (the home hides its ground then). */
+  onSuggesting?: (open: boolean) => void;
 }) {
   const { C, s, dark } = usePalette();
   const styles = sheet(dark);
@@ -139,6 +142,11 @@ export function Composer({
   const logSuggestions =
     autocomplete && !mention && answered !== draft.text ? suggestLogs(data, draft.text, recentThreadOrder(data)) : [];
   const opening = openWanders && logSuggestions.length ? openOffer(data, draft.text, recentThreadOrder(data)) : undefined;
+  const suggesting = open || logSuggestions.length > 0;
+  useLayoutEffect(() => {
+    onSuggesting?.(suggesting);
+  }, [onSuggesting, suggesting]);
+  useLayoutEffect(() => () => onSuggesting?.(false), [onSuggesting]);
   /** What a pick did, said once (P-61). */
   const [picked, setPicked] = useState({ text: '', n: 0 });
 
@@ -330,7 +338,7 @@ export function Composer({
           {chips.map((c, i) => (
             <View key={c.id + c.kind} style={styles.chipWrap}>
               {c.kind === 'to' && (i === 0 || chips[i - 1].kind === 'doing') && (
-                <Text style={styles.to} {...decorative}>
+                <Text style={[styles.to, night && styles.nightTo]} {...decorative}>
                   → to
                 </Text>
               )}
@@ -518,6 +526,8 @@ const sheet = themed((C, s) =>
     stepHit: { flexShrink: 1, maxWidth: '100%' },
     stepChip: { backgroundColor: C.crumbBg, borderColor: C.dashed, alignItems: 'flex-start' },
     to: { fontSize: 13, fontWeight: '600', color: C.accent },
+    // On the night field's box (the home's composer, which takes the day palette's chips): the lantern, ≥ 4.5:1.
+    nightTo: { color: N.lantern },
     suggestions: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: 16, overflow: 'hidden' },
     suggestion: { minHeight: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: C.lineSoft },
     suggestionActive: { backgroundColor: C.accentTint },

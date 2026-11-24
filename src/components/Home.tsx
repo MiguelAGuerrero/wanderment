@@ -120,7 +120,15 @@ export function Home({ trailhead }: { trailhead: (lit: boolean) => ReactNode }) 
   const shown = useIsFocused();
   // P-81: the trailhead is drawn here, not by its route, so `/` ↔ `/sky` (lighting the map) keeps it as it is:
   // the feed's lines, the field and its focus never move or remount.
-  const resting = restRoute(usePathname());
+  // A page outside the home (a wander's, an activity's, Settings) pushed over it keeps the trailhead as it
+  // was, mounted under it (as its route kept it before P-81): coming back never remounts it, so its sheet,
+  // held lines and history entry stay. Only a session of the home (`/star`, `/trail`, `/line`) replaces it.
+  const path = usePathname();
+  const here = restRoute(path);
+  const ofHome = !!here || /^\/(star|trail|line)\//.test(path);
+  const [kept, setKept] = useState(here);
+  if (ofHome && kept !== here) setKept(here);
+  const resting = ofHome ? here : kept;
   useLayoutEffect(() => {
     if (resting) restPath = resting;
   }, [resting]);

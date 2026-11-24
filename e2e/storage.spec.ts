@@ -16,7 +16,9 @@ test('data saved by the first release (localStorage) moves into SQLite once', as
   await openHome(page);
   // P-83: the wander's card in the sheet's Wanders (was Map's node and its What's next card), with its step.
   await openSheet(page, 'Wanders');
-  await expect(page.getByRole('button', { name: /^play guitar\s*\S/ })).toBeVisible();
+  // A card, or (once the fixture's dates are three weeks old) a row under Earlier, which is a link.
+  const wander = page.getByRole('dialog').getByRole('button', { name: /^play guitar\s*\S/ });
+  await expect(wander.or(page.getByRole('dialog').getByRole('link', { name: /^play guitar\s*\S/ })).first()).toBeVisible();
   await expect(page.getByText('learn the F chord').first()).toBeVisible();
   await page.goto('./settings');
   await expect(page.getByText('3 activities · 2 wanders')).toBeVisible();

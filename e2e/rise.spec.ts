@@ -56,16 +56,18 @@ async function send(page: Page, text: string) {
   await expect(words(page)).toHaveText(text);
 }
 
-/** The sky's loose lines (the reachable stars), by accessible name. */
+/**
+ * The home's recent lines (the live map's "Recent" group, P-80; was the look-up session's "Loose" stray
+ * footprints, retired with it in P-81), by accessible name, with ", lit" added for a line drawn lit:
+ * the feed says "words, when" for lit and settled alike and keeps the state as `data-state`.
+ */
 async function looseNames(page: Page) {
-  await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
-  // The sky is ready (its strays drawn) before reading them and leaving (audit F2).
-  const group = page.getByRole('group', { name: 'Loose', exact: true });
-  await expect(group.getByRole('button').first()).toBeVisible();
-  const names = await group.getByRole('button').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
-  await page.keyboard.press('Escape');
   await expect(field(page)).toBeVisible();
-  return names;
+  const group = page.getByRole('group', { name: 'Recent', exact: true });
+  await expect(group.getByRole('button').first()).toBeVisible();
+  return group
+    .getByRole('button')
+    .evaluateAll((els) => els.map((e) => `${e.getAttribute('aria-label')}${(e as HTMLElement).dataset.state === 'lit' ? ', lit' : ''}`));
 }
 
 test.describe('the rise', () => {
@@ -251,11 +253,12 @@ test.describe('the rise', () => {
     await page.keyboard.press('Enter');
     await expect(star(page)).toHaveAttribute('data-state', 'lit');
     await button(page, 'New line').click();
-    await page.getByRole('link', { name: 'Map', exact: true }).click();
+    // P-83: the sheet's Wanders, from the home (was Map's, behind its link).
+    await expect(page).toHaveURL(AT_REST);
     await openSheet(page, 'Wanders');
     await expect(page.getByRole('dialog').getByText(LINE, { exact: true }).filter({ visible: true })).toHaveCount(0);
     await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
-    await page.goBack();
+    await expect(field(page)).toBeVisible();
 
     // Made for real: the wander and its step, on its trail.
     await send(page, 'learn watercolour again');
@@ -396,10 +399,13 @@ test.describe('the rise', () => {
 
   test('audit F3: Esc pressed as the session starts to tilt still leaves (the sky, and the rise)', async ({ page }) => {
     await open(page);
-    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
+    // P-81: I'm not sure lights the map in place (was the look-up session): Esc dims it, and focus stays on the chip.
+    const unsure = page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true });
+    await unsure.click();
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(AT_REST);
-    await expect(field(page)).toBeFocused();
+    await expect(unsure).toHaveAttribute('aria-pressed', 'false');
+    await expect(unsure).toBeFocused();
     await field(page).fill(LINE);
     await field(page).press('Enter');
     await page.keyboard.press('Escape');

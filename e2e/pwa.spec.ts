@@ -43,7 +43,8 @@ test('works offline after the first visit, with data intact', async ({ page, con
 
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByText('Wanderment', { exact: true })).toBeVisible();
+  // P-83: the app is up with its data (was Map's "Wanderment" title, retired with Map).
+  await expect(logBox(page)).toBeVisible();
   await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('read on the train')).toBeVisible();
 
@@ -70,6 +71,6 @@ test('a new version shows a reload banner and never reloads by itself once the p
   expect(await page.evaluate(() => (window as unknown as { stillHere?: boolean }).stillHere)).toBe(true);
   await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: 'Reload to update' }).click()]);
   expect(await page.evaluate(() => (window as unknown as { stillHere?: boolean }).stillHere)).toBeUndefined();
-  await expect(page.getByText('Wanderment', { exact: true })).toBeVisible();
+  await expect(logBox(page)).toBeVisible(); // P-83: was Map's "Wanderment" title
   await expect(banner).toHaveCount(0);
 });
