@@ -1,8 +1,8 @@
 import { Link, useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ComponentRef, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
@@ -11,7 +11,7 @@ import { useReduceMotion } from '@/components/graph/scopeNav';
 import { NightSky } from '@/components/NightSky';
 import { useWhileShown } from '@/components/shown';
 import { Toast } from '@/components/Toast';
-import { moveOffer, promptSize } from '@/domain/trailhead';
+import { GROUND_H, groundFits, moveOffer, promptSize } from '@/domain/trailhead';
 import { Id } from '@/domain/types';
 import { Kept, LogOptions, recentThreadOrder, useStore } from '@/store/useStore';
 import { N } from '@/theme';
@@ -21,6 +21,29 @@ const TRAIL: LogOptions = { trail: true };
 const web = Platform.OS === 'web';
 /** The big type: Space Grotesk where it's installed, else the system's sans (never the browser's serif default). */
 const display = Platform.select({ web: '"Space Grotesk", SpaceGrotesk, system-ui, -apple-system, "Segoe UI", sans-serif', default: undefined });
+
+/** Native: whether the keyboard is up (it covers the ground then, so there's none). Web: never known. */
+function useKeyboardUp() {
+  const [up, setUp] = useState(false);
+  useEffect(() => {
+    if (web) return;
+    const ios = Platform.OS === 'ios';
+    const show = Keyboard.addListener(ios ? 'keyboardWillShow' : 'keyboardDidShow', () => setUp(true));
+    const hide = Keyboard.addListener(ios ? 'keyboardWillHide' : 'keyboardDidHide', () => setUp(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return up;
+}
+
+/** A key that types a character (not a shortcut, not Space or Enter), pressed outside any field. */
+const typesInto = (e: KeyboardEvent) => {
+  if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.key.length !== 1 || e.key === ' ') return false;
+  const t = e.target as HTMLElement | null;
+  return !(t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable));
+};
 
 type Focusable = ComponentRef<typeof View> | ComponentRef<typeof Text> | null;
 /** Web: moves focus to an element once it has rendered. */
@@ -43,6 +66,10 @@ export function Trailhead() {
   const warm = useStore((st) => st.showShading);
   const reduce = useReduceMotion();
   const { width, height, fontScale } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const keyboardUp = useKeyboardUp();
+  // The ground (hills, path, lantern) only where it fits below the content, which then scrolls above it (P-65 fix).
+  const ground = groundFits({ height, insets: insets.top + insets.bottom }) && !keyboardUp;
   // The billboard shows while its line is there (after "Next on", its words: the line became the step).
   const board = kept && (kept.moved?.kind === 'next' || !!data.activities[kept.activityId]) ? kept : undefined;
 
@@ -67,10 +94,16 @@ export function Trailhead() {
   return (
     <View style={styles.screen} testID="trailhead">
       {shown && <StatusBar style="light" />}
-      <NightSky still={reduce || !shown} warm={warm} />
+      <NightSky still={reduce || !shown} warm={warm} ground={ground} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            testID="trailhead-scroll"
+            // Not a Tab stop of its own (P-65 fix): Map, the field and the buttons are.
+            {...(web ? { tabIndex: -1 } : {})}
+            style={ground && { marginBottom: Math.max(0, GROUND_H - insets.bottom) }}
+            contentContainerStyle={[styles.content, width < 360 && styles.narrow]}
+            keyboardShouldPersistTaps="handled">
             <View style={styles.top}>
               <Link href="/map" asChild>
                 <Pressable style={styles.mapLink}>
@@ -85,7 +118,7 @@ export function Trailhead() {
                 <Text accessibilityRole="header" style={[styles.prompt, { fontSize: size, lineHeight: size }]}>
                   {PROMPT}
                 </Text>
-                <Composer night autocomplete arrow placeholder="nothing yet is fine" label={PROMPT} logOptions={TRAIL} onLogged={() => true} />
+                <Composer night autocomplete arrow openWanders placeholder="nothing yet is fine" label={PROMPT} logOptions={TRAIL} onLogged={() => true} />
                 <Link href="/sky" asChild>
                   <Pressable style={styles.unsure}>
                     <Svg width={14} height={14} viewBox="0 0 24 24" {...decorative}>
@@ -149,6 +182,19 @@ function Billboard({ kept }: { kept: Kept }) {
 
   // The words take focus when they appear (so a screen reader starts there), then Tab reaches Undo and the moves.
   useEffect(() => focusSoon(() => words.current), [kept.activityId]);
+  // Web: typing (outside a field) starts the next line with what's typed, as "New line" does (P-65 fix).
+  useEffect(() => {
+    if (!web || typeof document === 'undefined') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!typesInto(e)) return;
+      e.preventDefault();
+      const st = useStore.getState();
+      st.setDraft({ text: st.draft.text + e.key });
+      st.leaveKept();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
   const move = (m: Parameters<typeof moveKept>[0]) => {
     if (!moveKept(m)) return;
     setElsewhere(false);
@@ -159,10 +205,10 @@ function Billboard({ kept }: { kept: Kept }) {
   const size = promptSize({ width, height, fontScale, chars: kept.text.length });
   return (
     <View style={styles.board}>
-      <Pressable onPress={leaveKept} accessibilityRole="button" accessibilityHint="Starts a new line" style={styles.again}>
-        <Text style={styles.againText}>{PROMPT}</Text>
+      <Pressable onPress={leaveKept} accessibilityRole="button" style={styles.again}>
+        <Text style={styles.againText}>New line</Text>
       </Pressable>
-      <Text ref={words} {...(web ? { tabIndex: -1 } : {})} style={[styles.words, { fontSize: size, lineHeight: Math.round(size * 1.05) }]} testID="trail-words">
+      <Text ref={words} accessibilityRole="header" {...(web ? { tabIndex: -1 } : {})} style={[styles.words, { fontSize: size, lineHeight: Math.round(size * 1.05) }]} testID="trail-words">
         {kept.text}
       </Text>
       <View style={styles.status}>
@@ -172,9 +218,12 @@ function Billboard({ kept }: { kept: Kept }) {
             {status(kept, threadName, attached)}
           </Text>
         </View>
-        <Pressable ref={undoRef} onPress={undoKept} accessibilityRole="button" style={styles.undo}>
-          <Text style={styles.undoText}>Undo</Text>
-        </Pressable>
+        {/* A line opened again from the sky has nothing to undo until it's moved (fix 18). */}
+        {(!kept.reopened || kept.moved) && (
+          <Pressable ref={undoRef} onPress={undoKept} accessibilityRole="button" style={styles.undo}>
+            <Text style={styles.undoText}>Undo</Text>
+          </Pressable>
+        )}
       </View>
 
       {loose && !elsewhere && (
@@ -182,7 +231,7 @@ function Billboard({ kept }: { kept: Kept }) {
           <Text style={styles.moveLabel}>Move it?</Text>
           {guess && canNext && <MoveButton label={`Next on ${guess.name}`} onPress={() => move({ kind: 'next', threadId: guess.id })} />}
           {guess && <MoveButton label={`Log toward ${guess.name}`} onPress={() => move({ kind: 'toward', threadId: guess.id })} />}
-          <MoveButton label="Somewhere else…" quiet onPress={() => setElsewhere(true)} />
+          <MoveButton label="Somewhere else…" onPress={() => setElsewhere(true)} />
         </View>
       )}
       {loose && elsewhere && (
@@ -191,27 +240,33 @@ function Billboard({ kept }: { kept: Kept }) {
           {others.map((t) => (
             <MoveButton key={t.id} label={t.name} onPress={() => move({ kind: 'toward', threadId: t.id })} />
           ))}
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            onSubmitEditing={() => move({ kind: 'new', name })}
-            placeholder="＋ A new wander"
-            placeholderTextColor={N.faint}
-            accessibilityLabel="A new wander"
-            returnKeyType="done"
-            style={styles.newWander}
-          />
-          <MoveButton label="Cancel" quiet onPress={() => setElsewhere(false)} />
+          <View style={styles.newRow}>
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              onSubmitEditing={() => move({ kind: 'new', name })}
+              placeholder="＋ A new wander"
+              placeholderTextColor={N.faint}
+              accessibilityLabel="A new wander"
+              returnKeyType="done"
+              style={styles.newWander}
+            />
+            <Pressable onPress={() => move({ kind: 'new', name })} accessibilityRole="button" style={styles.make}>
+              <Text style={styles.makeText}>Make it</Text>
+            </Pressable>
+          </View>
+          <MoveButton label="Cancel" onPress={() => setElsewhere(false)} />
         </View>
       )}
     </View>
   );
 }
 
-function MoveButton({ label, quiet, onPress }: { label: string; quiet?: boolean; onPress: () => void }) {
+/** A move: as quiet as "Kept, loose" (P-65 fix: kept is the default; moving it is optional). */
+function MoveButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} accessibilityRole="button" style={styles.move}>
-      <Text style={[styles.moveText, quiet && { color: N.muted }]}>{label}</Text>
+      <Text style={styles.moveText}>{label}</Text>
     </Pressable>
   );
 }
@@ -219,7 +274,9 @@ function MoveButton({ label, quiet, onPress }: { label: string; quiet?: boolean;
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: N.bg },
   fill: { flex: 1 },
-  content: { flexGrow: 1, paddingHorizontal: 28, paddingBottom: 140, maxWidth: 640, width: '100%', alignSelf: 'center' },
+  content: { flexGrow: 1, paddingHorizontal: 28, paddingBottom: 32, maxWidth: 640, width: '100%', alignSelf: 'center' },
+  // 200 % zoom: room for the placeholder.
+  narrow: { paddingHorizontal: 16 },
   top: { flexDirection: 'row', justifyContent: 'flex-end', paddingTop: 12 },
   mapLink: { minHeight: 44, minWidth: 44, alignItems: 'flex-end', justifyContent: 'center' },
   mapText: { color: N.muted, fontSize: 15 },
@@ -234,13 +291,16 @@ const styles = StyleSheet.create({
   words: { fontFamily: display, fontWeight: '700', color: N.ink, letterSpacing: -1.2, ...(web && ({ outlineStyle: 'none' } as object)) },
   status: { flexDirection: 'row', alignItems: 'center', gap: 8, borderTopWidth: 2, borderTopColor: N.line, paddingTop: 4 },
   statusText: { flex: 1 },
-  statusWords: { color: N.muted, fontSize: 14 },
+  statusWords: { color: N.muted, fontSize: 15 },
   undo: { minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' },
   undoText: { color: N.ink, fontWeight: '600', fontSize: 14 },
   moves: { gap: 2, marginTop: 8 },
   moveLabel: { color: N.muted, fontSize: 13, paddingBottom: 4 },
   move: { minHeight: 48, justifyContent: 'center' },
-  moveText: { color: N.lantern, fontSize: 16 },
-  newWander: { minHeight: 48, color: N.ink, fontSize: 16, borderBottomWidth: 1, borderBottomColor: N.line },
+  moveText: { color: N.muted, fontSize: 15 },
+  newRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  newWander: { flex: 1, minWidth: 0, minHeight: 48, color: N.ink, fontSize: 16, borderBottomWidth: 1, borderBottomColor: N.line },
+  make: { minHeight: 44, minWidth: 44, paddingHorizontal: 14, borderRadius: 22, borderWidth: 1.5, borderColor: N.line, alignItems: 'center', justifyContent: 'center' },
+  makeText: { color: N.ink, fontSize: 15, fontWeight: '500' },
   toastSlot: { position: 'absolute', left: 0, right: 0, bottom: 0 },
 });

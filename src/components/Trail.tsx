@@ -11,7 +11,9 @@ import { BackGlyph } from '@/components/icons';
 import { NightSky } from '@/components/NightSky';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { Toast } from '@/components/Toast';
-import { footprints, latestNote, skyStars, starTarget, starTint } from '@/domain/sky';
+import { useEscBack } from '@/components/useEscBack';
+import { footprintName, footprints, latestNote, skyStars, starTarget, starTint } from '@/domain/sky';
+import { promptSize } from '@/domain/trailhead';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 import { N } from '@/theme';
@@ -41,7 +43,7 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const log = useStore((st) => st.log);
   const setNext = useStore((st) => st.setNext);
   const reduce = useReduceMotion();
-  const { width } = useWindowDimensions();
+  const { width, height, fontScale } = useWindowDimensions();
   const [adding, setAdding] = useState(false);
   const [step, setStep] = useState('');
   const addRef = useRef<ComponentRef<typeof View>>(null);
@@ -54,12 +56,15 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const overhead = stars.find((s) => s.thread.id === (why?.id ?? id));
   const tag = useMemo(() => latestNote(data, id), [data, id]);
   const steps = useMemo(() => footprints(data, id), [data, id]);
-  if (!thread || thread.hidden) return <Redirect href="/sky" />;
-
   // Came from a star with several wanders: back to them; else back to the sky.
   const backTo = why && starTarget(data, why.id).startsWith('/star/') ? `/star/${encodeURIComponent(why.id)}` : '/sky';
   const back = () => (router.canGoBack() ? router.back() : router.replace(backTo));
+  useEscBack(shown && !!thread && !thread.hidden, back);
+  if (!thread || thread.hidden) return <Redirect href="/sky" />;
+
   const next = thread.next?.trim();
+  // The step's large type steps down at large text and on small windows, like the trailhead's prompt (P-66 fix).
+  const stepSize = promptSize({ width, height, fontScale, chars: next?.length ?? 0, max: 40 });
 
   const did = () => {
     const t = useStore.getState().data.threads[id];
@@ -86,7 +91,7 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
       {shown && <StatusBar style="light" />}
       <NightSky still={reduce || !shown} warm={shading} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
-        <ScrollView contentContainerStyle={[styles.content, { width: w }]} keyboardShouldPersistTaps="handled">
+        <ScrollView {...(web ? { tabIndex: -1 } : {})} contentContainerStyle={[styles.content, { width: w }]} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
             <Pressable onPress={back} accessibilityRole="button" accessibilityLabel={backTo === '/sky' ? 'Back to the sky' : 'Back to the wanders'} style={styles.backBtn}>
               <BackGlyph color={N.muted} />
@@ -109,7 +114,7 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
           <View style={styles.here}>
             <Text style={styles.leftOff}>Here’s where we left off</Text>
             {next ? (
-              <Text style={styles.step} testID="trail-step">
+              <Text accessibilityRole="header" style={[styles.step, { fontSize: stepSize, lineHeight: Math.round(stepSize * 1.05) }]} testID="trail-step">
                 {next}
               </Text>
             ) : null}
@@ -163,7 +168,7 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
           {steps.length > 0 && (
             <View style={styles.prints} role="list" aria-label="Footprints">
               {steps.map((f) => (
-                <View key={f.id} role="listitem">
+                <View key={f.id} role="listitem" aria-label={footprintName(f)}>
                   <Text style={styles.print}>
                     {f.text} · {f.when}
                   </Text>

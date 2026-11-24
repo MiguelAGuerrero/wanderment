@@ -10,7 +10,7 @@
  */
 import { emptyHeatIndex, HeatIndex, indexHeat, latestUnder, nodeHeat } from './heat';
 import { declaredWhys } from './model';
-import { headerWhys } from './overview';
+import { BIG_TEXT, headerWhys, looseLogs } from './overview';
 import { activitiesOf } from './selectors';
 import { Data, Id, Thread } from './types';
 
@@ -53,8 +53,11 @@ export interface Star {
 
 const clamp = (h: number) => (Number.isFinite(h) ? Math.min(1, Math.max(0, h)) : 0);
 
-/** Motes for a heat: round(heat × 8). Relative to recency, never shown as a number. */
-export const moteCount = (heat: number) => Math.round(clamp(heat) * MOTES_MAX);
+/**
+ * Motes for a heat: max(1, round(heat × 8)) — every star has at least one (owner, fix 15); relative to
+ * recency, never shown as a number. With the shading off a star has none (`skyStars`).
+ */
+export const moteCount = (heat: number) => Math.max(1, Math.round(clamp(heat) * MOTES_MAX));
 
 const byCreated = (a: { id: Id; createdAt: string }, b: { id: Id; createdAt: string }) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
@@ -102,7 +105,7 @@ export function skyStars(data: Data, opts: { now?: Date; shading?: boolean } = {
     thread,
     declared: declaredIds.has(thread.id),
     heat: heat[thread.id],
-    motes: moteCount(heat[thread.id]),
+    motes: shading ? moteCount(heat[thread.id]) : 0,
     walked: latestUnder(index, thread.id),
     slot: places[thread.id],
   }));
@@ -158,25 +161,33 @@ function feeders(data: Data, whyId: Id, index: HeatIndex): Thread[] {
 }
 
 /**
- * A why's landmarks: the wanders feeding it, most recently walked first (never walked last, then by
- * name), the first LANDMARKS_MAX drawn and the rest in `more`. The first is warm if it was ever walked.
+ * A why's landmarks: the wanders feeding it in a fixed order — when the wander was made, then its name
+ * (P-66 fix: never by recency, like the stars) — the first LANDMARKS_MAX drawn and the rest in `more`.
+ * The one walked most lately is warm (shading on); that's the only trace of recency.
  */
 export function landmarks(data: Data, whyId: Id, opts: { now?: Date; shading?: boolean } = {}): { shown: Landmark[]; more: Landmark[] } {
   const { shading = true } = opts;
   const index = heatIndex(data);
   const all = feeders(data, whyId, index)
     .map((thread) => ({ thread, walked: index.latest.get(thread.id), step: thread.next?.trim() || undefined, note: latestNote(data, thread.id), warm: false }))
-    .sort((a, b) => {
-      if (a.walked !== b.walked) {
-        if (!a.walked) return 1;
-        if (!b.walked) return -1;
-        return a.walked > b.walked ? -1 : 1;
-      }
-      return a.thread.name.localeCompare(b.thread.name) || (a.thread.id < b.thread.id ? -1 : 1);
-    });
-  if (shading && all[0]?.walked) all[0].warm = true;
+    .sort(
+      (a, b) =>
+        (a.thread.createdAt < b.thread.createdAt ? -1 : a.thread.createdAt > b.thread.createdAt ? 1 : 0) ||
+        a.thread.name.localeCompare(b.thread.name) ||
+        (a.thread.id < b.thread.id ? -1 : a.thread.id > b.thread.id ? 1 : 0),
+    );
+  const latest = all.reduce<Landmark | undefined>((m, l) => (l.walked && (!m?.walked || l.walked > m.walked) ? l : m), undefined);
+  if (shading && latest) latest.warm = true;
   return { shown: all.slice(0, LANDMARKS_MAX), more: all.slice(LANDMARKS_MAX) };
 }
+
+/**
+ * What a landmark's card says to a screen reader (fixes 7, 8, 14): the wander, its step (or "Add a next
+ * step"), its note, and when it was last walked — "draw better hands: Sketch hands, “did ten”, last
+ * walked today".
+ */
+export const landmarkName = (l: Landmark, now = new Date()) =>
+  `${l.thread.name}: ${l.step ?? 'Add a next step'}${l.note ? `, “${l.note}”` : ''}, ${l.walked ? `last walked ${walkedWords(l.walked, now)}` : 'not walked yet'}`;
 
 /** Where a star opens: its landmarks, or (with one wander, or none but itself) straight onto that trail. */
 export function starTarget(data: Data, whyId: Id): string {
@@ -215,6 +226,25 @@ export function footprints(data: Data, threadId: Id, now = new Date()): { id: Id
     .slice(0, FOOTPRINTS_MAX)
     .map((a) => ({ id: a.id, text: a.text.trim().replace(/\s+/g, ' '), when: walkedWords(a.occurredAt, now) }));
 }
+
+/** A footprint's accessible name: "sketched a hand, today" (the "·" shown between them is spoken as a comma). */
+export const footprintName = (f: { text: string; when: string }) => `${f.text}, ${f.when}`;
+
+/** Loose lines drawn on the sky at most (fix 18; Map's rule, LOOSE_MAX). */
+export const SKY_LOOSE_MAX = 3;
+
+/**
+ * Your recent loose lines on the sky (fix 18): Map's loose logs (no doing, no to, the last three weeks,
+ * newest first), at most SKY_LOOSE_MAX, each with its words and when it happened in words.
+ */
+export function skyLoose(data: Data, now = new Date()): { id: Id; text: string; when: string }[] {
+  return looseLogs(data, { now })
+    .slice(0, SKY_LOOSE_MAX)
+    .map((l) => ({ id: l.id, text: l.text, when: walkedWords(data.activities[l.id].occurredAt, now) }));
+}
+
+/** At the largest text sizes (BIG_TEXT, as on Map) the sky is a plain list of its stars, not a picture. */
+export const skyAsList = (fontScale: number) => fontScale >= BIG_TEXT;
 
 // ─── The scene under a star ────────────────────────────────────────────────
 

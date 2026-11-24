@@ -23,28 +23,38 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   where the path starts, and one large line, **"Where are we wandering today?"**, with the field
   ("nothing yet is fine") under it and an outlined **I'm not sure** below; **Map** sits in a corner.
   Nothing else: no wanders, stars or suggestions before you type. As you type, P-61's suggestions
-  (staged steps, then past entries, then wanders) appear under the field; a tap attaches. **Return
-  logs at once, exactly as typed, loose** (no toast): your words become the billboard, with
-  "Kept, loose · Undo", and below it, quietly, **Move it?** — *Next on <guessed wander>* (only while
+  (staged steps, then past entries, then wanders) appear under the field; a tap attaches. When the
+  words match a wander, a quiet last item **Open <wander>** opens its trail (a why: its star) and
+  never attaches or logs. **Return
+  logs at once, exactly as typed, loose** (no toast): your words become the billboard (a heading),
+  under a "New line" button (typing starts one too), with "Kept, loose · Undo", and below it, quietly
+  (the moves no louder than "Kept, loose": kept is the default), **Move it?** — *Next on <guessed wander>* (only while
   that wander has no step: a step is never overwritten), *Log toward <guessed wander>*, *Somewhere
-  else…* (any wander, or a new one). The guess is P-61's matching on the line, then on its longest
+  else…* (any wander, or a new one, named with Return or **Make it**). The guess is P-61's matching on the line, then on its longest
   words. Each move is one tap with Undo; leaving without a tap keeps the line as it is. Reduce Motion
   stills the sky; at large text and in short windows the big line steps down so the field stays above
-  the keyboard. **I'm not sure** looks up (P-66).
-- **Look up** (P-66, `/sky`): "Not sure." over the night sky, and your whys as **stars** — declared
+  the keyboard, and the ground (hills, path, lantern) is drawn only where it fits below the content,
+  which scrolls above it — never under a control. **I'm not sure** looks up (P-66).
+- **Look up** (P-66, `/sky`): only the small question over the night sky, and your whys as **stars** — declared
   (oldest mark first), then earned, at most six — each in a **fixed place** taken from its id (never
   from heat or order), all **one size**. How lately a star was walked shows only as warmth (silver to
-  amber) and up to eight **twinkling motes** (relative to heat, never a number); with the shading off
+  amber) and one to eight **twinkling motes** (at least one; more with heat, never a number); with the shading off
   there's no warmth and no motes; under Reduce Motion the motes hold a soft glow. For a screen reader
-  the stars are a list of buttons in that fixed order, "<why>, last walked <when>". "Back to typing"
+  the stars are a list of buttons in that fixed order, "<why>, last walked <when>"; at the largest text
+  they're a plain list. Near the ground, your recent **loose lines** (Map's rule: the last three
+  weeks, at most three) are stray footprints with their words; one opens the trailhead's **Move it?**
+  for that line (Undo takes back a move only). For a screen reader they're a "Loose" group after the
+  stars, "<words>, <when>". With no whys: "No stars yet." and a **Map** link. "Back to typing" (or Esc)
   returns to the prompt.
 - **Under a star** (`/star/<id>`): the star and its name; on the hills its **landmarks** (the wanders
   feeding it), each a flag with a dotted trail from camp, names in a row above every flag (never on a
-  trail); under them one card per landmark with its next step (or "＋ Add a next step") and the note
-  on its latest activity. The one walked most lately is warm; beyond three, "More wanders…". A why
-  with one wander opens that **trail** directly (with none, its own).
+  trail); landmarks are in a **fixed order** (when the wander was made, then name), never by recency.
+  Under them one card per landmark: its name, its next step (or a small "＋ Add a next step" line) and
+  the note on its latest activity. The one walked most lately is only warm (and its card's name says
+  "last walked <when>", as every card's does); beyond three, "More wanders…". A why with one wander
+  opens that **trail** directly (with none, its own). Esc goes back here and on the trail.
 - **On the trail** (`/trail/<id>`): its star and name, "Here's where we left off", the next step in
-  large type, the note on a paper tag, **Did it** (logs the step, as Map's ✓, with Undo; focus moves
+  large type (a heading; it steps down at large text like the prompt), the note on a paper tag, **Did it** (logs the step, as Map's ✓, with Undo; focus moves
   on) or "＋ Add a next step", and **footprints**: its latest five activities in dated words (today,
   on Tuesday, last week, in March), never counts.
 - **Map** (was Home, unchanged): on the Map (owner, D-11) the **What's next · <node>** card is

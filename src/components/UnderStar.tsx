@@ -10,27 +10,27 @@ import { useReduceMotion } from '@/components/graph/scopeNav';
 import { BackGlyph } from '@/components/icons';
 import { NightSky } from '@/components/NightSky';
 import { StarGlyph, useMotes } from '@/components/StarGlyph';
-import { Landmark, landmarks, SCENE_H, skyStars, starScene, starTarget } from '@/domain/sky';
+import { useEscBack } from '@/components/useEscBack';
+import { landmarkName, landmarks, SCENE_H, skyStars, starScene, starTarget } from '@/domain/sky';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 import { N } from '@/theme';
 
 const display = Platform.select({ web: '"Space Grotesk", SpaceGrotesk, system-ui, -apple-system, "Segoe UI", sans-serif', default: undefined });
 const MAX_W = 640;
+const web = Platform.OS === 'web';
 
 /** Back to the sky: where it came from, or the sky when this was opened first. */
 const toSky = () => (router.canGoBack() ? router.back() : router.replace('/sky'));
 const openTrail = (threadId: Id, starId: Id) => router.push(`/trail/${encodeURIComponent(threadId)}?star=${encodeURIComponent(starId)}`);
 
-/** What a landmark's card says to a screen reader: the wander, then the card's words. */
-export const cardName = (l: Landmark) => `${l.thread.name}: ${l.step ?? 'Add a next step'}${l.note ? `, “${l.note}”` : ''}`;
-
 /**
  * Under a star (P-66, B-07 slice 2): the star at the top with its motes; on the hills its landmarks
  * (the wanders feeding it), each with a flag and a dotted trail from camp, their names in a row above
- * every flag (clear of the trails); under them a card per landmark with its next step and latest note.
- * The one walked lately is warm (not with the shading off). Beyond three, "More wanders…" lists the
- * rest. A why with one wander (or none) opens that trail instead (`starTarget`).
+ * every flag (clear of the trails); under them a card per landmark: its name, its next step (or a small
+ * "＋ Add a next step") and latest note. The order is fixed (when each was made, then name); the one
+ * walked lately is only warm (not with the shading off) and says so in its card's name. Beyond three,
+ * "More wanders…" lists the rest. A why with one wander (or none) opens that trail instead (`starTarget`).
  */
 export function UnderStar({ id }: { id: Id }) {
   const shown = useIsFocused();
@@ -41,6 +41,7 @@ export function UnderStar({ id }: { id: Id }) {
   const loops = useMotes(still);
   const { width } = useWindowDimensions();
   const [moreOpen, setMoreOpen] = useState(false);
+  useEscBack(shown, toSky);
 
   const why = data.threads[id];
   const star = useMemo(() => skyStars(data, { shading }).find((s) => s.thread.id === id), [data, shading, id]);
@@ -59,7 +60,7 @@ export function UnderStar({ id }: { id: Id }) {
       {shown && <StatusBar style="light" />}
       <NightSky still={still} warm={shading} ground={false} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
-        <ScrollView contentContainerStyle={[styles.content, { width: w }]}>
+        <ScrollView {...(web ? { tabIndex: -1 } : {})} contentContainerStyle={[styles.content, { width: w }]}>
           <View style={styles.top}>
             <Pressable onPress={toSky} accessibilityRole="button" accessibilityLabel="Back to the sky" style={styles.back}>
               <BackGlyph color={N.muted} />
@@ -85,7 +86,7 @@ export function UnderStar({ id }: { id: Id }) {
                 <Path key={i} d={t.d} fill="none" stroke={lm.shown[i].warm ? N.lantern : N.trail} strokeWidth={2.5} strokeDasharray="2 7" strokeLinecap="round" testID="star-trail" />
               ))}
               {scene.flags.map((f, i) => (
-                <Path key={i} d={`M${f.x} ${f.y} v-16 l9 4 -9 4`} fill={lm.shown[i].warm ? N.lantern : N.faint} />
+                <Path key={i} d={`M${f.x} ${f.y} v-16 l9 4 -9 4`} fill={lm.shown[i].warm ? N.lantern : N.faint} testID="landmark-flag" />
               ))}
               <Circle cx={scene.camp.x} cy={scene.camp.y} r={34} fill="url(#camp)" />
               <Circle cx={scene.camp.x} cy={scene.camp.y + 2} r={6} fill={N.lanternCore} />
@@ -107,13 +108,18 @@ export function UnderStar({ id }: { id: Id }) {
                 <Pressable
                   onPress={() => openTrail(l.thread.id, id)}
                   accessibilityRole="button"
-                  accessibilityLabel={cardName(l)}
+                  accessibilityLabel={landmarkName(l)}
                   testID={`landmark-${l.thread.id}`}
                   style={[styles.card, l.warm && styles.cardWarm]}>
+                  {/* Its wander, so a card never relies on its column (P-66 fix). */}
+                  <Text style={[styles.cardName, l.warm && { color: N.lantern }]} numberOfLines={2}>
+                    {l.thread.name}
+                  </Text>
                   {l.step ? (
                     <Text style={styles.step}>{l.step}</Text>
                   ) : (
-                    <Text style={[styles.step, styles.noStep]}>
+                    // A small line in the card, not a card of its own (P-66 fix).
+                    <Text style={styles.noStep}>
                       <Text {...decorative}>＋ </Text>Add a next step
                     </Text>
                   )}
@@ -155,13 +161,15 @@ const styles = StyleSheet.create({
   back: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   head: { alignItems: 'center', gap: 14, paddingHorizontal: 28, paddingBottom: 12 },
   title: { fontFamily: display, fontSize: 24, fontWeight: '700', color: N.ink, textAlign: 'center', letterSpacing: -0.3 },
-  label: { position: 'absolute', textAlign: 'center', fontSize: 13, lineHeight: 18, color: N.muted },
+  // A halo in the sky's colour keeps a background dot from reading as part of a word (P-66 fix).
+  label: { position: 'absolute', textAlign: 'center', fontSize: 13, lineHeight: 18, color: N.muted, textShadowColor: N.bg, textShadowRadius: 6, textShadowOffset: { width: 0, height: 0 } },
   cards: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12 },
   cardSlot: { flexGrow: 1, flexBasis: 0, minWidth: 100 },
   card: { minHeight: 44, padding: 10, borderRadius: 14, backgroundColor: N.card, borderWidth: 1, borderColor: N.line, gap: 4 },
   cardWarm: { borderColor: N.lantern, borderWidth: 1.5 },
   step: { color: N.ink, fontSize: 14, fontWeight: '600', lineHeight: 18 },
-  noStep: { color: N.muted, fontWeight: '500' },
+  cardName: { color: N.muted, fontSize: 12, lineHeight: 16 },
+  noStep: { color: N.muted, fontSize: 12, lineHeight: 16 },
   note: { color: N.muted, fontSize: 12 },
   more: { paddingHorizontal: 20, paddingTop: 16 },
   moreBtn: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' },

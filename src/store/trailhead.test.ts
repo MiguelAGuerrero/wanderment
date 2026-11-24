@@ -109,3 +109,40 @@ describe('Move it?', () => {
     expect(st().data.activities[id].doingId).toBeUndefined();
   });
 });
+
+describe('a loose line opened from the sky (fix 18)', () => {
+  /** A line logged loose earlier (not by this Return). */
+  function earlier(text: string) {
+    st().setDraft({ text });
+    const id = st().log(undefined)!;
+    useStore.setState({ toast: undefined });
+    return id;
+  }
+
+  it('keepLoose puts it on the billboard with the same moves; before a move there is nothing to undo', () => {
+    const { draw } = seed();
+    const id = earlier('sketched on the bus');
+    expect(st().keepLoose(id)).toBe(true);
+    expect(st().kept).toEqual({ activityId: id, text: 'sketched on the bus', reopened: true });
+    expect(st().undoKept()).toBe(false);
+    expect(st().data.activities[id]).toBeDefined();
+
+    // A move, and its Undo: loose again — and a second Undo never takes the earlier line out.
+    expect(st().moveKept({ kind: 'toward', threadId: draw })).toBe(true);
+    expect(st().data.activities[id].doingId).toBe(draw);
+    expect(st().undoKept()).toBe(true);
+    expect(st().data.activities[id]).toMatchObject({ doingId: undefined, toIds: [] });
+    expect(st().kept).toEqual({ activityId: id, text: 'sketched on the bus', reopened: true });
+    expect(st().undoKept()).toBe(false);
+    expect(st().data.activities[id]).toBeDefined();
+  });
+
+  it('refuses a line that isn’t there or isn’t loose', () => {
+    const { draw } = seed();
+    expect(st().keepLoose('nope')).toBe(false);
+    const id = earlier('drew');
+    useStore.setState({ data: { ...st().data, activities: { ...st().data.activities, [id]: { ...st().data.activities[id], doingId: draw } } } });
+    expect(st().keepLoose(id)).toBe(false);
+    expect(st().kept).toBeUndefined();
+  });
+});

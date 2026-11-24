@@ -3,14 +3,19 @@ import { describe, expect, it } from 'vitest';
 
 import { declareThread, logActivity, updateThread } from './model';
 import {
+  footprintName,
   FOOTPRINTS_MAX,
   footprints,
+  landmarkName,
   LABEL_H,
   landmarks,
   LANDMARKS_MAX,
   moteCount,
   MOTES_MAX,
+  SKY_LOOSE_MAX,
   SKY_MAX,
+  skyAsList,
+  skyLoose,
   skyStars,
   STAR_SLOTS,
   starName,
@@ -82,7 +87,8 @@ describe('skyStars: the whys, in a fixed order, each with its warmth and motes',
     expect(illustrate.walked).toBe(day(1).toISOString());
     expect(illustrate.motes).toBe(moteCount(illustrate.heat));
     expect(illustrate.motes).toBeGreaterThan(0);
-    expect(s.find((x) => x.thread.id === 'calm')!.motes).toBe(0);
+    // Fix 15: a mote floor — even a never-walked star has one (was 0).
+    expect(s.find((x) => x.thread.id === 'calm')!.motes).toBe(1);
     const off = stars(world(), false);
     expect(off.map((x) => [x.heat, x.motes])).toEqual(off.map(() => [0, 0]));
     // "last walked" is a date, not warmth: still said with the shading off.
@@ -96,16 +102,17 @@ describe('skyStars: the whys, in a fixed order, each with its warmth and motes',
   });
 });
 
-describe('moteCount: relative to heat, never more than MOTES_MAX', () => {
-  it('round(heat × 8), clamped', () => {
-    expect(moteCount(0)).toBe(0);
+describe('moteCount: relative to heat, at least one, never more than MOTES_MAX', () => {
+  it('max(1, round(heat × 8)), clamped (fix 15: a floor of one mote; shading off is skyStars’ zero)', () => {
+    expect(moteCount(0)).toBe(1);
     expect(moteCount(1)).toBe(MOTES_MAX);
     expect(moteCount(0.5)).toBe(4);
-    expect(moteCount(0.04)).toBe(0);
+    expect(moteCount(0.04)).toBe(1);
     expect(moteCount(0.07)).toBe(1);
+    expect(moteCount(0.2)).toBe(2);
     expect(moteCount(3)).toBe(MOTES_MAX);
-    expect(moteCount(-1)).toBe(0);
-    expect(moteCount(NaN)).toBe(0);
+    expect(moteCount(-1)).toBe(1);
+    expect(moteCount(NaN)).toBe(1);
   });
 });
 
@@ -169,7 +176,7 @@ describe('starPlaces: fixed places from the ids, never from heat; never overlapp
 });
 
 describe('landmarks: the wanders feeding a why, the one walked lately warm', () => {
-  it('direct feeders (doing → to), most recently walked first; the first is warm; each with its step and its latest note', () => {
+  it('direct feeders (doing → to), in the order they were made (fix 7; here also the most recently walked first); the walked-lately one is warm; each with its step and its latest note', () => {
     let data = world();
     data = updateThread(data, 'hands', { next: 'Sketch hands from photo refs' });
     data = feed(data, 'hands', [], 0.5, 'sketched', 'did 10 from the ref sheet');
@@ -289,4 +296,85 @@ describe('starScene: flags on the ridge, labels above them and clear of every tr
           expect(t.points.at(-1)).toEqual([sc.flags[i].x, sc.flags[i].y]);
         });
       });
+});
+
+describe('landmarks in a fixed order (P-66 fix 7): by when the wander was made, then name — never by recency', () => {
+  it('walking one warms it and moves nothing', () => {
+    let data = make('why', 'old', 'mid', 'new');
+    data = feed(data, 'new', ['why'], 0);
+    data = feed(data, 'mid', ['why'], 5);
+    data = feed(data, 'old', ['why'], 10);
+    const before = landmarks(data, 'why', { now: NOW });
+    expect(before.shown.map((l) => l.thread.id)).toEqual(['old', 'mid', 'new']);
+    expect(before.shown.map((l) => l.warm)).toEqual([false, false, true]);
+    // Walk the oldest today (later than "new"): it's warm now, and the order is the same.
+    data = feed(data, 'old', ['why'], 0, 'again');
+    const after = landmarks(data, 'why', { now: new Date(NOW.getTime() + 1000) });
+    expect(after.shown.map((l) => l.thread.id)).toEqual(['old', 'mid', 'new']);
+    expect(after.shown.map((l) => l.warm)).toEqual([true, false, false]);
+  });
+
+  it('made at the same time: by name; the warm one can sit under More wanders…', () => {
+    let data = make('why');
+    for (const n of ['d', 'c', 'b', 'a']) data.threads[n] = { id: n, name: n, hidden: false, createdAt: day(100).toISOString() };
+    data = feed(data, 'd', ['why'], 0);
+    for (const n of ['a', 'b', 'c']) data = feed(data, n, ['why'], 9);
+    const { shown, more } = landmarks(data, 'why', { now: NOW });
+    expect(shown.map((l) => l.thread.id)).toEqual(['a', 'b', 'c']);
+    expect(more.map((l) => [l.thread.id, l.warm])).toEqual([['d', true]]);
+  });
+
+  it('“More wanders…” only beyond LANDMARKS_MAX (fix 10): exactly three leaves nothing more', () => {
+    let data = make('why', 'a', 'b', 'c');
+    ['a', 'b', 'c'].forEach((w, i) => (data = feed(data, w, ['why'], i + 1)));
+    expect(landmarks(data, 'why', { now: NOW }).more).toEqual([]);
+  });
+});
+
+describe('landmarkName (fixes 7, 8, 14): what a card under a star says to a screen reader', () => {
+  it('the wander, its step (or "Add a next step"), the note, and when it was last walked — commas, no "·"', () => {
+    let data = make('why', 'hands', 'folio');
+    data = updateThread(data, 'hands', { next: 'Sketch hands' });
+    data = feed(data, 'hands', ['why'], 0, 'sketched', 'did ten');
+    data = feed(data, 'folio', ['why'], 8);
+    const [hands, folio] = landmarks(data, 'why', { now: NOW }).shown;
+    expect(landmarkName(hands, NOW)).toBe('hands: Sketch hands, “did ten”, last walked today');
+    expect(landmarkName(folio, NOW)).toBe('folio: Add a next step, last walked last week');
+  });
+});
+
+describe('footprintName (fix 14): a footprint is spoken with a comma, not "·"', () => {
+  it('words, then when', () => {
+    expect(footprintName({ text: 'sketched a hand', when: 'today' })).toBe('sketched a hand, today');
+  });
+});
+
+describe('skyAsList (fix 13): at the largest text sizes the sky is a plain list', () => {
+  it('from BIG_TEXT up', () => {
+    expect(skyAsList(1)).toBe(false);
+    expect(skyAsList(1.3)).toBe(false);
+    expect(skyAsList(1.5)).toBe(true);
+    expect(skyAsList(2)).toBe(true);
+  });
+});
+
+describe('skyLoose (fix 18): your recent loose lines, as stray footprints on the sky', () => {
+  it('the last three weeks’ lines that name no wander, newest first, at most SKY_LOOSE_MAX, each with when in words', () => {
+    let data = make('draw');
+    data = feed(data, undefined, [], 1, 'old one');
+    data = feed(data, undefined, [], 30, 'too old');
+    data = feed(data, 'draw', [], 0, 'attached');
+    for (const [d, t] of [[0, 'today line'], [2, 'saturday line'], [8, 'last week line']] as const) data = feed(data, undefined, [], d, t);
+    const loose = skyLoose(data, NOW);
+    expect(SKY_LOOSE_MAX).toBe(3);
+    expect(loose.map((l) => [l.text, l.when])).toEqual([
+      ['today line', 'today'],
+      ['old one', 'yesterday'],
+      ['saturday line', 'on Saturday'],
+    ]);
+  });
+
+  it('nothing loose: nothing on the sky', () => {
+    expect(skyLoose(make('a'), NOW)).toEqual([]);
+  });
 });

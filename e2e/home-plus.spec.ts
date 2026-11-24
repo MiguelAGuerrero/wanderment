@@ -105,10 +105,10 @@ test.describe('＋ to log', () => {
     const before = await heat(page, 'feel productive');
     await raise(page);
     await box(page).pressSequentially('cle');
-    const step = option(page, /^Clean my car · feel productive/);
+    const step = option(page, /^Clean my car, feel productive/); // P-66 fix 14: "·" is spoken as a comma
     await expect(step).toBeVisible();
     await expect(step).toContainText('✓');
-    await expect(list(page).getByRole('option').first()).toHaveAccessibleName(/^Clean my car · feel productive/);
+    await expect(list(page).getByRole('option').first()).toHaveAccessibleName(/^Clean my car, feel productive/);
     for (const o of await list(page).getByRole('option').all()) expect((await o.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await expectNoSeriousViolations(page);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/p61-suggestions.png` });
@@ -144,7 +144,7 @@ test.describe('＋ to log', () => {
   test('removing the ✓ chip logs the words without completing the step', async ({ page }) => {
     await raise(page);
     await box(page).pressSequentially('clean');
-    await option(page, /^Clean my car · feel productive/).click();
+    await option(page, /^Clean my car, feel productive/).click();
     await page.getByRole('button', { name: /^Clean my car, next step in feel productive.*Remove$/ }).click();
     await box(page).press('Enter');
     await expect(toast(page, 'Logged → feel productive')).toBeVisible();
@@ -154,7 +154,7 @@ test.describe('＋ to log', () => {
   test('a past entry fills its words and re-attaches where it last went; a node suggestion attaches', async ({ page }) => {
     await raise(page);
     await box(page).pressSequentially('coo');
-    const past = option(page, /^cooked dinner · draw/);
+    const past = option(page, /^cooked dinner, draw/);
     await expect(past).toBeVisible();
     // One per wording.
     await expect(list(page).getByRole('option', { name: /^cooked dinner/ })).toHaveCount(1);

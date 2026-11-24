@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { logActivity, updateThread } from './model';
-import { pickSuggestion, suggestLogs } from './logSuggest';
+import { pickSuggestion, suggestionName, suggestLogs } from './logSuggest';
 import { Data, emptyData, Thread } from './types';
 
 const DAY = 864e5;
@@ -136,5 +136,15 @@ describe('pickSuggestion', () => {
     // A doing the person chose themselves stays.
     const own = pickSuggestion({ ...empty, doingId: 'sew', fromNextOf: 'draw', fromNextText: 'sketch' }, { kind: 'node', threadId: 'draw', name: 'draw' }).line;
     expect(own).toMatchObject({ doingId: 'sew', fromNextOf: undefined, toIds: ['draw'] });
+  });
+});
+
+describe('suggestionName (P-66 fix 14: "·" is spoken as a comma)', () => {
+  it('says what it shows, then where it goes, with commas', () => {
+    expect(suggestionName({ kind: 'step', threadId: 'f', text: 'Clean my car', name: 'feel productive' })).toBe('Clean my car, feel productive, its next step');
+    expect(suggestionName({ kind: 'past', text: 'cooked dinner', targetId: 'd', targetName: 'draw' })).toBe('cooked dinner, draw, logged before');
+    expect(suggestionName({ kind: 'past', text: 'cooked dinner' })).toBe('cooked dinner, logged before');
+    expect(suggestionName({ kind: 'node', threadId: 'd', name: 'draw' })).toBe('draw, attach');
+    for (const n of ['Clean my car, feel productive, its next step']) expect(n).not.toMatch(/·/);
   });
 });

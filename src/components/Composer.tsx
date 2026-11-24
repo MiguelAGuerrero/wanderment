@@ -1,10 +1,12 @@
+import { router } from 'expo-router';
 import { ComponentRef, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { useShown } from '@/components/shown';
 import { caretAfterEdit, mentionAt, mentionEnd, replaceActiveMention, suggestDoing, suggestThreads } from '@/domain/compose';
-import { LogSuggestion, pickSuggestion, suggestLogs } from '@/domain/logSuggest';
+import { LogSuggestion, pickSuggestion, suggestionName, suggestLogs } from '@/domain/logSuggest';
 import { findThreadByName } from '@/domain/model';
+import { openOffer } from '@/domain/trailhead';
 import { Id } from '@/domain/types';
 import { holdsData, LogOptions, recentThreadOrder, sameDraft, useStore } from '@/store/useStore';
 import { decorative } from '@/components/a11y';
@@ -27,6 +29,7 @@ export function Composer({
   night,
   label,
   logOptions,
+  openWanders,
 }: {
   presetDoingId?: Id;
   placeholder?: string;
@@ -49,6 +52,8 @@ export function Composer({
   label?: string;
   /** Passed to every log from this box (the trailhead: `trail`). */
   logOptions?: LogOptions;
+  /** The trailhead (fix 17): a quiet "Open <wander>" after the suggestions opens its trail (or star); it never attaches or logs. */
+  openWanders?: boolean;
 }) {
   const data = useStore((st) => st.data);
   const draft = useStore((st) => st.draft);
@@ -70,6 +75,8 @@ export function Composer({
   /** The @mention closed with Esc (its position and the text before it); a new @ reopens. */
   const [closed, setClosed] = useState<string>();
   const [fits, setFits] = useState(true);
+  /** The trailhead's field draws its own focus ring (P-65 fix: the night palette's, not the browser's white box). */
+  const [hasFocus, setHasFocus] = useState(false);
   /** The input's selection and the text it was seen with. When the text was changed from outside
    * (a chip, "Again", a crumb, logging), it doesn't match and the caret counts as at the end. */
   const [sel, setSel] = useState<{ start: number; end: number; text: string }>();
@@ -120,6 +127,7 @@ export function Composer({
   const [answered, setAnswered] = useState<string>();
   const logSuggestions =
     autocomplete && !mention && answered !== draft.text ? suggestLogs(data, draft.text, recentThreadOrder(data)) : [];
+  const opening = openWanders && logSuggestions.length ? openOffer(data, draft.text, recentThreadOrder(data)) : undefined;
   /** What a pick did, said once (P-61). */
   const [picked, setPicked] = useState({ text: '', n: 0 });
 
@@ -193,6 +201,7 @@ export function Composer({
   // P-61: focus left an empty line with nothing on it (Home puts the field away). Judged a moment
   // later, so focus coming straight back (a pick, a chip) doesn't count.
   const onBlur = () => {
+    setHasFocus(false);
     if (!onEmptyBlur) return;
     setTimeout(() => {
       const d = useStore.getState().draft;
@@ -252,6 +261,20 @@ export function Composer({
       {logSuggestions.map((sg, i) => (
         <LogOption key={`${sg.kind}:${sg.kind === 'past' ? sg.text : sg.threadId}`} sg={sg} first={i === 0} night={night} onPress={() => pickLog(sg)} />
       ))}
+      {opening && (
+        <Pressable
+          onPress={() => router.push(opening.href as never)}
+          style={[styles.suggestion, styles.logOption, night && styles.nightOption]}
+          role="option"
+          aria-selected={false}
+          aria-label={`Open ${opening.name}`}
+          testID="open-wander">
+          <Text style={[styles.suggestionText, styles.openText, night && { color: N.muted }]} numberOfLines={2}>
+            Open {opening.name}
+            <Text {...decorative}> ›</Text>
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 
@@ -341,8 +364,8 @@ export function Composer({
             )}
             {suggestedDoing && (
               <Pressable onPress={() => setDraft({ doingId: suggestedDoing.id })} style={styles.hit} accessibilityRole="button" accessibilityLabel={`Suggested: doing ${suggestedDoing.name}. Tap to accept.`}>
-                <View style={[styles.smallChip, s.chipDashed]}>
-                  <Text style={[styles.smallChipText, { color: C.muted }]}>{suggestedDoing.name}?</Text>
+                <View style={[styles.smallChip, s.chipDashed, night && styles.nightDashed]}>
+                  <Text style={[styles.smallChipText, { color: night ? N.muted : C.muted }]}>{suggestedDoing.name}?</Text>
                 </View>
               </Pressable>
             )}
@@ -372,7 +395,7 @@ export function Composer({
               selection={placeCaret}
               placeholder={placeholder}
               placeholderTextColor={night ? N.faint : C.faint}
-              style={[styles.input, styles.field, night && styles.nightInput]}
+              style={[styles.input, styles.field, night && styles.nightInput, night && Platform.OS === 'web' && (hasFocus ? styles.nightRing : styles.noRing)]}
               returnKeyType="done"
               submitBehavior="submit"
               // react-native-web ignores submitBehavior and blurs on Enter, a moment later (a 0 ms
@@ -380,6 +403,7 @@ export function Composer({
               // a new line had begun. Where focus goes after a log is `submit`'s call alone.
               blurOnSubmit={false}
               onSubmitEditing={submit}
+              onFocus={() => setHasFocus(true)}
               onBlur={onBlur}
               onKeyPress={onKeyPress as never}
               accessibilityLabel={label ?? placeholder}
@@ -418,7 +442,7 @@ export function Composer({
 function LogOption({ sg, first, night, onPress }: { sg: LogSuggestion; first: boolean; night?: boolean; onPress: () => void }) {
   const main = sg.kind === 'node' ? sg.name : sg.text;
   const where = sg.kind === 'step' ? sg.name : sg.kind === 'past' ? sg.targetName : undefined;
-  const label = `${main}${where ? ` · ${where}` : ''}, ${sg.kind === 'step' ? 'its next step' : sg.kind === 'past' ? 'logged before' : 'attach'}`;
+  const label = suggestionName(sg);
   return (
     <Pressable onPress={onPress} style={[styles.suggestion, styles.logOption, night && styles.nightOption, first && { borderTopWidth: 0 }]} role="option" aria-selected={false} aria-label={label}>
       <Text style={[styles.suggestionText, night && { color: N.ink }]} numberOfLines={2}>
@@ -465,6 +489,7 @@ const styles = StyleSheet.create({
   logOption: { justifyContent: 'flex-start', paddingVertical: 6 },
   optionMark: { color: C.accent, fontWeight: '600' },
   optionWhere: { color: C.muted },
+  openText: { fontSize: 15, color: C.muted },
   srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 },
   /** Dimmed, but still readable (it can be pressed: the line logs once the data is back). */
   logWaiting: { backgroundColor: C.muted },
@@ -478,4 +503,9 @@ const styles = StyleSheet.create({
   nightSuggestions: { backgroundColor: N.surface, borderColor: N.line },
   nightOption: { borderTopColor: N.line },
   nightSend: { backgroundColor: N.lantern },
+  // The dashed "<wander>?" chip on the night sky: its words at 4.5:1 or more (P-65 fix).
+  nightDashed: { borderColor: N.faint },
+  // Web: the field's own focus ring in the night palette (lantern on the sky, well over 3:1).
+  noRing: { outlineStyle: 'none' } as object,
+  nightRing: { outlineStyle: 'solid', outlineWidth: 2, outlineColor: N.lantern, outlineOffset: 4, borderRadius: 4 } as object,
 });

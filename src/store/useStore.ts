@@ -72,6 +72,8 @@ export interface Kept {
   /** As logged (the billboard keeps showing it after "Next on" takes the log out). */
   text: string;
   moved?: { kind: 'toward' | 'next'; threadId: Id };
+  /** Opened again from the sky (fix 18), not just logged: Undo only ever takes back a move. */
+  reopened?: boolean;
 }
 
 /** Where data lives: SQLite (normal), the first release's localStorage format (web fallback). */
@@ -261,6 +263,11 @@ interface State {
   undoKept: () => boolean;
   /** The billboard goes (a new line, or the trailhead was left); the line stays as it is. */
   leaveKept: () => void;
+  /**
+   * A loose line tapped on the sky (fix 18): it's on the trailhead's billboard again with "Move it?";
+   * there's nothing to undo until a move. False when it isn't there or isn't loose.
+   */
+  keepLoose: (activityId: Id) => boolean;
 }
 
 const emptyDraft = (): Draft => ({ text: '', toIds: [] });
@@ -642,7 +649,10 @@ export const useStore = create<State>()((set, get) => ({
     if (!kept || !undo) return false;
     const data = applyUndo(get().data, undo);
     const a = data.activities[kept.activityId];
-    if (kept.moved && a) {
+    if (kept.moved && a && kept.reopened) {
+      // Loose again; it was logged long before, so there's nothing more to undo.
+      set({ data, undo: undefined, kept: { activityId: a.id, text: kept.text, reopened: true } });
+    } else if (kept.moved && a) {
       // Loose again; the next Undo takes the line out, as the one before the move would have.
       set({ data, undo: undoEntry(deleteActivity(data, a.id), data), kept: { activityId: a.id, text: kept.text } });
     } else {
@@ -652,6 +662,13 @@ export const useStore = create<State>()((set, get) => ({
   }),
 
   leaveKept: () => set((s) => (s.kept ? { kept: undefined } : {})),
+
+  keepLoose: (activityId) => {
+    const a = get().data.activities[activityId];
+    if (!a || a.doingId || a.toIds.length) return false;
+    set({ kept: { activityId, text: a.text, reopened: true }, undo: undefined });
+    return true;
+  },
 }));
 
 /** Threads ordered by most recent use, for autocomplete ranking. */

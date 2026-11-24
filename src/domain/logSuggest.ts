@@ -66,6 +66,16 @@ export function suggestLogs(data: Data, query: string, recentOrder: Id[], limit 
 }
 
 /** The parts of the log box's line a pick touches (the store's Draft has these). */
+/**
+ * A suggestion's accessible name (P-61; P-66 fix 14: separators are spoken as commas, never "·"):
+ * what it shows, where it goes, and what kind it is.
+ */
+export function suggestionName(sg: LogSuggestion): string {
+  const main = sg.kind === 'node' ? sg.name : sg.text;
+  const where = sg.kind === 'step' ? sg.name : sg.kind === 'past' ? sg.targetName : undefined;
+  return `${main}${where ? `, ${where}` : ''}, ${sg.kind === 'step' ? 'its next step' : sg.kind === 'past' ? 'logged before' : 'attach'}`;
+}
+
 export interface PickLine {
   text: string;
   doingId?: Id | null;

@@ -16,6 +16,9 @@ const button = (page: Page, name: string) => page.getByRole('button', { name, ex
 const stars = (page: Page) => page.getByRole('list', { name: 'What it’s for', exact: true }).getByRole('button');
 const star = (page: Page, name: RegExp | string) => stars(page).filter({ hasText: name });
 const cards = (page: Page) => page.getByRole('list', { name: 'Wanders', exact: true }).getByRole('button');
+const card = (page: Page, wander: string) => cards(page).filter({ has: page.getByText(wander, { exact: true }) });
+type Box = { x: number; y: number; width: number; height: number };
+const overlaps = (a: Box, b: Box) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
 
 async function expectNoSeriousViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
@@ -73,7 +76,9 @@ test.describe('look up, and under a star', () => {
 
   test('I’m not sure shows the whys as stars, one size; a screen reader hears a fixed-order list of buttons with “last walked …”; no counts', async ({ page }) => {
     await lookUp(page);
-    await expect(page.getByRole('heading', { name: 'Not sure.', exact: true })).toBeVisible();
+    // Fix 16: no big "Not sure." — only the small question above the sky.
+    await expect(page.getByTestId('look-up').getByText(PROMPT, { exact: true })).toBeVisible();
+    await expect(page.getByText('Not sure.')).toHaveCount(0);
     // Fixed order: declared, oldest mark first; each named with its words and when it was last walked.
     await expect(stars(page)).toHaveCount(3);
     const names = ['become an illustrator, last walked today', 'feel productive, last walked a few weeks ago', 'a calm space, not walked yet'];
@@ -108,7 +113,7 @@ test.describe('look up, and under a star', () => {
     const [warm, mid, cold] = await Promise.all([motesIn(star(page, ILLUSTRATE)), motesIn(star(page, 'feel productive')), motesIn(star(page, 'a calm space'))]);
     expect(warm).toBeGreaterThan(mid);
     expect(mid).toBeGreaterThan(cold);
-    expect(cold).toBe(0);
+    expect(cold).toBe(1); // fix 15: a floor of one mote (was 0)
     const fill = (name: string) => star(page, name).locator('path').last().getAttribute('fill');
     expect(await fill(ILLUSTRATE)).not.toBe(await fill('a calm space'));
   });
@@ -116,7 +121,7 @@ test.describe('look up, and under a star', () => {
   test('stars keep their places: walking one warms it and moves nothing', async ({ page }) => {
     await lookUp(page);
     const before = await Promise.all((await stars(page).all()).map(box));
-    expect(await motesIn(star(page, 'a calm space'))).toBe(0);
+    expect(await motesIn(star(page, 'a calm space'))).toBe(1); // fix 15: a floor of one mote (was 0)
     // Back to typing, log a line toward the cold star, look up again.
     await button(page, 'Back to typing').click();
     const field = page.getByRole('textbox', { name: PROMPT, exact: true });
@@ -126,11 +131,11 @@ test.describe('look up, and under a star', () => {
     await page.getByRole('group', { name: 'Somewhere else' }).getByRole('button', { name: 'a calm space', exact: true }).click();
     await expect(page.getByRole('status').filter({ hasText: 'Logged toward a calm space' })).toBeVisible();
     // The billboard gives way to the question, and "I’m not sure" is there again.
-    await button(page, PROMPT).click();
+    await button(page, 'New line').click(); // P-65 fix 4: was the prompt's words
     await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
     await expect(stars(page).nth(2)).toHaveAccessibleName('a calm space, last walked today');
     expect(await Promise.all((await stars(page).all()).map(box))).toEqual(before);
-    expect(await motesIn(star(page, 'a calm space'))).toBeGreaterThan(0);
+    expect(await motesIn(star(page, 'a calm space'))).toBeGreaterThan(1); // fix 15: walked today, more than the floor (was > 0)
     await expect(stars(page)).toHaveText([ILLUSTRATE, 'feel productive', 'a calm space']);
   });
 
@@ -175,19 +180,21 @@ test.describe('look up, and under a star', () => {
     await star(page, ILLUSTRATE).click();
     await expect(page).toHaveURL(/\/wanderment\/star\/become%20an%20illustrator$/);
     await expect(page.getByRole('heading', { name: ILLUSTRATE, exact: true })).toBeVisible();
-    // The three walked most lately, the latest first (and warm); the fourth under More wanders….
+    // P-66 fix 7: a fixed order (when each wander was made, then name; all four were made together
+    // here), never by recency — was "the three walked most lately, latest first". The one walked most
+    // lately (draw better hands) is still the warm one; the fourth is under More wanders….
     const labels = page.getByTestId('landmark-label').filter({ visible: true });
-    await expect(labels).toHaveText(['draw better hands', 'color sense', 'a portfolio']);
+    await expect(labels).toHaveText(['a portfolio', 'color sense', 'draw better hands']);
     await expect(cards(page)).toHaveCount(3);
-    await expect(cards(page).nth(0)).toHaveAccessibleName(`draw better hands: ${STEP}, “${NOTE}”`);
-    await expect(cards(page).nth(0)).toContainText(STEP);
-    await expect(cards(page).nth(0)).toContainText(NOTE);
-    await expect(cards(page).nth(1)).toHaveAccessibleName('color sense: Mix a value scale');
-    await expect(cards(page).nth(2)).toHaveAccessibleName('a portfolio: Add a next step');
+    await expect(cards(page).nth(2)).toHaveAccessibleName(`draw better hands: ${STEP}, “${NOTE}”, last walked today`);
+    await expect(cards(page).nth(2)).toContainText(STEP);
+    await expect(cards(page).nth(2)).toContainText(NOTE);
+    await expect(cards(page).nth(1)).toHaveAccessibleName(/^color sense: Mix a value scale, last walked on \w+day$/);
+    await expect(cards(page).nth(0)).toHaveAccessibleName('a portfolio: Add a next step, last walked last week');
     for (const c of await cards(page).all()) expect((await box(c)).height).toBeGreaterThanOrEqual(44);
     const trails = page.locator('[data-testid="star-scene"] path[stroke-dasharray]');
     await expect(trails).toHaveCount(3);
-    expect(await trails.evaluateAll((ps) => ps.map((p) => p.getAttribute('stroke')))).toEqual(['#F2B48C', '#6E6890', '#6E6890']);
+    expect(await trails.evaluateAll((ps) => ps.map((p) => p.getAttribute('stroke')))).toEqual(['#6E6890', '#6E6890', '#F2B48C']);
     // Every label sits above every trail.
     const trailTop = Math.min(...(await Promise.all((await trails.all()).map(box))).map((b) => b.y));
     for (const l of await labels.all()) {
@@ -211,7 +218,7 @@ test.describe('look up, and under a star', () => {
   test('on the trail: the top step in large type, Did it logs it (Undo), footprints in dated words', async ({ page }) => {
     await lookUp(page);
     await star(page, ILLUSTRATE).click();
-    await cards(page).first().click();
+    await card(page, 'draw better hands').click(); // P-66 fix 7: the order is fixed now (was the first card, walked most lately)
     await expect(page).toHaveURL(/\/wanderment\/trail\/draw%20better%20hands\?star=become(%20|\+)an(%20|\+)illustrator$/);
     await expect(page.getByRole('heading', { name: 'draw better hands', exact: true })).toBeVisible();
     await expect(page.getByTestId('trail').getByText('Here’s where we left off', { exact: true })).toBeVisible();
@@ -219,6 +226,11 @@ test.describe('look up, and under a star', () => {
     await expect(page.getByTestId('trail').getByText(NOTE, { exact: true })).toBeVisible();
     const prints = page.getByRole('list', { name: 'Footprints', exact: true }).getByRole('listitem');
     await expect(prints).toHaveText(['sketched a hand · today', 'hands from a mirror · last week']);
+    // P-66 fix 14: the "·" is spoken as a comma.
+    await expect(prints.nth(0)).toHaveAccessibleName('sketched a hand, today');
+    await expect(prints.nth(1)).toHaveAccessibleName('hands from a mirror, last week');
+    // P-66 fix 13: the step is a heading.
+    await expect(page.getByRole('heading', { name: STEP, exact: true })).toBeVisible();
     expect(await digits(page, 'trail')).toEqual([]);
     expect((await box(button(page, 'Did it'))).height).toBeGreaterThanOrEqual(44);
     await expectNoSeriousViolations(page);
@@ -242,7 +254,7 @@ test.describe('look up, and under a star', () => {
   test('a trail with no step offers “＋ Add a next step”', async ({ page }) => {
     await lookUp(page);
     await star(page, ILLUSTRATE).click();
-    await cards(page).nth(2).click();
+    await card(page, 'a portfolio').click(); // P-66 fix 7: the order is fixed now (was the third card)
     await expect(page.getByTestId('trail-step')).toHaveCount(0);
     await button(page, 'Add a next step').click();
     const input = page.getByRole('textbox', { name: 'A next step', exact: true });
@@ -290,5 +302,135 @@ test.describe('look up, and under a star', () => {
     await star(page, ILLUSTRATE).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(195);
     await expectNoSeriousViolations(page);
+  });
+
+  test('fixes 8, 9: each card names its wander above its step; “＋ Add a next step” is a small line inside its card', async ({ page }) => {
+    await lookUp(page);
+    await star(page, ILLUSTRATE).click();
+    for (const name of ['a portfolio', 'color sense', 'draw better hands']) {
+      const c = card(page, name);
+      await expect(c).toHaveCount(1);
+      // The name comes first (a line above the step).
+      const [n, rest] = [(await box(c.getByText(name, { exact: true }))).y, (await box(c.locator('div[dir="auto"]').nth(1))).y];
+      expect(n).toBeLessThan(rest);
+    }
+    const add = card(page, 'a portfolio').getByText('Add a next step');
+    const step = card(page, 'draw better hands').getByText(STEP, { exact: true });
+    const size = (l: Locator) => l.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+    expect(await size(add)).toBeLessThan(await size(step));
+    // No card is just an empty "＋" slot: every card is about as tall as its name and one line.
+    expect((await box(card(page, 'a portfolio'))).height).toBeLessThanOrEqual((await box(card(page, 'draw better hands'))).height);
+    await expectNoSeriousViolations(page);
+  });
+
+  test('fix 10: “More wanders…” appears only with more than three wanders', async ({ page }) => {
+    const json = JSON.parse(world());
+    json.state.data.threads['gesture practice'].hidden = true;
+    await lookUp(page, JSON.stringify(json));
+    await star(page, ILLUSTRATE).click();
+    await expect(cards(page)).toHaveCount(3);
+    await expect(button(page, 'More wanders…')).toHaveCount(0);
+  });
+
+  test('fix 11: landmark labels clear of flags and trails; background star dots are dimmer than text and haloed away from labels', async ({ page }) => {
+    for (const [width, height] of [
+      [390, 844],
+      [195, 422],
+    ]) {
+      await page.setViewportSize({ width, height });
+      if (width === 390) await lookUp(page);
+      else await page.reload();
+      if (width === 390) await star(page, ILLUSTRATE).click();
+      const labels = await Promise.all((await page.getByTestId('landmark-label').filter({ visible: true }).all()).map(box));
+      const marks = await Promise.all((await page.locator('[data-testid="landmark-flag"], [data-testid="star-trail"]').all()).map(box));
+      expect(labels.length).toBe(3);
+      expect(marks.length).toBe(6);
+      for (const l of labels) for (const m of marks) expect(overlaps(l, m), `${width}: a label on a flag or trail`).toBe(false);
+      for (const l of await page.getByTestId('landmark-label').filter({ visible: true }).all())
+        expect(await l.evaluate((el) => getComputedStyle(el).textShadow)).not.toBe('none');
+    }
+    const dots = await page.locator('[data-testid="sky-dot"], [data-testid="sky-twinkle"]').evaluateAll((els) => els.map((el) => parseFloat(getComputedStyle(el).opacity)));
+    expect(dots.length).toBeGreaterThan(0);
+    for (const o of dots) expect(o).toBeLessThanOrEqual(0.6);
+  });
+
+  test('fix 12: Esc goes back on the sky, under a star and on the trail, as on Map', async ({ page }) => {
+    await lookUp(page);
+    await star(page, ILLUSTRATE).click();
+    await card(page, 'draw better hands').click();
+    await expect(page).toHaveURL(/\/trail\//);
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/\/wanderment\/star\/become%20an%20illustrator$/);
+    await expect(cards(page)).toHaveCount(3);
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/\/wanderment\/sky$/);
+    await expect(stars(page).first()).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page.getByRole('textbox', { name: PROMPT, exact: true })).toBeVisible();
+    // Opened on its own, Esc still finds a way: the trail to the sky, the sky to the prompt.
+    await page.goto('./trail/a%20calm%20space');
+    await expect(page.getByRole('heading', { name: 'a calm space', exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page).toHaveURL(/\/wanderment\/sky$/);
+    // Esc in a field is the field's (it doesn't leave the trail).
+    await star(page, 'a calm space').click();
+    await button(page, 'Add a next step').click();
+    await page.getByRole('textbox', { name: 'A next step', exact: true }).press('Escape');
+    await expect(page).toHaveURL(/\/trail\/a%20calm%20space$/);
+  });
+
+  test('fix 12: with no whys the sky says “No stars yet.” and offers Map', async ({ page }) => {
+    await page.addInitScript(seedScript, legacyBlob(['draw'], [{ from: 'draw', text: 'sketched', daysAgo: 1 }]));
+    await page.goto('./sky');
+    await expect(page.getByText('No stars yet.', { exact: true })).toBeVisible();
+    const map = page.getByRole('link', { name: 'Map', exact: true });
+    expect((await box(map)).height).toBeGreaterThanOrEqual(44);
+    await expectNoSeriousViolations(page);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p66-sky-empty.png` });
+    await map.click();
+    await expect(page).toHaveURL(/\/wanderment\/map$/);
+  });
+
+  test('fix 18: recent loose lines are stray footprints on the sky; one opens the trailhead’s Move it? for that line, with Undo', async ({ page }) => {
+    const json = JSON.parse(world());
+    const at = (d: number) => new Date(Date.now() - d * DAY).toISOString();
+    Object.assign(json.state.data.activities, {
+      l1: { id: 'l1', text: 'sat by the window', occurredAt: at(1), createdAt: at(1), toIds: [] },
+      l2: { id: 'l2', text: 'too long ago', occurredAt: at(40), createdAt: at(40), toIds: [] },
+    });
+    await lookUp(page, JSON.stringify(json));
+    const loose = page.getByRole('group', { name: 'Loose', exact: true }).getByRole('button');
+    await expect(loose).toHaveCount(1);
+    await expect(loose.first()).toHaveAccessibleName('sat by the window, yesterday');
+    await expect(loose.first()).toContainText('sat by the window');
+    expect((await box(loose.first())).height).toBeGreaterThanOrEqual(44);
+    // Near the ground, never on the lantern or its path.
+    const lamp = await Promise.all((await page.locator('[data-testid="sky-lantern"], [data-testid="sky-core"]').filter({ visible: true }).all()).map(box));
+    expect(lamp.length).toBe(2);
+    for (const l of lamp) expect(overlaps(await box(loose.first()), l)).toBe(false);
+    // After the stars, for a screen reader.
+    const after = await page.evaluate(() => {
+      const list = document.querySelector('[aria-label="What it’s for"]')!;
+      const group = document.querySelector('[aria-label="Loose"]')!;
+      return !!(list.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    expect(after).toBe(true);
+    await expectNoSeriousViolations(page);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p66-sky-loose.png` });
+
+    await loose.first().click();
+    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page.getByTestId('trail-words')).toHaveText('sat by the window');
+    await expect(page.getByRole('status').filter({ hasText: 'Kept, loose' })).toBeVisible();
+    // Nothing to undo yet (the line was kept long ago); a move has its Undo, which leaves the line loose.
+    await expect(button(page, 'Undo')).toHaveCount(0);
+    await button(page, 'Somewhere else…').click();
+    await page.getByRole('group', { name: 'Somewhere else' }).getByRole('button', { name: 'a calm space', exact: true }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Logged toward a calm space' })).toBeVisible();
+    await button(page, 'Undo').click();
+    await expect(page.getByRole('status').filter({ hasText: 'Kept, loose' })).toBeVisible();
+    await expect(button(page, 'Undo')).toHaveCount(0);
+    await expect(page.getByTestId('trail-words')).toHaveText('sat by the window');
   });
 });
