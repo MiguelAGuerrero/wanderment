@@ -192,6 +192,26 @@ block, top-down reading order. **Fold-ins — the build must meet all of these:*
 16. Fold-ins 5, 7 and 8 hold on the new frames too ("Later — to the bottom"; one symbol per meaning;
     pursuit names in the readable font).
 
+**Audit of the y-frames** (`.polish/product/ui-audit-B-11-y.md`) — further fold-ins:
+17. Opening: **Resume** is the one primary; Restart is apart from it, names what it restarts, and has an
+    Undo. Declaring a routine that has a saved place asks "Resume or start over" rather than silently
+    overwriting. Every parked or waiting thread has its own card.
+18. Running: Next, Step in, Done and Break it down keep fixed places on every screen (fold-in 12). Done
+    always names the level it pops, and that level is shown in words in the path, not by colour alone.
+19. No bracketed explanations on buttons: "Step in" and "Next" only. One meaning per mark: "›" for
+    going forward, a different mark for "opens".
+20. The divider: a 48 px grip, "Repeat from here" in every step's ⋯, and its states drawn — at the top
+    (all loops), absent (runs once), in between.
+21. The loop is shown by the bracket shape alone, no sentence. ↻ means "repeats" only; a routine has its
+    own mark.
+22. A routine inside a routine is drawn as a distinct block (named, opens); reusable routines offered by
+    the field are 48 px and read as things to add, not commands.
+23. Read it: real headings and nested lists, consistent indent, and each "until you're done" names what
+    repeats ("Then repeat Hand studies until you're done:").
+24. "Wait" and "Switch" are two actions, each with its own button.
+25. Fold-ins 1, 2, 7, 8 and 16 hold on these frames too (Undo on Next and Done; ▶ is only *now*, so Run
+    gets a word).
+
 ## Persona panel
 _Simulated perspectives from `docs/product/PERSONAS.md`. A thinking tool, not user research._ Reports:
 `.polish/product/panel-B-11-{1,2}.md` (on the first frames).
