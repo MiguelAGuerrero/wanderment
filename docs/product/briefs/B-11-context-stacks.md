@@ -125,6 +125,17 @@ particular step** ("Jump here"), with what is out listed to mark as happened or 
 start of a level is round one and fresh; picking a step keeps the round and this-run changes
 *(proposed)*. One Undo covers it. The app never jumps by itself and never suggests you are behind.
 
+### 3.6 Three gaps the final redraw exposed *(proposed)*
+- **Next on the very last step of a run** (top level, a part that runs once) finishes the run: home, with
+  "Finished <name> · Undo".
+- **What is on home.** A routine is on home when you started it there ("New: …"), put it there ("Put on
+  home" in the routine menu), or it has a run going or a kept item. "Take off home" removes it from home
+  only (refused while it has a run going — end or keep that first); it stays in Your routines.
+- **Open child runs never block their parent.** Ending the parent — by Done or by itself — asks once
+  what to do with them and with anything out, in the same sheet.
+- **See it all is the run, not the routine**: it is titled as the run ("This run of <name>"), looks
+  different from the routine editor, and says "this run only" on what you change there.
+
 ## 4. Writing routines
 - **Blocks.** Steps are solid, coloured, chunky blocks in the routine's colour. A routine inside a
   routine is an outlined block with the routine mark, folded to its name; it expands in place or is
