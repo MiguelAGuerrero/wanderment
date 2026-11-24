@@ -79,6 +79,17 @@ reverse of Break it down: choose neighbouring steps (`a2`), name them (`a3`), an
 routine block in place, saved to reference, with an Undo (`a4`). So there are six verbs: Declare, Next,
 Step in, Done, Break it down, Group.
 
+**Neutral review** (fresh context; `.polish/product/review-B-11-neutral.md`; use case: a job hunt, first
+open to day ten). *Strong:* the one-step run screen with nothing showing how much is left; the divider
+checked against Read it; Break it down and Group as a pair; Step in or Next past a routine; the "In X,
+inside Y" Resume card after days away. *Open, for the owner:* (1) the app holds the way, not the
+instances — each pass of an "apply" loop is a different employer and nothing holds which; (2) a wait
+parks the whole thread, so several pending replies from one loop can't be shown; (3) "Once" is per run
+and "Done for today" and "done for good" are one button; (4) Direction point 3 (a breakdown stays) and
+the model (an unnamed breakdown is gone when popped) disagree, and naming isn't drawn; (5) first run,
+the break-down screen, what Wait shows, entering Group and the edit-everywhere warning aren't in the
+current frames; the brief's own words drift (block / piece / step).
+
 **Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
 what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
 in a structure that opens to any depth, measured (only if you ask) against your own pace.
