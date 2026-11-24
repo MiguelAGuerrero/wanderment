@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — One consolidated redraw, a second designer, and journeys as the completeness check
+"Perform one consolidated redraw. Now, I want you to present your design to another agent so they can
+also perform their redraw and see where you two converge and polish the strengths and reduce the
+weaknesses. This is supposed to be user-friendly and embed UI best practices in terms of button
+placement, white spacing, textual hierarchy, palette, and preferences over visuals to text where
+appropriate in card design, selection, user interactions, error states especially. … one way to go
+about drafting this is to present a list of user journeys that completely map out what the app is
+supposed to do and to what end, and ensure each journey has an appropriate render for it, as a way of
+ensuring that the write-up is complete."
+Led to: `docs/product/briefs/B-11-journeys.md` (16 journeys, 44 states); two independent sets of
+renders (`.polish/product/b11-mine/`, `.polish/product/b11-alt/`); a converged set to follow.
+
 ## 2026-11-24 — Switching starts at your own level
 "Another quality of life feature … the default level for which you are presented threads to switch to
 when you pause should be at the same level … of that stack. So if we're going to have deeply nested
