@@ -18,6 +18,20 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — The model matches; a draggable divider and a readable form
+On the three-things, five-verbs model with the repeat mark: "Yes, this matches my intuition. And in
+terms of visualization, dragging the marker or divider can shift the layout of the stack and routine
+to show a clear delineation between what will loop and what's going to be ran off. And maybe a nice
+quality of life feature is a playbook or an execute where they can walk through it themselves in a
+stepwise fashion to see how it'll work and revise accordingly. Or maybe more … intuitively, they get
+… a checklist … that the app generates, so they can read. It's like, okay, this makes sense to me,
+without having … the visual metaphor get in the way of their understanding, because it's a lot easier
+to read a checklist or a pseudocode, rather … Effectively, they're encoding what they want to do as
+pseudocode in a way, without the need to understand programming concepts."
+*Interpretation:* the execution model is agreed. A routine has two views: blocks (with the divider you
+drag) and a plain-language reading of the same thing; a walk-through to try it before running. Led to:
+B-11 frames y1–y5.
+
 ## 2026-11-24 — A routine is a sequence in a frame; simplify the thread model
 "a routine can have subloops, and each of those loops can have their own subloops until you define
 done. So the practice gesture drawing can always have a setup task that … can precede a loop of

@@ -34,7 +34,7 @@ with you, one small piece at a time.
    is separate from what you're in (the stack); reopening the app offers **Resume** or **Restart** (a
    save state).
 
-### The execution model, simplified (proposed to the owner, 2026-11-24)
+### The execution model, simplified (owner: "this matches my intuition", 2026-11-24)
 **Three things exist.**
 - **Step** — a line of your words.
 - **Routine** — a named, ordered sequence kept in reference. Each item is a step or another routine.
@@ -52,6 +52,15 @@ unnamed, once through, gone when popped; name it and it's a routine in reference
 place in the frame. A routine can't contain itself.
 **What this removes:** a task/routine kind picker (a name is the difference), a loop/once switch (the
 mark's position), and nested blocks just to get "setup, then loop".
+
+**Seeing a routine two ways** (owner; frames `y1`–`y5`, `y-sheet.png`): **Blocks** — the divider
+"↻ Repeat from here" is dragged (or moved from its ⋯), and the layout shows what runs once and what
+loops; **Read it** — the same routine as plain sentences ("Warm-up lines. Then, until you're done: …"),
+generated, always in step, no programming words; it is also the large-text and screen-reader form and
+what "Copy as text" exports. **Walk through** tries a routine step by step without running it.
+Frames: `y1` declare (with Resume / Restart), `y2` blocks with the divider, `y3` read it, `y4` running
+inside a loop (Next · Done with <routine> · Break it down), `y5` at a routine (Step in · Next as one
+thing).
 
 **Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
 what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
