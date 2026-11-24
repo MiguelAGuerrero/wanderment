@@ -18,6 +18,15 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Not "catch up": set yourself to a point that makes sense
+"Well, catch up might not necessarily reflect the use case of a person exiting mid gesture drawing
+practice, where if they leave, it's more so [an] indication that they're done practicing and they don't
+necessarily have to complete the loop. They just have to restart it back to a place that makes sense.
+So catching up doesn't quite capture that feeling. I would want to argue something along the lines of
+sync yourself to a point in the execution thread that makes sense."
+*Interpretation:* the name must not imply being behind. It is about choosing your place — forward, back
+or the start of a level. Proposed: "Set my place" (name to confirm).
+
 ## 2026-11-24 — Leaving with something out asks; and a way to catch the app up with life
 "A way to ensure that there is some level of guidance and structure around [async] work is that if you
 try to abort from a routine that has a [wait], just prompt the user to resolve what that [wait is:
