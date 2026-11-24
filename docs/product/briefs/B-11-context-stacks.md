@@ -8,6 +8,34 @@ Mockups (local): `.polish/product/b11-shots/` — **with the re-audit's fixes: `
 `w9-switch`** (overview `w-sheet.png`); before them `r1-running`, `r2-breakdown`, `r3-stack`,
 `r4-all`, `r5-routines`, `r6-history`**; first drafts `p1`–`p4` (Tetris wells, superseded).
 
+## Direction (owner, 2026-11-24, latest) — wins wherever the sections below differ
+**Not what you have to do. How you do it.** Wanderment keeps your *ways* of doing things and runs them
+with you, one small piece at a time.
+1. **Opening is a declaration.** "I'm going to … now." You pick what you're drawn to (or type it) and
+   you're in it. An orienting tool with low activation energy, not a reflection tool.
+2. **A stack is your way, not a plan.** It records how *you* go about a pursuit, a task or a feeling —
+   your intuition, written down as you discover it, and refined each time you run it. The wonder is in
+   finding out how you operate.
+3. **Every block can open.** Breaking a block down never removes it: it becomes a routine with pieces
+   inside. Work at the level you like — finish the block as one thing, or drill in and walk its pieces.
+   Granularity is chosen each time (in the spirit of Mindstream).
+4. **Do, wait, switch.** A piece can be *set going* and awaited (dough rising, a reply from someone).
+   The app holds the wait and offers what else you're drawn to; coming back is one tap. Waiting is a
+   normal state, not a blocked one, and the app encourages pieces shaped do → wait → do.
+5. **The app notices only if you ask.** Opt-in: "How did this feel?" (fine / a lot / too much), and an
+   opt-in timer that learns your own baseline and says, in the app, "this ran long for you — break it
+   down?" Waits are never counted. Off by default; no opinion until you turn it on.
+6. **Pieces are reusable templates** (edit once, changes everywhere), offered as you break things down.
+
+**Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
+what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
+in a structure that opens to any depth, measured (only if you ask) against your own pace.
+
+**Changes to the product's rules (with go):** an opt-in timer and pace note (today: "no timers");
+logging leaves the main flow; DESIGN.md and STRATEGY.md rewritten around the six points.
+**Open:** whether a stack is re-run by default (finishing a run leaves the way intact) with one-off
+pieces as the exception; whether a timed wait may alert you when it's up; where the opt-in lives.
+
 ## The problem, in the owner's terms
 owner-notes 2026-11-24, "Drop the metaphor" and "Context management, not logging":
 - The sky "is being a little bit of a bottleneck … distracting from the core user experience of

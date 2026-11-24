@@ -18,6 +18,32 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — A declaration of intent; the stack is your intuition, not a plan
+"when you open the app, you're making a declaration of intent, saying, I'm going to do this now. So
+you're not opening up this app as a reflection tool, but as a way of orienting yourself towards what
+you want to do in this moment in a way that feels accessible and [has] low activation energy … the app
+becomes part of your work loop or cognitive loop where you offload all the minutia and just follow
+your intuition, which is not necessarily a plan, but … a development of how you perceive yourself to
+operate towards any particular goal. Hence the wonderment aspect. The stack isn't supposed to be a
+plan. It's supposed to be … your intuition for how you perform a task or pursue a goal, or a feeling."
+On effort: "there could be a timer and there could be a threshold, but … it's opt-in. You say, how did
+this feel? A lot? Too much? … choose to either break it down or let the app surface, hey, this has
+taken too long relative to your other steps … you find that baseline. If a user constantly defines
+steps that vary wildly, then there might have to be some way of notifying that."
+On waiting: "Some tasks just have a time component … like baking … or you're waiting for a response
+from somebody … there has to be some structure to make that known, like what are you doing right now
+that you can perform, and then await, and then do something else. This is concurrency … maybe be
+opinionated so that the user feels more empowered to create steps that allow for concurrency. And then
+you can do the context switching."
+On breaking down: "if you break down a task, it doesn't get rid of the block … it becomes a routine …
+maybe the user likes working at that level, and they don't need to know the finer details … But if
+they want to drill down … in spirit of Mindstream, they can. So they can choose that level of
+granularity in working through a stack." And: "distill my ideas into something that's polished,
+because I do truly want to differentiate myself from those to-do apps that don't rely on this idea of
+recursive thinking."
+*Interpretation:* see B-11 "Direction". An opt-in timer reverses DESIGN.md's "no timers" for those who
+turn it on. Led to: B-11 revised (Direction section).
+
 ## 2026-11-24 — Peruse by inclination; gauge effort; edits change a piece everywhere
 On the three questions: "I wouldn't push it towards an energy estimation. I would guess more so a way
 of perusing the options and selections based on what your feelings and inclinations are heading
