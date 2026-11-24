@@ -18,6 +18,19 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — The round count is context, kept behind a swipe up
+On whether the runner shows which pass you're on: "I think the iteration count is just a quality of
+life feature to give context for how much work the user has done, to give them a sense of whether they
+want to stop or proceed. So it's not … a way [of] tracking their work overall, but to keep context
+within the execution that they're working in. And this could be something not displayed, but maybe
+additional information. Maybe when you swipe up from the runner, it shows like analytics or advanced
+information, much like how there's always a simplified view, and then swiping up in a mobile app tends
+to … open up settings or some other additional information that might be useful to you, but isn't
+always needed to be shown at all times."
+*Interpretation:* the runner's surface stays as it is. A panel that pulls up from it (also opened by
+tapping the note) shows where you are in this run — the round, what comes next — and the less-used
+actions. The round is context for the run in hand, never a total and never kept.
+
 ## 2026-11-24 — No round screen; an escape hatch; loops can have a number of times
 "maybe the roundup screen can just go. You don't necessarily need that because [it] is already inferred
 by the presence of a done button or maybe some other indication. And maybe for quality of life, there

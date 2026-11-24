@@ -141,8 +141,13 @@ a step and See it all are behind a tap on the note.
 **A repeat can have a number of times** (owner, decided). The divider's setting is **until I'm done**
 (the default) or **a number of times**, chosen in the routine ("Repeat from here · 3 times"; Read it:
 "Then repeat 3 times:"). A counted loop ends by itself after its last pass, like a part that runs once,
-with "Finished <name> · Undo". The runner never shows which pass you are on. *(This is a number you
-set, not a tally of what you did; DESIGN.md's "no counts" is reworded to say so.)*
+with "Finished <name> · Undo". **More, when you want it** (owner, decided). The runner's surface never shows the round. **Swiping up
+on the runner — or tapping the note — opens one panel**: first where you are in this run ("Round 2 of
+3" for a counted repeat, "Round 4" for an until-I'm-done one, nothing for a part that runs once; "then:
+<next step>"; "This run only"), then the less-used actions (Change the words, Back a step, See it all,
+Keep in <routine>). The round is context for the run in hand so you can judge whether to stop or go on;
+it is never a total, never kept, never in Looking back. *(DESIGN.md's "no counts" is reworded: no
+tallies of what you've done; a number you set, and your place in the current run, are context.)*
 
 **The step is a sticky note** (owner, decided). On the runner the step is a fixed, roughly square note,
 centred, with empty space above and below — the space is what gives it focus. It never stretches. **A
