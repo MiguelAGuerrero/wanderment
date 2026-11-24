@@ -18,6 +18,19 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — No re-asking inside a thread; many concurrent runs on one base thread
+"pass on this design document to another agent to see where we can polish and maybe refine, or …
+expose a blind spot with respect to how we would want to implement something like this. And no, you
+don't have to keep asking for a prompt if it's part of the same thread … If a user wants to specify a
+thread for which they want to practice specific executions of a routine, they can do that. That would
+be its own stack. Or, and this is where the concurrency that I deferred until I made it simple, you
+can define specific instances or substacks that you can execute at your own leisure … imagine 10
+concurrent threads on one base thread effectively, and those 10 concurrent threads are just executions
+of the same routine but on different parameters. And that can be deeply nested as they see fit."
+*Interpretation:* a run keeps its blank's value; a run can hold child runs (the same routine with
+different values, each parked at its own step), nested as deep as wanted. Led to: B-11 consolidated
+into one design document; an implementation review (`.polish/product/review-B-11-impl.md`).
+
 ## 2026-11-24 — Blanks are optional; switch at any level; a thread has a definite end
 "A blank is optional by default. Think about optional parameters where the function just naturally has
 default values to use. And that way, it's not friction, and it's just adding flexibility and power …

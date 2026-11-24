@@ -1,302 +1,153 @@
-# B-11 — Context stacks: one small step at a time
+# B-11 — Your ways of doing things, run one step at a time
 
 **Status:** proposed · **Decision:** D-18 · **Theme:** Seeing flow / Warm return · **Date:** 2026-11-24
 **Supersedes:** B-10 (D-17, never decided) and the night-sky visuals of B-07/B-08/B-09.
 
-Mockups (local): `.polish/product/b11-shots/` — **with the re-audit's fixes: `w1-running`, `w2-after-done`
-(Undo), `w3-breakdown`, `w4-last-piece`, `w5-stack` (⋯ menu open), `w6-all`, `w7-routines`, `w8-history`,
-`w9-switch`** (overview `w-sheet.png`); before them `r1-running`, `r2-breakdown`, `r3-stack`,
-`r4-all`, `r5-routines`, `r6-history`**; first drafts `p1`–`p4` (Tetris wells, superseded).
+This is the consolidated design. Every decision is the owner's, from `docs/product/owner-notes.md`
+(entries dated 2026-11-24, "Drop the metaphor" onward). How it got here is in the git history of this
+file; reviews and audits are in `.polish/product/` (local).
 
-## Direction (owner, 2026-11-24, latest) — wins wherever the sections below differ
-**Not what you have to do. How you do it.** Wanderment keeps your *ways* of doing things and runs them
-with you, one small piece at a time.
-1. **Opening is a declaration.** "I'm going to … now." You pick what you're drawn to (or type it) and
-   you're in it. An orienting tool with low activation energy, not a reflection tool.
-2. **A stack is your way, not a plan.** It records how *you* go about a pursuit, a task or a feeling —
-   your intuition, written down as you discover it, and refined each time you run it. The wonder is in
-   finding out how you operate.
-3. **Every block can open.** Breaking a block down never removes it: it becomes a routine with pieces
-   inside. Work at the level you like — finish the block as one thing, or drill in and walk its pieces.
-   Granularity is chosen each time (in the spirit of Mindstream).
-4. **Do, wait, switch.** A piece can be *set going* and awaited (dough rising, a reply from someone).
-   The app holds the wait and offers what else you're drawn to; coming back is one tap. Waiting is a
-   normal state, not a blocked one, and the app encourages pieces shaped do → wait → do.
-5. **The app notices only if you ask.** Opt-in: "How did this feel?" (fine / a lot / too much), and an
-   opt-in timer that learns your own baseline and says, in the app, "this ran long for you — break it
-   down?" Waits are never counted. Off by default; no opinion until you turn it on.
-6. **Pieces are reusable templates** (edit once, changes everywhere), offered as you break things down.
+## 1. What it is
+**Not what you have to do. How you do it.** Wanderment keeps your *ways* of doing things — routines in
+your own words — and runs them with you, one small step at a time.
 
-7. **Two kinds of block, chosen in the composer** (owner, decided). A **task** is typed and one-off:
-   popped, it doesn't return. A **routine** is a named construct kept in reference, pushed by name, and
-   it **loops** until you say done; popping it only takes it off the stack ("done with that for now"),
-   never out of reference. One-off setup sits before a loop as tasks. What you've defined (reference)
-   is separate from what you're in (the stack); reopening the app offers **Resume** or **Restart** (a
-   save state).
-
-### The execution model, simplified (owner: "this matches my intuition", 2026-11-24)
-**Three things exist.**
-- **Step** — a line of your words.
-- **Routine** — a named, ordered sequence kept in reference. Each item is a step or another routine.
-  It has one mark, **↻ repeat from here**: items above it run once (setup), items below repeat until
-  you say done. A new routine has the mark at the top (it loops, the owner's default); with no mark
-  it runs once through.
-- **Thread** — something you declared and are in: a stack of **frames**. A frame is a running routine
-  plus its place in the sequence. Each thread is its own save state; a wait parks a thread.
-**Five verbs.** **Declare** (start a thread: a routine by name, or a typed one-off) · **Next** (move on;
-at the end, back to the mark, or the frame finishes if there is none) · **Step in** (the item is a
-routine: push its frame — or just Next past it, working at that level) · **Done** (pop this frame, at
-any point; the frame beneath moves on) · **Break it down** (turn a step into a sequence in place:
-unnamed, once through, gone when popped; name it and it's a routine in reference).
-**Never shown as words:** frame, thread, stack, pointer. The path line *is* the stack; "now" is the
-place in the frame. A routine can't contain itself.
-**What this removes:** a task/routine kind picker (a name is the difference), a loop/once switch (the
-mark's position), and nested blocks just to get "setup, then loop".
-
-**Seeing a routine two ways** (owner; frames `y1`–`y5`, `y-sheet.png`): **Blocks** — the divider
-"↻ Repeat from here" is dragged (or moved from its ⋯), and the layout shows what runs once and what
-loops; **Read it** — the same routine as plain sentences ("Warm-up lines. Then, until you're done: …"),
-generated, always in step, no programming words; it is also the large-text and screen-reader form and
-what "Copy as text" exports. **Walk through** tries a routine step by step without running it.
-Frames: `y1` declare (with Resume / Restart), `y2` blocks with the divider, `y3` read it, `y4` running
-inside a loop (Next · Done with <routine> · Break it down), `y5` at a routine (Step in · Next as one
-thing).
-
-**Current frames (with fold-ins 17–25 and the owner's folding Read it): `z1`–`z8`, `z-sheet.png`.**
-`z1` declare — Resume the one primary, a card per waiting thread; `z2` "has a saved place: Resume there
-/ Start over / Cancel"; `z3` blocks — 48 px grip on the divider, the loop as a bracket, a routine inside
-a routine as its own outlined block (▤), routines you have offered as "＋ ▤ name"; `z4` **Read it,
-collapsed** to the routine's own items; `z5` one routine **expanded in place** (＋ / −), its loop named
-("until you're done with Hand studies"); `z6` **Focus** on one routine alone, with its place in the
-parent and its neighbours to step to; `z7`/`z8` running — Next, Step in, Break it down and Done in fixed
-places (Step in dimmed on a plain step), the level in words ("In Hand studies, inside Practise
-drawing"), Undo after Next, and See it all · Wait · Switch as three buttons.
-
-**Blocks fold too, and steps group** (owner; frames `a1`–`a4`, `a-sheet.png`): in Blocks a routine
-inside a routine is collapsed to its name by default, expands in place (＋ / −) with its own divider and
-loop bracket, or is focused on alone — the same as Read it (`a1`). **Group into a routine** is the
-reverse of Break it down: choose neighbouring steps (`a2`), name them (`a3`), and they become one
-routine block in place, saved to reference, with an Undo (`a4`). So there are six verbs: Declare, Next,
-Step in, Done, Break it down, Group.
-
-**Neutral review** (fresh context; `.polish/product/review-B-11-neutral.md`; use case: a job hunt, first
-open to day ten). *Strong:* the one-step run screen with nothing showing how much is left; the divider
-checked against Read it; Break it down and Group as a pair; Step in or Next past a routine; the "In X,
-inside Y" Resume card after days away. *Open, for the owner:* (1) the app holds the way, not the
-instances — each pass of an "apply" loop is a different employer and nothing holds which; (2) a wait
-parks the whole thread, so several pending replies from one loop can't be shown; (3) "Once" is per run
-and "Done for today" and "done for good" are one button; (4) Direction point 3 (a breakdown stays) and
-the model (an unnamed breakdown is gone when popped) disagree, and naming isn't drawn; (5) first run,
-the break-down screen, what Wait shows, entering Group and the edit-everywhere warning aren't in the
-current frames; the brief's own words drift (block / piece / step).
-
-**Routines take inputs; the unnamed is found by its words** (owner, answering the neutral review;
-frames `c1`–`c4`, `c-sheet.png`).
-8. **Blanks.** A routine's name and steps can hold a blank ("Apply to ▢ employer", "Hand studies of ▢
-   subject"), added with "＋ A blank" (`c1`), no syntax to learn. Starting the routine asks for it and
-   offers what you've used before (`c2`). A **run** is the routine plus what filled it: its words read
-   "Apply to Initech" everywhere — the path, Read it, the opening cards. Each run is its own thread
-   with its own saved place and its own wait, so several can be open or waiting at once (`c3`). This is
-   how the app holds *which one* without becoming a list of to-dos.
-9. **Found by its words.** An unnamed breakdown leaves the stack when popped and never appears in "Your
-   routines", but typing what it said finds it under "You've done this before" (`c4`): **Do it again**
-   or **Name it, keep it**. This settles the review's point 4 (Direction 3 holds while it runs; after
-   that it is retrievable by value, not by name).
-*Still open:* a blank filled once per run or asked on each pass of a loop; whether an inner routine's
-blank takes the outer one's value; a wait on a step vs a thread; "done for today" vs "done for good".
-
-**Blanks are optional; switching replaces waiting** (owner, decided; frames `d1`–`d3`, `d-sheet.png`;
-these replace `c2`/`c3` and points 4 and 8 where they differ).
-- **A blank never asks.** A routine with a blank just starts (**Start**); unfilled, the blank reads as
-  its own word ("Hand studies of subject"). **Start with…**, a value used before, or tapping the blank
-  while running (`d2`) fills it — and that filled run is its own thread ("Apply to Initech").
-- **A thread** is a run: a routine, what filled it, its place, and a definite end (Done at its top).
-  Until then you can **Switch** away at any level; the thread stays at the step it was on (`d3`,
-  "Where you left things": each thread, its step, Resume). There is no separate Wait button and no
-  waiting state — "Wait for a reply from Acme" is just the step a thread is parked at.
-- **Done ends this run; Switch leaves it for later.** So "done for today" is switching away (or closing
-  the app), and the part above the divider runs once per run.
-- **Later, only if it can be made simple:** a step that waits while the rest of its sequence carries
-  on, with a point where it must be back.
-*Still open:* does a routine inside a loop ask for its blank again on each pass (proposed: no — it keeps
-the run's value; tap the blank to change it).
+- You open it to **declare**: "I'm going to … now." It orients you with almost no effort to start. It
+  is not a reflection tool and not a log.
+- A routine is **your intuition, not a plan**: how you go about a pursuit, a task or a feeling,
+  written down as you discover it and sharpened each time you run it. The wonder is in finding out how
+  you operate.
+- It is built on **recursive thinking**: any step can be broken into smaller steps until it is easy to
+  start, and you work at whatever level of detail suits you.
 
 **Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
 what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
-in a structure that opens to any depth, measured (only if you ask) against your own pace.
+in a structure that opens to any depth, with no measure of what's left.
 
-**Changes to the product's rules (with go):** an opt-in timer and pace note (today: "no timers");
-logging leaves the main flow; DESIGN.md and STRATEGY.md rewritten around the six points.
-**Open:** whether a stack is re-run by default (finishing a run leaves the way intact) with one-off
-pieces as the exception; whether a timed wait may alert you when it's up; where the opt-in lives.
+## 2. The model
+**Four things exist.**
+- **Step** — a line of your words.
+- **Routine** — a named, ordered sequence kept in *reference* ("Your routines"). Each item is a step or
+  another routine. It has one mark, the divider **↻ Repeat from here**: items above it run once (setup),
+  items below repeat until you say done. A new routine has the divider at the top (it loops, the
+  default); with no divider it runs once through. A routine can't contain itself.
+- **Blank** — an optional input in a routine's name or steps ("Apply to ▢ employer"). It never asks:
+  unfilled, it reads as its own word. Filling it is a choice, and values used before are offered.
+- **Run** (the owner's "thread") — a routine being carried out: the routine, what filled its blanks, a
+  stack of frames (each frame is a routine plus the place in it), and a definite end. A run keeps its
+  blank's value throughout; it is never asked again inside the same run.
 
-## The problem, in the owner's terms
-owner-notes 2026-11-24, "Drop the metaphor" and "Context management, not logging":
-- The sky "is being a little bit of a bottleneck … distracting from the core user experience of
-  maintaining several ambitions through stacks."
-- "you define a stack, a pursuit … values and goals and feelings you want to chase … and you just add
-  to the stack of how you're going to go about that. Every layer can have its own substack, and you can
-  zoom in and zoom out … context switching is effectively switching where your energy for the day goes."
-- "get away from logging … divorce [the] two for now, really just holding onto the context management
-  aspect of the app. The logging in history can be its own separate review."
-- "Tetris was just a way of defining the look and feel … lean into this more robotic, programmatic
-  aesthetic … doing small things at a time with specialized functional tasks."
+**Runs inside a run.** A run can hold any number of **child runs**: executions of a routine with
+different values, each parked at its own step, carried out at your leisure — ten applications inside
+one job hunt, each at a different point. Child runs can have their own. This is the app's concurrency:
+there is no "waiting" state; a run is simply left at the step it was on.
 
-## The idea, distilled
-Wanderment becomes a **context manager**: each pursuit keeps its own stack of small steps, exactly where
-you left it. The app runs **one small step at a time**, like a machine running one instruction; you
-choose which stack gets today's energy, and switching loses nothing. Not a log, not a planner: no dates,
-no progress, no counts.
+**Seven verbs.**
+| Verb | What it does |
+|---|---|
+| **Declare** | Start a run: a routine from reference, or something typed (a one-off). |
+| **Next** | Move to the following item; at the end, back to the divider, or the frame finishes if there is none. |
+| **Step in** | The current item is a routine: open its frame. (Or Next past it, working at that level.) |
+| **Done** | End the frame you're in, at any point; the frame beneath moves on. Done at the top ends the run. |
+| **Switch** | Leave this run at its step and go to another, at any level. Closing the app is the same. |
+| **Break it down** | Turn a step into a sequence in place. Unnamed: it stays while it runs, then leaves. |
+| **Group** | The reverse: choose neighbouring steps, name them, and they become one routine in reference. |
 
-## The model
-- **Stack** = a pursuit in your words: a feeling, value or goal ("feel creative"). Its own colour.
-- **Step** = one small, single-purpose thing to do ("Pick 3 reference photos"). The top step is **now**.
-- **Break it down** turns a step into its own stack of smaller pieces (a substack). Same rules at every
-  depth; a path line shows where you are ("feel creative / draw every week").
-- **Routine** = a few steps saved once and reused in any stack (like a function). It **comes back**
-  after you finish it. "Save a stack as a routine" covers the owner's earlier "saving entire work stacks
-  as a repeatable workflow".
-- **Today's energy** = the stack the app runs. One at a time; it stays until you switch.
-- **Done** = the step leaves its stack, the next comes up, and a dated line goes to **history** (a
-  separate, read-only review). When the last piece of a broken-down step is done, the app asks once
-  whether the step is done too.
+**Named and unnamed.** Only named routines live in reference. Anything unnamed (a typed one-off, a
+breakdown) is gone from the lists when its run ends, but typing what it said finds it ("You've done
+this before") to **Do it again** or **Name it, keep it** — retrieved by its words, not by a name.
+**Editing a routine** changes it everywhere it is used; Save names where, and offers "Save as a new
+routine".
 
-## What makes it distinct (owner, 2026-11-24)
-The owner: as drawn it "turned into a rehash to-do app"; the faith is in "recursive thinking … smaller
-and smaller things … applicable across different contexts", and the original intent was direction from
-mood and from what you've done before. So the brief leans on three things (frames `x1`–`x5`,
-`x-sheet.png`):
-1. **Breaking down is the main act.** You split a step until it is easy to start. A piece that proved
-   heavy is offered for breaking down the next time it comes up (`x4`: "Last time this was a lot" and
-   Break it down becomes the primary button). No energy rating, no timer on screen.
-2. **Pieces are yours and reusable.** Every piece you've defined is a building block; breaking
-   something down offers your own earlier pieces as you type (`x2`, matched on the device, your words
-   only). A reused piece is a template: editing it changes it everywhere it's used, and Save says where
-   (`x5`). This widens "Routines" into **Pieces**.
-3. **You start from what you're drawn to.** The opening screen (`x1`) shows what's ongoing in every
-   pursuit — the feeling's name and its current piece — in a fixed order, nothing ranked; you pick by
-   inclination. It replaces the energy switch sheet.
-**Open:** how heaviness is gauged — `x3` draws a second button, "Done, but it was a lot" (one tap, no
-extra step); the alternative is to infer it (sent to Later more than once, or sitting as *now* across
-several visits).
+**Never shown as words:** frame, thread, stack, pointer, parameter, loop variable.
 
-## Screens (zoom levels)
-1. **Running** (`r1`, the main screen): today's stack's *now* step, large and alone; "then · <next>"
-   below; **Done — next step** (primary), **Break it down**, **Not now** (sends it down the stack). The
-   path line, the energy switch (⇄ <stack>), **Stack** to zoom out, and the field "Add a step after
-   this" in thumb reach.
-2. **Break it down** (`r2`): the step's pieces, the first is now; add pieces from the field.
-3. **Stack** (`r3`): the whole stack, *now* labelled in words; steps that open show "opens ›"; routines
-   marked ↻. Move, make it now, send to another stack — each also as a menu, never gesture-only.
-4. **All stacks** (`r4`): columns that scroll sideways, open at the top (no ceiling), each showing its
-   top few steps; today's first, labelled "Energy"; New stack; Routines; History.
-5. **Routines** (`r5`): saved routines, where each is used.
-6. **History** (`r6`): by day, finished steps coloured by stack; everything logged before stacks is here,
-   read-only. Export keeps everything.
+## 3. Screens
+Mockups (local) in `.polish/product/b11-shots/`. Current: `z1`–`z8`, `a1`–`a4`, `c1`, `c4`, `d1`–`d3`
+(overviews `z-sheet`, `a-sheet`, `c-sheet`, `d-sheet`). Earlier sets (`p`, `r`, `w`, `x`, `y`, `c2`,
+`c3`) are superseded.
 
-## Fit with the product
-- **Keeps:** no streaks, counts, timers, deadlines, notifications; nothing created without a tap; Reduce
+| Screen | Frames | What's on it |
+|---|---|---|
+| **Declare** (opening) | `d3`, `z2`, `c4` | "I'm going to…"; **Where you left things** — each run, the step it's at, Resume; Your routines; a field to type. Picking a routine with an open run asks Resume / Start over / Cancel. Typing finds routines and unnamed things by their words. |
+| **Your routines** | `d1` | Each routine; Start, Start with… (fill a blank), values used before. |
+| **Running** | `z7`, `z8`, `d2` | The current step, large and alone; "then: …"; where you are in words ("In Hand studies, inside Practise drawing"); Next (primary), Step in, Break it down, Done with <name> in fixed places; See it all, Switch. A blank in the path is tappable. |
+| **A routine — Blocks** | `z3`, `a1`, `c1` | Steps as blocks; the divider with a grip and the loop as a bracket; a routine inside is one outlined block that expands in place (＋/−) or is focused on alone; ＋ A blank, ＋ A routine, and the field. |
+| **A routine — Read it** | `z4`–`z6` | The same routine as plain sentences, generated: collapsed to its own items, expandable in place, or focused on one routine with its place in the parent. Also the large-text and screen-reader form, and what Copy as text exports. Walk through tries it without running it. |
+| **Group** | `a2`–`a4` | Choose steps → name → one routine block, with Undo. |
+| **History** | (earlier `w8`) | Read-only, by day: runs you ended, and everything logged before this design. Secondary. |
+
+**Look:** robotic, programmatic pixel accents — pixel font for screen titles only, chunky blocks, hard
+shadows — with your words in a readable monospace that scales. Tetris is only the feel of the blocks.
+
+## 4. What changes in the product's rules (with go)
+- **Logging leaves the main flow** (the log box, loose lines, "Return saves a line"); history is a
+  separate, read-only review. The night sky, hills, lantern, constellations, lit map, rise screen,
+  search stars and the "I'm not sure" door retire; their routes redirect to Declare.
+- **Kept:** no streaks, counts, deadlines or notifications; nothing created without a tap; Reduce
   Motion; export; on-device only.
-- **Retires:** logging as the main act (the log box, loose lines, Return-saves-a-line), the night sky,
-  hills, lantern, constellations, lit map, rise screen, search stars, the "I'm not sure" door. Routes
-  redirect to the running screen. **DESIGN.md and STRATEGY.md are rewritten with go** ("capture is
-  sacred" becomes "adding a step is one Return"; "only the top is ever staged" becomes "only the top
-  runs").
-- **Look:** robotic, programmatic pixel *accents* (owner): pixel headings, labels, chunky blocks and hard
-  shadows; your words in a readable monospace that scales with large text. Tetris only as the feel of
-  the blocks — no line clears, scores or falling.
+- **Opt-in, off by default** (owner): "How did this feel?" after a step, and a timer that learns your
+  own pace and says in the app "this ran long for you — break it down?". This reverses "no timers" for
+  those who turn it on. Not in the first slices.
+- DESIGN.md and STRATEGY.md are rewritten around sections 1–2.
 
-## Mapping to what exists (stored data — Full tier)
+## 5. Stored data (Full tier)
 | Today | Becomes |
 |---|---|
-| whys (threads with wanders) | stacks; their wanders become steps that open (substacks) |
-| a wander's `next` · P-67's step stacks | steps |
-| activities (logged lines) | history, read-only (nothing deleted) |
-| `lit` lines (B-08) | steps in the stack they went toward |
-| heat (recency) | not shown (panel: no dimming) |
-New: an ordered list of steps per stack, parent links for broken-down steps, routines (steps that come
-back, usable in several stacks). A migration keeps every record.
+| whys / wanders (threads) | routines (a why with wanders = a routine holding routines) |
+| a wander's `next` | a step |
+| activities (logged lines), `lit` lines | history, read-only (nothing deleted) |
+| heat | not shown |
+New: routines (ordered items, divider position, blanks), runs (routine, blank values, frame stack with
+places, parent run, ended-at), unnamed sequences kept for search, values used per blank. A migration
+keeps every record.
 
-## UI audit
-First frames: `.polish/product/ui-audit-B-11.md` (12 findings). Re-audit of the r-frames:
-`.polish/product/ui-audit-B-11-r.md` — fixed: nothing files silently, no counts, the unreadable cleared
-block, top-down reading order. **Fold-ins — the build must meet all of these:**
-1. Done and Not now: an Undo that stays until the next action, a spoken announcement ("Done: <step>.
-   Now: <next>"), focus moves to the new step; under Reduce Motion the change is instant.
-2. No explanation text on any screen (r2–r6); "When the last piece is done" becomes a real choice
-   asked at that moment, 48 px buttons.
-3. Move / make it now / send to another stack: a visible ⋯ button on every step, long-press only as a
-   shortcut.
-4. One filled primary per screen (Done on Running; ADD is outlined and disabled while the field is empty).
-5. "Not now" says where the step goes ("Later — to the bottom"), with a down arrow.
-6. All stacks: names wrap, the next column peeks so the sideways scroll is visible, a way back to Run,
-   column borders ≥ 3:1.
-7. One symbol per meaning: ▶ only for *now*; Run and Energy get their own words/marks.
-8. Buttons, labels and dates in the readable font at ≥ 16 px (pixel font for screen titles only);
-   layouts reflow at 200 % text; screen titles are headings.
-9. A stack's colour is fixed; a routine takes the colour of the stack it sits in; history's mark
-   matches its stack.
-10. Running: the energy switch and Stack in thumb reach (above the field), not at the top.
+## 6. Build requirements (from four UI audits; all binding)
+**Acting on a step.** Next, Step in, Break it down and Done keep fixed places on every screen (Step in
+dimmed on a plain step). One filled primary per screen. Done always names what it ends, and the level
+is in words, never colour alone. Next, Done, Group and edits each leave an Undo that stays until the
+next action, with a spoken announcement and focus moved to the new step. Restart is apart from Resume,
+names its target and has an Undo; nothing overwrites a saved place silently.
+**Nothing by gesture alone.** Every step has a visible ⋯ (make it now, move up/down, repeat from here,
+send, remove); the divider has a 48 px grip and the same move in menus; drag and long-press are only
+shortcuts. The divider's three states (top, absent, between) are all drawn.
+**Words and marks.** No explanation text on screens and none in brackets on buttons. One mark per
+meaning: ▶ only for *now*, ↻ only for "repeats", ▤ for a routine, › for going forward, ＋/− for
+expand/collapse. No counts ("3 inside"); ordinals in Read it are positions, not progress.
+**Reading and size.** Buttons, labels and dates in the readable font at ≥ 16 px; targets ≥ 48 px;
+layouts reflow at 200 % text and with the keyboard up; screen titles are headings; Read it uses real
+headings and nested lists and names what repeats ("until you're done with Hand studies").
+**Suggestions and blanks.** Your typed text is nearest the field; routines offered are 48 px and read
+as things to add; a reusable routine is named as such for screen readers. A routine keeps one colour.
+**Motion.** Under Reduce Motion every change is instant.
 
-**Audit of the x-frames** (`.polish/product/ui-audit-B-11-x.md`) — further fold-ins:
-11. One Done. "That was a lot" is offered on the Undo line after Done, and only for pieces that can
-    come back (reused pieces); never a second Done button (a rating at every completion, 14 px from Done).
-12. Buttons never swap places: Done stays where it is; a heavy piece marks **Break it down** (a mark,
-    not a sentence), "then:" stays, and the mark goes once the piece is broken down or done without it.
-13. Editing a shared piece: Save names the stacks it changes, "Save as a new piece" is beside it, and
-    an Undo follows; deleting a line and Cancel are drawn.
-14. Suggestions: your own typed text first (nearest the field), then earlier pieces, each named as
-    "piece" or "reusable piece" for screen readers; announced without a number; fits with the keyboard up.
-15. Opening cards look tappable (a "›" and a pressed state); an empty pursuit shows "Add a first piece".
-16. Fold-ins 5, 7 and 8 hold on the new frames too ("Later — to the bottom"; one symbol per meaning;
-    pursuit names in the readable font).
+## 7. Reviews so far
+- **UI audits** ×4 (`ui-audit-B-11*.md`) → section 6. The `a`, `c`, `d` frames are not yet audited.
+- **Persona panel** on the first draft (`panel-B-11-{1,2}.md`): favoured pixel accents, a parent that
+  stays until you say so, no caps, no dimming; the Returner's worry — a stale "now" after weeks away —
+  is met by "Where you left things" making no claim about today.
+- **Neutral review** (`review-B-11-neutral.md`, a job hunt to day ten). Strong: the one-step run screen
+  with nothing showing how much is left; the divider checked against Read it; Break it down and Group
+  as a pair; the Resume card after days away. Its tensions led to blanks, child runs, "found by its
+  words", and Done vs Switch.
+- **Implementation review** — `review-B-11-impl.md` (requested by the owner).
 
-**Audit of the y-frames** (`.polish/product/ui-audit-B-11-y.md`) — further fold-ins:
-17. Opening: **Resume** is the one primary; Restart is apart from it, names what it restarts, and has an
-    Undo. Declaring a routine that has a saved place asks "Resume or start over" rather than silently
-    overwriting. Every parked or waiting thread has its own card.
-18. Running: Next, Step in, Done and Break it down keep fixed places on every screen (fold-in 12). Done
-    always names the level it pops, and that level is shown in words in the path, not by colour alone.
-19. No bracketed explanations on buttons: "Step in" and "Next" only. One meaning per mark: "›" for
-    going forward, a different mark for "opens".
-20. The divider: a 48 px grip, "Repeat from here" in every step's ⋯, and its states drawn — at the top
-    (all loops), absent (runs once), in between.
-21. The loop is shown by the bracket shape alone, no sentence. ↻ means "repeats" only; a routine has its
-    own mark.
-22. A routine inside a routine is drawn as a distinct block (named, opens); reusable routines offered by
-    the field are 48 px and read as things to add, not commands.
-23. Read it: real headings and nested lists, consistent indent, and each "until you're done" names what
-    repeats ("Then repeat Hand studies until you're done:").
-24. "Wait" and "Switch" are two actions, each with its own button.
-25. Fold-ins 1, 2, 7, 8 and 16 hold on these frames too (Undo on Next and Done; ▶ is only *now*, so Run
-    gets a word).
+## 8. Open
+1. Child runs: where they are started and listed (inside the parent's Running / See it all, and folded
+   under the parent on Declare); what Done on a parent does while children are open.
+2. Does an inner routine's blank take the outer run's value when they share a word?
+3. First-ever open (nothing in reference); the Break-it-down screen and the edit-everywhere Save on the
+   current frame set; how "Choose steps" is entered.
+4. Later, only if it can be made simple: a step that waits while the rest of its sequence carries on.
+5. Whether history records anything beyond ended runs.
 
-## Persona panel
-_Simulated perspectives from `docs/product/PERSONAS.md`. A thinking tool, not user research._ Reports:
-`.polish/product/panel-B-11-{1,2}.md` (on the first frames).
-
-| Persona | Reaction | What it hinges on |
-|---|---|---|
-| A · Dabbler | delighted → uneasy by week 3 | sweeping old stacks without judgment |
-| B · Builder | delighted · yes | controlling the order of steps |
-| C · Returner | uneasy · maybe | a stale "now" after weeks away reading as a reproach |
-| D · Meaning-Seeker | uneasy · maybe | finished words kept, a by-day history |
-| E · Minimalist | fine · leaning yes | few controls, readable type, export with structure |
-| F · Assistive-Tech | uneasy · yes if built in | "Now:" in words, a plain list, named Done |
-
-- **Folded in:** pixel accents; parent stays until you say so; by-day history; one energy that
-  persists; no caps; no dimming; "+ Layer" dropped (the field does it); Done names its step.
-- **For the revised model:** C's return — the running screen after weeks away shows the step plainly,
-  no "today" claim; A's sweep — "Rest this stack" (reversible) on All stacks.
-
-## Slices (reversible order)
-1. **Stacks and steps, stored** (L, Full): the new shape + migration that keeps every record; Stack and
-   All-stacks screens — **alongside today's home**, nothing retired.
-2. **Running screen + energy switch** (M).
-3. **Break it down** (M, Full: parent links).
-4. **Routines** (M, Full).
-5. **History + retire the sky and logging** (M), only after the owner has lived with 1–4; DESIGN.md and
-   STRATEGY.md rewritten. If capture is missed, a small "did it" stays in history.
+## 9. Slices (reversible order)
+1. **Routines and steps, stored** (L, Full): the new shape and migration; Your routines; Blocks with the
+   divider; Read it — **alongside today's home**, nothing retired.
+2. **Declare and Running** (M–L, Full: runs, frames, saved places): Next, Step in, Done, Switch.
+3. **Break it down and Group** (M); found-by-its-words.
+4. **Blanks and child runs** (M–L, Full).
+5. **History; retire the sky and logging** (M), only after the owner has lived with 1–4; DESIGN.md and
+   STRATEGY.md rewritten.
 
 ## Decision requested
-**D-18:** Go on B-11 — slices 1–4 alongside today's home, then slice 5 after living with it? **Go** / **Go, but change …** / **Not now**.
+**D-18:** Go on B-11 — slices 1–4 alongside today's home, then slice 5 after living with it?
+**Go** / **Go, but change …** / **Not now**.
