@@ -398,3 +398,101 @@ describe('P-80: a line on the live map opens again (reopenLine)', () => {
     expect(st().kept).toBeUndefined();
   });
 });
+
+describe('fix c after P-80: a line that already went toward a wander is never sent toward another', () => {
+  it('a reopened line with a "to" (and no doing) refuses Toward…', () => {
+    const { draw, cook } = seed();
+    st().setDraft({ text: 'for the soup', toIds: [cook] });
+    const id = st().log(undefined)!;
+    useStore.setState({ toast: undefined });
+    expect(st().reopenLine(id)).toBe(true);
+    expect(st().towardKept(draw)).toBe(false);
+    expect(st().data.activities[id]).toMatchObject({ toIds: [cook] });
+    expect(st().data.activities[id].doingId).toBeUndefined();
+  });
+});
+
+describe('P-82: attaching lands where you’re looking (`landed`)', () => {
+  it('after Toward…, leaving the rise lands the line in its wander; the toast says it in words, with Undo', () => {
+    const { draw } = seed();
+    const id = send('sketched a hand');
+    expect(st().towardKept(draw)).toBe(true);
+    st().leaveKept();
+    expect(st().landed).toEqual({ activityId: id, threadId: draw });
+    expect(st().toast).toMatchObject({ message: 'Toward draw', activityId: id });
+  });
+
+  it('after ↳ First step, the line lands in the wander it made', () => {
+    send('learn to juggle');
+    expect(st().firstStepKept('three balls')).toBe(true);
+    const made = (st().kept!.did as { threadId: string }).threadId;
+    st().leaveKept();
+    expect(st().landed).toMatchObject({ threadId: made });
+    expect(st().toast?.message).toBe('First step on learn to juggle');
+  });
+
+  it('attached from a suggestion (its doing wander picked before Return): leaving lands it; the toast says “Logged → …”; Undo takes the Return back, words to the field', () => {
+    const { draw } = seed();
+    st().setDraft({ text: 'drew a hand', doingId: draw });
+    const id = st().log(undefined, { trail: true })!;
+    st().leaveKept();
+    expect(st().landed).toEqual({ activityId: id, threadId: draw });
+    expect(st().toast).toMatchObject({ message: 'Logged → draw', activityId: id });
+    expect(st().undoLast()).toBe(true);
+    expect(st().data.activities[id]).toBeUndefined();
+    expect(st().draft.text).toBe('drew a hand');
+    expect(st().landed).toBeUndefined();
+  });
+
+  it('a loose line (or one opened again) lands nowhere and says nothing', () => {
+    seed();
+    send('read on the bus');
+    st().leaveKept();
+    expect(st().landed).toBeUndefined();
+    expect(st().toast).toBeUndefined();
+    const { draw } = { draw: Object.values(st().data.threads).find((t) => t.name === 'draw')!.id };
+    st().setDraft({ text: 'drew', doingId: draw });
+    const old = st().log(undefined)!;
+    useStore.setState({ toast: undefined });
+    st().reopenLine(old);
+    st().leaveKept();
+    expect(st().landed).toBeUndefined();
+    expect(st().toast).toBeUndefined();
+  });
+
+  it('it stays until the next action: typing, a log, Undo, the sheet, opening a line, or clearLanded', () => {
+    const { draw } = seed();
+    const land = () => {
+      const id = send('sketched');
+      st().towardKept(draw);
+      st().leaveKept();
+      expect(st().landed).toBeDefined();
+      return id;
+    };
+    land();
+    st().setDraft({ text: '' }); // nothing typed yet: still there
+    expect(st().landed).toBeDefined();
+    st().setDraft({ text: 'n' });
+    expect(st().landed).toBeUndefined();
+    st().setDraft({ text: '' });
+    land();
+    st().setDraft({ text: 'another' });
+    st().log(undefined, { trail: true });
+    expect(st().landed).toBeUndefined();
+    st().leaveKept();
+    land();
+    st().undoLast();
+    expect(st().landed).toBeUndefined();
+    const id = land();
+    st().openSheet('wanders');
+    expect(st().landed).toBeUndefined();
+    st().closeSheet();
+    land();
+    st().reopenLine(id);
+    expect(st().landed).toBeUndefined();
+    st().leaveKept();
+    land();
+    st().clearLanded();
+    expect(st().landed).toBeUndefined();
+  });
+});

@@ -1,6 +1,6 @@
-import { router, Slot, useIsFocused } from 'expo-router';
+import { router, Slot, useIsFocused, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ComponentRef, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { ComponentRef, createContext, ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, GestureResponderEvent, Keyboard, PanResponder, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -14,7 +14,7 @@ import { useWhileShown } from '@/components/shown';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { endsByItself, Guide, restGuides, RETURN_BEAT_MS, swipeLeaves, swipeStarts } from '@/domain/home';
 import { Place } from '@/domain/passage';
-import { groundFits } from '@/domain/trailhead';
+import { groundFits, groundGlideMs } from '@/domain/trailhead';
 import { useStore } from '@/store/useStore';
 import { N } from '@/theme';
 
@@ -83,8 +83,15 @@ export function useKeyboardUp() {
 /** An Esc this soon after a tilt starts, before its session has arrived, still leaves it (audit F3). */
 const TILT_ESC_MS = 1500;
 
-/** Leaving a session: back to the trailhead in the history if it's there, else it replaces the session. */
-const toRest = () => router.dismissTo('/');
+/** Where the home was at rest last: `/`, or `/sky` while the map is lit (P-81). */
+let restPath: '/' | '/sky' = '/';
+/**
+ * Leaving a session: back to the home at rest as it was — lit or not (P-81: it stays lit until
+ * toggled) — in the history if it's there, else it replaces the session.
+ */
+const toRest = () => router.dismissTo(restPath);
+/** A path of the home at rest: the trailhead, or the trailhead with the map lit (P-81: `/sky` is the lit state). */
+export const restRoute = (path: string): '/' | '/sky' | undefined => (path === '/' ? '/' : path === '/sky' ? '/sky' : undefined);
 
 /**
  * Where a drag starts (audit F5). Web: in a field (a drag selects text), and whether anything it's in
@@ -109,12 +116,20 @@ function dragFrom(target: EventTarget | null): { atTop: boolean; inField: boolea
  * dims behind it. Its one way out — its Back control, Esc, Back, or tapping the ground — comes back
  * down to the lantern. Map's dusk is unchanged.
  */
-export function Home() {
+export function Home({ trailhead }: { trailhead: (lit: boolean) => ReactNode }) {
   const shown = useIsFocused();
+  // P-81: the trailhead is drawn here, not by its route, so `/` ↔ `/sky` (lighting the map) keeps it as it is:
+  // the feed's lines, the field and its focus never move or remount.
+  const resting = restRoute(usePathname());
+  useLayoutEffect(() => {
+    if (resting) restPath = resting;
+  }, [resting]);
   const data = useStore((st) => st.data);
   const shading = useStore((st) => st.showShading);
   const reduce = useReduceMotion();
   const setDoneChip = useStore((st) => st.setDoneChip);
+  // P-84: while the sheet's search shows in the sky, its nodes take the whys' places.
+  const searching = useStore((st) => st.sheet.open && !!st.sheetSearch.trim());
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardUp();
@@ -133,6 +148,10 @@ export function Home() {
   const atRest = place === 'trailhead';
   const ground = place === 'star' ? false : place === 'trail' ? true : atRest ? !!restGround?.ground && !keyboardUp : fits;
   const lift = atRest && restGround?.ground ? restGround.lift : 0;
+  // Fix d (after P-80): the hills glide between rest (on the composer) and a session (at the foot) with
+  // the camera, never jumping; a change at rest (the composer's height arriving) is a cut, as is Reduce Motion.
+  const hillsLift = useMemo(() => new Animated.Value(lift), []); // eslint-disable-line react-hooks/exhaustive-deps
+  const liftWas = useRef({ lift, place });
 
   // The camera: 0 at rest, 1 looking up; it moves with the passage (a cut when that's still).
   const camera = useMemo(() => new Animated.Value(0), []);
@@ -145,6 +164,15 @@ export function Home() {
     t.start();
     return () => t.stop();
   }, [camera, place, up, run]);
+  useLayoutEffect(() => {
+    const was = liftWas.current;
+    liftWas.current = { lift, place };
+    const ms = was.place !== place && was.place ? groundGlideMs({ from: was.lift, to: lift, ms: run.kind === 'none' ? 0 : run.ms, reduce }) : 0;
+    if (!ms) return hillsLift.setValue(lift);
+    const t = Animated.timing(hillsLift, { toValue: lift, duration: ms, easing: Easing.out(Easing.cubic), useNativeDriver: false });
+    t.start();
+    return () => t.stop();
+  }, [hillsLift, lift, place, run, reduce]);
 
   // Ending by itself after a choice: a short beat (Undo shows first), then down. Anything you do
   // meanwhile keeps you there, and arriving anywhere else forgets it.
@@ -260,11 +288,13 @@ export function Home() {
   return (
     <View style={styles.home} testID="home" {...{ dataSet: { camera: up ? 'up' : 'rest' } }}>
       {shown && <StatusBar style="light" />}
-      <NightSky still={reduce || !shown} warm={shading} ground={!!place && ground} passage={place ? passage : undefined} lift={lift} />
-      {guides && guides.length > 0 && <Stars guides={guides} camera={camera} />}
+      <NightSky still={reduce || !shown} warm={shading} ground={!!place && ground} passage={place ? passage : undefined} lift={lift} hillsLift={hillsLift} />
+      {/* P-81/P-84: lit (or mirroring the sheet's search), the whys are the map's named nodes (the trailhead draws them), not guiding stars. */}
+      {guides && guides.length > 0 && resting !== '/sky' && !searching && <Stars guides={guides} camera={camera} />}
       <View style={styles.layer} testID="home-layer" {...(up && !web ? swipe.panHandlers : {})}>
         <Ctx.Provider value={ctx}>
           <Slot />
+          {resting && <View style={StyleSheet.absoluteFill}>{trailhead(resting === '/sky')}</View>}
         </Ctx.Provider>
       </View>
       {/* Tapping the ground (the lantern) leaves a session: for a pointer only; its Back control and Esc are the named ways. */}

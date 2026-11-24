@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { applyUndo, undoEntry } from './diff';
 import { restSky } from './home';
 import { logActivity } from './model';
-import { firstStep, LIT_FLOOR, litGlow, looksLit, riseSaid, settle, toward, undoFirstStep } from './rise';
+import { canGoToward, firstStep, LIT_FLOOR, litGlow, looksLit, riseSaid, settle, toward, undoFirstStep } from './rise';
 import { Data, emptyData, Thread } from './types';
 
 const DAY = 864e5;
@@ -226,5 +226,13 @@ describe('riseSaid: what the rise (and, once it has ended, the toast) says about
     expect(riseSaid(k.data, k.id, { kind: 'step', threadId: 'draw' })).toBe('Toward draw');
     const attached = logActivity(world(), { text: 'x', doingId: 'cook', lit: true }, NOW);
     expect(riseSaid(attached.data, attached.activity.id)).toBe('Logged → cook');
+  });
+});
+
+describe('canGoToward (fix c after P-80: a line that already went somewhere says where, never offers Toward… again)', () => {
+  it('only a line with no doing wander and no "to"', () => {
+    expect(canGoToward({ toIds: [] })).toBe(true);
+    expect(canGoToward({ doingId: 'draw', toIds: [] })).toBe(false);
+    expect(canGoToward({ toIds: ['fp'] })).toBe(false);
   });
 });

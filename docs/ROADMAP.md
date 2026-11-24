@@ -84,17 +84,25 @@ redirects to the lit home; the graph Map, its card, focus and scope chains retir
 rules rewritten; specs moved off `/map`; fold-ins 8, 10; e2e + axe at the end.
 
 
-### P-46 Home's per-log cost with a large history `[perf]` M
+### P-84 The sheet's search lights the stars above `[feature]` `[a11y]` S
+*Status:* in-progress
+*Why:* owner, 2026-11-24: "The search should reflect the state of the stars above so you get to see
+the movement of your energy" (clarified: the sheet's search).
+*Done when:* searching from the sheet leaves the sky visible above; every matching line appears as a
+star above (placed from its id, with its words and when in words), its node(s) lit as on the lit map;
+other feed lines dim; stars that stay never move as the query changes; clearing or closing returns
+the sky to rest; no counts; the results list stays the accessible source, the result announced in
+words without a number; Reduce Motion: appear/dim only; B-09 fold-ins hold; e2e at the end.
+
+### P-46 Home's cost with a large history `[perf]` M
 *Status:* todo
-*Note (2026-11-23):* after P-48–P-61 the ratio reads 1.13–1.23×, once 1.33× on a 4-worker run; cleanup of the unused bridge store code (`bridgeFor`, `attachToNew`, `BRIDGE_QUESTION`) belongs with this.
-*Why:* `e2e/home-graph-perf.spec.ts` swings 1.19–1.43× against its 1.25× budget with a 4,000-log
-history (CI red on 2026-11-22 before P-38; P-38 pulled for it). The graph's deferred work after each
-log is the cost; P-38 waits on this.
-*Also (2026-11-24, P-78):* the one home opens a 4,000-line history in ~4 s here and ~14 s at CI CPU
-speed (E2E_SLOW=4); `restSky` + `skyStars` are ~0.1 s of it, so most is the load/first render — measure
-and bring it down (the one-home "many lines" spec waits up to 40 s meanwhile).
-*Done when:* profile the deferred picture render and its layout/paint after a log; bring the spec
-reliably under budget (10 runs in a row locally); then P-38 can land from `p38-keep-dots`.
+*Why:* the one home opens a 4,000-line history in ~4 s here and ~14 s at CI CPU speed (E2E_SLOW=4);
+`restSky` + `skyStars` are ~0.1 s of it, so most is the load and first render (P-78, 2026-11-24). The
+old graph's per-log budget spec (`home-graph-perf.spec.ts`) retired with the graph Map (P-83); its
+per-log check lives in `e2e/perf.spec.ts`. P-38 (keep log dots) is moot with the graph gone.
+*Done when:* profile the home's load and first render with a 4,000-line history; bring it under ~1.5 s
+here and under the default e2e wait at E2E_SLOW=4; the one-home "many lines" spec goes back to the
+default wait; per-log cost on the home stays within `perf.spec.ts`'s budget.
 
 ### P-05 Prove it in Safari and Firefox `[platform]` M
 *Status:* todo
@@ -131,6 +139,20 @@ constellations and guiding stars; B-07's P-67 (step stacks) continues from ↳ F
 ### P-67 Step stacks `[data]` `[feature]` M
 *Status:* todo
 *Why:* B-07 slice 3 (absorbs P-19).
+*Focus view (owner, 2026-11-24):* opening a wander is a focus view — the current step, stylized, alone at
+the centre (no ring, no timer), the wander's name small above; **Done it** and **Nearer step** (decompose:
+set a nearer step, which takes the centre; the step it came from waits behind it); after Done it the
+next step comes forward; when the stack is empty, "Reached" — you stay in focus until then or until you
+leave. UI audit done (`.polish/product/ui-audit-P-67-focus.md`, local); fold-ins: "Nearer step" with no
+icon, name "Nearer step: break <step> into a smaller one", outline ≥ 3:1, 44 pt, buttons stack at
+large text; the field above the keyboard, Return sets it, Set it disabled when empty; "then …" in the
+muted colour, deeper steps as fainter "then …" lines (never a count); after Done it "Done it: <step>"
+with Undo (no timer) and the next step takes the centre ("Next: …" announced, focus to the step);
+after Set it the nearer step takes the centre with Undo; Back/Esc close the field first, leaving keeps
+everything; "Reached." doesn't close the wander, offers a quiet "＋ Add a next step" and "Back to the
+sky"; a wander with no step shows "＋ Add a next step"; the glow is static (no ring/pulse — not a
+timer); long steps scroll, never truncate; large text drops the stylization; the note and footprints
+stay reachable below the step; "Done it" everywhere (the trail's "Did it" renamed).
 *Done when:* an ordered stack of steps per wander (additive migration; `next` kept as the top for
 older versions and older exports); "Nearer step" pushes; Did it pops into an activity; set down with
 Undo; a cleared stack shows "Reached"; export/import round-trip; migration + persistence tests,

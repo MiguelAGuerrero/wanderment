@@ -9,7 +9,7 @@ import { ageLabel } from '@/domain/selectors';
 import { rememberSearchQuietly, useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
-const goBack = () => (router.canGoBack() ? router.back() : router.replace('/map'));
+const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 /** Search across activities, notes and next steps, grouped by thread. */
 export default function Search() {

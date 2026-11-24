@@ -114,7 +114,7 @@ test.describe('the composer at the bottom (P-79)', () => {
     await expectNoSeriousViolations(page);
   });
 
-  test('“I’m not sure” is a toggle: pressed state, named for what it does, a mark that isn’t colour; for now it looks up (`/sky`)', async ({ page }) => {
+  test('“I’m not sure” is a toggle: pressed state, named for what it does, a mark that isn’t colour; it lights the map (`/sky`, P-81)', async ({ page }) => {
     await open(page, world(FEW));
     await expect(unsure(page)).toHaveAttribute('aria-pressed', 'false');
     await expect(unsure(page)).toContainText('I’m not sure');
@@ -123,9 +123,13 @@ test.describe('the composer at the bottom (P-79)', () => {
     await expect(mark).toHaveAttribute('fill', 'none');
     await unsure(page).click();
     await expect(page).toHaveURL(/\/wanderment\/sky$/);
+    // P-81: pressed while lit, its star filled.
+    await expect(unsure(page)).toHaveAttribute('aria-pressed', 'true');
+    await expect(mark).not.toHaveAttribute('fill', 'none');
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(AT_REST);
-    await expect(field(page)).toBeFocused();
+    // P-81: lighting is in place (nothing remounts), so focus stays on the chip (was: back in the field after the look-up session).
+    await expect(unsure(page)).toBeFocused();
   });
 
   test('typing: suggestions and the done chip live in the composer — it grows upward; the chip, the field and the map’s lines stay put', async ({ page }) => {
@@ -223,7 +227,8 @@ test.describe('the live map at rest (P-80)', () => {
     await page.keyboard.press('Tab');
     await expect(unsure(page)).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'Map', exact: true })).toBeFocused();
+    // P-83: the grabber (was: Map's link).
+    await expect(button(page, 'Wanders and activities')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(lines(page).first()).toBeFocused();
     await expect(lines(page).first()).toHaveAttribute('aria-label', /^sketched hands, /);

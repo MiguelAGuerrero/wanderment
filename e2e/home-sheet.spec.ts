@@ -1,12 +1,17 @@
 /**
- * P-58 (owner, D-10): Wanders and Activities pull out from Home. No tab bar: a handle at Home's bottom
- * pulls up one sheet with two sections, Wanders | Activities; drag down, the scrim, Esc or Back put it
- * away.
+ * P-58 (owner, D-10): Wanders and Activities pull out from the home. No tab bar: one sheet with two
+ * sections, Wanders | Activities; drag down, the scrim, Close, Esc or Back put it away.
+ * P-83 (B-09 slice 5; Map retired): the sheet comes up from the composer's grabber (a 44 pt button with
+ * an expanded state) by a tap or by a swipe that starts on it — never one over the field; it's in the
+ * night palette, with a visible Close and rows for Explore, Search, Settings and Export.
+ * P-84 (owner): the sheet's search lights the stars above — the sheet sits low, every matching line is
+ * a star in the sky over it, the other lines dim, the nodes they went toward light; no counts; Back
+ * clears the search first.
  */
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, logPlus, test } from './fixtures';
+import { expect, logBox, logLine, PROMPT, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -41,17 +46,20 @@ function world() {
   return JSON.stringify(json);
 }
 
+const field = (page: Page) => page.getByRole('textbox', { name: PROMPT, exact: true });
+
+/** P-83: the home (Map is retired), its field focused. */
 async function open(page: Page) {
   await page.addInitScript(seedScript, world());
-  await page.goto('./map'); // P-65: graph moved to Map
-  await expect(logPlus(page)).toBeVisible(); // P-61: was the What’s next tab
+  await page.goto('./');
+  await expect(field(page)).toBeVisible();
 }
 
-/** The sheet is out and has come to rest (Home's bottom is out of sight under it). */
+/** The sheet is out (the home behind it out of reach), on `on`. */
 async function expectOpen(page: Page, on: 'Wanders' | 'Activities') {
   await expect(dialog(page)).toBeVisible();
   await expect(section(page, on)).toHaveAttribute('aria-selected', 'true');
-  await expect(page.getByTestId('home-slot')).toBeHidden();
+  await expect(field(page)).toHaveCount(0);
 }
 
 /** The sheet is away: Home is back, its handle reachable again. */
@@ -88,8 +96,8 @@ async function twitch(page: Page, from: Box, dir: 1 | -1) {
 test.describe('at 390 px', () => {
   test.beforeEach(async ({ page }) => open(page));
 
-  // P-61: the slot is the What’s next card and ＋ (was: "…under the What’s next / Log slot", whose toggle was Home's only tablist).
-  test('no tab bar: Home is the only screen, with the handle under the What’s next card and ＋', async ({ page }) => {
+  // P-83: the grabber at the top of the composer (was: the handle under Map's What's next card and ＋).
+  test('no tab bar: the home is the only screen, with the grabber at the top edge of the composer', async ({ page }) => {
     for (const name of ['Home', 'Wanders', 'Activities']) await expect(page.getByRole('tab', { name, exact: true })).toHaveCount(0);
     await expect(page.getByRole('tablist')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Wanders', exact: true })).toHaveCount(0);
@@ -99,15 +107,16 @@ test.describe('at 390 px', () => {
     const h = (await handle(page).boundingBox())!;
     expect(h.height).toBeGreaterThanOrEqual(44);
     expect(h.width).toBeGreaterThanOrEqual(44);
-    // Under the slot (the card and ＋), at the very bottom of the screen.
-    for (const above of [page.getByRole('region', { name: /^What’s next/ }), logPlus(page)]) {
-      const b = (await above.boundingBox())!;
-      expect(h.y).toBeGreaterThanOrEqual(b.y + b.height);
-    }
-    expect(h.y + h.height).toBeLessThanOrEqual(844);
-    expect(h.y + h.height).toBeGreaterThan(844 - 24);
+    // At the composer's top edge, centred, above the question and the field (in thumb reach).
+    const composer = (await page.getByTestId('trailhead-scroll').boundingBox())!;
+    const f = (await field(page).boundingBox())!;
+    expect(h.y).toBeGreaterThanOrEqual(composer.y - 1);
+    expect(h.y).toBeLessThan(f.y);
+    expect(Math.abs(h.x + h.width / 2 - 195)).toBeLessThanOrEqual(4);
+    // Map is retired: no Map link, no map signpost.
+    await expect(page.getByRole('link', { name: 'Map', exact: true })).toHaveCount(0);
     await expectNoSeriousViolations(page);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p58-home-handle.png` });
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p83-grabber.png` });
   });
 
   test('a tap opens it on Wanders, a modal dialog with focus inside, over most of the screen; Esc puts it away and focus goes back to the handle', async ({ page }) => {
@@ -119,16 +128,15 @@ test.describe('at 390 px', () => {
     await expect(dialog(page).getByRole('heading', { name: 'Wanders', exact: true })).toBeVisible();
     await expect(dialog(page).getByRole('heading', { name: 'TO MAKE APPAREL' }).or(dialog(page).getByRole('heading', { name: 'YOUR WANDERS' })).first()).toBeVisible();
     await expect(dialog(page).getByRole('button', { name: 'sketch a hand Log this' })).toBeVisible();
-    // Focus moved into it; Home behind it is out of reach.
+    // Focus moved into it; the home behind it is out of reach.
     expect(await dialog(page).evaluate((el) => el.contains(document.activeElement))).toBe(true);
-    await expect(page.getByRole('heading', { name: 'Wanderment' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: PROMPT })).toHaveCount(0);
     await expect(handleEl(page)).toHaveAttribute('aria-expanded', 'true');
-    // Most of the screen; Home's header stays in view above it.
+    // Most of the screen, a strip of sky above it.
     const d = (await sheetEl(page).boundingBox())!;
     expect(d.height).toBeGreaterThan(0.8 * 844);
     expect(d.y + d.height).toBeLessThanOrEqual(844 + 1);
-    const title = (await page.getByRole('heading', { name: 'Wanderment', includeHidden: true }).boundingBox())!;
-    expect(title.y + title.height).toBeLessThanOrEqual(d.y);
+    expect(d.y).toBeGreaterThan(0);
     for (const name of ['Wanders', 'Activities'] as const) {
       const t = (await section(page, name).boundingBox())!;
       expect(Math.min(t.width, t.height)).toBeGreaterThanOrEqual(44);
@@ -141,9 +149,9 @@ test.describe('at 390 px', () => {
     await page.keyboard.press('Escape');
     await expectClosed(page);
     await expect(handle(page)).toBeFocused();
-    // Home is back as it was: its heading and its slot (P-61: the log field away, ＋ there; was: on What's next).
-    await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible();
-    await expect(logPlus(page)).toBeVisible();
+    // The home is back as it was: its question and its field.
+    await expect(page.getByRole('heading', { name: PROMPT })).toBeVisible();
+    await expect(field(page)).toBeVisible();
   });
 
   test('the sections switch with the tabs at its top, and it reopens on the last one; the scrim and Close put it away', async ({ page }) => {
@@ -170,9 +178,11 @@ test.describe('at 390 px', () => {
     await expect(handle(page)).toBeFocused();
   });
 
-  // P-61: from ＋ (was: from the toggle, two Tabs).
-  test('on web it’s reachable by keyboard: Tab from ＋ to the handle, Enter opens, Esc closes', async ({ page }) => {
-    await logPlus(page).focus();
+  // P-83: from the composer's last chip (was: from Map's ＋).
+  test('on web it’s reachable by keyboard: Tab from the field past I’m not sure to the grabber, Enter opens, Esc closes', async ({ page }) => {
+    await expect(field(page)).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(handle(page)).toBeFocused();
     await page.keyboard.press('Enter');
@@ -183,7 +193,12 @@ test.describe('at 390 px', () => {
     await expect(handle(page)).toBeFocused();
   });
 
-  test('a drag up on the handle pulls it out; a drag down on its top puts it away; a twitch does neither', async ({ page }) => {
+  test('a drag up on the grabber pulls it out; a drag down on its top puts it away; a twitch does neither; a drag up over the field never opens it', async ({ page }) => {
+    // Fold-in 10: the swipe only starts on the grabber.
+    await drag(page, (await field(page).boundingBox())!, -400);
+    await page.waitForTimeout(400);
+    await expectClosed(page);
+
     // A short drag springs back.
     await twitch(page, (await handle(page).boundingBox())!, -1);
     await page.waitForTimeout(400);
@@ -200,7 +215,7 @@ test.describe('at 390 px', () => {
     await expectClosed(page);
   });
 
-  test('each section logs from its own box, as the tabs did; Home’s slot stays out of it', async ({ page }) => {
+  test('each section logs from its own box, as the tabs did; the home’s field stays out of it', async ({ page }) => {
     await handle(page).click();
     await expectOpen(page, 'Wanders');
     // The Wanders section's box: a plain log (P-61: asks nothing there either; was: the bridge asked there).
@@ -242,16 +257,16 @@ test.describe('at 390 px', () => {
     // Back again puts the sheet away before leaving Home.
     await page.goBack();
     await expectClosed(page);
-    await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
+    await expect(page).toHaveURL(/\/wanderment\/$/);
   });
 
-  test('the browser’s Back closes the sheet before leaving Home', async ({ page }) => {
+  test('the browser’s Back closes the sheet before leaving the home', async ({ page }) => {
     await handle(page).click();
     await expectOpen(page, 'Wanders');
     await page.goBack();
     await expectClosed(page);
-    await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
-    await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible();
+    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(field(page)).toBeVisible();
     // Opened and closed again by Esc, it doesn't leave a Back step behind it.
     await handle(page).click();
     await expectOpen(page, 'Wanders');
@@ -261,7 +276,7 @@ test.describe('at 390 px', () => {
     await expectOpen(page, 'Wanders');
     await page.goBack();
     await expectClosed(page);
-    await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
+    await expect(page).toHaveURL(/\/wanderment\/$/);
   });
 
   test('it slides, but under Reduce Motion it just appears and goes', async ({ page }) => {
@@ -295,15 +310,15 @@ test.describe('at 390 px', () => {
   });
 });
 
-test('deep links to /wanders and /activities open Home with the sheet on that section; Back puts it away first', async ({ page }) => {
+test('deep links to /wanders and /activities open the home with the sheet on that section; Back puts it away first', async ({ page }) => {
   await page.addInitScript(seedScript, world());
   await page.goto('./activities');
   await expectOpen(page, 'Activities');
-  await expect(page).toHaveURL(/\/wanderment\/map$/); // P-65: graph moved to Map
+  await expect(page).toHaveURL(/\/wanderment\/$/); // P-83: the home (was Map)
   await expect(dialog(page).getByText('cooked dinner', { exact: true })).toBeVisible();
   await page.goBack();
   await expectClosed(page);
-  await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible();
+  await expect(field(page)).toBeVisible();
 
   await page.goto('./wanders');
   await expectOpen(page, 'Wanders');
@@ -331,4 +346,160 @@ test('at 200 % zoom (195 px) the handle and both sections have no serious access
   await expectNoSeriousViolations(page);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/p58-200-activities.png` });
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(195);
+});
+
+test.describe('P-83: the sheet replaces Map', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  test.beforeEach(async ({ page }) => open(page));
+
+  test('night palette; a visible Close; rows for Explore, Search, Settings and Export, each 44 pt', async ({ page }) => {
+    await handle(page).click();
+    await expectOpen(page, 'Wanders');
+    // The night palette (theme N.bg), never cream.
+    expect(await sheetEl(page).evaluate((el) => getComputedStyle(el).backgroundColor)).toBe('rgb(14, 16, 32)');
+    const close = dialog(page).getByRole('button', { name: 'Close', exact: true });
+    await expect(close).toHaveText('Close');
+    const rows = [
+      dialog(page).getByRole('link', { name: 'Explore', exact: true }),
+      dialog(page).getByRole('textbox', { name: 'Search', exact: true }),
+      dialog(page).getByRole('link', { name: 'Settings', exact: true }),
+      dialog(page).getByRole('button', { name: 'Export', exact: true }),
+    ];
+    for (const r of [close, ...rows]) {
+      await expect(r).toBeVisible();
+      expect((await r.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    // Export downloads a backup (as Settings' does), and says so in words.
+    const download = page.waitForEvent('download');
+    await dialog(page).getByRole('button', { name: 'Export', exact: true }).click();
+    expect((await download).suggestedFilename()).toMatch(/^wanderment-\d{4}-\d{2}-\d{2}\.json$/);
+    await expect(dialog(page).getByRole('button', { name: 'Exported', exact: true })).toBeVisible();
+    // Settings opens; its Done comes back to the home.
+    await dialog(page).getByRole('link', { name: 'Settings', exact: true }).click();
+    await expect(page).toHaveURL(/\/settings$/);
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expectNoSeriousViolations(page);
+  });
+
+  test('/map lands on the home with the map lit (replacing it, so Back never loops through it); Back closes the sheet, then dims the map', async ({ page }) => {
+    await page.goto('./map');
+    await expect(page).toHaveURL(/\/wanderment\/sky$/);
+    await expect(page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await handle(page).click();
+    await expectOpen(page, 'Wanders');
+    await page.goBack();
+    await expectClosed(page);
+    await expect(page).toHaveURL(/\/wanderment\/sky$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    // The graph Map, its What's next card and its focus/scope chains are gone.
+    await expect(page.getByTestId('home-graph')).toHaveCount(0);
+    await expect(page.getByRole('region', { name: /^What’s next/ })).toHaveCount(0);
+  });
+});
+
+test.describe('P-84: the sheet’s search lights the stars above', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  const search = (page: Page) => dialog(page).getByRole('textbox', { name: 'Search', exact: true });
+  const stars = (page: Page) => page.getByTestId('search-star');
+  const placed = (page: Page) =>
+    stars(page).evaluateAll((els) => Object.fromEntries(els.map((e) => [e.getAttribute('data-id'), `${Math.round(e.getBoundingClientRect().x)},${Math.round(e.getBoundingClientRect().y)}`])));
+
+  /** Lines a search can find: three about sketching (one long ago), others not. */
+  function searchWorld() {
+    const json = JSON.parse(world());
+    const at = (d: number) => new Date(Date.now() - d * DAY).toISOString();
+    const add = (id: string, text: string, d: number, extra: Record<string, unknown> = {}) =>
+      (json.state.data.activities[id] = { id, text, occurredAt: at(d), createdAt: at(d), toIds: [], ...extra });
+    add('s1', 'sketched a café', 0.2, { doingId: 'draw' });
+    add('s2', 'sketched on the bus', 3);
+    add('s3', 'sketched the old bridge', 60);
+    add('o1', 'called mum', 1);
+    return JSON.stringify(json);
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(seedScript, searchWorld());
+    await page.goto('./');
+    await expect(field(page)).toBeVisible();
+    await handle(page).click();
+    await expectOpen(page, 'Wanders');
+  });
+
+  test('searching lowers the sheet so the sky shows; every matching line is a star with its words and when; the rest dim; its wander lights; no counts', async ({ page }) => {
+    const full = (await sheetEl(page).boundingBox())!;
+    await search(page).fill('sketched');
+    await expect(sheetEl(page)).toHaveAttribute('data-detent', 'low');
+    const low = (await sheetEl(page).boundingBox())!;
+    expect(low.y).toBeGreaterThan(full.y + 200);
+    // Every match, in the sky above the sheet: its words and when, in words (not only the day's few).
+    for (const text of ['sketched a café', 'sketched on the bus', 'sketched the old bridge', 'sketched']) {
+      const star = stars(page).filter({ hasText: new RegExp(`^${text}`) }).or(page.getByTestId('rest-line').filter({ hasText: new RegExp(`^${text}`) })).first();
+      await expect(star).toBeVisible();
+      const b = (await star.boundingBox())!;
+      expect(b.y + b.height).toBeLessThanOrEqual(low.y + 1);
+    }
+    await expect(stars(page).filter({ hasText: 'sketched the old bridge' })).toContainText(/ · in \w+/);
+    // A line that doesn't match dims to its light (its words go).
+    await expect(page.getByTestId('live-map').getByText('called mum', { exact: true })).toHaveCount(0);
+    await expect(page.getByTestId('dim-line').first()).toBeAttached();
+    // draw (a café's wander) lights as on the lit map.
+    await expect(page.locator('[data-testid="lit-node"][data-id="draw"]')).toBeAttached();
+    // The sheet holds the results (the accessible source), said in words, never a number.
+    await expect(dialog(page).getByTestId('sheet-search-hit').filter({ hasText: 'sketched a café' })).toBeVisible();
+    await expect(dialog(page).getByRole('status').filter({ hasText: 'Found in your lines.' })).toBeAttached();
+    expect(await dialog(page).innerText()).not.toMatch(/\b\d+\s+(results?|lines?|matches)\b/i);
+    // The sky is a decorative mirror: the home under the sheet is hidden from assistive tech.
+    await expect(page.getByTestId('search-sky')).toHaveAttribute('aria-hidden', 'true');
+    await expectNoSeriousViolations(page);
+    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p84-search.png` });
+  });
+
+  test('as the query changes the stars that stay never move; clearing it (or closing the sheet) returns the sky to rest', async ({ page }) => {
+    await search(page).fill('sketched');
+    await expect(stars(page).first()).toBeVisible();
+    const before = await placed(page);
+    await search(page).fill('sketched o');
+    await expect(stars(page).filter({ hasText: 'sketched a café' })).toHaveCount(0);
+    const after = await placed(page);
+    for (const [id, at] of Object.entries(after)) if (id in before) expect(at).toBe(before[id]);
+    await dialog(page).getByRole('button', { name: 'Clear search', exact: true }).click();
+    await expect(search(page)).toHaveValue('');
+    await expect(sheetEl(page)).toHaveAttribute('data-detent', 'full');
+    await expect(stars(page)).toHaveCount(0);
+    await search(page).fill('sketched');
+    await expect(stars(page).first()).toBeVisible();
+    await dialog(page).getByRole('button', { name: 'Close', exact: true }).click();
+    await expectClosed(page);
+    await expect(page.getByTestId('search-sky')).toHaveCount(0);
+    await expect(page.getByTestId('dim-line')).toHaveCount(0);
+  });
+
+  test('Back clears the search first, then puts the sheet away; Esc in the field clears it too', async ({ page }) => {
+    await search(page).fill('sketched');
+    await expect(stars(page).first()).toBeVisible();
+    await page.goBack();
+    await expect(search(page)).toHaveValue('');
+    await expect(dialog(page)).toBeVisible();
+    await page.goBack();
+    await expectClosed(page);
+    await handle(page).click();
+    await search(page).fill('nothing like this');
+    await expect(dialog(page).getByRole('status').filter({ hasText: 'Nothing found.' })).toBeAttached();
+    await search(page).press('Escape');
+    await expect(search(page)).toHaveValue('');
+    await expect(dialog(page)).toBeVisible();
+  });
+
+  test('Reduce Motion: the stars just appear and the lines just dim (nothing animates)', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await search(page).fill('sketched');
+    await expect(stars(page).first()).toBeVisible();
+    const first = await placed(page);
+    expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+    await page.waitForTimeout(800);
+    expect(await placed(page)).toEqual(first);
+  });
 });

@@ -316,8 +316,10 @@ export function Composer({
   );
 
   const box = (
-    <View style={[styles.box, night && styles.nightBox, night && narrow && styles.nightBoxNarrow]}>
-      {reconnecting && (
+    <View
+      style={[styles.box, night && styles.nightBox, night && narrow && styles.nightBoxNarrow, night && hasFocus && styles.nightBoxFocus]}
+      {...(night && { testID: 'field-box' })}>
+      {reconnecting && !night && screenFocused && (
         // Over the space above the box, so nothing moves while it shows.
         <Text style={styles.reconnecting} numberOfLines={1}>
           {marked ? 'Reconnecting… it’ll log as soon as it’s back' : 'Reconnecting…'}
@@ -398,7 +400,7 @@ export function Composer({
             selection={placeCaret}
             placeholder={placeholder}
             placeholderTextColor={night ? N.faint : C.faint}
-            style={[styles.input, styles.field, night && styles.nightInput, night && narrow && styles.nightInputNarrow, night && Platform.OS === 'web' && (hasFocus ? styles.nightRing : styles.noRing)]}
+            style={[styles.input, styles.field, night && styles.nightInput, night && narrow && styles.nightInputNarrow, night && Platform.OS === 'web' && styles.noRing]}
             returnKeyType="done"
             submitBehavior="submit"
             // react-native-web ignores submitBehavior and blurs on Enter, a moment later (a 0 ms
@@ -431,6 +433,12 @@ export function Composer({
         </Pressable>
         )}
       </View>
+      {/* Only where it's in front (P-83: the home's composer under the open sheet says nothing). */}
+      {reconnecting && night && screenFocused && (
+        <Text style={styles.nightReconnecting} numberOfLines={2}>
+          {marked ? 'Reconnecting… it’ll log as soon as it’s back' : 'Reconnecting…'}
+        </Text>
+      )}
     </View>
   );
 
@@ -529,7 +537,11 @@ const sheet = themed((C, s) =>
     // P-79: drawn bottom up (the field at the foot), read top down.
     nightWrap: { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0, flexDirection: 'column-reverse' },
     // P-79: the composer's field — rounded, on the night, with the send ↑ at its end.
-    nightBox: { backgroundColor: N.surface, borderWidth: 1, borderColor: N.line, borderRadius: 26, paddingLeft: 18, minHeight: 52, justifyContent: 'center' },
+    // One border (fix a after P-80): the pill's own, which turns lantern while the field has focus (no ring inside it).
+    nightBox: { backgroundColor: N.surface, borderWidth: 2, borderColor: N.line, borderRadius: 26, paddingLeft: 17, minHeight: 52, justifyContent: 'center' },
+    nightBoxFocus: { borderColor: N.lantern },
+    // Fix b (after P-80): in the composer, "Reconnecting…" is a line of its own in the field's box — it never covers a chip.
+    nightReconnecting: { fontSize: 13, color: N.muted, paddingBottom: 6, paddingRight: 8 },
     nightInput: { color: N.ink, fontSize: 18, lineHeight: 24 },
     nightBoxNarrow: { paddingLeft: 8, paddingRight: 2, borderRadius: 24 },
     nightInputNarrow: { fontSize: 14, lineHeight: 20 },
@@ -539,8 +551,7 @@ const sheet = themed((C, s) =>
     nightSend: { backgroundColor: N.lantern },
     // The dashed "<wander>?" chip on the night sky: its words at 4.5:1 or more (P-65 fix).
     nightDashed: { borderColor: N.faint },
-    // Web: the field's own focus ring in the night palette (lantern on the sky, well over 3:1).
+    // Web: the field's focus shows on its box (lantern on the sky, well over 3:1), not as a second ring.
     noRing: { outlineStyle: 'none' } as object,
-    nightRing: { outlineStyle: 'solid', outlineWidth: 2, outlineColor: N.lantern, outlineOffset: 2, borderRadius: 20 } as object,
   }),
 );

@@ -202,10 +202,12 @@ test.describe('the rise', () => {
     await expect(field(page)).toBeFocused();
     await expect(chip(page)).toHaveAttribute('aria-checked', 'true');
     await expect(lit(page)).toHaveCount(0);
-    // Leaving the home (Map) turns it off.
-    await page.getByRole('link', { name: 'Map', exact: true }).click();
-    await expect(page).toHaveURL(/\/map$/);
+    // Leaving the home turns it off (P-83: Settings, from the sheet; was Map).
+    await page.getByRole('button', { name: 'Wanders and activities', exact: true }).click();
+    await page.getByRole('dialog').getByRole('link', { name: 'Settings', exact: true }).click();
+    await expect(page).toHaveURL(/\/settings$/);
     await page.goBack();
+    await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
     await field(page).fill('x');
     await expect(chip(page)).toHaveAttribute('aria-checked', 'false');
   });
@@ -335,11 +337,11 @@ test.describe('the rise', () => {
     await expect(page.getByTestId('rest-glow')).toHaveCount(0);
   });
 
-  test('lines logged anywhere else (Map’s ＋, a trail’s Did it) are never lit', async ({ page }) => {
+  // P-83: the sheet's log box (was Map's ＋).
+  test('lines logged anywhere else (the sheet’s log box, a trail’s Did it) are never lit', async ({ page }) => {
     await open(page);
-    await page.getByRole('link', { name: 'Map', exact: true }).click();
-    await expect(page).toHaveURL(/\/map$/);
-    await logLine(page, 'from the map');
+    await openSheet(page, 'Activities');
+    await logLine(page, 'from the sheet');
     await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
     await page.goto('./trail/cook');
     await button(page, 'Did it').click();

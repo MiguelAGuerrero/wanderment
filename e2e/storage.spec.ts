@@ -14,8 +14,9 @@ test('data saved by the first release (localStorage) moves into SQLite once', as
     }
   }, legacy);
   await openHome(page);
+  // P-83: the wander's card in the sheet's Wanders (was Map's node and its What's next card), with its step.
+  await openSheet(page, 'Wanders');
   await expect(page.getByRole('button', { name: /^play guitar\s*\S/ })).toBeVisible();
-  // P-49: the step shows under its node and in the What’s next card.
   await expect(page.getByText('learn the F chord').first()).toBeVisible();
   await page.goto('./settings');
   await expect(page.getByText('3 activities · 2 wanders')).toBeVisible();
@@ -54,7 +55,7 @@ test('a second tab waits instead of showing stale data', async ({ page, context 
   const second = await context.newPage();
   const secondErrors: Error[] = [];
   second.on('pageerror', (e) => secondErrors.push(e));
-  await second.goto('./map'); // P-65: graph moved to Map
+  await second.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   await expect(second.getByText(/open in another tab/)).toBeVisible({ timeout: 20_000 });
   await expect(second.getByRole('textbox')).toHaveCount(0);
 
@@ -74,7 +75,7 @@ test('in the localStorage fallback a second tab is blocked too (no last-writer-w
   await openHome(page);
   await logLine(page, 'first tab');
   const second = await context.newPage();
-  await second.goto('./map'); // P-65: graph moved to Map
+  await second.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   await expect(second.getByText(/open in another tab/)).toBeVisible();
   await expect(second.getByRole('textbox')).toHaveCount(0);
 });
@@ -87,7 +88,7 @@ test('a page whose files another copy holds without the tab lock (a suspended We
   await expect(page.getByText('Logged', { exact: true })).toBeVisible();
 
   const second = await context.newPage();
-  await second.goto('./map'); // P-65: graph moved to Map
+  await second.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   const elsewhere = second.getByText(/^Wanderment is still open somewhere else in this browser/);
   await expect(elsewhere).toBeVisible({ timeout: 20_000 });
   await expect(second.getByText(/^Details: open · .*Access Handle/)).toBeVisible();

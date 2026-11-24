@@ -47,8 +47,10 @@ export function useLoop(still: boolean, ms: number, delay = 0) {
  * hills, path or lantern. With a `passage` (P-72) the hills sink or rise into place, the stars and the
  * lantern fade in, and the wanderer can walk up the path; under Reduce Motion the passage is still.
  * `lift` (P-79): the ground stands that far above the bottom — at rest, just above the composer.
+ * `hillsLift` (fix d after P-80): the hills' own height, gliding between rest and a session (the
+ * lantern, which only fades, takes `lift` as it is).
  */
-export function NightSky({ still, warm, ground = true, passage, lift = 0 }: { still: boolean; warm: boolean; ground?: boolean; passage?: PassageState; lift?: number }) {
+export function NightSky({ still, warm, ground = true, passage, lift = 0, hillsLift }: { still: boolean; warm: boolean; ground?: boolean; passage?: PassageState; lift?: number; hillsLift?: Animated.Value }) {
   const { width } = useWindowDimensions();
   const tw1 = useLoop(still, 4000);
   const tw2 = useLoop(still, 6000, 1500);
@@ -79,7 +81,13 @@ export function NightSky({ still, warm, ground = true, passage, lift = 0 }: { st
       </Animated.View>
       {ground && (
         <>
-          <Animated.View style={[styles.hills, lift > 0 && { bottom: lift }, passage && { transform: [{ translateY: hillsY(passage) }] }]} testID="sky-ground">
+          <Animated.View
+            style={[
+              styles.hills,
+              hillsLift ? { bottom: hillsLift } : lift > 0 && { bottom: lift },
+              passage && { transform: [{ translateY: hillsY(passage) }] },
+            ]}
+            testID="sky-ground">
             <Svg width="100%" height={HILLS_H} viewBox={`0 0 390 ${HILLS_H}`} preserveAspectRatio="none">
               <Path d="M0 48 C 60 16 120 38 170 22 S 280 -14 330 6 S 380 26 390 16 V220 H0 Z" fill={N.hillFar} />
               <Path d="M0 100 C 90 76 170 104 250 84 S 360 76 390 88 V220 H0 Z" fill={N.hillNear} />

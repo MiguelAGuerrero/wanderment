@@ -272,7 +272,7 @@ export default function ThreadPage() {
 
 function Back() {
   return (
-    <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/map'))} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }} accessibilityRole="button">
+    <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start' }} accessibilityRole="button">
       <Text style={{ color: C.accent, fontSize: 15 }}>‹ Back</Text>
     </Pressable>
   );

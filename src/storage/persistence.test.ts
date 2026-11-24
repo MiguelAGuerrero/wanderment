@@ -1585,6 +1585,10 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       reopenLine: ['a1'],
       // P-73: the trailhead's done chip (session only, never stored).
       setDoneChip: [true],
+      // P-82: a landed line's label goes (session only).
+      clearLanded: [],
+      // P-84: the sheet's search query (session only).
+      setSheetSearch: ['sketch'],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>

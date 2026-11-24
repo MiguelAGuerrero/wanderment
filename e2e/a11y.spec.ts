@@ -43,7 +43,7 @@ test('Home, Activities, thread page and details have no serious accessibility vi
   await expect(page.getByText('You left off')).toBeVisible();
   await expectNoSeriousViolations(page);
 
-  await page.goto('./map'); // P-65: graph moved to Map
+  await page.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await page.getByText('read a novel').filter({ visible: true }).click();
   await expect(page.getByRole('textbox', { name: 'What you did' })).toBeVisible();
@@ -147,8 +147,9 @@ test('the log field’s suggestions with a long wander name have no serious acce
   await expect(page.getByRole('button', { name: new RegExp(`^${long}`) })).toBeVisible();
   await logLine(page, 'read a novel');
   await expect(page.getByRole('group', { name: 'Attach what you just logged' })).toHaveCount(0);
+  // P-83: the home's own field (Map's ＋ field, which this was, is retired) offers the same suggestions.
   await toHome(page);
-  await logBox(page).pressSequentially('pract');
+  await page.getByRole('textbox', { name: 'Where are we wandering today?', exact: true }).pressSequentially('pract');
 
   const list = page.getByRole('listbox', { name: 'Suggestions' });
   await expect(list).toBeVisible();
@@ -199,7 +200,7 @@ test('the thread page with the "what it’s for" swap row open has no serious ac
 test('the waiting screen (another tab has the data) has no serious accessibility violations, and says what failed (P-29)', async ({ page, context }) => {
   await openHome(page);
   const second = await context.newPage();
-  await second.goto('./map'); // P-65: graph moved to Map
+  await second.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   // Read out once, as an alert.
   await expect(second.getByRole('alert')).toHaveText(
     'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.',
@@ -231,5 +232,21 @@ test('Home while the page doesn’t hold the data (“Reconnecting…” on Log)
   await expect(page.getByRole('button', { name: 'Log, reconnecting', exact: true })).toBeVisible();
   await expect(page.getByText('Reconnecting…', { exact: true })).toBeVisible();
   await expect(logBox(page)).toHaveValue('typed while away');
+  await expectNoSeriousViolations(page);
+});
+
+test('the home (P-79–P-84): at rest, lit, with the sheet up and searching, has no serious accessibility violations', async ({ page }) => {
+  await seed(page);
+  await page.goto('./');
+  await expect(page.getByRole('textbox', { name: 'Where are we wandering today?', exact: true })).toBeVisible();
+  await expectNoSeriousViolations(page);
+  await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
+  await expect(page).toHaveURL(/\/sky$/);
+  await expectNoSeriousViolations(page);
+  await page.getByRole('button', { name: 'Wanders and activities', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Wanders and activities' })).toBeVisible();
+  await expectNoSeriousViolations(page);
+  await page.getByRole('dialog').getByRole('textbox', { name: 'Search', exact: true }).fill('novel');
+  await expect(page.getByTestId('sheet-search-hit').first()).toBeVisible();
   await expectNoSeriousViolations(page);
 });

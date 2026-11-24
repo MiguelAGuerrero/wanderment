@@ -85,3 +85,21 @@ export const unsureChip = (lit: boolean): { pressed: boolean; mark: 'outline' | 
  * would reach is left out until it shrinks again (the map yields; nothing moves).
  */
 export const feedRowShown = (row: number, { top, rowH, room }: { top: number; rowH: number; room: number }): boolean => top + (row + 1) * rowH <= room + 0.5;
+
+/**
+ * Where the live map's lines start (P-80, P-81): below the guiding stars (`guideTop`, when there are
+ * whys) and below the band kept for the lit map's nodes (`band`), whichever is lower — decided at rest,
+ * so lighting the map never moves a line (fold-in 7).
+ */
+export const mapTop = ({ guideTop, band }: { guideTop?: number; band: number }): number => Math.max(8, guideTop ?? 0, band);
+
+/** The longest the ground takes to glide to a new height (P-72's limit for the picture). */
+export const GLIDE_MAX_MS = 600;
+
+/**
+ * How long the ground takes to move from `from` to `to` (fix (d) after P-79: at rest it stands on the
+ * composer, in a session at the foot; a session starting never makes it jump): it glides with the
+ * camera's passage (`ms`, at most GLIDE_MAX_MS); under Reduce Motion, or when nothing changes, 0 — a cut.
+ */
+export const groundGlideMs = ({ from, to, ms, reduce }: { from: number; to: number; ms: number; reduce: boolean }): number =>
+  reduce || from === to ? 0 : Math.max(0, Math.min(ms, GLIDE_MAX_MS));

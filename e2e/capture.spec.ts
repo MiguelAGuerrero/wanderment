@@ -1,12 +1,5 @@
 import { expect, logBox, logLine, openHome, openSheet, openWanders, test } from './fixtures';
 
-test('first open shows the welcome and example chips that fill the log box', async ({ page }) => {
-  await openHome(page);
-  await expect(page.getByText('Log what you just did.')).toBeVisible();
-  await page.getByRole('button', { name: 'practiced guitar' }).click();
-  await expect(logBox(page)).toHaveValue('practiced guitar');
-});
-
 test('@ + "New thread" creates the first thread', async ({ page }) => {
   await openWanders(page);
   await logBox(page).fill('practiced scales @play guitar');
@@ -69,7 +62,7 @@ test('Undo in the toast removes the last activity', async ({ page }) => {
   await openHome(page);
   await logLine(page, 'went for a run');
   await page.getByRole('button', { name: 'Undo' }).click();
-  await expect(page.getByText('Log what you just did.')).toBeVisible();
+  // P-83: was "Map's welcome is back"; the sheet's Activities is empty again.
   await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText('Nothing logged yet.')).toBeVisible();
 });

@@ -106,3 +106,10 @@ export function riseSaid(data: Data, activityId: Id, did?: Choice): string {
   const attached = a ? (a.doingId ?? a.toIds[0]) : undefined;
   return attached ? `Logged → ${name(attached)}` : '';
 }
+
+/**
+ * Whether the rise offers Toward… for a line: only while it hasn't gone anywhere (no doing wander, no
+ * "to"). A line that already went somewhere — sent up with a @wander, or opened again from the map —
+ * says where it went instead (fix (c) after P-80), and never gets a second "to".
+ */
+export const canGoToward = (a: Pick<Activity, 'doingId' | 'toIds'>): boolean => !a.doingId && a.toIds.length === 0;

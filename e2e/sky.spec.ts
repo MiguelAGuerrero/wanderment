@@ -1,4 +1,9 @@
-/** P-66 (B-07 slice 2): "I’m not sure" looks up at the sky; under a star; on the trail. Nothing stored changes. */
+/**
+ * P-66 (B-07 slice 2): under a star; on the trail. Nothing stored changes. P-81 (B-09): "I'm not sure"
+ * lights the map in place instead of looking up — the look-up's own tests (its list of stars, motes,
+ * "Back to typing", stray footprints) retired with it (see e2e/lit-map.spec.ts); a why's node on the lit
+ * map opens its star as the look-up's star did, so these start from there.
+ */
 import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
@@ -13,7 +18,8 @@ const STEP = 'Sketch hands from photo refs';
 const NOTE = 'did ten from the ref sheet';
 
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
-const stars = (page: Page) => page.getByRole('list', { name: 'What it’s for', exact: true }).getByRole('button');
+/** P-81: the lit map's why nodes (was the look-up's list of stars). */
+const stars = (page: Page) => page.locator('[data-testid="lit-node"][data-kind="why"]');
 const star = (page: Page, name: RegExp | string) => stars(page).filter({ hasText: name });
 const cards = (page: Page) => page.getByRole('list', { name: 'Wanders', exact: true }).getByRole('button');
 const card = (page: Page, wander: string) => cards(page).filter({ has: page.getByText(wander, { exact: true }) });
@@ -57,7 +63,7 @@ function world({ shading = true } = {}) {
   return JSON.stringify(json);
 }
 
-/** Opens the trailhead and looks up. */
+/** Opens the trailhead and lights the map (P-81: was "looks up"). */
 async function lookUp(page: Page, seed = world()) {
   await page.addInitScript(seedScript, seed);
   await page.goto('./');
@@ -67,115 +73,11 @@ async function lookUp(page: Page, seed = world()) {
 }
 
 const box = async (l: Locator) => (await l.boundingBox())!;
-const motesIn = (l: Locator) => l.getByTestId('sky-mote').count();
 /** Digits on screen: the sky never shows a count, a heat or a number. */
 const digits = async (page: Page, testId: string) => (await page.getByTestId(testId).innerText()).match(/\d/g) ?? [];
 
 test.describe('look up, and under a star', () => {
   test.use({ viewport: { width: 390, height: 844 } });
-
-  test('I’m not sure shows the whys as stars, one size; a screen reader hears a fixed-order list of buttons with “last walked …”; no counts', async ({ page }) => {
-    await lookUp(page);
-    // Fix 16: no big "Not sure." — only the small question above the sky.
-    await expect(page.getByTestId('look-up').getByText(PROMPT, { exact: true })).toBeVisible();
-    await expect(page.getByText('Not sure.')).toHaveCount(0);
-    // Fixed order: declared, oldest mark first; each named with its words and when it was last walked.
-    await expect(stars(page)).toHaveCount(3);
-    const names = ['become an illustrator, last walked today', 'feel productive, last walked a few weeks ago', 'a calm space, not walked yet'];
-    for (const [i, name] of names.entries()) await expect(stars(page).nth(i)).toHaveAccessibleName(name);
-    await expect(stars(page)).toHaveText([ILLUSTRATE, 'feel productive', 'a calm space']);
-    // One size; every star a 44 pt target or more.
-    const glyphs = await page.getByTestId('star-glyph').filter({ visible: true }).all();
-    expect(glyphs.length).toBe(3);
-    for (const g of glyphs) expect(await box(g)).toMatchObject({ width: 40, height: 40 });
-    for (const s of await stars(page).all()) {
-      const b = await box(s);
-      expect(b.height).toBeGreaterThanOrEqual(44);
-      expect(b.width).toBeGreaterThanOrEqual(44);
-    }
-    // No two stars overlap.
-    const boxes = await Promise.all((await stars(page).all()).map(box));
-    for (let i = 0; i < boxes.length; i++)
-      for (let j = i + 1; j < boxes.length; j++) {
-        const [a, b] = [boxes[i], boxes[j]];
-        expect(a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height, `${i} and ${j}`).toBe(false);
-      }
-    // The picture is hidden from screen readers; nothing on screen is a number.
-    for (const g of glyphs) await expect(g).toHaveAttribute('aria-hidden', 'true');
-    await expect(page.getByTestId('night-sky').filter({ visible: true })).toHaveAttribute('aria-hidden', 'true');
-    expect(await digits(page, 'look-up')).toEqual([]);
-    await expectNoSeriousViolations(page);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p66-sky.png` });
-  });
-
-  test('warmth and motes follow heat (relative): today’s star has the most, a never-walked one none', async ({ page }) => {
-    await lookUp(page);
-    const [warm, mid, cold] = await Promise.all([motesIn(star(page, ILLUSTRATE)), motesIn(star(page, 'feel productive')), motesIn(star(page, 'a calm space'))]);
-    expect(warm).toBeGreaterThan(mid);
-    expect(mid).toBeGreaterThan(cold);
-    expect(cold).toBe(1); // fix 15: a floor of one mote (was 0)
-    const fill = (name: string) => star(page, name).locator('path').last().getAttribute('fill');
-    expect(await fill(ILLUSTRATE)).not.toBe(await fill('a calm space'));
-  });
-
-  test('stars keep their places: walking one warms it and moves nothing', async ({ page }) => {
-    await lookUp(page);
-    const before = await Promise.all((await stars(page).all()).map(box));
-    expect(await motesIn(star(page, 'a calm space'))).toBe(1); // fix 15: a floor of one mote (was 0)
-    // Back to typing, log a line toward the cold star, look up again.
-    await button(page, 'Back to typing').click();
-    const field = page.getByRole('textbox', { name: PROMPT, exact: true });
-    await field.fill('sat by the window');
-    await field.press('Enter');
-    // P-73: the rise's Toward… (was "Move it?"'s Somewhere else…).
-    await button(page, 'Toward…').click();
-    await page.getByRole('group', { name: 'Toward…' }).getByRole('button', { name: 'a calm space', exact: true }).focus();
-    await page.keyboard.press('Enter'); // from the keyboard, so the session waits for New line
-    await expect(page.getByRole('status').filter({ hasText: 'Toward a calm space' })).toBeVisible();
-    // The rise gives way to the question, and "I’m not sure" is there again.
-    await button(page, 'New line').click(); // P-65 fix 4: was the prompt's words
-    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
-    await expect(stars(page).nth(2)).toHaveAccessibleName('a calm space, last walked today');
-    expect(await Promise.all((await stars(page).all()).map(box))).toEqual(before);
-    expect(await motesIn(star(page, 'a calm space'))).toBeGreaterThan(1); // fix 15: walked today, more than the floor (was > 0)
-    await expect(stars(page)).toHaveText([ILLUSTRATE, 'feel productive', 'a calm space']);
-  });
-
-  test('with the shading off there is no warmth and no motes; the names still say when', async ({ page }) => {
-    await lookUp(page, world({ shading: false }));
-    await expect(page.getByTestId('sky-mote')).toHaveCount(0);
-    const fills = await Promise.all((await stars(page).all()).map((s) => s.locator('path').last().getAttribute('fill')));
-    expect(new Set(fills).size).toBe(1);
-    await expect(stars(page).first()).toHaveAccessibleName('become an illustrator, last walked today');
-    await star(page, ILLUSTRATE).click();
-    await expect(page.getByTestId('sky-mote')).toHaveCount(0);
-    // No trail is warm.
-    expect(await page.locator('[data-testid="star-scene"] path[stroke-dasharray]').evaluateAll((ps) => ps.map((p) => p.getAttribute('stroke')))).not.toContain('#F2B48C');
-  });
-
-  test('motes twinkle without Reduce Motion', async ({ page }) => {
-    await lookUp(page);
-    const mote = star(page, ILLUSTRATE).getByTestId('sky-mote').first();
-    const opacity = () => mote.evaluate((el) => getComputedStyle(el).opacity);
-    const first = await opacity();
-    await expect.poll(opacity, { timeout: 6000 }).not.toBe(first);
-  });
-
-  test('under Reduce Motion nothing moves: motes hold a soft glow', async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: 'reduce' });
-    await lookUp(page);
-    const look = () =>
-      page.evaluate(() => [
-        ...[...document.querySelectorAll('[data-testid="sky-mote"], [data-testid="sky-twinkle"]')].map((el) => getComputedStyle(el).opacity),
-        String(document.getAnimations().length),
-      ]);
-    const before = await look();
-    expect(before.length).toBeGreaterThan(3);
-    await page.waitForTimeout(3000);
-    expect(await look()).toEqual(before);
-    expect(before.at(-1)).toBe('0');
-    await expect(star(page, ILLUSTRATE).getByTestId('sky-mote').first()).toHaveCSS('opacity', '0.6');
-  });
 
   test('under a star: its wanders as landmarks and trails, each with its next step and note; labels clear of the trails; More wanders…', async ({ page }) => {
     await lookUp(page);
@@ -283,29 +185,6 @@ test.describe('look up, and under a star', () => {
     await expectNoSeriousViolations(page);
   });
 
-  test('Back to typing returns to the prompt', async ({ page }) => {
-    await lookUp(page);
-    await button(page, 'Back to typing').click();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
-    await expect(page.getByRole('textbox', { name: PROMPT, exact: true })).toBeVisible();
-  });
-
-  test('at 200 % zoom (195 wide) nothing is wider than the screen and no stars overlap', async ({ page }) => {
-    await page.setViewportSize({ width: 195, height: 422 });
-    await lookUp(page);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(195);
-    const boxes = await Promise.all((await stars(page).all()).map(box));
-    for (let i = 0; i < boxes.length; i++)
-      for (let j = i + 1; j < boxes.length; j++) {
-        const [a, b] = [boxes[i], boxes[j]];
-        expect(a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height, `${i} and ${j}`).toBe(false);
-      }
-    await expectNoSeriousViolations(page);
-    await star(page, ILLUSTRATE).click();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(195);
-    await expectNoSeriousViolations(page);
-  });
-
   test('fixes 8, 9: each card names its wander above its step; “＋ Add a next step” is a small line inside its card', async ({ page }) => {
     await lookUp(page);
     await star(page, ILLUSTRATE).click();
@@ -389,61 +268,4 @@ test.describe('look up, and under a star', () => {
     await expect(page).toHaveURL(/\/trail\/a%20calm%20space$/);
   });
 
-  test('fix 12: with no whys the sky says “No stars yet.” and offers Map', async ({ page }) => {
-    await page.addInitScript(seedScript, legacyBlob(['draw'], [{ from: 'draw', text: 'sketched', daysAgo: 1 }]));
-    await page.goto('./sky');
-    await expect(page.getByText('No stars yet.', { exact: true })).toBeVisible();
-    const map = page.getByRole('link', { name: 'Map', exact: true });
-    expect((await box(map)).height).toBeGreaterThanOrEqual(44);
-    await expectNoSeriousViolations(page);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p66-sky-empty.png` });
-    await map.click();
-    await expect(page).toHaveURL(/\/wanderment\/map$/);
-  });
-
-  test('fix 18: recent loose lines are stray footprints on the sky; one rises again with its choices (P-73; was Move it?), with Undo', async ({ page }) => {
-    const json = JSON.parse(world());
-    const at = (d: number) => new Date(Date.now() - d * DAY).toISOString();
-    Object.assign(json.state.data.activities, {
-      l1: { id: 'l1', text: 'sat by the window', occurredAt: at(1), createdAt: at(1), toIds: [] },
-      l2: { id: 'l2', text: 'too long ago', occurredAt: at(40), createdAt: at(40), toIds: [] },
-    });
-    await lookUp(page, JSON.stringify(json));
-    const loose = page.getByRole('group', { name: 'Loose', exact: true }).getByRole('button');
-    await expect(loose).toHaveCount(1);
-    await expect(loose.first()).toHaveAccessibleName('sat by the window, yesterday');
-    await expect(loose.first()).toContainText('sat by the window');
-    expect((await box(loose.first())).height).toBeGreaterThanOrEqual(44);
-    // Near the ground, never on the lantern or its path.
-    const lamp = await Promise.all((await page.locator('[data-testid="sky-lantern"], [data-testid="sky-core"]').filter({ visible: true }).all()).map(box));
-    expect(lamp.length).toBe(2);
-    for (const l of lamp) expect(overlaps(await box(loose.first()), l)).toBe(false);
-    // After the stars, for a screen reader.
-    const after = await page.evaluate(() => {
-      const list = document.querySelector('[aria-label="What it’s for"]')!;
-      const group = document.querySelector('[aria-label="Loose"]')!;
-      return !!(list.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING);
-    });
-    expect(after).toBe(true);
-    await expectNoSeriousViolations(page);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p66-sky-loose.png` });
-
-    await loose.first().click();
-    // P-73: it rises again as a session (was: the trailhead's billboard, "Kept, loose").
-    await expect(page).toHaveURL(/\/wanderment\/line\/l1$/);
-    await expect(page.getByTestId('trail-words')).toHaveText('sat by the window');
-    await expect(page.getByTestId('trail-words')).toBeFocused();
-    // Settled long ago: Toward… only (no Done it, no First step). Nothing to undo until a choice.
-    await expect(button(page, 'Done it')).toHaveCount(0);
-    await expect(button(page, 'First step')).toHaveCount(0);
-    await expect(button(page, 'Undo')).toHaveCount(0);
-    await button(page, 'Toward…').click();
-    await page.getByRole('group', { name: 'Toward…' }).getByRole('button', { name: 'a calm space', exact: true }).focus();
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('status').filter({ hasText: 'Toward a calm space' })).toBeVisible();
-    await button(page, 'Undo').click();
-    await expect(button(page, 'Undo')).toHaveCount(0);
-    await expect(button(page, 'Toward…')).toBeVisible();
-    await expect(page.getByTestId('trail-words')).toHaveText('sat by the window');
-  });
 });

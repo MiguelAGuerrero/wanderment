@@ -6,7 +6,6 @@ import { Id } from '@/domain/types';
 import { themed, usePalette } from '@/components/palette';
 
 import { Composer } from './Composer';
-import { HomeSlot } from './HomeSlot';
 import { PullInOffer } from './PullInOffer';
 import { Toast } from './Toast';
 
@@ -22,7 +21,6 @@ export function Screen({
   footer,
   scrollToTopOn,
   aboveLog,
-  slot,
   below,
   bottomHidden,
   edges = ['top'],
@@ -37,8 +35,6 @@ export function Screen({
   scrollToTopOn?: string;
   /** Shown right above the log box. */
   aboveLog?: ReactNode;
-  /** Home (P-61): the What's next card, with ＋ raising the log field above it (HomeSlot). */
-  slot?: boolean;
   /** Under the log box (Home, P-58: the sheet's handle). */
   below?: ReactNode;
   /** The bottom (toast, log box) isn't drawn, only `below` (Home, P-58: under the sheet, which has its own). */
@@ -68,7 +64,7 @@ export function Screen({
               <>
                 <PullInOffer />
                 {aboveLog}
-                {slot ? <HomeSlot /> : <Composer presetDoingId={presetDoingId} placeholder={placeholder} />}
+                <Composer presetDoingId={presetDoingId} placeholder={placeholder} />
               </>
             )}
             {below}

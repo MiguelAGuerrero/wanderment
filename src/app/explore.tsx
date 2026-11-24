@@ -14,7 +14,7 @@ import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
-const goBack = () => (router.canGoBack() ? router.back() : router.replace('/map'));
+const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 /**
  * Explore (the old Graph tab, opened from Home and from a wander's page): where activity flows — a

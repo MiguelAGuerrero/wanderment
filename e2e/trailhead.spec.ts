@@ -1,5 +1,5 @@
 /**
- * P-65 (B-07 slice 1, D-13): the trailhead — a night-sky prompt is Home; today's graph is Map.
+ * P-65 (B-07 slice 1, D-13): the trailhead — a night-sky prompt is Home. (P-83: Map, today's graph then, is retired; the sheet holds Wanders and Activities.)
  * P-73 retired "Kept, loose · Undo" and "Move it?": Return now rises (e2e/rise.spec.ts covers the rise).
  */
 import { AxeBuilder } from '@axe-core/playwright';
@@ -92,10 +92,8 @@ async function keep(page: Page, text: string) {
   await expect(words(page)).toHaveText(text);
 }
 
-/** Map's Activities, on "No wander": whether the line is there (loose). */
+/** The sheet's Activities, on "No wander" (P-83: was Map's): whether the line is there (loose). */
 async function looseOnMap(page: Page, text: string) {
-  await page.getByRole('link', { name: 'Map', exact: true }).click();
-  await expect(page).toHaveURL(/\/map$/);
   await openSheet(page, 'Activities');
   await page.getByRole('tab', { name: 'No wander' }).click();
   return page.getByRole('dialog').getByText(text, { exact: true }).filter({ visible: true });
@@ -104,7 +102,7 @@ async function looseOnMap(page: Page, text: string) {
 test.describe('the trailhead', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('opening shows only the night sky, the question, “nothing yet is fine”, I’m not sure and Map; focus is in the field', async ({ page }) => {
+  test('opening shows only the night sky, the question, “nothing yet is fine”, I’m not sure and the grabber; focus is in the field', async ({ page }) => {
     // P-79/P-80: the composer at the bottom (the question, I’m not sure — a toggle button now — Map, the
     // field and its send ↑, disabled while empty) and the live map's “Recent” lines above it.
     await open(page);
@@ -115,21 +113,22 @@ test.describe('the trailhead', () => {
     // Nothing else to press, nothing to steer you. P-79: was “two links (I’m not sure, Map), no buttons (the
     // send ↑ comes with words)”: Map is the one link; I’m not sure is a toggle button; the send ↑ is
     // always there, disabled while empty; the only other buttons are the live map's lines (P-80).
-    await expect(page.getByRole('link').filter({ visible: true })).toHaveText(['Map']);
+    // P-83: Map is retired — no links; the grabber (the sheet) is the one more button.
+    await expect(page.getByRole('link').filter({ visible: true })).toHaveCount(0);
     const unsure = page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true });
     await expect(unsure).toHaveAttribute('aria-pressed', 'false');
     await expect(page.getByRole('button', { name: 'Log', exact: true })).toBeDisabled();
     const recent = page.getByRole('group', { name: 'Recent', exact: true }).getByRole('button');
-    await expect(page.getByRole('button').filter({ visible: true })).toHaveCount(2 + (await recent.count()));
+    await expect(page.getByRole('button').filter({ visible: true })).toHaveCount(3 + (await recent.count()));
     await expect(suggestions(page)).toHaveCount(0);
-    // None of today's Home: no graph, no What's next, no ＋, no sheet handle.
+    // None of Map: no graph, no What's next, no ＋.
     await expect(page.getByTestId('home-graph-picture')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Wanderment' })).toHaveCount(0);
     await expect(page.getByText('Clean my car')).toHaveCount(0);
     // The sky is there and hidden from screen readers.
     await expect(page.getByTestId('night-sky')).toHaveAttribute('aria-hidden', 'true');
     for (const [name, b] of [
-      ['Map', (await page.getByRole('link', { name: 'Map', exact: true }).boundingBox())!],
+      ['the grabber', (await page.getByRole('button', { name: 'Wanders and activities', exact: true }).boundingBox())!],
       ['I’m not sure', (await unsure.boundingBox())!],
     ] as const) {
       expect(b.height, name).toBeGreaterThanOrEqual(44);
@@ -203,7 +202,6 @@ test.describe('the trailhead', () => {
     await button(page, NEW_LINE).click();
     await expect(await looseOnMap(page, LINE)).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
-    await page.getByRole('button', { name: 'Back to the prompt', exact: true }).click();
     await expect(page).toHaveURL(/\/wanderment\/$/);
     await expect(words(page)).toHaveCount(0);
     await expect(field(page)).toBeVisible();
@@ -212,35 +210,20 @@ test.describe('the trailhead', () => {
     await expect(await looseOnMap(page, LINE)).toBeVisible();
   });
 
-  test('Map shows today’s graph, one tap away; I’m not sure looks up (P-66); Back, the ‹ or Esc return to the prompt', async ({ page }) => {
+  // P-83: Map is retired (was: "Map shows today's graph, one tap away; I'm not sure looks up (P-66); Back, the ‹ or Esc return to the prompt").
+  test('`/map` lands on the home with the map lit; I’m not sure lights it in place (P-81); Back or Esc dim it', async ({ page }) => {
     await open(page);
-    await page.getByRole('link', { name: 'Map', exact: true }).click();
-    await expect(page).toHaveURL(/\/wanderment\/map$/);
-    await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible();
-    await expect(page.getByTestId('home-graph-picture')).toBeVisible();
-    await expect(page.getByTestId('graph-node-feel productive').filter({ visible: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Log something', exact: true })).toBeVisible();
-    await expectNoSeriousViolations(page);
-    await page.goBack();
-    await expect(field(page)).toBeVisible();
-
-    // P-66: "I’m not sure" looks up at the sky (it opened Map until then); Back returns to the prompt.
     await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await expect(page).toHaveURL(/\/wanderment\/sky$/);
-    await expect(page.getByTestId('look-up')).toBeVisible(); // fix 16: "Not sure." is gone (was its heading)
+    await expect(field(page)).toBeVisible();
+    await expect(page.getByTestId('look-up')).toHaveCount(0); // P-66's separate look-up is retired into the lit map
     await page.goBack();
+    await expect(page).toHaveURL(/\/wanderment\/$/);
     await expect(field(page)).toBeVisible();
 
-    await page.getByRole('link', { name: 'Map', exact: true }).click();
-    await expect(page).toHaveURL(/\/wanderment\/map$/);
-    const back = page.getByRole('button', { name: 'Back to the prompt', exact: true });
-    expect((await back.boundingBox())!.width).toBeGreaterThanOrEqual(44);
-    await back.click();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
-
-    // Opened on its own (no way back in history), Esc with nothing to clear goes to the prompt.
     await page.goto('./map');
-    await expect(page.getByTestId('home-graph-picture')).toBeVisible();
+    await expect(page).toHaveURL(/\/wanderment\/sky$/);
+    await expect(page.getByTestId('home-graph-picture')).toHaveCount(0);
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(/\/wanderment\/$/);
@@ -318,17 +301,24 @@ test.describe('the trailhead', () => {
       await expectGroundClear(page, 'Toward…', 'rise');
     });
 
-  test('fix 2: the field’s focus ring is the night palette’s (≥ 3:1), and the dashed “doing?” chip reads at 4.5:1', async ({ page }) => {
+  // Fix (a) after P-80: one border — the field's box shows the focus (was: an outline on the input, a second border inside the box's).
+  test('fix 2: the field’s focus ring is the night palette’s (≥ 3:1) — one border, its box’s — and the dashed “doing?” chip reads at 4.5:1', async ({ page }) => {
     await open(page);
     await expect(field(page)).toBeFocused();
-    const ring = await field(page).evaluate((el) => {
+    const ring = await page.getByTestId('field-box').evaluate((el) => {
       const cs = getComputedStyle(el);
-      return { style: cs.outlineStyle, width: parseFloat(cs.outlineWidth), color: cs.outlineColor };
+      return { style: cs.borderTopStyle, width: parseFloat(cs.borderTopWidth), color: cs.borderTopColor };
     });
     expect(ring.style).toBe('solid');
     expect(ring.width).toBeGreaterThanOrEqual(2);
     expect(ring.color).not.toBe('rgb(255, 255, 255)');
     expect(contrast(ring.color, NIGHT_BG)).toBeGreaterThanOrEqual(3);
+    // No second ring inside it.
+    expect(await field(page).evaluate((el) => getComputedStyle(el).outlineStyle)).toBe('none');
+    // Unfocused, the box's border goes quiet (the focus is what turns it lantern).
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).focus();
+    expect(await page.getByTestId('field-box').evaluate((el) => getComputedStyle(el).borderTopColor)).not.toBe(ring.color);
+    await field(page).focus();
     // Typing a line that names a wander's words suggests it as the doing one (dashed).
     await field(page).pressSequentially('hands hurt');
     const chip = page.getByRole('button', { name: /^Suggested: doing / });
@@ -380,13 +370,14 @@ test.describe('the trailhead', () => {
 
   // P-74 tab order: the field, I’m not sure, then Map (a signpost by the lantern); was “Map is one Shift+Tab from the field”.
   // P-79: the same order, in the composer's row (I’m not sure is a toggle button now, not a link; the disabled send ↑ isn't a stop).
-  test('fix 6: Tab goes field → I’m not sure → Map, and no scroller is a Tab stop', async ({ page }) => {
+  // P-83: Map is retired; the grabber takes its place in the order.
+  test('fix 6: Tab goes field → I’m not sure → the grabber, and no scroller is a Tab stop', async ({ page }) => {
     await open(page);
     await expect(field(page)).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'Map', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'Wanders and activities', exact: true })).toBeFocused();
     await page.keyboard.press('Shift+Tab');
     await expect(page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true })).toBeFocused();
     // Nothing that only scrolls takes a Tab stop (here, or on the sky).

@@ -18,6 +18,21 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Wandering is a focus view
+> When wandering, it should be a focus view, simple and a simple action to decompose. Not sure what
+> the right word is to suit the metaphor but the look and feel should be like a [Pomodoro] with the
+> wander prompt being the focus until you complete it or all the stacks.
+
+Answers: the centre is the step itself, stylized (no ring, no timer — the refusal stays); the
+decompose action is **"Nearer step"** ("Survey" was a suggestion, not an answer — the owner then chose "Nearer step"). Led to: P-67 reshaped
+as the focus view (UI audit of the mockups before building).
+
+## 2026-11-24 — Search shows your energy in the sky
+> The search should reflect the state of the stars above so you get to see the movement of your energy
+
+Clarified: the sheet's search. Led to: P-84 — matches light up as stars above the sheet (words and
+when), their nodes lit, the rest dimmed; no counts.
+
 ## 2026-11-24 — The home's layout drifted; attaching does nothing; roll Map into the home
 Evidence: `evidence/2026-11-24-home-ui-drift.png` (iPhone: the big question, the field, a gap, "I'm
 not sure" far below, "Map" with a flag floating above the hills).

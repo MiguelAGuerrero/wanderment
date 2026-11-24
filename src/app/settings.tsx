@@ -1,14 +1,14 @@
 import { router } from 'expo-router';
 import { ComponentRef, ReactNode, RefObject, useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Keyboard, Platform, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { AccessibilityInfo, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { VERSION_LABEL } from '@/build';
+import { exportBackup } from '@/components/exportBackup';
 import { moveFocus } from '@/components/FirstRun';
 import { ImportPreviewCard } from '@/components/ImportPreview';
-import { toBackup } from '@/domain/backup';
 import { canCheckForUpdates, checkForUpdates, UpdateCheck } from '@/pwa/serviceWorker';
-import { backupsLocation, shareBackup } from '@/storage/nativeBackup';
+import { backupsLocation } from '@/storage/nativeBackup';
 import { askToKeepData, onPersistenceAnswered, PersistenceStatus, persistenceStatus } from '@/storage/persistent';
 import { confirmImport, ImportPreview, previewImport, rebasePreview } from '@/store/importBackup';
 import { holdsData, RECONNECTING_NOTICE, useStore } from '@/store/useStore';
@@ -92,18 +92,7 @@ export default function Settings() {
   };
 
   const exportData = async () => {
-    const json = toBackup(data);
-    const filename = `wanderment-${new Date().toISOString().slice(0, 10)}.json`;
-    if (Platform.OS === 'web') {
-      const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(url);
-    } else if (!(await shareBackup(data))) {
-      await Share.share({ message: json, title: filename });
-    }
+    await exportBackup(data);
     setMessage('Exported.');
   };
 
@@ -164,7 +153,7 @@ export default function Settings() {
       <Body scrollRef={scrollRef}>
         <View style={styles.header}>
           <Text style={s.h1}>Settings</Text>
-          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/map'))} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
+          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
             <Text style={{ color: C.accent, fontWeight: '600', fontSize: 16 }}>Done</Text>
           </Pressable>
         </View>

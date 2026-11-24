@@ -27,7 +27,7 @@ import { Selection, selectToward, unselect } from '@/domain/select';
 import { SheetSection } from '@/domain/sheet';
 import { cardLabel, HomeFace, restingFace, whatsNextNode } from '@/domain/slot';
 import { lastActivities } from '@/domain/selectors';
-import { Choice, firstStep, riseSaid, settle, toward, undoFirstStep } from '@/domain/rise';
+import { canGoToward, Choice, firstStep, riseSaid, settle, toward, undoFirstStep } from '@/domain/rise';
 import { Data, emptyData, Id } from '@/domain/types';
 
 /** What's currently in the log box. Shared so a crumb on Home can load into it. */
@@ -154,6 +154,8 @@ interface State {
   focusSaid: { text: string; n: number };
   /** The sheet pulled up from Home's handle (P-58): whether it's out, and the section it shows (kept for the session). */
   sheet: { open: boolean; section: SheetSection };
+  /** P-84: the sheet's search (session only): while it has words, the sky above mirrors what it finds. */
+  sheetSearch: string;
   /** Activity Home's bridge asks about ("Toward something — or just itself?"). Session only. */
   bridgeFor?: Id;
   /** Thread that shows the quiet "+ What's next? (optional)" line after a log. */
@@ -181,6 +183,12 @@ interface State {
   toLog?: ToLog;
   /** The line rising over the home (P-73; was P-65's billboard). */
   kept?: Kept;
+  /**
+   * P-82: a line that just went toward a wander from the rise (Toward…, First step, or a suggestion
+   * picked before Return): it lands in that wander's node on the home and stays labelled there until
+   * the next action (typing, a log, Undo, the sheet, opening a line). Session only.
+   */
+  landed?: { activityId: Id; threadId: Id };
   /** P-73: the trailhead's done chip — sticky until turned off or the home is left. Session only, never stored. */
   doneChip: boolean;
   /**
@@ -287,6 +295,10 @@ interface State {
   reopenLine: (activityId: Id) => boolean;
   /** P-73: turns the trailhead's done chip on or off (session only). */
   setDoneChip: (on: boolean) => void;
+  /** P-82: the landed line's label goes (the next action, or leaving the home). Session only. */
+  clearLanded: () => void;
+  /** P-84: the sheet's search query (session only). */
+  setSheetSearch: (query: string) => void;
 }
 
 const emptyDraft = (): Draft => ({ text: '', toIds: [] });
@@ -360,6 +372,7 @@ export const useStore = create<State>()((set, get) => ({
   homeFace: 'log',
   scope: [],
   sheet: { open: false, section: 'wanders' },
+  sheetSearch: '',
   focusSaid: { text: '', n: 0 },
   showShading: true,
   toastHeld: false,
@@ -371,7 +384,8 @@ export const useStore = create<State>()((set, get) => ({
   storage: { state: 'loading' },
   doneChip: false,
 
-  setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
+  // P-82: typing is the next action — a landed line's label goes.
+  setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch }, ...(s.landed && patch.text !== undefined && patch.text !== s.draft.text && { landed: undefined }) })),
   clearDraft: () => set({ draft: emptyDraft() }),
 
   loadNext: (threadId) => {
@@ -444,8 +458,8 @@ export const useStore = create<State>()((set, get) => ({
       return { scope: up, focusSaid: { text: name ? `Showing ${name}` : 'Showing all', n: s.focusSaid.n + 1 } };
     }),
 
-  openSheet: (section) => set((s) => ({ sheet: { open: true, section: section ?? s.sheet.section } })),
-  closeSheet: () => set((s) => (s.sheet.open ? { sheet: { ...s.sheet, open: false } } : {})),
+  openSheet: (section) => set((s) => ({ sheet: { open: true, section: section ?? s.sheet.section }, landed: undefined })),
+  closeSheet: () => set((s) => (s.sheet.open || s.sheetSearch ? { sheet: { ...s.sheet, open: false }, sheetSearch: '' } : {})),
   showSheetSection: (section) => set((s) => (s.sheet.section === section ? {} : { sheet: { ...s.sheet, section } })),
 
   setFocusMap: (map) => set({ focusMap: map }),
@@ -498,6 +512,7 @@ export const useStore = create<State>()((set, get) => ({
             },
         kept: opts?.trail ? { activityId: res.activity.id, text: res.activity.text, ...(opts.done && { did: { kind: 'done' as const } }) } : get().kept,
         toLog: undefined,
+        landed: undefined,
       });
       return res.activity.id;
     },
@@ -648,8 +663,8 @@ export const useStore = create<State>()((set, get) => ({
     if (undo && riseUndo?.entry === undo) {
       // A rise's choice, in the toast once its session ended (audit F1): taken back as the rise would.
       const { kept: _kept, undo: _undo, ...back } = undoRise(s, riseUndo.kept, undo);
-      set({ ...back, undo: undefined, riseUndo: undefined, toast: undefined, promptNextFor: undefined });
-    } else if (undo) set({ data: applyUndo(data, undo), undo: undefined, riseUndo: undefined, toast: undefined, promptNextFor: undefined });
+      set({ ...back, undo: undefined, riseUndo: undefined, toast: undefined, promptNextFor: undefined, landed: undefined });
+    } else if (undo) set({ data: applyUndo(data, undo), undo: undefined, riseUndo: undefined, toast: undefined, promptNextFor: undefined, landed: undefined });
     return true;
   }),
 
@@ -695,7 +710,9 @@ export const useStore = create<State>()((set, get) => ({
 
   towardKept: gated<State['towardKept']>(false, (threadId) => {
     const { kept, data } = get();
-    if (!kept || kept.did || data.activities[kept.activityId]?.doingId) return false;
+    // Fix c (after P-80): a line that already went somewhere (doing or "to") isn't sent toward another.
+    const line = data.activities[kept?.activityId ?? ''];
+    if (!kept || kept.did || !line || !canGoToward(line)) return false;
     const next = toward(data, kept.activityId, threadId);
     if (!next) return false;
     set({ data: next, undo: undoEntry(data, next), kept: { ...kept, did: { kind: 'toward', threadId } } });
@@ -714,11 +731,17 @@ export const useStore = create<State>()((set, get) => ({
   leaveKept: (activityId) =>
     set((s) => {
       if (!s.kept || (activityId && s.kept.activityId !== activityId)) return {};
-      // After a choice its Undo goes on in the home's toast (audit F1: ≥ 6 s, held, waits under a screen reader).
-      if (s.kept.did && s.undo) {
-        return { kept: undefined, riseUndo: { kept: s.kept, entry: s.undo }, toast: { message: riseSaid(s.data, s.kept.activityId, s.kept.did), activityId: s.kept.activityId } };
+      const { kept, undo, data } = s;
+      // P-82: where the line went from here (Toward…, First step, or a suggestion picked before Return) — it lands there.
+      const line = data.activities[kept.activityId];
+      const went = kept.did?.kind === 'toward' || kept.did?.kind === 'step' ? kept.did.threadId : !kept.did && !kept.reopened && line ? (line.doingId ?? line.toIds[0]) : undefined;
+      const landed = went && line && data.threads[went] ? { activityId: line.id, threadId: went } : undefined;
+      // After a choice its Undo goes on in the home's toast (audit F1: ≥ 6 s, held, waits under a screen reader);
+      // P-82: so does an attached line's Return (its Undo takes the Return back, as the rise's did).
+      if (undo && (kept.did || landed)) {
+        return { kept: undefined, landed, riseUndo: { kept, entry: undo }, toast: { message: riseSaid(data, kept.activityId, kept.did), activityId: kept.activityId } };
       }
-      return { kept: undefined };
+      return { kept: undefined, landed };
     }),
 
   keepLoose: (activityId) => {
@@ -732,12 +755,14 @@ export const useStore = create<State>()((set, get) => ({
   reopenLine: (activityId) => {
     const a = get().data.activities[activityId];
     if (!a) return false;
-    // Session only, as keepLoose: a pending Undo stays as it is.
-    set({ kept: { activityId, text: a.text, reopened: true } });
+    // Session only, as keepLoose: a pending Undo stays as it is. Opening a line is the next action (P-82).
+    set({ kept: { activityId, text: a.text, reopened: true }, landed: undefined });
     return true;
   },
 
   setDoneChip: (on) => set((s) => (s.doneChip === on ? {} : { doneChip: on })),
+  clearLanded: () => set((s) => (s.landed ? { landed: undefined } : {})),
+  setSheetSearch: (query) => set((s) => (s.sheetSearch === query ? {} : { sheetSearch: query })),
 }));
 
 /** Threads ordered by most recent use, for autocomplete ranking. */

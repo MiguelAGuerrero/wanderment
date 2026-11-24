@@ -86,9 +86,9 @@ test('edit an activity’s text and threads, then delete it and undo', async ({ 
 test('renaming to another thread’s name is refused inline and keeps the typed text', async ({ page }) => {
   await openHome(page);
   await makeThreads(page, ['play guitar', 'make apparel']);
+  // P-83: a wander's page opens from its card in the sheet's Wanders (was Map's list and its "Open").
+  await openSheet(page, 'Wanders');
   await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
-  // P-35: on Home that's the list's button, which selects; the page opens from "Open".
-  await page.getByRole('link', { name: 'Open make apparel', exact: true }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
 
   const field = page.getByRole('textbox', { name: 'Wander name' });
@@ -106,13 +106,12 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
   // Nothing was renamed.
   await page.reload();
   await expect(page.getByText('make apparel', { exact: true }).filter({ visible: true })).toBeVisible();
-  await page.goto('./map'); // P-65: graph moved to Map
+  await page.goto('./wanders'); // P-83: the sheet's Wanders (was Map)
   await expect(page.getByRole('button', { name: /^play guitar\s*\S/ })).toHaveCount(1);
   await expect(page.getByRole('button', { name: /^make apparel\s*\S/ })).toHaveCount(1);
 
   // A unique name renames.
   await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
-  await page.getByRole('link', { name: 'Open make apparel', exact: true }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
   await field.fill('sew clothes');
   await field.press('Enter');
@@ -122,12 +121,11 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
   await expect(page.getByText('sew clothes', { exact: true }).filter({ visible: true })).toBeVisible();
 
   // A hidden thread's name is taken too, and the message says where to find it.
-  await page.goto('./map'); // P-65: graph moved to Map
+  await page.goto('./wanders'); // P-83: the sheet's Wanders (was Map)
   await page.getByRole('button', { name: /^play guitar\s*\S/ }).click();
-  await page.getByRole('link', { name: 'Open play guitar', exact: true }).click();
   await page.getByRole('button', { name: 'Hide' }).click();
+  await page.goto('./wanders');
   await page.getByRole('button', { name: /^sew clothes\s*\S/ }).click();
-  await page.getByRole('link', { name: 'Open sew clothes', exact: true }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
   await field.fill('PLAY GUITAR');
   await field.press('Enter');
@@ -140,9 +138,9 @@ test('renaming to another thread’s name is refused inline and keeps the typed 
 test('a refused rename can be left with Cancel or Esc, keeping the old name (audit B, finding 6)', async ({ page }) => {
   await openHome(page);
   await makeThreads(page, ['play guitar', 'make apparel']);
+  // P-83: a wander's page opens from its card in the sheet's Wanders (was Map's list and its "Open").
+  await openSheet(page, 'Wanders');
   await page.getByRole('button', { name: /^make apparel\s*\S/ }).click();
-  // P-35: on Home that's the list's button, which selects; the page opens from "Open".
-  await page.getByRole('link', { name: 'Open make apparel', exact: true }).click();
   await page.getByRole('button', { name: 'Rename' }).click();
 
   const field = page.getByRole('textbox', { name: 'Wander name' });

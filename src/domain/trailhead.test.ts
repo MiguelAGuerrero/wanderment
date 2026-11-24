@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { FEED_ROW_MIN, FEED_ROWS } from './feed';
 import { logActivity } from './model';
-import { feedRowShown, GROUND_H, groundFits, headingCollapses, openOffer, promptSize, restLayout, ROOM_ABOVE, UNSURE_NAME, unsureChip } from './trailhead';
+import { feedRowShown, GLIDE_MAX_MS, GROUND_H, groundFits, groundGlideMs, headingCollapses, mapTop, openOffer, promptSize, restLayout, ROOM_ABOVE, UNSURE_NAME, unsureChip } from './trailhead';
 import { Data, emptyData, Thread } from './types';
 
 const DAY = 864e5;
@@ -146,5 +146,26 @@ describe('feedRowShown (the composer grows over the map; the lines never move)',
     expect(feedRowShown(0, { top: 50, rowH: 50, room: 100 })).toBe(true);
     expect(feedRowShown(1, { top: 50, rowH: 50, room: 149 })).toBe(false);
     expect(feedRowShown(1, { top: 50, rowH: 50, room: 150 })).toBe(true);
+  });
+});
+
+describe('mapTop (P-81: the band for the lit nodes is kept at rest, so lighting never moves a line)', () => {
+  it('the lines start below the guiding stars and below the band, whichever is lower; never at the very edge', () => {
+    expect(mapTop({ band: 0 })).toBe(8);
+    expect(mapTop({ guideTop: 120, band: 0 })).toBe(120);
+    expect(mapTop({ guideTop: 120, band: 140 })).toBe(140);
+    expect(mapTop({ guideTop: 120, band: 52 })).toBe(120);
+  });
+});
+
+describe('groundGlideMs (fix d after P-79: the ground never jumps when a session starts)', () => {
+  it('a change glides with the passage, never longer than 600 ms', () => {
+    expect(groundGlideMs({ from: 190, to: 0, ms: 450, reduce: false })).toBe(450);
+    expect(groundGlideMs({ from: 190, to: 0, ms: 2000, reduce: false })).toBe(GLIDE_MAX_MS);
+    expect(GLIDE_MAX_MS).toBeLessThanOrEqual(600);
+  });
+  it('under Reduce Motion, or with nothing to change, a cut', () => {
+    expect(groundGlideMs({ from: 190, to: 0, ms: 450, reduce: true })).toBe(0);
+    expect(groundGlideMs({ from: 0, to: 0, ms: 450, reduce: false })).toBe(0);
   });
 });

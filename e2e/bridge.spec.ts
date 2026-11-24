@@ -59,7 +59,7 @@ test('on Home with a wander, a plain log asks nothing and writes nothing more; a
   await expect(logBox(page)).toBeVisible();
   await expect(page.getByText(QUESTION)).toHaveCount(0);
   await counts(page, '2 activities · 1 wanders');
-  await page.goto('./map'); // P-65: graph moved to Map
+  await page.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   await underNoThread(page, 'read a novel');
 });
 

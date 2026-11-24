@@ -28,3 +28,14 @@ describe('the Home sheet (P-58)', () => {
     expect(st().sheet).toEqual({ open: true, section: 'wanders' });
   });
 });
+
+describe('P-84: the sheet’s search (session only)', () => {
+  it('starts empty; closing the sheet clears it (the sky returns to rest)', () => {
+    expect(useStore.getInitialState().sheetSearch).toBe('');
+    st().openSheet();
+    st().setSheetSearch('sketch');
+    expect(st().sheetSearch).toBe('sketch');
+    st().closeSheet();
+    expect(st().sheetSearch).toBe('');
+  });
+});

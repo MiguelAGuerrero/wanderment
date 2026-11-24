@@ -15,9 +15,10 @@ async function timedLog(page: Page, text: string) {
 test('logging stays quick on Home and Activities with a large history', async ({ page }) => {
   test.slow();
   await page.addInitScript(seedScript, bigBlob(220, 4000));
-  await page.goto('./map'); // P-65: graph moved to Map
-  // P-34: the list is on the Wanders tab; Home's heading shows once the data has loaded.
-  await expect(page.getByRole('heading', { name: 'Wanderment' })).toBeVisible({ timeout: 20_000 });
+  await page.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
+  // P-83: Map (the "Home" timed here) is retired; the sheet's Wanders box stands in for it, once the data has loaded.
+  await expect(logBox(page)).toBeVisible({ timeout: 20_000 });
+  await openSheet(page, 'Wanders');
   const home = await timedLog(page, 'home log');
   await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByRole('button', { name: /Show 100 more/ })).toBeVisible({ timeout: 10_000 });

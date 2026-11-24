@@ -1,7 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, openSheet, test, toHome } from './fixtures';
+import { expect, logBox, logLine, openHome, openSheet, test } from './fixtures';
 
 /**
  * P-29 part B: a page holds the data only while it's visible. Headless Chromium keeps every page
@@ -23,7 +23,7 @@ const reconnecting = (page: Page) => page.getByRole('button', { name: 'Log, reco
 async function seeActivity(page: Page, text: string) {
   await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
   await expect(page.getByText(text, { exact: true })).toBeVisible();
-  await toHome(page);
+  // P-83: stays on the sheet's Activities, whose log box the next steps use (was: back to Map's).
 }
 
 /**
@@ -59,7 +59,7 @@ test('a hidden page lets a waiting one open by itself; shown again, it takes the
   await expect(page.getByText('Logged', { exact: true })).toBeVisible();
 
   const b = await context.newPage();
-  await b.goto('./map'); // P-65: graph moved to Map
+  await b.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   await expect(anotherTab(b)).toBeVisible({ timeout: 20_000 });
   await expect(b.getByText(/^Details: tab lock · /)).toBeVisible();
   // A reload would wipe this mark.
@@ -134,7 +134,7 @@ test('update reloads with another page in the background never lock the page out
 
   // A second copy, sent to the background (an old tab).
   const second = await context.newPage();
-  await second.goto('./map'); // P-65: graph moved to Map
+  await second.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   await expect(anotherTab(second)).toBeVisible({ timeout: 20_000 });
   await setVisibility(second, 'hidden');
   // It hears each time the page lets go of the data ("released" pings).
@@ -165,7 +165,7 @@ test('update reloads with another page in the background never lock the page out
 
 /** Two pages: A (`page`) holds the data, B waits; A goes to the background, so B takes it. */
 async function handTo(page: Page, b: Page) {
-  await b.goto('./map'); // P-65: graph moved to Map
+  await b.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   await expect(anotherTab(b)).toBeVisible({ timeout: 20_000 });
   await setVisibility(page, 'hidden');
   await expect(logBox(b)).toBeVisible({ timeout: 15_000 });
@@ -512,7 +512,7 @@ test('an update reload while a second window is visible and waiting hands the da
   await logLine(page, 'before update');
   await expect(page.getByText('Logged', { exact: true })).toBeVisible();
   const second = await context.newPage();
-  await second.goto('./map'); // P-65: graph moved to Map
+  await second.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   await expect(anotherTab(second)).toBeVisible({ timeout: 20_000 });
 
   await logBox(page).fill('typed before the update');
@@ -553,7 +553,7 @@ test('a page that starts in the background says it’s opening (not a blank page
     Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
   });
-  await page.goto('./map'); // P-65: graph moved to Map
+  await page.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
   await expect(page.getByText('Opening…', { exact: true })).toBeVisible();
   await setVisibility(page, 'visible');
   await expect(logBox(page)).toBeVisible({ timeout: 15_000 });

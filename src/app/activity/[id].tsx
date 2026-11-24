@@ -13,7 +13,7 @@ import { C, s } from '@/theme';
 
 const DAY = 864e5;
 
-const goBack = () => (router.canGoBack() ? router.back() : router.replace('/map'));
+const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
 /**
  * Details for one activity: what you did, which threads, when, a note, and the owning thread's

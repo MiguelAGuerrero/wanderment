@@ -1,7 +1,8 @@
 /**
  * P-72: transitions that move through the picture. Trailhead → sky looks up (the hills sink, the stars
  * fade in); a star → its landmarks rise and the wanderer walks to camp; a trail → the wanderer walks up
- * the path; back reverses it; Map dims in like dusk. Each is short, never blocks input, never moves
+ * the path; back reverses it. (P-81/P-83: "I'm not sure" lights the map in place, with no passage, and
+ * Map's dusk is retired with Map; the rise still looks up.) Each is short, never blocks input, never moves
  * the layout, and under Reduce Motion nothing moves. The screen arrived at says which it played
  * (`data-passage`, `data-reverse`) and whether it's still moving (`data-moving`).
  */
@@ -14,10 +15,10 @@ const DAY = 864e5;
 const PROMPT = 'Where are we wandering today?';
 const ILLUSTRATE = 'become an illustrator';
 const field = (page: Page) => page.getByRole('textbox', { name: PROMPT, exact: true });
-const stars = (page: Page) => page.getByRole('list', { name: 'What it’s for', exact: true }).getByRole('button');
+/** P-81: the lit map's why nodes (was the look-up's stars). */
+const stars = (page: Page) => page.locator('[data-testid="lit-node"][data-kind="why"]');
 const shown = (page: Page, id: string) => page.getByTestId(id).filter({ visible: true });
 const transforms = (l: Locator) => l.evaluateAll((els) => els.map((el) => getComputedStyle(el).transform));
-const opacities = (l: Locator) => l.evaluateAll((els) => els.map((el) => getComputedStyle(el).opacity));
 
 /** A why with two wanders (so a star opens what's under it), one with a step. */
 function world() {
@@ -50,57 +51,54 @@ async function expectPassage(page: Page, id: string, kind: string, reverse: bool
 const SETTLED = { timeout: 1500 };
 
 test.describe('transitions through the picture', () => {
+  // P-81: "I'm not sure" lights the map in place (no passage); P-83: Map (and its dusk) is retired.
   test('under Reduce Motion nothing moves between screens, there and back', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page);
 
     await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
-    await expect(shown(page, 'look-up')).toHaveAttribute('data-passage', 'none');
-    await expect(shown(page, 'look-up')).toHaveAttribute('data-moving', 'false');
-    // P-74: the sky is drawn once by the one home, not inside each screen (was `shown(page, 'look-up').getByTestId('sky-ground')`).
-    const hills = page.getByTestId('sky-ground');
-    const glyphs = shown(page, 'look-up').getByTestId('passage-stars');
-    const at = { hills: await transforms(hills), glyphs: await opacities(glyphs) };
-    expect(at.hills.every((t) => t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)')).toBe(true);
-    expect(at.glyphs.every((o) => o === '1')).toBe(true);
+    await expect(page).toHaveURL(/\/sky$/);
+    await expect(shown(page, 'trailhead')).toHaveAttribute('data-passage', 'none');
+    await expect(shown(page, 'trailhead')).toHaveAttribute('data-moving', 'false');
+    const hills = page.getByTestId('sky-ground').filter({ visible: true });
+    const at = await transforms(hills);
+    expect(at.every((t) => t === 'none' || t === 'matrix(1, 0, 0, 1, 0, 0)')).toBe(true);
     await page.waitForTimeout(700);
-    expect({ hills: await transforms(hills), glyphs: await opacities(glyphs) }).toEqual(at);
+    expect(await transforms(hills)).toEqual(at);
 
     await stars(page).first().click();
     await expect(shown(page, 'under-star')).toHaveAttribute('data-passage', 'none');
     await expect(page.getByTestId('passage-wanderer')).toHaveCount(0);
 
     await page.goBack();
-    await expect(shown(page, 'look-up')).toHaveAttribute('data-passage', 'none');
-    await page.goBack();
     await expect(shown(page, 'trailhead')).toHaveAttribute('data-passage', 'none');
 
-    await page.getByRole('link', { name: 'Map', exact: true }).click();
-    await expect(page).toHaveURL(/\/map$/);
-    await expect(shown(page, 'map')).toHaveAttribute('data-passage', 'none');
+    // The rise (Return) too.
+    await field(page).fill('stood still');
+    await field(page).press('Enter');
+    await expect(shown(page, 'rise')).toHaveAttribute('data-passage', 'none');
     await expect(page.getByTestId('passage-veil')).toHaveCount(0);
   });
 
-  test('looking up sinks the hills and fades the stars in; the sky is usable at once and settles within ~600 ms', async ({ page }) => {
+  // P-81: was "looking up" from I'm not sure (the look-up session, retired); the rise still looks up.
+  test('the rise looks up: the hills sink and the stars fade in; usable at once and settled within ~600 ms', async ({ page }) => {
     await open(page);
-    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
-    await expectPassage(page, 'look-up', 'look-up', false);
-    // Focus lands on the screen's heading.
-    await expect(shown(page, 'look-up').getByRole('heading', { name: PROMPT })).toBeFocused();
-    // No layout jump: the heading and the stars are where they'll stay from the first frame.
-    const heading = shown(page, 'look-up').getByRole('heading', { name: PROMPT });
-    const first = { heading: await heading.boundingBox(), star: await stars(page).first().boundingBox() };
-    await expect(shown(page, 'look-up')).toHaveAttribute('data-moving', 'false', SETTLED);
-    expect({ heading: await heading.boundingBox(), star: await stars(page).first().boundingBox() }).toEqual(first);
-    expect((await opacities(shown(page, 'look-up').getByTestId('passage-stars'))).every((o) => o === '1')).toBe(true);
+    await field(page).fill('looked up');
+    await field(page).press('Enter');
+    await expectPassage(page, 'rise', 'look-up', false);
+    // Focus lands on the screen's heading (the words).
+    const heading = page.getByTestId('trail-words');
+    await expect(heading).toBeFocused();
+    // No layout jump: the words are where they'll stay from the first frame.
+    const first = await heading.boundingBox();
+    await expect(shown(page, 'rise')).toHaveAttribute('data-moving', 'false', SETTLED);
+    expect(await heading.boundingBox()).toEqual(first);
   });
 
-  test('never blocks input: a star opens mid-transition, its landmarks rise and the wanderer walks to camp; a trail, up the path', async ({ page }) => {
+  test('never blocks input: a lit node opens its star at once, its landmarks rise and the wanderer walks to camp; a trail, up the path', async ({ page }) => {
     await open(page);
     await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
-    // While the sky is still moving (the screen is there, its passage not finished): a tap goes through.
-    // (Waits for the screen to mount first; a fixed 300 ms budget also timed the route load and flaked.)
-    await expect(shown(page, 'look-up')).toHaveAttribute('data-moving', 'true');
+    // Lighting is in place: its nodes take a tap at once.
     await stars(page).first().click({ noWaitAfter: true });
     await expect(page).toHaveURL(/\/star\//);
     await expectPassage(page, 'under-star', 'landmarks', false);
@@ -115,7 +113,7 @@ test.describe('transitions through the picture', () => {
     await expect(shown(page, 'trail')).toHaveAttribute('data-moving', 'false', SETTLED);
   });
 
-  test('going back reverses it: trail → star → sky → trailhead', async ({ page }) => {
+  test('going back reverses it: trail → star → the lit home → at rest', async ({ page }) => {
     await open(page);
     await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await stars(page).first().click();
@@ -127,25 +125,12 @@ test.describe('transitions through the picture', () => {
     await expectPassage(page, 'under-star', 'walk-up', true);
     await page.goBack();
     await expect(page).toHaveURL(/\/sky$/);
-    await expectPassage(page, 'look-up', 'landmarks', true);
-    await page.goBack();
-    await expect(field(page)).toBeVisible();
-    await expectPassage(page, 'trailhead', 'look-up', true);
+    await expectPassage(page, 'trailhead', 'landmarks', true);
     await expect(shown(page, 'trailhead')).toHaveAttribute('data-moving', 'false', SETTLED);
     // The field is the trailhead's first stop, as before.
     await expect(field(page)).toBeFocused();
-  });
-
-  test('Map dims in like dusk; leaving it reverses it; the veil never takes a tap', async ({ page }) => {
-    await open(page);
-    await page.getByRole('link', { name: 'Map', exact: true }).click();
-    await expect(page).toHaveURL(/\/map$/);
-    await expectPassage(page, 'map', 'dusk', false);
-    // Usable at once, under the veil.
-    await page.getByRole('button', { name: 'Back to the prompt', exact: true }).click({ timeout: 300 });
+    await page.goBack();
+    await expect(page).toHaveURL(/\/wanderment\/$/);
     await expect(field(page)).toBeVisible();
-    await expectPassage(page, 'trailhead', 'dusk', true);
-    await expect(shown(page, 'trailhead')).toHaveAttribute('data-moving', 'false', SETTLED);
-    await expect(page.getByTestId('passage-veil').filter({ visible: true })).toHaveCount(0);
   });
 });
