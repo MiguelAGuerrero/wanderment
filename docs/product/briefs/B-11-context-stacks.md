@@ -168,6 +168,24 @@ sheet behind the note, so the runner keeps to three buttons.
 4. A short audit of the running states after the redraw (the final audit predates the new runner).
 5. The font, once the owner has chosen.
 
+**Under discussion: conditionals** (owner's question, 2026-11-24; nothing decided, nothing to draw).
+The owner's need: reacting to things outside your control (feedback, something unavailable, something
+you don't have yet). A stress test over fifteen uses — creative, intellectual, everyday — reasoned, not
+tested with anyone, found:
+- **A fork earns its place only when all three hold:** the answer comes from outside you; you can't know
+  it when you start; and you have a settled reaction worth keeping. (A reply to an application, a
+  teacher's or editor's feedback, an experiment's result, a shop not having something, an office being
+  closed, an invoice not yet paid, paint not yet dry.)
+- **Everything else is better solved by routine design:** your own judgment in the moment is a loop
+  until done, Break it down or Done; something known when you start is a blank or a copied variant
+  ("gym day"); "if I'm stuck" is a routine you start when you need it; an obvious reaction is a plain
+  step.
+- **Most of the valid cases are one shape — "has it happened yet?"** So the proposal is in two stages:
+  (1) a **waiting step**: a step marked as waiting on something outside; pausing there shows on home as
+  "waiting on: <step>" rather than merely paused — almost free, and it covers the majority; (2) later, a
+  **question step**: two or three answers in your words, each leading to a step or routine and then
+  rejoining (or leaving) — never conditions, never and / or / not, never nested.
+
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
 their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**

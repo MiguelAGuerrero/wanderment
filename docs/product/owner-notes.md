@@ -18,6 +18,12 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Stress-test conditionals across uses
+"Can you stress test the idea across different applications of this tool? Creative, intellectual, or
+basic productivity, to see where conditionals make sense and where it serves to complicate things where
+proper routine design could solve."
+*Result (reasoned, not tested with anyone):* see B-11 "Under discussion: conditionals".
+
 ## 2026-11-24 — Conditionals: for what's outside your control
 "the next idea is conditional logic. What's the benefit of having that? I know in programming there's
 ways to represent conditionals without using conditionals, and you can … have built-in checks into your
