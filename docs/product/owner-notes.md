@@ -18,6 +18,15 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — No forced join after a reaction
+"A reaction shouldn't always join because there might be sequential work that depends on the output of
+that awaited value, and that should be executed on its own terms. So forcing a join after every wait
+isn't true to async programming. You just resume sequential execution of that routine."
+*Interpretation:* there is no "rejoin" or "leave" setting on a reaction. Work that depends on an outcome
+lives inside that reaction and runs on its own terms; when it ends, the routine simply carries on with
+whatever comes next in its sequence, if anything. Whether outcomes share later steps is decided by
+where the steps are written, not by a switch. (Reading to confirm with the owner.)
+
 ## 2026-11-24 — Since when: yes; reactions must hold something; no "one more round"
 "A wait [may say] since when, because that's useful contextual information. And a reaction, as in a
 decision point, should be appended to one or more other actions or routines. Otherwise, there's really

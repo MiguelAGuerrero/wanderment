@@ -292,8 +292,11 @@ timers, notifications and check-again dates is consistent. **Proposed answers to
    tied wait.
 6. **Decided (owner):** a reaction always holds **one or more steps or routines** — otherwise it has no
    point. Its least job is to record what you meant to do, so you don't have to recall it when the answer
-   comes, especially on long-standing things. *(Still proposed:* after a reaction you rejoin after the
-   wait; a reaction may instead be set to "then leave <routine>".)
+   comes, especially on long-standing things. **No forced join (owner):** a reaction has no "rejoin" or "leave" setting.
+   Work that depends on an outcome lives inside that reaction and runs on its own terms; when it ends,
+   the routine simply carries on with whatever comes next in its sequence, if anything. Whether outcomes
+   share later steps is decided by where the steps are written — after the wait (shared) or inside a
+   reaction (that outcome only) — never by a switch.
 7. The reactions offered always end with a plain **"Something else"** that just carries on.
 8. A kept item whose run has ended sits on home **under its first layer**, with "It's happened" and "Let
    it go"; removing that first layer names such items.
