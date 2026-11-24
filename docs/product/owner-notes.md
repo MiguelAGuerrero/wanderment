@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — A wait closes several; waits and the level they belong to
+"A wait should be able to resolve several joins at a single step. That being said, the implication is
+that if you're awaiting something within a … routine, you can't leave that routine by definition until
+that wait step is done. So if you have a wait step in an outer routine, you can't necessarily progress
+to it if you read that like … standard code as an analogy. So what that means, you have to put the wait
+step and reference different [waits], assuming you have access to the context, assuming it's an outer
+context for which there are inner routines that are async, is what I'm saying."
+*Interpretation:* decided — one wait may close several. Raised — scope: a wait inside a routine holds
+that routine until it is met; when an inner routine sets something going without waiting for it, the
+outer routine must be able to wait for it. Proposed back: rails stay within one level, and a routine
+block as a whole can be the open end (B-11).
+
 ## 2026-11-24 — Several things out at once
 "Okay, so show an example of waiting for multiple outgoing items or requests, effectively."
 *Answered with two worked examples (B-11):* one wait that closes several rails ("both references are
