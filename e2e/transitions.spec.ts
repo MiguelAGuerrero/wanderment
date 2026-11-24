@@ -97,8 +97,10 @@ test.describe('transitions through the picture', () => {
   test('never blocks input: a star opens mid-transition, its landmarks rise and the wanderer walks to camp; a trail, up the path', async ({ page }) => {
     await open(page);
     await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
-    // At once, while the sky is still moving.
-    await stars(page).first().click({ noWaitAfter: true, timeout: 300 });
+    // While the sky is still moving (the screen is there, its passage not finished): a tap goes through.
+    // (Waits for the screen to mount first; a fixed 300 ms budget also timed the route load and flaked.)
+    await expect(shown(page, 'look-up')).toHaveAttribute('data-moving', 'true');
+    await stars(page).first().click({ noWaitAfter: true });
     await expect(page).toHaveURL(/\/star\//);
     await expectPassage(page, 'under-star', 'landmarks', false);
     await expect(shown(page, 'under-star').getByRole('heading', { name: ILLUSTRATE })).toBeFocused();
