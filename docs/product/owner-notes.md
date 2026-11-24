@@ -18,6 +18,16 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — How a wait is laid out in the composer
+On an "any order" group: "No, that's fine. That resolves what my intuition was telling me. But then how
+would that be laid out intuitively on a UI? Like a wait for routine to wait for a step to resolve? As
+in, like, it's an open item that has to be closed? An explicit wait and a wait step that has to be
+resolved? Because in a flow diagram, you see that as like a joining of two lines. And so intuitively,
+how would we represent that in the composer?"
+*Interpretation:* no "any order" group. Proposed back: a wait block with its own shape, and — when it
+names the step that set it going — a rail down the side from that step to the wait, the "open item that
+gets closed"; Read it says "While you wait: … / Then wait for: …". On the final-redraw list.
+
 ## 2026-11-24 — Separate threads are independent; waiting inside one is dependent
 "Yes, the order does do the work for me. Now … you can have multiple concurrent threads going on, and
 you can context switch between them at a shared common layer. So how is that different than adding a

@@ -232,6 +232,17 @@ decided on return, and pre-planned; `.polish/product/review-B-11-no-if.md`; reas
   no, they are separate runs. Child runs (the same routine for different values under one parent) are
   independent of each other; they meet only if the parent has a wait step for them. "The order does the
   work" is confirmed: no further machinery.
+- **How a wait looks where routines are written** (proposed to the owner). *The wait block* has its own
+  shape — outlined, not solid, with a wait mark: nothing to do here, something to receive — and reads
+  "Wait for: <words>". It is added with "Add a wait" (beside Add a blank / Add a routine) and moved like
+  any step. *The open item that gets closed:* on any step, "Wait for this later…" makes a wait block
+  tied to that step; a **rail** then runs down the side of the blocks from the step that set it going
+  (open end) to the wait block (closed end), and the steps beside the rail are what you do meanwhile —
+  the composer's version of two lines joining. The rail never crosses the Repeat divider, and a wait
+  can only be tied to a step above it. *Read it* carries the join in words: "Put the dough to prove.
+  While you wait: make the filling; clean up. Then wait for: the dough has doubled. Then: shape the
+  loaf." *Reactions* sit folded under the wait block as labelled routine blocks, like a routine's own
+  contents. No "any order" group (owner).
 **Added to the final redraw:** the reason on the paused screen and on home; a wait step in Blocks,
 Read it and on the runner; reactions offered on a wait step; "waiting for" on home.
 
