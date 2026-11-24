@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — The second philosophy: pop when done, push again from reference; save state
+"The other philosophy is that you pop it off the stack as soon as you're done. And you redefine it
+when you're ready to execute that function, so to speak. … When you pop a block that's saying, I'm
+done with that type of work for now. You can always pop it back on based on what's stored in reference
+in the app. So if you declare a series of blocks to be a function or a routine, you can declare that
+again and pop it on the stack. … as a default case, when you close and open up the app again, just
+offer to resume from where you left off, or offer to restart. It's sort of like a save state." Asked
+for an honest walk-through with a person practising drawing: strengths and tensions.
+*Interpretation:* what you've defined (reference) is separate from what you're in now (the stack).
+Popping never deletes; pushing again is one declaration. Reopening offers resume or restart.
+
 ## 2026-11-24 — A stack loops until you pop it
 On "is a stack re-run by default?": "I have two philosophies. A stack can be rerun by default until
 you pop it off your context. So effectively, you're going to always loop until you define a state of
