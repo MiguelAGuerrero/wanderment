@@ -18,6 +18,16 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Blocks fold too; group steps into a routine; a neutral review
+"We should offer the same expanded view in the block view too so that way I can work at the highest
+abstraction for ease of understanding. And conversely, there should be a way to group a sequence of
+steps into its own routine so that if the user feels like oh wait, this might be useful later they
+can." Then: implement these in the proposal and have a neutral, fresh-context agent review it and run
+through a use case — "not [adversarial] … they're supposed to [note] their observations and their
+implications", strengths and tensions.
+*Interpretation:* blocks expand, collapse and focus like Read it; "Group into a routine" is the reverse
+of Break it down. Led to: B-11 frames a1–a4; `.polish/product/review-B-11-neutral.md`.
+
 ## 2026-11-24 — Read it folds: top level first, expand or focus one section
 Asked for the frames redrawn with the fixes, and on the reading view's ambiguity: it shows the top
 level, "and then the user can expand out and scope in on particular sections of the routine so instead

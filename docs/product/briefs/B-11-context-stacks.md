@@ -72,6 +72,13 @@ parent and its neighbours to step to; `z7`/`z8` running — Next, Step in, Break
 places (Step in dimmed on a plain step), the level in words ("In Hand studies, inside Practise
 drawing"), Undo after Next, and See it all · Wait · Switch as three buttons.
 
+**Blocks fold too, and steps group** (owner; frames `a1`–`a4`, `a-sheet.png`): in Blocks a routine
+inside a routine is collapsed to its name by default, expands in place (＋ / −) with its own divider and
+loop bracket, or is focused on alone — the same as Read it (`a1`). **Group into a routine** is the
+reverse of Break it down: choose neighbouring steps (`a2`), name them (`a3`), and they become one
+routine block in place, saved to reference, with an Undo (`a4`). So there are six verbs: Declare, Next,
+Step in, Done, Break it down, Group.
+
 **Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
 what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
 in a structure that opens to any depth, measured (only if you ask) against your own pace.
