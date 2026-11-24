@@ -128,9 +128,17 @@ states, the update banner, typed text surviving a reload, Esc and Back behaviour
 Search also covers what was logged before this design (lines and their notes).
 
 ## 3. Screens
-**The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (journeys and their
-renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist)** (`.polish/product/b11-mine/`, a second designer's in `b11-alt/`). The table
-below is the earlier, partial set, kept for reference.
+**The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
+their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**
+**The current mockups are the converged set, `.polish/product/b11-final/`: 97 states, `sheet-01` …
+`sheet-13`.** It merges two independent redraws (`b11-mine/`, `b11-alt/`): where both agreed — home as
+the tree with the prompt beneath, one step alone with its level in words, Next as the only filled
+button, Paused with siblings / Up / Stop, "this run only" with Keep, the divider's grip and three-way
+choice, Read it as foldable sentences, Group as select → name → Undo, errors that keep the words — the
+design is taken as settled. The base is the second designer's layout (Next lowest and nearest the
+thumb, Done furthest; Pause and See it all in the top bar; drawn pixel marks; picture choices; keyboard-
+up states) with solid coloured blocks. Font: monospace vs sans is the owner's choice (`sheet-font`).
+The table below is the earlier, partial set, kept for reference.
 
 Mockups (local) in `.polish/product/b11-shots/`. Current: `z1`–`z8`, `a1`–`a4`, `c1`, `c4`, `d1`–`d3`
 (overviews `z-sheet`, `a-sheet`, `c-sheet`, `d-sheet`). Earlier sets (`p`, `r`, `w`, `x`, `y`, `c2`,
