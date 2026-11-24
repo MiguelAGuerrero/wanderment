@@ -28,6 +28,34 @@ out loud*.
 | J15 | **When something goes wrong** | Never lose words; always know what to do next | a) couldn't save: the words kept, Try again · b) a name is missing or already used · c) a routine can't go inside itself · d) removing a routine that is used elsewhere or has open runs · e) open in another tab: this one is read-only until taken back · f) Undo no longer available (the next action replaced it) |
 | J16 | **Large text and screen readers** | The whole app without the pictures | a) home as a plain nested list at 200 % text · b) running at 200 % text (buttons stacked) |
 
+## Essentials added by the capabilities audit
+From `.polish/product/audit-B-11-capabilities.md`: the basics a person expects by default. **First
+build** unless marked *(design now, build later)*.
+
+| # | Journey | To what end | States to render |
+|---|---|---|---|
+| J17 | **Get around** | Reach every screen from home and get back | a) home with a visible way to Your routines, History and Settings · b) the same reach from Paused · c) opening a foundation's routine to edit it from home |
+| J18 | **Fix the words** | Correct or reword anything you wrote | a) editing a step's words in Blocks · b) renaming a routine or foundation, saying where the name changes · c) rewording the current step while running (this run only, with "Keep in …") · d) correcting a run's blank value |
+| J19 | **Tend your foundations** | Keep home to what matters now | a) a foundation's ⋯: rename, move up / down, remove · b) removing one with paused runs under it · c) home after removal, with Undo |
+| J20 | **A routine as a whole** | Manage a routine, not just its steps | a) the routine's own menu: Rename, Copy as a new routine, Copy as text, Remove · b) New routine from scratch · c) Your routines, empty · d) the editor of a routine used in several places: where it is used, "Edit a copy instead" |
+| J21 | **End or discard a run** | Finish with something, from anywhere it shows | a) the "This run" menu reached from See it all, Paused and home · b) ending a run that has open child runs · c) home after it, with Undo · d) starting a routine that already has a paused run: Resume / Start another |
+| J22 | **Settings and your data** | Know where your data is; take it out, bring it back, wipe it | a) Settings: where the data lives, Export, Import, Erase, version · b) import preview: what the backup holds, Replace / Cancel · c) Erase everything: confirm, export first · d) exported / imported confirmation |
+| J23 | **The app's own states** | Understand what the app is doing when it isn't ready | a) Opening… · b) can't open the data: Reload, download the local copy · c) another tab took over / reconnecting, with a pressed Next kept · d) a new version is ready · e) saved by a newer version |
+| J24 | **Coming from the old app** | Lose nothing, know where it went | a) first open after the update with existing data · b) History showing earlier logged lines with their notes |
+| J25 | **A lot of it** | It still works when full | a) home with 20 foundations and 10 runs under one · b) a three-line step and a long "Done with …" on Running · c) a 30-step routine in Blocks with the keyboard up |
+| J15+ | **More that can go wrong** | — | g) a step removed, with Undo · h) an empty step or name · i) starting something while a run is running |
+| J26 | **Forget things** *(design now)* | Privacy and tidiness | a) remove one History entry / clear History · b) forget a value used in a blank · c) forget an unnamed sequence · d) reopen an ended run from History |
+| J28 | **Paste a list** *(design now)* | Bring steps in from elsewhere | a) pasted lines becoming several steps, with Undo |
+| J29 | **Move within a run** *(design now)* | Go where you actually are | a) See it all: make a step "now" · b) going back a step · c) dropping a this-run-only change |
+| J30 | **More with steps and blanks** *(design now)* | — | a) duplicate a step; send a step to another routine · b) placing, rewording and removing a blank; two blanks in one routine |
+| J31 | **Where only a button is drawn** *(design now)* | — | a) Walk through · b) Focus on one routine · c) Copy as text and its confirmation · d) after "Name it, keep it" |
+| J32 | **Opt-ins** *(design now)* | — | a) Settings: "How did this feel?" and the pace note switched on |
+| J33 | **Find old things** *(design now)* | — | a) searching History (lines and notes) |
+| J16+ | **Large text, focus** *(design now)* | — | c) a ⋯ menu and a dialog at 200 % · d) visible focus, and where it lands after Undo, a dialog, a removal |
+
+**J27 Keyboard and Back** is a table in the design document, not a render: Return, Esc, Tab order and a
+key for Next on every screen; browser Back; each screen's address; what each retired route does.
+
 **Not in the first build, so not rendered:** the opt-in "How did this feel?" and pace note; a step that
 waits while the rest of its sequence carries on.
 

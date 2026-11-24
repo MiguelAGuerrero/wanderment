@@ -54,3 +54,11 @@ Renaming anything; editing a step's words; removing or reordering a foundation; 
 from home; a routine created from scratch; forgetting a value or an unnamed sequence; a Settings screen
 with import, erase and storage; the update banner; loading and blocked-storage states; navigation from
 home to Your routines / History / Settings; long content; keyboard and Back behaviour.
+
+## 5. After the audit
+`.polish/product/audit-B-11-capabilities.md` corrected this matrix (three menus were dialogs with no way
+in; home was a dead end; nothing could be renamed; foundations could only be added; today's settings,
+import and app states were missing) and listed existing capabilities at risk. Its additions are
+journeys **J17–J33** in [`B-11-journeys.md`](B-11-journeys.md); the rules it made necessary are section
+2a of the design. Deliberately left for later: sorting or searching Your routines, archive for
+foundations, moving a child run, merging routines, redo, themes, sharing, outside links, merge-import.

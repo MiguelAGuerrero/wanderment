@@ -97,9 +97,34 @@ routine".
 
 **Never shown as words:** frame, thread, stack, pointer, parameter, loop variable.
 
+## 2a. Rules the capabilities audit made necessary (proposed; the owner decides the marked ones)
+**Safeguards, one rule.** Everything reversible gets an Undo and no confirm (Next, Done, removing a
+step, ending a run, Group, edits, "Keep in <routine>"). A confirm appears only when an action reaches
+beyond what is on screen — other routines, open runs, all data — and it still leaves an Undo where one
+is possible. Erase and import-replace confirm and offer an export first.
+**Foundations** *(owner to confirm)*. A foundation is a top-level routine kept on home: a value, a goal
+or a way of working. It has one base run; Start or Resume on it acts on that run; runs started with a
+value from inside it are its child runs. A routine used inside others is not a foundation until you
+start it from home. Foundations can be renamed, reordered and removed (removing one with paused runs
+confirms and names them).
+**Everything typed at home is a foundation** *(owner to confirm)* — there is no separate "typed
+one-off"; unnamed things come only from breaking a step down.
+**Runs.** "End this run" is Done at the top; it leaves a history entry; open child runs are asked about
+(end them too, or keep them under the foundation). Starting a routine that has a paused run asks Resume
+/ Start another. Starting anything while a run is running asks to pause that one first. A run's blank
+value can be corrected by tapping it. In See it all any step can be made "now".
+**Editing is live, with Undo** — no Save button. The editor of a routine used in several places always
+shows where it is used, with "Edit a copy instead".
+**Data.** History entries, remembered values and unnamed sequences can each be forgotten. Import
+replaces, after a preview, as today; Erase everything exists, with export first; multi-tab hand-over
+stays automatic as today; the one Undo lasts until the next action.
+**Kept from today's app:** Settings, export, import preview, the opening / blocked / reconnecting
+states, the update banner, typed text surviving a reload, Esc and Back behaviour.
+*(Owner to decide: whether search over earlier logged lines and notes stays, in History.)*
+
 ## 3. Screens
-**The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md): 16 journeys, 44
-states, one render each** (`.polish/product/b11-mine/`, a second designer's in `b11-alt/`). The table
+**The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (journeys and their
+renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist)** (`.polish/product/b11-mine/`, a second designer's in `b11-alt/`). The table
 below is the earlier, partial set, kept for reference.
 
 Mockups (local) in `.polish/product/b11-shots/`. Current: `z1`–`z8`, `a1`–`a4`, `c1`, `c4`, `d1`–`d3`
