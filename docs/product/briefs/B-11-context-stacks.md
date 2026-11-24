@@ -191,6 +191,8 @@ settings placement and component choice, so the app meets expectations before it
 an action reaches beyond what is on screen (other routines, open runs, things out, all data), and still
 leaves an Undo where one is possible. The filled button always means the safe or forward choice; red
 and "!" only for errors and the irreversible; every Remove names its reach.
+**One vocabulary** (owner): the verbs must read as a set — Start, Resume, Pause, Stop, Switch, Done,
+waiting. A paused run is "paused", not "put down"; no word is chosen for how it sounds alone.
 **One wording and one mark per meaning.** A paused run reads "at <step>"; ending is "Done with <name>";
 "Switch" only between paused runs; "Start" for beginning; the toggle is "Map | List". A mark never means
 two things (now, repeats, routine, wait, forward, fold, more, pause, stop each have their own).

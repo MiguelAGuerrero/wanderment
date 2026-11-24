@@ -18,6 +18,14 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — "Paused", not "put down"
+On one designer calling a paused run "put down": "I'll keep it at pause for now. I just think put down
+is good in isolation, but in context with the other terminology we're using, it seems out of place or
+not as coherent as pause. You would have to devise a vocabulary that seems more unified to allow put
+down to naturally read the way the other actions do."
+*Interpretation:* decided — paused. The verbs must read as one vocabulary; no word is chosen for how it
+sounds alone.
+
 ## 2026-11-24 — Rewrite, and one final double-blind redraw
 "Rewrite and one final redraw. Again, ensure that this is double-blinded in the sense that you write
 your redraw in another fresh agent with just the design specifications, user journeys mapped out, we'll
