@@ -1,10 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-import { DataChanges, diffData, isEmptyDiff, missingFrom, pendingChanges, rebase } from '@/domain/diff';
+import { DataChanges, diffData, isEmptyDiff, missingFrom, pendingChanges, rebase, upsertsOf } from '@/domain/diff';
 import { defaultSettings, LEGACY_STORAGE_KEY, parseLegacyState, sameSettings, Settings, toLegacyState } from '@/domain/migrate';
 import { classifyOpenError, detailsLine, OpenStep, RECONNECT_GRACE_MS, retryDelay, StepError, TAKE_BACK_STUCK, takeBackStuck } from '@/domain/opening';
-import { Data, emptyData } from '@/domain/types';
+import { COLLECTIONS, Data, emptyData } from '@/domain/types';
 import { Draft, sameDraft, ToLog, useStore } from '@/store/useStore';
 
 import { Db } from './db';
@@ -25,6 +25,7 @@ const USES_SQLITE_KEY = `${LEGACY_STORAGE_KEY}:uses-sqlite`;
 const JOURNAL_KEY = `${LEGACY_STORAGE_KEY}:journal`;
 
 interface Journal {
+  /** Nothing for a collection the page that wrote it didn't know (an older version's journal): `saveChanges` reads that as no change. */
   changes: DataChanges;
   /**
    * Only the settings this page changed since its last save (P-29), so replaying it never puts
@@ -169,7 +170,7 @@ async function loadAbsorbed(db: Db): Promise<Set<string>> {
   }
 }
 
-const idsOf = (data: Data) => [...Object.keys(data.threads), ...Object.keys(data.activities)];
+const idsOf = (data: Data) => COLLECTIONS.flatMap((c) => Object.keys(data[c]));
 
 /**
  * Records in the first release's format that this database has never seen: written by a tab
@@ -179,11 +180,18 @@ const idsOf = (data: Data) => [...Object.keys(data.threads), ...Object.keys(data
  */
 function unseen(legacy: Data, base: Data, absorbed: Set<string>): Data {
   const missing = missingFrom(base, legacy);
-  return {
-    version: 1,
-    threads: Object.fromEntries(missing.upsertThreads.filter((t) => !absorbed.has(t.id)).map((t) => [t.id, t])),
-    activities: Object.fromEntries(missing.upsertActivities.filter((a) => !absorbed.has(a.id)).map((a) => [a.id, a])),
-  };
+  const fresh = emptyData();
+  for (const c of COLLECTIONS) {
+    Object.assign(fresh, { [c]: Object.fromEntries(upsertsOf(missing, c).filter((r) => !absorbed.has(r.id)).map((r) => [r.id, r])) });
+  }
+  return fresh;
+}
+
+/** `data` with `more`'s records added to (or put over) its own, in every collection. */
+function withRecords(data: Data, more: Data): Data {
+  const merged = { ...data };
+  for (const c of COLLECTIONS) Object.assign(merged, { [c]: { ...data[c], ...more[c] } });
+  return merged;
 }
 
 async function absorbLegacy(db: Db): Promise<void> {
@@ -599,7 +607,7 @@ function wire() {
       for (const id of idsOf(legacy.data)) opened.absorbed.add(id);
       void saveMeta(opened.db, ABSORBED, JSON.stringify([...opened.absorbed])).catch(() => {});
       useStore.setState({
-        data: { ...data, threads: { ...data.threads, ...fresh.threads }, activities: { ...data.activities, ...fresh.activities } },
+        data: withRecords(data, fresh),
         saveError:
           'An older version of Wanderment is open in another tab. Close it — new entries made there are added here, but edits and deletions there aren’t.',
       });

@@ -6,6 +6,6 @@ module.exports = defineConfig([
   expoConfig,
   {
     // Other builders' git worktrees (agents' isolated checkouts) aren't this tree's code.
-    ignores: ['dist/*', '.claude/worktrees/**'],
+    ignores: ['dist/*', '.claude/worktrees/**', '.polish/**'],
   },
 ]);

@@ -165,7 +165,7 @@ test('export → import round-trips the mark; a backup without it imports unmark
   const { readFileSync } = await import('node:fs');
   const json = readFileSync(file, 'utf8');
   const backup = JSON.parse(json);
-  expect(backup.data.version).toBe(1);
+  expect(backup.data.version).toBe(2);
   expect(backup.data.threads.t1.declaredAt).toMatch(/Z$/);
   expect(backup.data.threads.t2.declaredAt).toBeUndefined();
 

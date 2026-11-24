@@ -44,6 +44,29 @@ export const MIGRATIONS: string[] = [
   ALTER TABLE activities ADD COLUMN lit INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE activities ADD COLUMN settled_at TEXT;
   `,
+  // 4 (P-85, B-11 groundwork): routines and runs. Added only: no existing table or row is touched, and
+  // nothing is put in them here. A column for what identifies a record or may be asked about; every
+  // other field of the record (still being designed) in `body`, a JSON object. `named` 0: an unnamed
+  // sequence kept so its words can find it — the same table.
+  `
+  CREATE TABLE routines (
+    id TEXT PRIMARY KEY NOT NULL,
+    words TEXT NOT NULL,
+    named INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    removed_at TEXT,
+    body TEXT NOT NULL DEFAULT '{}'
+  );
+  CREATE TABLE runs (
+    id TEXT PRIMARY KEY NOT NULL,
+    routine_id TEXT NOT NULL,
+    parent_run_id TEXT,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    waiting_since TEXT,
+    body TEXT NOT NULL DEFAULT '{}'
+  );
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

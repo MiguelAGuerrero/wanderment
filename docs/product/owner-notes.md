@@ -18,6 +18,34 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — This is a different app; Wanderment is retired; a new name
+On whether this is its own app: "Oh no, this is completely different from [Wanderment]. There are some
+ideas from [Wanderment] that I still value, like the ability to draw links between related activities so
+you can better decide how you spend your time based on shared interest … based on overlap. So, but I
+would think something like that has no place in this iteration of the app, so I'll set it aside. I think
+[Wanderment] needs to be distilled into something more strong in one of its dimensions, because the
+visual metaphor started becoming a bit cumbersome to design around. It still makes sense for the feature
+set. That said, there might be some aspects of [Wanderment] that still have place in this iteration of
+the app, but other than that, no, it's retired. I would have to rename this repo to something a bit more
+fitting. I have some candidate names. Like 'rithm' or StackEZ."
+*Interpretation:* decided — the app being built replaces Wanderment in this repository; Wanderment as it
+was is retired, its idea of linking related activities by overlap set aside for a possible later,
+separate distillation. The repository and app will be renamed; candidates "rithm" and "StackEZ". Not
+yet decided: the name.
+
+## 2026-11-24 — Who it is for: a niche, and that's fine
+Asked "who is it for besides you?": "So right now it's for me, but I do recognize that these apps are
+very niche, and that's okay. One aspiration I have is to develop a portfolio of niche apps that cater
+to a very specific type of person, not necessarily a general audience. And I would argue that
+procedurally … algorithmic thinking might be suitable for a few who would like that sort of offload to
+their mind, so they can iterate and refine processes as they see fit. And ultimately work on bigger and
+lofty things without being bogged down by what they have to do next, when you can just clearly define
+the next step and always be aware of the broader context of it."
+*Interpretation:* the audience is people who think procedurally and want "what's next" offloaded while
+keeping the wider context in view. The concept count and the async half are features for them, not
+costs. Raised back: whether this should be its own app in that portfolio, leaving today's Wanderment
+(the mood-and-energy log) as it is — to decide before the first visible slice.
+
 ## 2026-11-24 — After the convergence: fewer verbs, tiles on home, and go
 "So I accept that proposal, and when clicking home, just ensure there is a confirmation prompt. Are you
 sure you want to stop? And I guess if we're removing switch to be resume, that means pausing naturally

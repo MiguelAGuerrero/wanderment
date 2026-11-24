@@ -1,8 +1,12 @@
 import { hasOwn } from './migrate';
 import { declaredWhys } from './model';
-import { Data, Id } from './types';
+import { Collection, COLLECTIONS, Data, Id } from './types';
 
-/** How many of each a side holds. */
+/** The collections added after wanders and activities (P-85): counted under their own names. */
+export type LaterCollection = Exclude<Collection, 'threads' | 'activities'>;
+export const LATER_COLLECTIONS = COLLECTIONS.filter((c): c is LaterCollection => c !== 'threads' && c !== 'activities');
+
+/** How many activities and wanders a side holds (for any collection, `heldHere` / `heldIncoming` count from its diff). */
 export interface ImportCounts {
   activities: number;
   wanders: number;
@@ -20,33 +24,34 @@ export interface ImportDiff {
   unchanged: number;
 }
 
-/** What replacing what's here with a backup would do (P-04). Computing it changes nothing. */
-export interface ImportPlan {
+/** How many records of a collection are here, and how many the backup holds. */
+export const heldHere = (d: ImportDiff) => d.removed + d.changed + d.unchanged;
+export const heldIncoming = (d: ImportDiff) => d.added + d.changed + d.unchanged;
+
+export interface ImportSummary {
   here: ImportCounts;
   incoming: ImportCounts;
   /** When the backup's activities happened (ISO, earliest and latest); none when none has a real date. */
   dateRange?: { from: string; to: string };
-  activities: ImportDiff;
-  threads: ImportDiff;
-  /** Nothing added, removed or changed: replacing would change nothing. */
+  /** Nothing added, removed or changed in any collection: replacing would change nothing. */
   identical: boolean;
-  /** The backup has no activities and no wanders. */
+  /** The backup has no records of any kind. */
   empty: boolean;
 }
 
+/** What replacing what's here with a backup would do (P-04), collection by collection. Computing it changes nothing. */
+export type ImportPlan = ImportSummary & Record<Collection, ImportDiff>;
+
 /** Compares what's here with a checked backup (`fromBackup`). Linear in the number of records. */
 export function planImport(current: Data, incoming: Data): ImportPlan {
-  const activities = diff(current.activities, incoming.activities);
-  const threads = diff(current.threads, incoming.threads);
-  const inc = counts(incoming);
+  const diffs = Object.fromEntries(COLLECTIONS.map((c) => [c, diff<object>(current[c], incoming[c])])) as Record<Collection, ImportDiff>;
   return {
     here: counts(current),
-    incoming: inc,
+    incoming: counts(incoming),
     dateRange: dateRange(incoming),
-    activities,
-    threads,
-    identical: !activities.added && !activities.removed && !activities.changed && !threads.added && !threads.removed && !threads.changed,
-    empty: !inc.activities && !inc.wanders,
+    ...diffs,
+    identical: COLLECTIONS.every((c) => !diffs[c].added && !diffs[c].removed && !diffs[c].changed),
+    empty: COLLECTIONS.every((c) => !Object.keys(incoming[c]).length),
   };
 }
 
@@ -67,9 +72,12 @@ function diff<T extends object>(here: Record<Id, T>, incoming: Record<Id, T>): I
   return out;
 }
 
-/** The same content, whatever the key order; an absent field equals an undefined one. */
+/** The same content, whatever the key order at any depth; an absent field equals an undefined one. */
 const same = (a: object, b: object) => canonical(a) === canonical(b);
-const canonical = (r: object) => JSON.stringify(r, Object.keys(r).sort());
+const canonical = (r: object) => JSON.stringify(r, sortedKeys);
+/** (A list of the record's own keys would do for flat records, but it also filters every object inside: a routine's steps would compare equal whatever they said.) */
+const sortedKeys = (_key: string, v: unknown) =>
+  v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) : v;
 
 /** A missing date was stored as the epoch (see migrate.ts): it says nothing about when. */
 function dateRange(data: Data): ImportPlan['dateRange'] {

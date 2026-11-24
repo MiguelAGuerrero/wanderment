@@ -11,7 +11,7 @@ const thread = (id: string, name: string, extra: Partial<Thread> = {}): Thread =
 const act = (id: string, text: string, extra: Partial<Activity> = {}): Activity => ({ id, text, occurredAt: at, createdAt: at, toIds: [], ...extra });
 const backup = (data: unknown) => JSON.stringify({ app: 'wanderment', exportedAt: at, data });
 const data = (threads: Thread[] = [], activities: Activity[] = []): Data => ({
-  version: 1,
+  ...emptyData(),
   threads: Object.fromEntries(threads.map((t) => [t.id, t])),
   activities: Object.fromEntries(activities.map((a) => [a.id, a])),
 });
@@ -43,7 +43,7 @@ describe('the strict check (imports)', () => {
   it('refuses a backup from a newer version, saying so (not that it isn’t a backup)', () => {
     let message = '';
     try {
-      fromBackup(backup({ version: 2, threads: {}, activities: {} }));
+      fromBackup(backup({ version: 3, threads: {}, activities: {} }));
     } catch (e) {
       message = (e as Error).message;
     }
@@ -251,9 +251,9 @@ describe('P-73: lit and settled lines in backups and saved data', () => {
     expect('lit' in back.activities.a3 || 'settledAt' in back.activities.a3).toBe(false);
   });
 
-  it('an older export (no such fields) imports unchanged and reads settled; the format is still version 1', () => {
+  it('an older export (no such fields) imports unchanged and reads settled; a format-1 file reads as format 2 (P-85)', () => {
     const old = fromBackup(backup({ version: 1, threads: {}, activities: { a1: act('a1', 'scales') } }));
-    expect(old.version).toBe(1);
+    expect(old.version).toBe(2);
     expect(old.activities.a1).toEqual(act('a1', 'scales'));
     expect(old.activities.a1.lit).toBeUndefined();
   });

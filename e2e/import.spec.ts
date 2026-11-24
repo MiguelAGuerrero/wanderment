@@ -112,7 +112,7 @@ test('a damaged file says what’s wrong and nothing changes', async ({ page }) 
   await choose(page, '{"app": "wanderment", "data": ');
   await expect(page.getByText('That file isn’t valid JSON.')).toBeVisible();
   await expect(preview(page)).toHaveCount(0);
-  await choose(page, JSON.stringify({ app: 'wanderment', exportedAt: at(1), data: { version: 2, threads: {}, activities: {} } }));
+  await choose(page, JSON.stringify({ app: 'wanderment', exportedAt: at(1), data: { version: 3, threads: {}, activities: {} } }));
   await expect(page.getByText(/newer version/)).toBeVisible();
   await expect(preview(page)).toHaveCount(0);
   await page.reload();

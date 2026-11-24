@@ -208,7 +208,7 @@ describe('migrating data', () => {
     });
     expect(repaired.threads.t1).toMatchObject({ id: 't1', name: 'run', hidden: false, createdAt: new Date(0).toISOString() });
     expect(repaired.activities.a1).toMatchObject({ id: 'a1', toIds: ['t2'], createdAt: '2026-01-01T00:00:00.000Z' });
-    expect(() => migrateData({ version: 2, threads: {}, activities: {} })).toThrow(/Wanderment backup/);
+    expect(() => migrateData({ version: 3, threads: {}, activities: {} })).toThrow(/Wanderment backup/);
     expect(() => migrateData({ version: 1, threads: {}, activities: { a: { text: 1 } } })).toThrow(/malformed/);
   });
 });

@@ -1,44 +1,23 @@
 import { normalizeName } from './model';
-import { Activity, Data, Id, Thread } from './types';
+import { Activity, Collection, COLLECTION_INFO, COLLECTIONS, Data, DATA_VERSION, emptyData, Id, RecordOf, Routine, Run, Thread } from './types';
+
+/** Says a record is malformed: throws when strict (imports), does nothing when lenient (saved data). */
+type Bad = (msg: string) => void;
 
 /**
- * Turns anything that claims to be Wanderment data (a backup, an old persisted store) into a
- * valid `Data`, repairing what can be repaired. Throws with a readable message otherwise.
- *
- * `Data.version` is the export format. It is still 1; when it changes, add a step here so
- * older backups keep importing.
+ * Reads one record of each collection from anything that claims to be one: the repaired record, or
+ * undefined (after calling `bad`) when it can't be used. `key` is the record's key in the file,
+ * which counts as its id when it has none.
  */
-export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}): Data {
-  /** Strict (imports): one bad record rejects the file. Lenient (saved data): skip it, keep the rest. */
-  const strict = !opts.skipInvalid;
-  const bad = (msg: string) => {
-    if (strict) throw new Error(msg);
-  };
-  const d = raw as Partial<Data> | undefined;
-  if (!d || typeof d !== 'object') throw new Error('The backup is missing its data.');
-  if (typeof d.version === 'number' && d.version > 1) {
-    throw new Error('That Wanderment backup was made by a newer version of the app. Update Wanderment, then import it again.');
-  }
-  if (d.version !== 1) throw new Error('That file isn’t a Wanderment backup.');
-  if (!d.threads || typeof d.threads !== 'object' || !d.activities || typeof d.activities !== 'object') {
-    throw new Error('The backup is missing wanders or activities.');
-  }
-  // The checks below are for imports only: saved data loads as it always has (P-04).
-  if (strict && (Array.isArray(d.threads) || Array.isArray(d.activities))) {
-    throw new Error('The backup’s wanders or activities aren’t in the right shape.');
-  }
-
-  const threads: Record<Id, Thread> = {};
-  for (const [key, t] of Object.entries(d.threads as Record<string, Partial<Thread>>)) {
+const READ: { [K in Collection]: (raw: unknown, key: string, bad: Bad) => RecordOf<K> | undefined } = {
+  threads(raw, key, bad) {
+    const t = raw as Partial<Thread> | undefined;
     if (!t || typeof t.name !== 'string' || !t.name.trim()) {
       bad('A wander in the backup is malformed.');
-      continue;
+      return undefined;
     }
-    const id = typeof t.id === 'string' && t.id ? t.id : key;
-    if (strict && id === UNUSABLE_ID) throw new Error(`A wander in the backup has an id this app can’t use (“${id}”).`);
-    if (strict && hasOwn(threads, id)) throw new Error(`Two wanders in the backup have the same id (“${id}”).`);
-    threads[id] = {
-      id,
+    return {
+      id: typeof t.id === 'string' && t.id ? t.id : key,
       name: t.name.trim().replace(/\s+/g, ' '),
       next: typeof t.next === 'string' && t.next.trim() ? t.next.trim() : undefined,
       hidden: t.hidden === true,
@@ -48,22 +27,18 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
       // counts: loose strings like "1" or "March 7" parse as dates but aren't one this app wrote.
       declaredAt: t.hidden !== true && isIsoStamp(t.declaredAt) ? utc(t.declaredAt) : undefined,
     };
-  }
-
-  const activities: Record<Id, Activity> = {};
-  for (const [key, a] of Object.entries(d.activities as Record<string, Partial<Activity>>)) {
+  },
+  activities(raw, key, bad) {
+    const a = raw as Partial<Activity> | undefined;
     if (!a || typeof a.text !== 'string' || !a.text.trim()) {
       bad('An activity in the backup is malformed.');
-      continue;
+      return undefined;
     }
     const rawTo = Array.isArray(a.toIds) ? a.toIds : (bad('An activity in the backup is malformed.'), []);
-    const id = typeof a.id === 'string' && a.id ? a.id : key;
-    if (strict && id === UNUSABLE_ID) throw new Error(`An activity in the backup has an id this app can’t use (“${id}”).`);
-    if (strict && hasOwn(activities, id)) throw new Error(`Two activities in the backup have the same id (“${id}”).`);
     const doingId = typeof a.doingId === 'string' && a.doingId ? a.doingId : undefined;
     const createdAt = isIso(a.createdAt) ? utc(a.createdAt) : isIso(a.occurredAt) ? utc(a.occurredAt) : new Date(0).toISOString();
-    activities[id] = {
-      id,
+    return {
+      id: typeof a.id === 'string' && a.id ? a.id : key,
       text: a.text,
       occurredAt: isIso(a.occurredAt) ? utc(a.occurredAt) : createdAt,
       createdAt,
@@ -75,9 +50,99 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
       ...(a.lit === true && { lit: true as const }),
       ...(isIsoStamp(a.settledAt) && { settledAt: utc(a.settledAt) }),
     };
+  },
+  // Routines and runs (P-85): structure only. The record must be an object whose stored columns have
+  // the right types; everything else it carries is kept exactly as it is. What it means (items that
+  // exist, no routine inside itself, frames that point somewhere) is P-86's to check.
+  routines(raw, key, bad) {
+    const r = raw as Partial<Routine> | null;
+    if (!isRecord(r) || typeof r.words !== 'string' || typeof r.named !== 'boolean' || typeof r.createdAt !== 'string' || !textOrAbsent(r.removedAt)) {
+      bad('A routine in the backup is malformed.');
+      return undefined;
+    }
+    return { ...withoutNulls(r, ['removedAt']), id: typeof r.id === 'string' && r.id ? r.id : key } as Routine;
+  },
+  runs(raw, key, bad) {
+    const r = raw as Partial<Run> | null;
+    if (!isRecord(r) || typeof r.routineId !== 'string' || typeof r.startedAt !== 'string' || !textOrAbsent(r.parentRunId) || !textOrAbsent(r.endedAt) || !textOrAbsent(r.waitingSince)) {
+      bad('A run in the backup is malformed.');
+      return undefined;
+    }
+    return { ...withoutNulls(r, ['parentRunId', 'endedAt', 'waitingSince']), id: typeof r.id === 'string' && r.id ? r.id : key } as Run;
+  },
+};
+
+const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
+/** An optional field: a string, or not there. Null counts as not there (and is left out by `withoutNulls`). */
+const textOrAbsent = (v: unknown) => v === undefined || v === null || typeof v === 'string';
+/** `record` without those of `fields` that are null: an optional field is set or absent, never null. */
+function withoutNulls(record: Record<string, unknown>, fields: string[]): Record<string, unknown> {
+  const out = { ...record };
+  for (const f of fields) if (out[f] === null) delete out[f];
+  return out;
+}
+
+/**
+ * Turns anything that claims to be Wanderment data (a backup, an old persisted store) into a
+ * valid `Data`, repairing what can be repaired. Throws with a readable message otherwise.
+ *
+ * `Data.version` is the export format (`DATA_VERSION`). When it changes, add a step here so older
+ * backups keep importing. Every collection in `COLLECTIONS` is rebuilt, so none can be dropped.
+ */
+export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}): Data {
+  /** Strict (imports): one bad record rejects the file. Lenient (saved data): skip it, keep the rest. */
+  const strict = !opts.skipInvalid;
+  const bad: Bad = (msg) => {
+    if (strict) throw new Error(msg);
+  };
+  const d = raw as (Partial<Record<Collection, unknown>> & { version?: unknown }) | undefined;
+  if (!d || typeof d !== 'object') throw new Error('The backup is missing its data.');
+  // (A version that isn't a whole number was never written; above 1 it has always read as newer.)
+  if (typeof d.version === 'number' && (d.version > DATA_VERSION || (d.version > 1 && !Number.isInteger(d.version)))) {
+    throw new Error('That Wanderment backup was made by a newer version of the app. Update Wanderment, then import it again.');
   }
-  if (strict) refuseSameNames(threads);
-  return { version: 1, threads, activities };
+  if (typeof d.version !== 'number' || !Number.isInteger(d.version) || d.version < 1) throw new Error('That file isn’t a Wanderment backup.');
+  const version = d.version;
+  if (!d.threads || typeof d.threads !== 'object' || !d.activities || typeof d.activities !== 'object') {
+    throw new Error('The backup is missing wanders or activities.');
+  }
+  // The checks below are for imports only: saved data loads as it always has (P-04).
+  if (strict && (Array.isArray(d.threads) || Array.isArray(d.activities))) {
+    throw new Error('The backup’s wanders or activities aren’t in the right shape.');
+  }
+
+  const data = emptyData();
+  for (const c of COLLECTIONS) {
+    const { a, many, since } = COLLECTION_INFO[c];
+    if (since > version) {
+      // A format from before this collection existed has none of it. A file that says otherwise is
+      // mislabelled or damaged: an import refuses it; saved data is read as its format says.
+      if (d[c] !== undefined) bad(`The backup says it’s from before ${many} existed, but it has ${many}.`);
+      continue;
+    }
+    const source = d[c];
+    if (source === undefined || source === null) {
+      // The app always writes every collection: an import without one is a partial file (wanders
+      // and activities were refused above). Saved data keeps what it has.
+      bad(`The backup is missing its ${many}.`);
+      continue;
+    }
+    if (typeof source !== 'object' || (strict && Array.isArray(source))) {
+      bad(`The backup’s ${many} aren’t in the right shape.`);
+      continue;
+    }
+    const records = data[c] as Record<Id, { id: Id }>;
+    for (const [key, value] of Object.entries(source)) {
+      const record = READ[c](value, key, bad);
+      if (!record) continue;
+      const { id } = record;
+      if (strict && id === UNUSABLE_ID) throw new Error(`${a} in the backup has an id this app can’t use (“${id}”).`);
+      if (strict && hasOwn(records, id)) throw new Error(`Two ${many} in the backup have the same id (“${id}”).`);
+      records[id] = record;
+    }
+  }
+  if (strict) refuseSameNames(data.threads);
+  return data;
 }
 
 /**
@@ -185,4 +250,4 @@ export function parseLegacyState(json: string | null | undefined): { data: Data;
 }
 
 /** The legacy format, still used on web when SQLite can't run (e.g. no OPFS in a private window). */
-export const toLegacyState = (data: Data, settings: Settings): string => JSON.stringify({ state: { data, ...settings }, version: 1 });
+export const toLegacyState = (data: Data, settings: Settings): string => JSON.stringify({ state: { data: { ...data, version: DATA_VERSION }, ...settings }, version: 1 });

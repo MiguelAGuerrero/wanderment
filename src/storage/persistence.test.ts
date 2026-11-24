@@ -1506,12 +1506,14 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     const NOTICE = { message: 'Just a moment — reconnecting.', notice: true };
     const thread = (id: string, name: string, extra: Record<string, unknown> = {}) => ({ id, name, hidden: false, createdAt: at, ...extra });
     const fixture = () => ({
-      version: 1 as const,
+      version: 2 as const,
+      routines: {},
+      runs: {},
       threads: { t1: thread('t1', 'draw', { next: 'step', declaredAt: at }), t2: thread('t2', 'read') },
       // P-73: a1 is lit (sent up from the trailhead), so Done it has something to settle.
       activities: { a1: { ...act('a1', 'unattached'), lit: true as const }, a2: { ...act('a2', 'drew'), doingId: 't1' }, a3: act('a3', 'to delete') },
     });
-    const other = () => ({ version: 1 as const, threads: {}, activities: { i1: act('i1', 'imported') } });
+    const other = () => ({ version: 2 as const, threads: {}, activities: { i1: act('i1', 'imported') }, routines: {}, runs: {} });
     type S = ReturnType<Store['getState']>;
     const settingsOf = (st: S) => ({ showShading: st.showShading, recentSearches: st.recentSearches, leftAsIs: st.leftAsIs, ...(st.whyOfferOff && { whyOfferOff: true }), ...(st.firstRunDone && { firstRunDone: true }) });
 
@@ -2103,6 +2105,398 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(env.ls.has('wanderment:released')).toBe(false);
     });
   });
+
+  // ───────── P-85: storage for any kind of record ─────────
+  describe('P-85: a routine and a run survive everything that used to name two collections by hand', () => {
+    const at2 = '2026-11-02T09:30:00.000Z';
+    /** Everything B-11 section 8 lists: items (step, wait with a reaction, routine reference), divider, repeat number, blanks, values used. */
+    const routine = (id: string, extra: Record<string, unknown> = {}) => ({
+      id,
+      words: 'Apply to ▢employer',
+      named: true,
+      createdAt: at,
+      items: [
+        { id: 'i1', text: 'Find the posting', setsGoing: true },
+        { id: 'i2', wait: 'a reply', closes: 'i1', reactions: [{ name: 'They said yes', items: [{ id: 'i3', text: 'Book a call' }] }] },
+        { id: 'i4', ref: 'r2' },
+      ],
+      repeatFrom: 1,
+      repeat: 3,
+      blanks: ['employer'],
+      used: { employer: ['Acme', 'Initech'] },
+      ...extra,
+    });
+    /** Frames, values, breakdowns, a parent run, ended-at, waiting-since and a pause reason. */
+    const run = (id: string, extra: Record<string, unknown> = {}) => ({
+      id,
+      routineId: 'r1',
+      parentRunId: 'n0',
+      startedAt: at,
+      endedAt: at2,
+      waitingSince: at2,
+      values: { employer: 'Acme' },
+      frames: [{ seq: 'r1', at: 'i2', round: 2 }, { seq: 'r2', at: null }],
+      breakdowns: { i1: 'r9' },
+      waitedOn: ['i2'],
+      changes: [{ kind: 'reword', item: 'i1', text: 'Find the listing' }],
+      reason: 'lunch',
+      ...extra,
+    });
+    type AnyData = Store extends { getState(): { data: infer D } } ? D : never;
+    /** Changes the data the way an action does (P-85 adds no action that touches routines or runs). */
+    const change = (store: Store, next: (d: AnyData) => Partial<AnyData>) => store.setState((s) => ({ data: { ...s.data, ...next(s.data) } }));
+    const seed = (store: Store) => change(store, () => ({ routines: { r1: routine('r1') }, runs: { n1: run('n1') } }));
+    const both = { routines: { r1: routine('r1') }, runs: { n1: run('n1') } };
+    const file = (data: unknown) => JSON.stringify({ app: 'wanderment', exportedAt: at, data });
+    /** A new page load (the old page is gone). */
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+
+    it('journal replay: written only to the journal when the tab dies, both are there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      logText(store, 'before');
+      await tick(30);
+      env.state.hangWrites = true;
+      seed(store);
+      await tick(30); // the write was sent but never commits
+      expect(await onDisk()).toMatchObject({ routines: {}, runs: {} });
+      const journal = JSON.parse(env.ls.get('wanderment:journal')!).changes;
+      expect(journal.upsertRoutines).toEqual([routine('r1')]);
+      expect(journal.upsertRuns).toEqual([run('n1')]);
+      // The four keys an older version reads are still there, under the same names.
+      expect(journal).toMatchObject({ upsertThreads: [], deleteThreads: [], upsertActivities: [], deleteActivities: [] });
+      env.state.hangWrites = false;
+
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().saveError).toBeUndefined();
+      expect(store.getState().data).toMatchObject(both);
+      expect(store.getState().data.routines).toEqual(both.routines);
+      expect(store.getState().data.runs).toEqual(both.runs);
+      expect(texts(store)).toEqual(['before']);
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+
+      // A delete that only the journal holds lands too.
+      env.state.hangWrites = true;
+      change(store, () => ({ routines: {}, runs: {} }));
+      await tick(30);
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toMatchObject({ routines: {}, runs: {} });
+      expect(await onDisk()).toMatchObject({ routines: {}, runs: {} });
+    });
+
+    it('the localStorage fallback keeps both, writes the data as version 2, and moves them into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      logText(store, 'in fallback');
+      seed(store);
+      await tick(30);
+      const blob = JSON.parse(env.ls.get('wanderment')!);
+      expect(blob.version).toBe(1);
+      expect(blob.state.data.version).toBe(2);
+      expect(blob.state.data.routines).toEqual(both.routines);
+      expect(blob.state.data.runs).toEqual(both.runs);
+      const shown = store.getState().data;
+
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      expect(store.getState().data).toEqual(shown);
+
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(shown);
+      expect(env.ls.has('wanderment')).toBe(false);
+      expect(await onDisk()).toEqual(shown);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+    });
+
+    it('hand-over with a take-back: another page’s routine and run are taken, this page’s own (some only in its journal) stay on top', async () => {
+      fakeLocks();
+      const store = await load();
+      seed(store);
+      change(store, (d) => ({ routines: { ...d.routines, r5: routine('r5', { words: 'Water the plants' }) } }));
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: { r1: routine('r1'), r5: routine('r5', { words: 'Water the plants' }) }, runs: both.runs });
+
+      // A change in flight and one queued behind it when the page is hidden: the second waits in the journal.
+      writeGate = deferred();
+      change(store, (d) => ({ runs: { ...d.runs, n1: run('n1', { reason: 'paused here' }) } }));
+      await tick(0);
+      change(store, (d) => ({ routines: { ...d.routines, r3: routine('r3', { words: 'Bake bread', named: false }) } }));
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect((await onDisk()).runs.n1.reason).toBe('paused here');
+      expect((await onDisk()).routines.r3).toBeUndefined();
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRoutines).toEqual([routine('r3', { words: 'Bake bread', named: false })]);
+
+      // Meanwhile another page rewords r1, removes r5 and starts a run.
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [routine('r1', { words: 'Apply, reworded elsewhere' })], deleteRoutines: ['r5'], upsertRuns: [run('n2', { reason: 'started elsewhere' })] } as never);
+      db.close();
+
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().saveError).toBeUndefined();
+      const expected = {
+        routines: { r1: routine('r1', { words: 'Apply, reworded elsewhere' }), r3: routine('r3', { words: 'Bake bread', named: false }) },
+        runs: { n1: run('n1', { reason: 'paused here' }), n2: run('n2', { reason: 'started elsewhere' }) },
+      };
+      expect(store.getState().data.routines).toEqual(expected.routines);
+      expect(store.getState().data.runs).toEqual(expected.runs);
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      // And it is still all there for the next page.
+      const next = await reload();
+      expect(next.getState().data.routines).toEqual(expected.routines);
+      expect(next.getState().data.runs).toEqual(expected.runs);
+    });
+
+    it('undo: one action touching an activity, a routine and a run is taken back as one step, on screen and on disk', async () => {
+      fakeLocks();
+      let store = await load();
+      logText(store, 'kept');
+      seed(store);
+      await tick(30);
+      const before = store.getState().data;
+      const { undoEntry } = await import('@/domain/diff');
+      // One action: logs a line, rewords the routine, makes an unnamed one, and ends the run.
+      const after = {
+        ...before,
+        activities: { ...before.activities, a9: act('a9', 'logged by the action') },
+        routines: { r1: { ...before.routines.r1, words: 'Apply everywhere' }, r9: routine('r9', { named: false }) },
+        runs: {},
+      };
+      store.setState({ data: after, undo: undoEntry(before, after) });
+      await tick(30);
+      expect(await onDisk()).toEqual(after);
+
+      store.getState().undoLast();
+      expect(store.getState().data).toEqual(before);
+      expect(store.getState().undo).toBeUndefined();
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      store = await reload();
+      expect(store.getState().data).toEqual(before);
+    });
+
+    it('export → import: identical when re-imported, not identical when only the routine differs; and what is imported survives a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      logText(store, 'mine');
+      store.getState().createThread('draw');
+      seed(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      let { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      expect(JSON.parse(json).data.version).toBe(2);
+      expect(JSON.parse(json).data.routines).toEqual(both.routines);
+      expect(JSON.parse(json).data.runs).toEqual(both.runs);
+
+      // The same file again: identical, nothing replaced, nothing written.
+      const writes = env.p29.writes.length;
+      const same = previewImport(json);
+      expect(same.plan).toMatchObject({ identical: true, empty: false, routines: { unchanged: 1 }, runs: { unchanged: 1 } });
+      expect(confirmImport(same)).toEqual({ ok: false, reason: 'identical' });
+      expect(store.getState().data).toBe(exported);
+      await tick(30);
+      expect(env.p29.writes.length).toBe(writes);
+
+      // Only the routine differs (one step's words, inside it): not identical, and Replace takes it.
+      const edited = JSON.parse(json);
+      edited.data.routines.r1.items[0].text = 'Find the listing';
+      const differs = previewImport(JSON.stringify(edited));
+      expect(differs.plan).toMatchObject({ identical: false, routines: { added: 0, removed: 0, changed: 1, unchanged: 0 }, runs: { unchanged: 1 }, activities: { unchanged: 1 }, threads: { unchanged: 1 } });
+      expect(confirmImport(differs).ok).toBe(true);
+      expect(store.getState().data).toEqual(edited.data);
+      await tick(30);
+      expect(await onDisk()).toEqual(edited.data);
+      store = await reload();
+      expect(store.getState().data).toEqual(edited.data);
+      expect((store.getState().data.routines.r1.items as { text: string }[])[0].text).toBe('Find the listing');
+
+      // Only the run differs: not identical either.
+      ({ previewImport, confirmImport } = await import('@/store/importBackup')); // this page load's modules
+      const moved = JSON.parse(JSON.stringify(edited));
+      moved.data.runs.n1.frames = [{ seq: 'r1', at: 'i4', round: 3 }];
+      delete moved.data.runs.n1.reason;
+      const runOnly = previewImport(JSON.stringify(moved));
+      expect(runOnly.plan).toMatchObject({ identical: false, routines: { unchanged: 1 }, runs: { changed: 1 } });
+      expect(confirmImport(runOnly).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(moved.data);
+      expect('reason' in store.getState().data.runs.n1).toBe(false);
+    });
+
+    it('a format-1 backup imports to valid format-2 data: the routines and runs here are replaced (the plan says so), and the export brings them back', async () => {
+      fakeLocks();
+      let store = await load();
+      logText(store, 'mine');
+      seed(store);
+      await tick(30);
+      const { toBackup } = await import('@/domain/backup');
+      const exported = toBackup(store.getState().data);
+      const had = store.getState().data;
+      let { previewImport, confirmImport } = await import('@/store/importBackup');
+
+      const old = previewImport(file({ version: 1, threads: {}, activities: { o1: act('o1', 'from an old backup') } }));
+      expect(old.plan).toMatchObject({ identical: false, empty: false, routines: { added: 0, removed: 1, changed: 0, unchanged: 0 }, runs: { added: 0, removed: 1, changed: 0, unchanged: 0 } });
+      expect(confirmImport(old)).toEqual({ ok: true, activities: 1 });
+      const expected = { version: 2, threads: {}, activities: { o1: act('o1', 'from an old backup') }, routines: {}, runs: {} };
+      expect(store.getState().data).toEqual(expected);
+      await tick(30);
+      expect(await onDisk()).toEqual(expected);
+      store = await reload();
+      expect(store.getState().data).toEqual(expected);
+      expect(JSON.parse(toBackup(store.getState().data)).data).toEqual(expected);
+
+      // The export made before brings everything back.
+      ({ previewImport, confirmImport } = await import('@/store/importBackup'));
+      const back = previewImport(exported);
+      expect(back.plan).toMatchObject({ identical: false, routines: { added: 1 }, runs: { added: 1 } });
+      expect(confirmImport(back).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(had);
+    });
+
+    it('a journal written before the upgrade (four keys, schema 3) replays after it: nothing set aside, no “couldn’t be restored”', async () => {
+      // The database as the previous version left it, and the journal of a change it hadn't committed.
+      const { nodeDb } = await import('./nodeDb');
+      const { MIGRATIONS } = await import('./schema');
+      const old = nodeDb(env.state.dbPath);
+      await old.exec(MIGRATIONS[0]);
+      await old.exec(MIGRATIONS[1]);
+      await old.exec(MIGRATIONS[2]);
+      await old.exec('PRAGMA user_version = 3');
+      await old.run('INSERT INTO activities (id, text, occurred_at, created_at, doing_id, note, lit, settled_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', ['a1', 'saved before', at, at, null, null, 0, null]);
+      old.close();
+      env.ls.set('wanderment:uses-sqlite', '1');
+      env.ls.set(
+        'wanderment:journal',
+        JSON.stringify({ changes: { upsertThreads: [{ id: 't1', name: 'draw', hidden: false, createdAt: at }], deleteThreads: [], upsertActivities: [act('j1', 'only in the journal', ['t1'])], deleteActivities: [] }, settings: { showShading: false } }),
+      );
+
+      fakeLocks();
+      let store = await load();
+      await tick(30);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().saveError).toBeUndefined();
+      expect(texts(store)).toEqual(['only in the journal', 'saved before']);
+      expect(store.getState().data.threads.t1.name).toBe('draw');
+      expect(store.getState().showShading).toBe(false);
+      expect(store.getState().data).toMatchObject({ version: 2, routines: {}, runs: {} });
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect([...env.ls.keys()].filter((k) => k.startsWith('wanderment:journal-failed-'))).toEqual([]);
+
+      // The same once routines and runs exist: an old journal changes neither.
+      seed(store);
+      await tick(30);
+      env.ls.set('wanderment:journal', JSON.stringify({ changes: { upsertThreads: [], deleteThreads: ['t1'], upsertActivities: [act('j2', 'from an old tab’s journal')], deleteActivities: ['a1'] } }));
+      store = await reload();
+      expect(store.getState().saveError).toBeUndefined();
+      expect(texts(store)).toEqual(['from an old tab’s journal', 'only in the journal']);
+      expect(store.getState().data.threads).toEqual({});
+      expect(store.getState().data.routines).toEqual(both.routines);
+      expect(store.getState().data.runs).toEqual(both.runs);
+      expect([...env.ls.keys()].filter((k) => k.startsWith('wanderment:journal-failed-'))).toEqual([]);
+    });
+
+    it('an old-format blob taken in (at start, and from an old tab while open) adds its records and never removes a routine or a run', async () => {
+      fakeLocks();
+      let store = await load();
+      // Only a routine and a run: no wander, no activity.
+      seed(store);
+      await tick(30);
+      expect(await onDisk()).toEqual({ version: 2, threads: {}, activities: {}, ...both });
+
+      // At the next start an old key is there (a tab still running the first release wrote it).
+      (await import('./persistence')).stopPersistence();
+      env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { o1: act('o1', 'from the old tab') } }));
+      page = fakePage();
+      fakeLocks();
+      store = await load();
+      await tick(30);
+      expect(store.getState().storage).toEqual(READY);
+      expect(texts(store)).toEqual(['from the old tab']);
+      expect(store.getState().data.routines).toEqual(both.routines);
+      expect(store.getState().data.runs).toEqual(both.runs);
+      expect(env.ls.has('wanderment')).toBe(false);
+      expect(await onDisk()).toEqual(store.getState().data);
+
+      // While this page holds the data, the old tab writes again.
+      const blob = legacyBlob({ version: 1, threads: {}, activities: { o1: act('o1', 'from the old tab'), o2: act('o2', 'and another') } });
+      env.ls.set('wanderment', blob);
+      page.storageEvent('wanderment', blob);
+      await tick(30);
+      expect(texts(store)).toEqual(['and another', 'from the old tab']);
+      expect(store.getState().data.routines).toEqual(both.routines);
+      expect(store.getState().data.runs).toEqual(both.runs);
+      expect((await onDisk()).routines).toEqual(both.routines);
+      expect((await onDisk()).runs).toEqual(both.runs);
+
+      // A blob in the new format arriving the same way adds the routine it holds, too.
+      const newer = legacyBlob({ version: 2, threads: {}, activities: {}, routines: { r8: routine('r8', { words: 'Pack' }) }, runs: {} });
+      env.ls.set('wanderment', newer);
+      page.storageEvent('wanderment', newer);
+      await tick(30);
+      expect(store.getState().data.routines).toEqual({ ...both.routines, r8: routine('r8', { words: 'Pack' }) });
+      expect((await onDisk()).routines.r8).toEqual(routine('r8', { words: 'Pack' }));
+      expect(texts(store)).toEqual(['and another', 'from the old tab']);
+    });
+
+    it('a fallback blob with routines and runs, taken in by a database that already has data, adds the ones it lacks', async () => {
+      fakeLocks();
+      let store = await load();
+      logText(store, 'mine');
+      seed(store);
+      await tick(30);
+      (await import('./persistence')).stopPersistence();
+      // An earlier fallback session's blob (format 2): r1 again (stale words), and a routine and run this database never saw.
+      env.ls.set('wanderment', legacyBlob({ version: 2, threads: {}, activities: {}, routines: { r1: routine('r1', { words: 'stale' }), r7: routine('r7', { words: 'Pack' }) }, runs: { n7: run('n7', { routineId: 'r7' }) } }));
+      page = fakePage();
+      fakeLocks();
+      store = await load();
+      await tick(30);
+      expect(store.getState().data.routines).toEqual({ r1: routine('r1'), r7: routine('r7', { words: 'Pack' }) });
+      expect(store.getState().data.runs).toEqual({ n1: run('n1'), n7: run('n7', { routineId: 'r7' }) });
+      expect(texts(store)).toEqual(['mine']);
+      expect(await onDisk()).toEqual(store.getState().data);
+
+      // Taken in once: removed here since, it doesn't come back when the same blob shows up again.
+      change(store, (d) => ({ routines: { r1: d.routines.r1 }, runs: { n1: d.runs.n1 } }));
+      await tick(30);
+      (await import('./persistence')).stopPersistence();
+      env.ls.set('wanderment', legacyBlob({ version: 2, threads: {}, activities: {}, routines: { r7: routine('r7', { words: 'Pack' }) }, runs: { n7: run('n7', { routineId: 'r7' }) } }));
+      page = fakePage();
+      fakeLocks();
+      store = await load();
+      await tick(30);
+      expect(store.getState().data.routines).toEqual({ r1: routine('r1') });
+      expect(store.getState().data.runs).toEqual({ n1: run('n1') });
+    });
+  });
 });
 
 describe('P-34: “Not now” on “+ What’s it all for?” is kept for good', () => {
@@ -2190,7 +2584,7 @@ describe('P-36: the first run, once over, is over for good', () => {
 describe('P-04: import checks, then previews; only Replace changes the data', () => {
   const thread = (id: string, name: string, extra: Record<string, unknown> = {}) => ({ id, name, hidden: false, createdAt: at, ...extra });
   const file = (data: unknown) => JSON.stringify({ app: 'wanderment', exportedAt: at, data });
-  const incoming = { version: 1 as const, threads: { t9: thread('t9', 'sew') }, activities: { i1: { ...act('i1', 'imported'), doingId: 't9' }, i2: act('i2', 'also') } };
+  const incoming = { version: 2 as const, threads: { t9: thread('t9', 'sew') }, activities: { i1: { ...act('i1', 'imported'), doingId: 't9' }, i2: act('i2', 'also') }, routines: {}, runs: {} };
   const journal = () => env.ls.get('wanderment:journal');
   async function withMine() {
     const store = await load();
@@ -2209,7 +2603,7 @@ describe('P-04: import checks, then previews; only Replace changes the data', ()
     const refused = {
       'not JSON': '{not json',
       'not a backup': JSON.stringify({ hello: 1 }),
-      'a newer version': file({ version: 2, threads: {}, activities: {} }),
+      'a newer version': file({ version: 3, threads: {}, activities: {} }),
       'a malformed record': file({ version: 1, threads: {}, activities: { a: { text: 1 } } }),
       'lists for records': file({ version: 1, threads: [], activities: [] }),
       'a duplicate id': file({ version: 1, threads: {}, activities: { a: act('q', 'one'), b: act('q', 'two') } }),

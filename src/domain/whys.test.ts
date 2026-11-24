@@ -183,15 +183,15 @@ describe('declaredWhys', () => {
 });
 
 describe('backups and saved data', () => {
-  it('round-trip with and without the mark; the format version stays 1', () => {
+  it('round-trip with and without the mark; the format version is 2 (P-85)', () => {
     const { data, ids } = world('draw', 'run');
     const declared = declareAll(data, ids, ['draw']);
     const json = toBackup(declared);
-    expect(JSON.parse(json).data.version).toBe(1);
+    expect(JSON.parse(json).data.version).toBe(2);
     expect(JSON.parse(json).data.threads[ids.draw].declaredAt).toBe('2026-11-01T10:01:00.000Z');
     const back = fromBackup(json);
     expect(back).toEqual(declared);
-    expect(back.version).toBe(1);
+    expect(back.version).toBe(2);
     expect(back.threads[ids.draw].declaredAt).toBe('2026-11-01T10:01:00.000Z');
     expect(back.threads[ids.run].declaredAt).toBeUndefined();
     // A backup from before P-14 (no field anywhere) reads unchanged.
