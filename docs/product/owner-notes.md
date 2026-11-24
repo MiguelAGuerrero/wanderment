@@ -18,6 +18,21 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — A loop is opt-out; popping is revising; the outer loop restores the inner ones
+"A loop, again, is opt-out. So if a user wants to pop the loop off of the current running thread, they
+can, and redefine what those next steps can be. So this is like a form of revision or a way to hatch
+out of a current execution model. So if they want to change how they want to perform gesture drawings,
+they can do that without feeling like they're stuck in their same routine. Remember, routines are
+named that can be referenced however they want, and a running thread is just a way of holding context
+and to feel like they're done. So every iteration of a loop is by definition a do it until you feel
+done, and then you can pop it off the stack or leave it there … they can choose to pop off inner
+loops, and then the most outer loop, they can choose to iterate again. So that way, they can restore
+all of those inner loops again and start fresh."
+*Interpretation:* a run is a working copy: you can pop a loop out of it and put other steps in its
+place without touching the named routine. Popping an inner loop ends it for this pass only; when the
+outer loop comes round, its inner routines are there again, fresh. There is no "done for today":
+you pop it, or you leave it there.
+
 ## 2026-11-24 — No re-asking inside a thread; many concurrent runs on one base thread
 "pass on this design document to another agent to see where we can polish and maybe refine, or …
 expose a blind spot with respect to how we would want to implement something like this. And no, you

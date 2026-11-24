@@ -52,6 +52,13 @@ there is no "waiting" state; a run is simply left at the step it was on.
 | **Break it down** | Turn a step into a sequence in place. Unnamed: it stays while it runs, then leaves. |
 | **Group** | The reverse: choose neighbouring steps, name them, and they become one routine in reference. |
 
+**A run is a working copy** (owner). The run holds context; the named routine stays as it is in
+reference. Inside a run you can pop a loop off and put other steps in its place — a revision, or a way
+out of how you'd planned to go about it — and only this run changes ("Keep in <routine>" makes a change
+permanent). Every pass of a loop is "until you feel done": then you pop it, or you leave it there.
+Popping an inner loop ends it **for this pass**; when the outer loop comes round again, its inner
+routines are there again, fresh.
+
 **Named and unnamed.** Only named routines live in reference. Anything unnamed (a typed one-off, a
 breakdown) is gone from the lists when its run ends, but typing what it said finds it ("You've done
 this before") to **Do it again** or **Name it, keep it** — retrieved by its words, not by a name.
@@ -148,8 +155,8 @@ as things to add; a reusable routine is named as such for screen readers. A rout
    current frame set; how "Choose steps" is entered.
 4. Later, only if it can be made simple: a step that waits while the rest of its sequence carries on.
 5. Whether history records anything beyond ended runs.
-6. A looping run never ends by itself: is "done for today" a third thing beside Done and Switch, and
-   what does Declare offer the next day (Resume without asking)?
+6. On the outer loop's next pass, are this run's own revisions to an inner routine kept, or is it the
+   routine as named (proposed: as named — "start fresh"; keep a revision with "Keep in <routine>")?
 7. Whether today's wanders are copied across by a tap, or left as history only.
 
 ## 9. Slices (as the implementation review recommends)
