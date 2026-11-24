@@ -18,6 +18,15 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Audit the additions against what people expect
+"Given these additions, run through again a fresh agent to assess the user journeys with these and
+ensure that we have a comprehensive assessment on what's typically afforded for features like these,
+either as general baseline expectations a user might have when entering an app like this, whether that
+be established in adjacent products or just by very nature of the feature itself, reasonable
+expectations, and ensure we account for that."
+Led to: `.polish/product/audit-B-11-expectations.md` (a fresh agent; adjacent products, expectations by
+the nature of each feature, the journeys and capabilities to add).
+
 ## 2026-11-24 — "Jump to"
 "Maybe jump to could be a better way of phrasing that. 'Cause set my place feels in the right
 direction, but my place feels ambiguous."
