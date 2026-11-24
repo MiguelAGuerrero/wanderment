@@ -18,6 +18,21 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — An empty foundation is a north star; start, pause, stop; one thing at a time
+"A foundation with nothing on it is still valuable because it is in a way a kind of north star, because
+you just see it and you can choose to execute on that foundation and start deriving or forming up what
+you want to do towards that value or goal. So I would think the opening screen should be where you
+left off. If you didn't explicitly mark yourself done for a given task, or you haven't started a
+thread, then you just see the overview of that. So there should be clear actions to start and pause
+and stop. A stop means you're not running any of the threads. A pause means that particular thread is
+parked for execution, and then allow for context switching. In order to context switch, you have to
+pause your current thread. That's just it, put structure into the app to reinforce the philosophy of
+doing one thing at a time."
+*Interpretation:* the Map shows every foundation, including one with nothing under it (a value or goal
+you can start from). At most one run is running; the app opens on it; with nothing running it opens on
+the overview. Switching is: pause, then start or resume another. What "stop" does beyond pausing was
+asked back.
+
 ## 2026-11-24 — Wanders retire; a map of your runs as a tree
 "So we're moving away from the wanderers concept and any notion of [it] can be retired. We might want
 to see some idea of a map to show where all your current energy or mind is … a map of all your

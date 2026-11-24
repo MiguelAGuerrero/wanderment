@@ -44,11 +44,11 @@ there is no "waiting" state; a run is simply left at the step it was on.
 **Eight verbs.**
 | Verb | What it does |
 |---|---|
-| **Declare** | Start a run: a routine from reference, or something typed (a one-off). |
+| **Start** | Begin a run — a foundation, a routine, or something typed ("I'm going to…") — or Resume a paused one. Only when nothing is running. |
 | **Next** | Move to the following item; at the end, back to the divider, or the frame finishes if there is none. |
 | **Step in** | The current item is a routine: open its frame. (Or Next past it, working at that level.) |
 | **Done** | End the frame you're in, at any point; the frame beneath moves on. Done at the top ends the run. |
-| **Switch** | Leave this run at its step and go to another, at any level. Closing the app is the same. |
+| **Pause** | Park the running run at its step and go to the overview. Switching is Pause, then Start or Resume. |
 | **Break it down** | Turn a step into a sequence in place. Unnamed: it stays while it runs, then leaves. |
 | **Group** | The reverse: choose neighbouring steps, name them, and they become one routine in reference. |
 | **Copy** | A routine as a new routine, or a run as its own independent run. |
@@ -65,6 +65,14 @@ outer loop's next pass an inner routine is the routine as named, so nobody meets
 same thing. To vary, you **copy**: *Copy as a new routine* (keep the shape, tweak it, give it its own
 name) or *Copy as its own run* (an independent run from the same place, with this run's revisions, tied
 to nothing).
+
+**One thing at a time** (owner; frames `n1`, `n2`). At most one run is **running**; every other open
+run is **paused** at its step. To switch you **Pause** the running one, which takes you to the overview,
+then **Start** or **Resume** another — there is no direct switch. The app opens **where you left off**:
+on the running run if there is one, otherwise on the **overview** (the Map with "I'm going to…"
+beneath it), titled "Nothing running". The overview shows every **foundation**, including one with
+nothing under it yet — a value or goal that works as a north star, with Start on it. This replaces the
+Declare screen's "Where you left things" list and the Switch button.
 
 **Named and unnamed.** Only named routines live in reference. Anything unnamed (a typed one-off, a
 breakdown) is gone from the lists when its run ends, but typing what it said finds it ("You've done
@@ -164,7 +172,8 @@ as things to add; a reusable routine is named as such for screen readers. A rout
 5. Whether history records anything beyond ended runs.
 6. (Settled: on the next pass it is the routine as named.)
 7. (Settled: wanders retire; not copied.)
-8. The Map: whether a foundation with no open run is shown (as in `m1`, folded) or only what's open.
+8. (Settled: every foundation is shown, empty ones too.)
+9. What **Stop** does beyond Pause: ends the run (Done at the top), or only rests the app.
 
 ## 9. Slices (as the implementation review recommends)
 0. **Groundwork** (M, Full, no visible change): storage driven by one list of collections instead of two
