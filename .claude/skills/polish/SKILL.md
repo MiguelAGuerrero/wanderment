@@ -57,6 +57,24 @@ open a log file only when a step fails.
 When in doubt it's Light; a Light item that turns out to touch stored data is re-tiered (write it
 down). Light-tier batches skip Phases 3, 4 and 6 below.
 
+## Testing order: test-first while building, end-to-end once at the end (owner, 2026-11-24)
+
+- **While building (every item, every batch, every fix round):** test-driven. Write the tests
+  first, unit and e2e alike, and run only the **unit** tests the item touches, red → green, plus
+  `npm run typecheck` and `npx eslint .`. Don't run Playwright or `verify.sh` while anything is
+  still being built.
+- **Reviews come before the e2e run.** An audit or persona panel works from the built app and
+  screenshots; it doesn't need a green suite. Their fixes go in the same way (unit tests only).
+- **Once, when everything for the landing is built:** one `scripts/polish/verify.sh` (`--full` for
+  Full tier or anything that moves routes or shared screens), the whole e2e and regression run. Fix
+  what it finds (send failures back to the builder that wrote them, with only its failing specs to
+  run), then verify again to confirm and land.
+- **The shared `dist/` belongs to verify.** Builders who want screenshots export the web build to
+  their scratchpad (`npx expo export -p web --output-dir <scratchpad>/dist`) and serve that copy,
+  never rebuild `dist/` while another builder or verify might be using it.
+- The guard still lands only a verified tree; this order just runs that verification once instead
+  of after every item.
+
 ## Ground rules
 
 - Read `CLAUDE.md`, `AGENTS.md`, `docs/DESIGN.md` and `docs/ROADMAP.md` first, every run.
@@ -157,19 +175,21 @@ answers in the contracts.
 ## Phase 5 — Build
 
 Light tier with disjoint files: builders in parallel, each with `isolation: "worktree"`, a
-`node_modules` symlink to the main checkout, and its own `E2E_PORT`; merge them one at a time with
-a verify between. Otherwise one `polish-builder` per item, **sequentially** on the main checkout.
+`node_modules` symlink to the main checkout, and its own `E2E_PORT`; merge them one at a time
+(unit tests, typecheck and lint between; the e2e run waits for Phase 7). Otherwise one `polish-builder` per item, **sequentially** on the main checkout.
 While anything verifies in the main checkout, don't edit it (verify refuses a tree that changed). Its prompt is `build-brief.md`
 with the blanks filled: the contract path, the scout file path, and `.polish/current/decisions.md`
 (earlier builders' decisions, which this builder must follow or explicitly revisit).
 
 Parallel builders are allowed only for items with disjoint files. Each runs with
-`isolation: "worktree"`, and you integrate their work one at a time with a full verify between them.
+`isolation: "worktree"`, and you integrate their work one at a time, running the unit tests,
+typecheck and lint after each merge.
 
 After each builder:
 1. Check its status line: DONE, BLOCKED or FAIL.
 2. Look at the diff yourself (`git diff --stat`, then the risky parts).
-3. Run `scripts/polish/verify.sh` (Light) or `scripts/polish/verify.sh --full` (Full).
+3. Run the unit tests (`npm test`), `npm run typecheck` and `npx eslint .`. Not `verify.sh`: the
+   e2e and regression run happens once, in Phase 7 (see *Testing order*).
 4. Look at the screenshots the builder saved, at 390×844, plus 200 % zoom for `[a11y]`.
 5. Commit the item locally: `git commit -m "Polish(P-##): …"`. This gives one revertable commit per
    item. Don't push yet.
@@ -210,7 +230,10 @@ Triage the findings (the auditor reports everything; filtering is your job):
    - Add the Done-log line in the format the roadmap describes, including evidence (test and spec
      names, screenshot paths) and the audit tally.
    - Add newly discovered items and set the statuses.
-2. `scripts/polish/verify.sh` (`--full` for a Full-tier batch), which must end with `RESULT: PASS`.
+2. The one e2e and regression run: `scripts/polish/verify.sh` (`--full` for a Full-tier batch, or
+   when routes or shared screens moved), which must end with `RESULT: PASS`. Failures go back to
+   the builder that wrote them (only its failing specs to run, its own `E2E_PORT` and its own
+   exported build); then verify once more.
 3. Write the commit message to `.polish/current/commit.txt`:
    - subject "Polish: <theme> (P-##, …)";
    - a body listing what changed per item, the audit findings fixed and deferred, and the tests added;

@@ -36,8 +36,13 @@ Read all of them, plus `CLAUDE.md`, `AGENTS.md` and `docs/DESIGN.md`, before wri
   - 44 px targets;
   - decorative glyphs spread `decorative` from `src/components/a11y.ts`;
   - the axe checks in `e2e/a11y.spec.ts` stay green.
-- **Verify** with `scripts/polish/verify.sh` (`--full` if the brief says Full tier). If it fails, read the log it points
-  to. Save screenshots of changed screens at 390×844 in your scratchpad.
+- **Test-driven, e2e at the end** (owner, 2026-11-24). Write the tests first, unit and e2e. Run
+  only the unit tests you touch, red → green, plus `npm run typecheck` and `npx eslint .`. Don't
+  run Playwright or `scripts/polish/verify.sh`: the orchestrator runs the whole e2e and regression
+  suite once, after every batch is built, and sends any failures back to you. For screenshots of
+  changed screens at 390×844, export the web build to your scratchpad
+  (`npx expo export -p web --output-dir <scratchpad>/dist`) and serve that copy; never rebuild the
+  shared `dist/`.
 - **Record decisions.** Append any decision a later builder needs to know (naming, a helper you
   added, a behaviour you chose) to `.polish/current/decisions.md`, one line each.
 - **Clean up** throwaway files. Don't commit, push, or edit `docs/ROADMAP.md`.
@@ -49,7 +54,8 @@ Start your reply with one status line: `STATUS: DONE`, `STATUS: BLOCKED — <why
 - Files changed, and why.
 - Tests added, each mapped to the done-when line it proves, with the red-before / green-after
   evidence (and the mutation check for `[data]`).
-- The final `verify.sh` summary, pasted as printed.
+- The unit-test, typecheck and lint results (the e2e specs you wrote are run later by the
+  orchestrator; list them).
 - Screenshot paths.
 - Things you noticed but left alone.
 </output>

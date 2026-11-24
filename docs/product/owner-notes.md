@@ -92,6 +92,11 @@ watching a video, planning … but there's still room to have logging for the sa
 then seeing emergence from that." Answers: each log is a star; draw clusters and offer "Name this?"
 quietly; whys become guiding stars; kinds as "a set of quick action buttons … standard across all
 types of productivity apps … or just have it be freeform".
+Testing order (2026-11-24): "my intuition was telling me it was test first driven development, but
+any end-to-end or regression testing should have just waited until all the batches were done till
+the very end." → written into the polish and product skills ("Testing order"): tests first with unit
+runs while building every batch; audits and panels from the built app; one e2e/regression run at the
+end; builders export their own web build for screenshots.
 Led to: D-12; P-62 parked; B-07; D-13 → P-65 to P-70 (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle

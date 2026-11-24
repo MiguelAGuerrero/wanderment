@@ -161,7 +161,10 @@ and in `owner-notes.md`.
 2. **Build.** Read `.claude/skills/polish/SKILL.md` and run Phases 0 and 3–7 with these items, at
    the tier the rigor table gives (Light unless stored data or storage is touched). Builders for
    disjoint slices run in parallel worktrees. Its Phase 4 owner check is where any product question
-   in the batch goes. Answer implementation questions yourself.
+   in the batch goes. Answer implementation questions yourself. Follow polish's **Testing order**:
+   test-first with unit tests while building every slice in the run; any audit or panel works from
+   the built app; the e2e and regression run happens once, after everything this run will land is
+   built (owner, 2026-11-24).
 3. Build the slice the owner will **see** first; groundwork only when the visible slice can't exist
    without it.
 3. After landing, mark the item's brief slice as shipped. When all slices have shipped, set the
