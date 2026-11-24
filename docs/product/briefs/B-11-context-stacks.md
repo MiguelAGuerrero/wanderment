@@ -87,6 +87,7 @@ Mockups (local) in `.polish/product/b11-shots/`. Current: `z1`–`z8`, `a1`–`a
 | **A routine — Blocks** | `z3`, `a1`, `c1` | Steps as blocks; the divider with a grip and the loop as a bracket; a routine inside is one outlined block that expands in place (＋/−) or is focused on alone; ＋ A blank, ＋ A routine, and the field. |
 | **A routine — Read it** | `z4`–`z6` | The same routine as plain sentences, generated: collapsed to its own items, expandable in place, or focused on one routine with its place in the parent. Also the large-text and screen-reader form, and what Copy as text exports. Walk through tries it without running it. |
 | **Group** | `a2`–`a4` | Choose steps → name → one routine block, with Undo. |
+| **Map** | `m1` | Every open run as a tree, rooted at its **foundation** (the bottom-most routine of the run): its child runs and where each was left; the one you're in marked "here" in words. Trees fold (＋/−). Tapping a run resumes it. Reuses the existing graph work (`src/domain/graph.ts` and the map components) redrawn as a tree; it is also a plain nested list for large text and screen readers. Nothing is ranked or counted. |
 | **History** | (earlier `w8`) | Read-only, by day: runs you ended, and everything logged before this design. Secondary. |
 
 **Look:** robotic, programmatic pixel accents — pixel font for screen titles only, chunky blocks, hard
@@ -106,8 +107,7 @@ shadows — with your words in a readable monospace that scales. Tetris is only 
 ## 5. Stored data (Full tier)
 | Today | Becomes |
 |---|---|
-| whys / wanders (threads) | routines (a why with wanders = a routine holding routines) |
-| a wander's `next` | a step |
+| whys / wanders (threads), a wander's `next` | retired as a concept (owner); kept in storage and export, shown only in history |
 | activities (logged lines), `lit` lines | history, read-only (nothing deleted) |
 | heat | not shown |
 New: routines (ordered items, divider position, blanks), runs (routine, blank values, frame stack with
@@ -163,16 +163,17 @@ as things to add; a reusable routine is named as such for screen readers. A rout
 4. Later, only if it can be made simple: a step that waits while the rest of its sequence carries on.
 5. Whether history records anything beyond ended runs.
 6. (Settled: on the next pass it is the routine as named.)
-7. Whether today's wanders are copied across by a tap, or left as history only.
+7. (Settled: wanders retire; not copied.)
+8. The Map: whether a foundation with no open run is shown (as in `m1`, folded) or only what's open.
 
 ## 9. Slices (as the implementation review recommends)
 0. **Groundwork** (M, Full, no visible change): storage driven by one list of collections instead of two
    named by hand; export format 2; then the new tables, **added only** — nothing converted.
 1. **Declare, Running and Break it down** (L, Full) with a plain editor (no drag, no routines inside
-   routines yet), alongside today's home. "Start from your wanders" copies them by one tap, with Undo;
-   the old and new sides are not kept in sync until the last slice. The smallest slice that lets the
+   routines yet), alongside today's home. Wanders are not carried across (owner: the concept
+   retires); the old home keeps working beside the new screens until the last slice. The smallest slice that lets the
    owner feel the idea on their own data.
-2. **Reuse** (M–L, Full): routines inside routines, Group, found-by-its-words, edit-everywhere; Blocks
+2. **Reuse and the Map** (M–L, Full): the Map as a tree of open runs; routines inside routines, Group, found-by-its-words, edit-everywhere; Blocks
    folding, the divider's grip, Read it.
 3. **Blanks** (M, Full), then **child runs** (M–L, Full), separately.
 4. **History; retire the sky and logging** (L), only after the owner has lived with 1–3; DESIGN.md and

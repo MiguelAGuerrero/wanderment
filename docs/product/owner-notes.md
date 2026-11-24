@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Wanders retire; a map of your runs as a tree
+"So we're moving away from the wanderers concept and any notion of [it] can be retired. We might want
+to see some idea of a map to show where all your current energy or mind is … a map of all your
+executions based on shared … foundations, and the foundation [meaning] the bottom-most layer of a
+call … get to see all the different threads out of that. So it's repurposing the graph … to fit the
+stacking context as a tree and you get to see at a quick view what's ongoing, what's being parked, and
+you can still salvage out the mapping that the app has."
+*Interpretation:* wanders (and whys) are retired as a concept — not copied across; what was logged
+stays in history and export. A **Map** shows every open run as a tree rooted at its foundation (the
+bottom-most routine), with where each is and which one you're in; it reuses the existing graph work.
+Led to: B-11 Map (frame m1).
+
 ## 2026-11-24 — One version per name; fork a thread, copy a routine
 On "next pass: the routine as named?": "Yes, references to routines changes to the invoker's context.
 So that way the user isn't taken aback by different versions of the same routine. That said, there
