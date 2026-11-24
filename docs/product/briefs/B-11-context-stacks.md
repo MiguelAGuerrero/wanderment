@@ -151,7 +151,7 @@ sheet behind the note, so the runner keeps to three buttons.
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
 their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**
-**The current mockups are the converged set, `.polish/product/b11-final/`: 104 states (the final audit's fixes and the three-button runner applied; `sheet-runner` shows before and after), `sheet-01` …
+**The current mockups are the converged set, `.polish/product/b11-final/`: 105 states (the final audit's fixes and the sticky-note, three-button runner applied; the note is 256 px square, type 28 / 22 / 18 px by length, "full" past about 100 characters; `sheet-runner` shows before and after), `sheet-01` …
 `sheet-13`.** It merges two independent redraws (`b11-mine/`, `b11-alt/`): where both agreed — home as
 the tree with the prompt beneath, one step alone with its level in words, Next as the only filled
 button, Paused with siblings / Up / Stop, "this run only" with Keep, the divider's grip and three-way

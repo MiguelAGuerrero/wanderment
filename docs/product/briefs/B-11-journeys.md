@@ -42,7 +42,7 @@ build** unless marked *(design now, build later)*.
 | J22 | **Settings and your data** | Know where your data is; take it out, bring it back, wipe it | a) Settings: where the data lives, Export, Import, Erase, version · b) import preview: what the backup holds, Replace / Cancel · c) Erase everything: confirm, export first · d) exported · e) imported |
 | J23 | **The app's own states** | Understand what the app is doing when it isn't ready | a) Opening… · b) can't open the data: Reload, download the local copy · c) another tab took over / reconnecting, with a pressed Next kept · d) a new version is ready · e) saved by a newer version |
 | J24 | **Coming from the old app** | Lose nothing, know where it went | a) first open after the update with existing data · b) History showing earlier logged lines with their notes |
-| J25 | **A lot of it** | It still works when full | a) home with 20 foundations and 10 runs under one · b) a three-line step and a long "Done with …" on Running · c) a 30-step routine in Blocks with the keyboard up |
+| J25 | **A lot of it** | It still works when full | a) home with 20 foundations and 10 runs under one · b) a three-line step and a long "Done with …" on Running · c) a 30-step routine in Blocks with the keyboard up · d) a too-long step being typed: it outgrows the note, Break it down offered |
 | J15+ | **More that can go wrong** | — | g) a step removed, with Undo · h) an empty step or name · i) starting something while a run is running · j) the way into (i) |
 | J26 | **Forget things** *(design now)* | Privacy and tidiness | a) remove one History entry / clear History · b) forget a value used in a blank · c) forget an unnamed sequence · d) reopen an ended run from History · e) Clear all, confirmed |
 | J28 | **Paste a list** *(design now)* | Bring steps in from elsewhere | a) pasted lines becoming several steps, with Undo |
@@ -63,6 +63,6 @@ waits while the rest of its sequence carries on.
 J10 · Stop J11 · Break it down J05 · Group J07 · Copy J08, J13. Blanks J09 · child runs J09, J10 · Map
 J02, J10 · Read it J06 · found-by-words J12 · run-only revisions J05, J13 · errors J15 · access J16.
 
-**Renders:** the converged set, `.polish/product/b11-final/` — 104 states, with the three-button runner and the final audit's fixes
+**Renders:** the converged set, `.polish/product/b11-final/` — 105 states, with the sticky-note, three-button runner and the final audit's fixes
 applied; its `NOTES.md` holds the design system, the Reduce Motion list, accessible names and the J27
 keyboard-and-Back table.
