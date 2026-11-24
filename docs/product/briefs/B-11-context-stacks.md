@@ -158,6 +158,16 @@ it down carries a quiet mark**. The same happens where steps are written: a long
 the note and "Break it down" is offered beside Add. "This run only / Keep in <routine>" lives in the
 sheet behind the note, so the runner keeps to three buttons.
 
+**Pending for the one final redraw** (owner: tweaks are batched and drawn once, at the end).
+1. **The last step of a round is marked** (owner): on the runner, when the step is the final one in a
+   repeating part, a small repeat mark sits in a corner of the note — the only loop hint on the
+   surface. No words there; the pull-up panel says "Last step of the round". Spoken name: "Last step of
+   this round". Nothing for a part that runs once.
+2. The "how many times" stepper uses up / down arrows (‹ › are back and forward).
+3. The round line in the pull-up panel is one size larger.
+4. A short audit of the running states after the redraw (the final audit predates the new runner).
+5. The font, once the owner has chosen.
+
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
 their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**

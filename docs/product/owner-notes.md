@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Batch the tweaks; mark the last step of a round
+"To keep refinement, I want there to be one final redrawal just to save tokens, because these are just
+small little tweaks here and there, so let's [batch] them until the end, until we finalize our ideas.
+So no need to keep redrawing it every single time I propose something. So another thing to consider is
+if we're going to always have a way to break out of a loop, there should be some level of indication to
+show that whatever step you're on, it's the final step in a loop. So that way the user knows, like, oh,
+okay, I completed one round, without having to necessarily keep that in their head … Maybe like a small
+little indicator to present that information in the corner of the runner itself."
+*Interpretation:* tweaks are written down and drawn once, at the end. On the runner, the last step of
+a repeating part carries a small corner mark — the one loop hint on the surface.
+
 ## 2026-11-24 — The round count is context, kept behind a swipe up
 On whether the runner shows which pass you're on: "I think the iteration count is just a quality of
 life feature to give context for how much work the user has done, to give them a sense of whether they
