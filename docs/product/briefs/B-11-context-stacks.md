@@ -296,7 +296,9 @@ timers, notifications and check-again dates is consistent. **Proposed answers to
    Work that depends on an outcome lives inside that reaction and runs on its own terms; when it ends,
    the routine simply carries on with whatever comes next in its sequence, if anything. Whether outcomes
    share later steps is decided by where the steps are written — after the wait (shared) or inside a
-   reaction (that outcome only) — never by a switch.
+   reaction (that outcome only) — never by a switch. An outcome that only means "stop" needs no reaction: the
+   person presses Done. The app holds the context and leaves the judgment to the person; nothing here
+   is to be over-specified.
 7. The reactions offered always end with a plain **"Something else"** that just carries on.
 8. A kept item whose run has ended sits on home **under its first layer**, with "It's happened" and "Let
    it go"; removing that first layer names such items.

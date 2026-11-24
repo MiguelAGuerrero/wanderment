@@ -18,6 +18,14 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — A reaction may end things; don't over-specify
+"So remember, so yes, a reaction may abort, but if there's no associated step with it, you just rely on
+the user to exercise their own judgment, and the app holds enough context for them to do their work. It
+doesn't have to be overly specified."
+*Interpretation:* confirms the reading below. An outcome that just means "stop" needs no reaction at
+all: the person presses Done. Reactions exist only where there is something worth writing down; the
+rest is the person's judgment, with the app holding the context.
+
 ## 2026-11-24 — No forced join after a reaction
 "A reaction shouldn't always join because there might be sequential work that depends on the output of
 that awaited value, and that should be executed on its own terms. So forcing a join after every wait
