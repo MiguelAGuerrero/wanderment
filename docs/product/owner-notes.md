@@ -18,6 +18,22 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Context management, not logging; Tetris is only the look
+Answers on B-11: Return — "I think we should get away from logging and instead this being an active
+way of capturing your progress. The logging itself shouldn't be introduced just because it has this
+idea of state and tracking to something that should be context management so I wanted to divorce two
+for now, really just holding onto the context management aspect of the app. The logging in history can
+be its own separate review, but I wouldn't be the main interaction." Pixel accents; columns that scroll
+sideways; first version: blocks that come back, by-day history.
+Then: "Tetris was just a way of defining the look and feel, not necessarily the example or model for
+how the app should function. And leaning into this more robotic, programmatic aesthetic, I hope to
+really lean into the idea of doing small things at a time with specialized functional tasks. The
+spirit of that, anyway."
+*Interpretation:* the app manages context (how you'll go about a pursuit over time), not a log of what
+you did. Logging leaves the main flow; history is a separate review. The look is robotic and
+programmatic; the spirit is one small, single-purpose step at a time. No Tetris mechanics (no line
+clears as a game). Led to: B-11 revised.
+
 ## 2026-11-24 — Drop the metaphor: pixel-art context stacks
 > I think the visual metaphor is being a little bit of a bottleneck, and it's distracting from the
 > core user experience of maintaining several ambitions through stacks. So let's reimagine the whole
