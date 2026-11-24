@@ -18,6 +18,22 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Routines take inputs; an unnamed breakdown is found by its words
+On the neutral review's questions: "some tension … can be resolved by [parameterising] the execution
+of a particular routine loop … say you wanted to … specifically practice gesture drawings of women …
+instead of [re]declaring the routine … you can make an instance based on inputs … you're not
+necessarily doing a to-do, you're doing an execution of a particular task over a set of parameters
+you find and keep track of … specified as variables in a way where they can slot in neatly into the
+read out of a particular stack workflow routine subframe … the employer, in this case, could be … a
+particular set of inputs to the routine." And: "[an unnamed] breakdown is gone in a sense that you
+can't reference it anymore. That being said there should be some way to … search it up, so if you
+remember what the prompt is … pop it back onto the context stack … retrieve it not by name, but by
+value."
+*Interpretation:* a routine can have blanks, filled when it starts; a run is the routine plus what
+filled it, and values used before are offered again. Unnamed sequences leave "Your routines" but are
+found by their words and can be run again or named. Led to: B-11 Direction points 8–9, frames c1–c4.
+Not yet answered: whether a wait belongs to a step or a thread; "done for today" vs "done for good".
+
 ## 2026-11-24 — Blocks fold too; group steps into a routine; a neutral review
 "We should offer the same expanded view in the block view too so that way I can work at the highest
 abstraction for ease of understanding. And conversely, there should be a way to group a sequence of

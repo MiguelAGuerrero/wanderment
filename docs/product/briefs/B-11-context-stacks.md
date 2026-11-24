@@ -90,6 +90,21 @@ the model (an unnamed breakdown is gone when popped) disagree, and naming isn't 
 the break-down screen, what Wait shows, entering Group and the edit-everywhere warning aren't in the
 current frames; the brief's own words drift (block / piece / step).
 
+**Routines take inputs; the unnamed is found by its words** (owner, answering the neutral review;
+frames `c1`–`c4`, `c-sheet.png`).
+8. **Blanks.** A routine's name and steps can hold a blank ("Apply to ▢ employer", "Hand studies of ▢
+   subject"), added with "＋ A blank" (`c1`), no syntax to learn. Starting the routine asks for it and
+   offers what you've used before (`c2`). A **run** is the routine plus what filled it: its words read
+   "Apply to Initech" everywhere — the path, Read it, the opening cards. Each run is its own thread
+   with its own saved place and its own wait, so several can be open or waiting at once (`c3`). This is
+   how the app holds *which one* without becoming a list of to-dos.
+9. **Found by its words.** An unnamed breakdown leaves the stack when popped and never appears in "Your
+   routines", but typing what it said finds it under "You've done this before" (`c4`): **Do it again**
+   or **Name it, keep it**. This settles the review's point 4 (Direction 3 holds while it runs; after
+   that it is retrievable by value, not by name).
+*Still open:* a blank filled once per run or asked on each pass of a loop; whether an inner routine's
+blank takes the outer one's value; a wait on a step vs a thread; "done for today" vs "done for good".
+
 **Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
 what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
 in a structure that opens to any depth, measured (only if you ask) against your own pace.
