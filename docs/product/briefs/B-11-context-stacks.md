@@ -198,6 +198,29 @@ headings and nested lists and names what repeats ("until you're done with Hand s
 as things to add; a reusable routine is named as such for screen readers. A routine keeps one colour.
 **Motion.** Under Reduce Motion every change is instant.
 
+**Final audit of the converged set** (`.polish/product/ui-audit-B-11-final.md`): *ready to build from,
+with named fixes.* All 97 states present; no banned words; contrast computed. Rules it adds, binding:
+- **Amber always means the safe or forward choice**; on a confirm it is the one that keeps or cancels.
+- **Red and "!" only for errors and the irreversible.** A reversible removal is an ordinary button
+  followed by Undo, and every Remove names its reach ("Take off home", "Remove this step", "Remove
+  everywhere").
+- **One wording per meaning:** a paused run reads "at <step>"; ending a run is "Done with <name>"
+  everywhere; "Switch" only between paused runs; "Start" for beginning; the toggle is "Map | List".
+- **A routine's own run sits on its head row** on home (its "at <step>" and Resume where Start
+  otherwise is), never as one of its children.
+- **Looking back is one screen:** by day, search at the top, "Forget this" per entry, "Clear all" in the
+  screen's menu with a confirm.
+- **Words are edited one way:** tap them, edit in place, Undo.
+- **Your routines rows carry the routine menu** (Open, Rename, Copy as a new routine, Copy as text,
+  Remove everywhere).
+- **Focus has its own ring**, distinct from selection; an error never dims the words it is about; an
+  error's button always fixes it.
+- A blank's value shows filled for the whole run. Counts stay only in the import preview.
+- To write down at build: the Reduce Motion list, accessible names for every repeated button ("Resume
+  Apply to Acme"), and the keyboard-and-Back table (J27).
+*Not to be touched:* the Running screen, the notice slot, the picture choices, the block vocabulary,
+"Used in … / Edit a copy instead", Paused, Read it.
+
 ## 7. Reviews so far
 - **UI audits** ×4 (`ui-audit-B-11*.md`) → section 6. The `a`, `c`, `d` frames are not yet audited.
 - **Persona panel** on the first draft (`panel-B-11-{1,2}.md`): favoured pixel accents, a parent that
