@@ -18,6 +18,23 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Leaving with something out asks; and a way to catch the app up with life
+"A way to ensure that there is some level of guidance and structure around [async] work is that if you
+try to abort from a routine that has a [wait], just prompt the user to resolve what that [wait is:
+discard] it or accept it as incoming and let that just be a free outgoing item that can be accessed
+from like the additional information as like a warning or an indication like … hey you have your
+laundry running. Now the thing we have to be careful [of] is that life works such [that] this may
+naturally be resolved without having to go through the app itself, so there needs to be a way to reset
+the execution of a context back to a point where that makes sense, just as an escape — do you want to
+restart — and you can define the outermost layer that you want to checkpoint back to … because
+obviously if a person forgets to work through the app … it's gonna be out of sync with what they're
+doing, and so being able to calibrate the execution context to the state you're currently working in is
+[absolutely] necessary, especially for async work."
+*Interpretation:* decided — leaving a routine with something still out asks: let it go, or keep it out
+as a free item shown in the pull-up panel and on home. Decided — there must be a way to set the run to
+where you really are: restart from a chosen level, or pick the step you're at, and mark things out as
+having happened, without walking through the steps.
+
 ## 2026-11-24 — A parent can always wait on its children; a child knows nothing of its parent
 "resolve this tension. You can always wait for something at the outermost context that allows for it.
 So a parent is always aware of its child, but a child isn't aware of its parent. That just keeps things

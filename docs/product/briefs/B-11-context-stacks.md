@@ -262,9 +262,16 @@ decided on return, and pre-planned; `.polish/product/review-B-11-no-if.md`; reas
   which case *it* carries the open end outward in turn, as far as the first layer. A rail lives within
   one level and its open end is a step or a whole routine block; nothing reaches into an inner routine's
   steps, and nothing inside refers to what is outside. While running, what is out is listed at the level
-  that can wait for it; leaving an inner level with Done passes its open items up to its parent; only
-  the end of the whole run lets them go, and the notice names them.
-**Added to the final redraw:** the reason on the paused screen and on home; a wait step in Blocks,
+  that can wait for it; leaving a routine with Done while something it set going is still out **asks**
+  (owner, decided): **Let it go**, or **Keep it out** — it then stays as a free item, named in the
+  pull-up panel and on home ("out: the wash") until you say it has happened or let it go.
+- **Catching the app up with life** (owner, decided). Things get done, and waits resolve, without the
+  app. So a run can always be set to where you really are, without walking through the steps: from See
+  it all (and from the paused screen) **Catch up** shows the levels you are in — **start any level
+  again** from its top (the outermost one you pick is the checkpoint), or **pick the step you are
+  actually at** — and lists what is out with "It's happened" / "Let it go" on each. One Undo covers it.
+  The app never does this by itself and never suggests that you are behind.
+**Added to the final redraw:** leaving with something out (Let it go / Keep it out); Catch up; free "out" items in the pull-up panel and on home; a routine block with an open end; the rail and its lanes; the reason on the paused screen and on home; a wait step in Blocks,
 Read it and on the runner; reactions offered on a wait step; "waiting for" on home.
 
 ## 3. Screens
