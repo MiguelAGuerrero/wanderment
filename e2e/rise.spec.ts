@@ -137,6 +137,9 @@ test.describe('the rise', () => {
     // Again, then once more: lit.
     await button(page, 'Done it').focus();
     await page.keyboard.press('Enter');
+    // Wait for the settle to render: until then the only Undo on screen is the Return's (audit F4).
+    await expect(said(page, 'Settled')).toBeVisible();
+    await expect(star(page)).toHaveAttribute('data-state', 'settled');
     await button(page, 'Undo').focus();
     await page.keyboard.press('Enter');
     await expect(star(page)).toHaveAttribute('data-state', 'lit');
