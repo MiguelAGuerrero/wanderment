@@ -37,6 +37,19 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-88 The new app opens by default `[platform]` `[ux]` M
+*Status:* todo
+*Why:* the owner, 2026-11-24: the old app is retired and "it is still showing the old app" — the new
+app was only reachable through a row in the old home's sheet or by typing `/go`. Opening the app, on the
+phone included, should land in the new one.
+*Done when:* opening the app at its address (and from the installed icon) lands on the new home (`/go`);
+the old home lives at its own address (`/old`) with everything in it working as before — its sheet,
+sky, lines, stars, trails, search, explore, settings, export and import — and its own "home" links
+staying inside the old app; the old app's existing e2e specs pass with only their start address and URL
+expectations repointed (no assertion weakened); a spec proves `/` lands on the new home, that the old
+home is reachable at `/old`, and that a run in progress still opens where you left off; the service
+worker, base path and offline start still work (update spec passes); `verify.sh --full` passes.
+
 ### P-87 The new app's first slice, after its panel `[ux]` `[a11y]` M
 *Status:* todo
 *Why:* the persona panel on the built slice (`.polish/product/panel-P-86-{1,2}.md`, from screenshots) and

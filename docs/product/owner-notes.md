@@ -18,6 +18,14 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — "It is still showing the old app": open the new one by default
+After the first slice shipped: "It is still showing the old app and refreshing doesn't do anything."
+Told it lives at `/go` beside the old home, and asked whether to make it what opens by default: "Yes,
+please make it so the app just opens [by default on] the phone."
+*Interpretation:* decided — the app opens on the new home; the old home moves to its own address. This
+brings forward part of the last slice (the old app stops being the front door) without deleting
+anything. Led to: P-88.
+
 ## 2026-11-24 — Keep going; the name can wait; flow state is the aim
 "Let's not worry about the name for now. Let's just continue on making the slices and your proposals and
 ensuring that this app really hones in on its ability to be a context management app for your work.
