@@ -127,6 +127,18 @@ stays automatic as today; the one Undo lasts until the next action.
 states, the update banner, typed text surviving a reload, Esc and Back behaviour.
 Search also covers what was logged before this design (lines and their notes).
 
+## 2b. The runner (owner, decided 2026-11-24 — overrides earlier running-screen rules)
+The running screen is about the step and nothing else: **one context line** (where you are, in words;
+tapping it opens See it all), **the step as one block**, and **three buttons in fixed places — Pause,
+Break it down, Next** (Next the one filled button, lowest). When the step is a routine the middle
+button reads **Step in**: the same slot, the same meaning — go deeper. Nothing on this screen says
+anything about repeating, shows "then", or carries tags; that belongs to the routine's Blocks / Read it.
+**Done is offered where it makes sense:** after Next on the last step of a repeating part the runner
+shows that the round is finished, with **Again** (filled — a loop goes on unless you say otherwise) and
+**Done with <name>**. That is the only place the runner mentions the loop. A part that runs once simply
+finishes on its last Next, with Undo. Leaving mid-pass, changing the words and going back a step are
+behind a tap on the block; "Done with <name>" is also in the Paused screen's menu.
+
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
 their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**

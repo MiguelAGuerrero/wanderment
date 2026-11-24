@@ -18,6 +18,20 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — The runner: focus on the prompt; loop only shown at the end of a pass
+On the simplified runner (is the third button Done; should Break it down stay visible): "It could be
+the third button — [in] my case if you [want] to break it down in execution, you can do that. I just
+wanted something a little bit more focus on the prompt itself, and since there was a lot of action
+buttons that didn't really [relate to] the prompt … it felt a little bit overwhelming, like it being a
+loop etc. But … all that information can be seen in the viewer / composer side of things, but not in
+the runner, because it's already assumed that you know [you'll] be working in a loop and that the
+buttons afforded … [interact] with the session itself. So for example, you wouldn't say you're done
+until you're at the final step, or … when you're done with the final step [and about] to start the
+loop again, then you could be made aware that you're in the loop."
+*Interpretation:* the runner shows the context, the step and three buttons — Pause, Break it down,
+Next. Nothing about loops there. Done is offered at the end of a pass ("Again" or "Done with …"), which
+is also where you learn you are in a loop; leaving mid-pass stays possible behind a tap.
+
 ## 2026-11-24 — The runner is cluttered: one prompt, about three buttons, the context
 On the converged set: "The runner looks very complicated. I almost expected just one prompt and just
 like three buttons pause move forward. The user doesn't necessarily need to see all that extra stuff
