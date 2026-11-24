@@ -86,6 +86,5 @@ waits while the rest of its sequence carries on.
 J10 · Stop J11 · Break it down J05 · Group J07 · Copy J08, J13. Blanks J09 · child runs J09, J10 · Map
 J02, J10 · Read it J06 · found-by-words J12 · run-only revisions J05, J13 · errors J15 · access J16.
 
-**Renders:** none current. The earlier converged set (`.polish/product/b11-final/`, 107 states) predates
-wait steps, reasons, reactions, rails, things out, Jump to… and the final runner; it is superseded by the
-final redraw, which draws every state in this file — J01–J46 — from the design and this list alone.
+**Renders:** the converged set, `.polish/product/b11-r2-final/` — 251 states (every state above, plus
+after-states and second surfaces), drawn double-blind, audited and converged; see the design, 9a.

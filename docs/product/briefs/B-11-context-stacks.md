@@ -208,7 +208,8 @@ Apply to Acme"); focus has its own ring; an error never dims the words it is abo
 always fixes it. Under Reduce Motion every change is instant.
 **Look.** Dark; robotic, programmatic pixel accents — pixel font for screen titles only, chunky blocks,
 hard shadows — with the person's words in a clean readable font. Tetris is only the feel of the blocks.
-*(The font for the person's words — monospace or sans — is the owner's choice, still open.)*
+**The person's words are in a sans face** (IBM Plex Sans): two designers working blind both chose it
+over monospace — the fixed square note holds more words in a proportional face. *(The owner may overrule.)*
 
 ## 7. What changes in the product's rules (with go)
 Logging leaves the main flow; the night sky and everything in it retire, their routes redirecting to
@@ -238,6 +239,37 @@ today's journal, hand-over, undo, fallback, export and import name two collectio
 5. **Setting things going**: rails, lanes, open ends, things out, the leaving ask.
 6. **Retire the sky and logging**, only after the owner has lived with the rest; DESIGN.md and
    STRATEGY.md rewritten.
+
+## 9a. The mockups
+**Current: `.polish/product/b11-r2-final/` — 251 states, `sheet-01` … `sheet-32`, `overview.png`,
+`CONVERGENCE.md`, `NOTES.md`.** Made double-blind: two designers each drew every journey from this
+document and the journeys alone (`b11-r2-a`, `b11-r2-b`); each set had its own independent adversarial
+audit (`AUDIT.md` in each) and was refined; a third designer converged them.
+**Reached independently by both, so taken as settled:** no tab bar — Routines, Looking back and Settings
+at the top right, the same on home and Paused; home as "Nothing running" with Map | List and the prompt
+at the bottom; the runner as a context line with Done, one large coloured note and three fixed buttons
+with a white Next lowest; matches listed above the prompt with "New: …" last; bottom sheets for every
+menu and picker, a notice with Undo for anything reversible, a centred dialog only when an action
+reaches beyond the screen; solid blocks for steps, outlined for routines and waits; rails in their own
+lanes on the right; sans for the person's words.
+**Both audits found the same failures in both first drafts** — icons pushed past what a newcomer can
+decode, marks with several meanings, Undo missing after reversible actions, and one confirm drawn two
+opposite ways — so the rule "icons where conventional and unambiguous, otherwise the word" is binding.
+**Proposals from the convergence, for the owner (not applied):**
+1. Distinguish an **ask** (every choice goes forward; the filled one carries on) from a **confirm**
+   (Cancel is filled). Both designers drew the leaving moment two opposite ways because "safe or forward"
+   allows either.
+2. Fewer verbs: replace **Stop** with a Home control and **Switch** with Resume, leaving Start, Resume,
+   Pause, Done, Next.
+3. Make "Wait for this later…" the only control and drop the separate "Sets something going" switch;
+   consider one lane first.
+4. Name a thing that is out by its wait's words ("Priya's reference"), not the instruction that set it
+   going ("Ask Priya for a reference").
+5. A run without a blank reads "· since <day>", so two runs of the same routine can be told apart.
+6. Reconsider the last-step mark on the note.
+**Left open by the convergence:** the note has no margin with the keyboard up; whether Resume belongs on
+a waiting run; the step menu is nine rows and the fullest panel scrolls; two open ends on one block are
+told apart only by their spoken names; long words break mid-word at 200 %; no real screen-reader pass.
 
 ## 10. Still with the owner
 The font. Whether "Stop waiting for this", the life of a pause reason, where a kept item sits on home,
