@@ -18,6 +18,24 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — After the convergence: fewer verbs, tiles on home, and go
+"So I accept that proposal, and when clicking home, just ensure there is a confirmation prompt. Are you
+sure you want to stop? And I guess if we're removing switch to be resume, that means pausing naturally
+brings up a switch context, if available. We can address the open items with reasonable defaults. Just
+[make sure] that the note fits on the screen. Nice and tidy. And the step menu can be 9 rows long. Just
+allow for easy scrolling up and down. One little provision I want to make is that the keep it out
+phrasing doesn't seem very intuitive in hindsight. Maybe like still waiting or like keep open might be
+better. That doesn't have to be in a revision of the mock-up. That just has to be addressed in the final
+draft. And also, the home page doesn't have, like, at least a list of stacks or a graph to resume from.
+So, like, a quick, almost, like, tiles of stacks you have open might just be a good home page. With the
+what you want to do now, there's just a search over your tiles effectively. With that being said, let's
+draft the first implementation of this."
+*Interpretation:* decided — Stop becomes a Home control that asks first; Switch becomes Resume, and
+pausing shows what else can be resumed; home is tiles of what you have open, and the prompt searches
+them; "Keep it out" is reworded (taken as "Still waiting", with "waiting on:" for the list); the note
+must fit with the keyboard up; the step menu may be nine rows and scrolls. The other open items take
+reasonable defaults (B-11 §9b). **D-18: go** — build the first implementation.
+
 ## 2026-11-24 — "Paused", not "put down"
 On one designer calling a paused run "put down": "I'll keep it at pause for now. I just think put down
 is good in isolation, but in context with the other terminology we're using, it seems out of place or

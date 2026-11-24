@@ -37,6 +37,32 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-85 B-11 groundwork: storage for any kind of record `[data]` `[platform]` L
+*Status:* todo
+*Why:* B-11 (D-18) adds routines and runs. Today the journal, tab hand-over, undo, the localStorage
+fallback, export and import each name two collections (threads, activities) by hand, so new records
+would be silently dropped on import and in the fallback, and a backup differing only in routines would
+read as "identical" (implementation review, `.polish/product/review-B-11-impl.md`).
+*Done when:* storage, journal, hand-over, undo, fallback, export and import are driven by one list of
+collections with no behaviour change (every existing unit and e2e spec passes unchanged); backup format
+2 is written and format 1 still imports; the new tables for routines and runs are added by an additive
+migration (nothing converted, nothing created); a round-trip test proves a routine and a run survive
+journal replay, the fallback, hand-over, export and import, and that import's "identical" check sees
+them; `verify.sh --full` passes.
+
+### P-86 B-11 slice 1: home tiles, the runner and Break it down `[feature]` `[data]` `[a11y]` L
+*Status:* todo
+*Why:* the first thing the owner can use (D-18): declare what you're going to do, run it one step at a
+time, break a step down, pause and come back — beside today's home, nothing retired.
+*Done when:* behind its own route, alongside today's home: home as tiles with "I'm going to…" searching
+them and "New: …"; a routine with steps and the Repeat divider (until I'm done / a number); the runner
+(context line with Done, the sticky note, Pause · Break it down / Step in · Next, the last-step mark, the
+pull-up panel with the round, Back to and Jump to…); Break it down as a run-only sequence with "Keep
+in"; Pause with a reason, the paused screen with Resume and Home (asks first); plain wait steps
+("waiting for … · since"); Undo after every reversible action; one pure engine (run + verb → run) with
+unit tests for every row of the execution table; journeys J01–J05, J10, J34–J39 covered by e2e at the
+end; B-11 §6 rules met (targets, text, one filled button, spoken names, Reduce Motion).
+
 ### P-46 Home's cost with a large history `[perf]` M
 *Status:* todo
 *Why:* the one home opens a 4,000-line history in ~4 s here and ~14 s at CI CPU speed (E2E_SLOW=4);
@@ -386,8 +412,12 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   go** (feed: a random few drawn once a day; last three weeks, a calm sky beyond; Map's depth into the
   lit map and the sheet) → P-79 to P-83. Brief:
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
-- **D-17 B-10: fewer parts — a calm journal in a playful world** — waiting on the owner. Brief:
-  `docs/product/briefs/B-10-refined-home.md` (UI audit folded into the v-frames; panel running).
+- **D-17 B-10: fewer parts — a calm journal in a playful world** — superseded 2026-11-24 by B-11
+  before a decision. Brief: `docs/product/briefs/B-10-refined-home.md`.
+- **D-18 B-11: your ways of doing things, run one step at a time** — **answered 2026-11-24 by the
+  owner: go** (the first implementation: groundwork, then home, the runner and Break it down, alongside
+  today's home) → P-85, P-86. Brief: `docs/product/briefs/B-11-context-stacks.md` with
+  `B-11-journeys.md` and `B-11-capabilities.md`; mockups `.polish/product/b11-r2-final/`.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 

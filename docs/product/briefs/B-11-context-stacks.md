@@ -1,6 +1,6 @@
 # B-11 — Your ways of doing things, run one step at a time
 
-**Status:** proposed · **Decision:** D-18 · **Theme:** Seeing flow / Warm return · **Date:** 2026-11-24
+**Status:** building · **Decision:** D-18 → go, 2026-11-24 (→ P-85, P-86) · **Theme:** Seeing flow / Warm return · **Date:** 2026-11-24
 **Supersedes:** B-10 (D-17, never decided) and the night-sky visuals of B-07/B-08/B-09.
 
 This is the consolidated design, rewritten after the last round of decisions. Every decision is the
@@ -270,6 +270,31 @@ opposite ways — so the rule "icons where conventional and unambiguous, otherwi
 **Left open by the convergence:** the note has no margin with the keyboard up; whether Resume belongs on
 a waiting run; the step menu is nine rows and the fullest panel scrolls; two open ends on one block are
 told apart only by their spoken names; long words break mid-word at 200 %; no real screen-reader pass.
+
+## 9b. Decided after the convergence (owner, 2026-11-24) — overrides anything above that differs
+- **Fewer verbs: Start, Resume, Pause, Done, Next.** *Stop* is replaced by a **Home** control on the
+  paused screen; it asks first ("Stop <name>?" — the run stays where it is; Cancel is the filled
+  button). *Switch* is replaced by **Resume**: pausing shows the paused run with Resume, and beneath it
+  whatever else can be resumed — its siblings first, then up a level — each with its own Resume.
+- **Home is tiles.** Everything you have open is a tile, coloured like its note: the name, where it is
+  ("at <step>", paused with its reason, or waiting for <words> · since <day>), and Resume or Start. A
+  tile with runs inside opens to them. **"I'm going to…" searches the tiles** as you type (then routines
+  and unnamed things you've done), with "New: <your words>" last. The tree stays as the Map of one
+  tile's contents and on the paused screen.
+- **Wording:** "Keep it out" becomes **"Still waiting"** (beside "Let it go"), and a thing you set going
+  is listed as **"waiting on: <words>"**, not "out:". It is named by its wait's words ("Priya's
+  reference"), not by the instruction that set it going.
+- **An ask and a confirm are different.** In an ask every choice goes forward and the filled one carries
+  on (leaving with something still waited on). In a confirm, Cancel is filled (stopping, removing
+  everywhere, erasing).
+- **One control for setting something going:** "Wait for this later…" on a step or routine block; the
+  separate "Sets something going" switch is dropped. One lane in the first build that has rails.
+- **A run with no blank** reads "· since <day>" so two runs of one routine can be told apart.
+- **The note always fits**, keyboard up included (it shrinks to the space; the type steps down first).
+  The step menu may be nine rows; it scrolls easily. The last-step mark stays.
+- Defaults taken for the rest: "Stop waiting for this" in the panel on a wait step; a pause reason lasts
+  until the first Next after Resume; a kept wait sits on its tile; a jump to the start of a level is
+  round one, to a step keeps the round; a move that would split a rail unties it inside the same Undo.
 
 ## 10. Still with the owner
 The font. Whether "Stop waiting for this", the life of a pause reason, where a kept item sits on home,
