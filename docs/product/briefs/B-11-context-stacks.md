@@ -105,6 +105,22 @@ frames `c1`–`c4`, `c-sheet.png`).
 *Still open:* a blank filled once per run or asked on each pass of a loop; whether an inner routine's
 blank takes the outer one's value; a wait on a step vs a thread; "done for today" vs "done for good".
 
+**Blanks are optional; switching replaces waiting** (owner, decided; frames `d1`–`d3`, `d-sheet.png`;
+these replace `c2`/`c3` and points 4 and 8 where they differ).
+- **A blank never asks.** A routine with a blank just starts (**Start**); unfilled, the blank reads as
+  its own word ("Hand studies of subject"). **Start with…**, a value used before, or tapping the blank
+  while running (`d2`) fills it — and that filled run is its own thread ("Apply to Initech").
+- **A thread** is a run: a routine, what filled it, its place, and a definite end (Done at its top).
+  Until then you can **Switch** away at any level; the thread stays at the step it was on (`d3`,
+  "Where you left things": each thread, its step, Resume). There is no separate Wait button and no
+  waiting state — "Wait for a reply from Acme" is just the step a thread is parked at.
+- **Done ends this run; Switch leaves it for later.** So "done for today" is switching away (or closing
+  the app), and the part above the divider runs once per run.
+- **Later, only if it can be made simple:** a step that waits while the rest of its sequence carries
+  on, with a point where it must be back.
+*Still open:* does a routine inside a loop ask for its blank again on each pass (proposed: no — it keeps
+the run's value; tap the blank to change it).
+
 **Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
 what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
 in a structure that opens to any depth, measured (only if you ask) against your own pace.

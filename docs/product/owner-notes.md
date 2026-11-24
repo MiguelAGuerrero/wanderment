@@ -18,6 +18,22 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Blanks are optional; switch at any level; a thread has a definite end
+"A blank is optional by default. Think about optional parameters where the function just naturally has
+default values to use. And that way, it's not friction, and it's just adding flexibility and power …
+practicing hand drawings can just be by itself, or you can parameterize it and allow a specific
+instance of that to occupy its own thread." On waiting: real concurrency ("a task can spawn its own
+task. It awaits its own values, while the rest can work … you can declare at what point does it
+matter") is a possible improvement, "but I don't want to provide that level of advanced featuring
+without a way of making that accessible. So the simplification of that is just to allow context
+switching at any level of the execution of a thread. A thread is a sequence of steps that has a
+defined input and a definite end, and you can switch between any thread until you are … done. And
+parking a thread is just stopping it at the step it was last executed on."
+*Interpretation:* starting a routine never asks; filling a blank is a choice and makes that run its own
+thread. There is no separate Wait: you Switch, and the thread stays at its step. Step-level waiting
+(the rest of a sequence carrying on) is a later, advanced idea. Led to: B-11 points 4 and 8 revised,
+frames d1–d3.
+
 ## 2026-11-24 — Routines take inputs; an unnamed breakdown is found by its words
 On the neutral review's questions: "some tension … can be resolved by [parameterising] the execution
 of a particular routine loop … say you wanted to … specifically practice gesture drawings of women …
