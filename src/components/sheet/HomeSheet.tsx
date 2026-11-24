@@ -506,6 +506,8 @@ function SheetPlaces() {
         [
           ['/explore', 'Explore'],
           ['/settings', 'Settings'],
+          // B-11 slice 1 (P-86): the way to the new screens, beside today's home (an installed app has no address bar).
+          ['/go', 'Run a routine'],
         ] as const
       ).map(([href, label]) => (
         <Link key={href} href={href} asChild>

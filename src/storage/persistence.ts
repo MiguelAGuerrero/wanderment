@@ -636,6 +636,7 @@ function publish(opened: Opened) {
     wire();
     // Return pressed before the reload, while reconnecting.
     useStore.getState().logMarked();
+    useStore.getState().verbMarked();
     return;
   }
   // The page can change the data again. Other pages' changes replace what's shown, and so do the
@@ -654,8 +655,9 @@ function publish(opened: Opened) {
   // The same objects if equal, so nothing re-renders or re-saves.
   const settings = sameSettings(own, opened.settings) ? own : { ...opened.settings, ...(base !== saved && ownSettings) };
   s.refreshData(r.data, settings, !r.changed);
-  // Return pressed while reconnecting.
+  // Return pressed while reconnecting; and (P-86) a press on the runner, if its run is unchanged.
   useStore.getState().logMarked();
+  useStore.getState().verbMarked();
   void flush();
 }
 

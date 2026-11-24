@@ -510,3 +510,27 @@ test.describe('P-84: the sheet’s search lights the stars above', () => {
     expect(await placed(page)).toEqual(first);
   });
 });
+
+test.describe('P-86: the sheet has one more row, to the new screens', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+  test.beforeEach(async ({ page }) => open(page));
+
+  test('"Run a routine" is a 44 pt row with the others; it opens /go, and Back comes back to the home with its sheet out', async ({ page }) => {
+    await handle(page).click();
+    await expectOpen(page, 'Wanders');
+    const row = dialog(page).getByRole('link', { name: 'Run a routine', exact: true });
+    await expect(row).toBeVisible();
+    expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    // The rows that were there are still there, in the same navigation group.
+    const more = dialog(page).getByRole('navigation', { name: 'More' });
+    await expect(more.getByRole('link')).toHaveText(['Explore', 'Settings', 'Run a routine']);
+    await expect(more.getByRole('button', { name: 'Export', exact: true })).toBeVisible();
+    await expectNoSeriousViolations(page);
+    await row.click();
+    await expect(page).toHaveURL(/\/wanderment\/go$/);
+    await expect(page.locator('[data-testid="go-home"][data-settled="true"]')).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expectOpen(page, 'Wanders');
+  });
+});

@@ -17,7 +17,8 @@ export interface SearchGroup {
   hits: SearchHit[];
 }
 
-const fold = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
+/** Lower case, accents off: how words are compared here and in the prompt’s search (starts.ts). */
+export const fold = (s: string) => s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '');
 
 /** Every word of the query must appear (in any order, ignoring case and accents). */
 export function matches(text: string | undefined, query: string): boolean {

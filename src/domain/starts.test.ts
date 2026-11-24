@@ -1,0 +1,124 @@
+/**
+ * P-86: "I'm going to…" searches the tiles as you type, then routines, then unnamed things you've
+ * done, each distinct thing once, with "New: <your words>" last (B-11 9b; scout report section 6).
+ */
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { Env, Item, runVerb, Verb } from './run';
+import { searchStarts } from './starts';
+import { Data, emptyData, Routine } from './types';
+
+let n = 0;
+let t = 0;
+beforeEach(() => {
+  n = 0;
+  t = 0;
+});
+const env = (): Env => ({ now: new Date(Date.UTC(2026, 10, 24, 10, 0, t++)).toISOString(), id: () => `x${++n}` });
+const ok = (d: Data, verb: Verb) => {
+  const r = runVerb(d, verb, env());
+  expect(r.ok, `${JSON.stringify(verb)} refused: ${r.reason}`).toBe(true);
+  return r;
+};
+const step = (id: string, text = id): Item => ({ id, text });
+const wait = (id: string, w = id): Item => ({ id, wait: w });
+const made = (day: number) => `2026-11-${String(day).padStart(2, '0')}T00:00:00.000Z`;
+const seq = (id: string, words: string, day: number, items: Item[] = [step(`${id}-1`)], extra: Record<string, unknown> = {}): Routine => ({ id, words, named: true, createdAt: made(day), items, ...extra });
+const world = (...ss: Routine[]): Data => ({ ...emptyData(), routines: Object.fromEntries(ss.map((s) => [s.id, s])) });
+const rows = (d: Data, q: string) => searchStarts(d, q).map((r) => `${r.kind}:${r.words}`);
+
+const maya = () =>
+  world(
+    seq('acme', 'Apply to Acme', 3, [step('cv', 'Tailor the CV'), wait('w', 'a reply from Acme')], { home: true }),
+    seq('draw', 'Practise drawing', 1, [step('d', 'Warm-up lines')], { home: true }),
+    seq('spanish', 'Feel at home in Spanish', 2, [], { home: true, open: true }),
+    seq('proof', 'Proofread out loud', 4),
+    seq('apply', 'Apply for a grant', 5),
+    seq('old', 'Apply to Oldco', 6, undefined, { removedAt: made(7) }),
+  );
+
+describe('“I’m going to…”', () => {
+  it('nothing typed: the tiles, as on home, and no "New:"; with nothing at all, no rows', () => {
+    expect(rows(maya(), '')).toEqual(['tile:Practise drawing', 'tile:Feel at home in Spanish', 'tile:Apply to Acme']);
+    expect(rows(maya(), '   ')).toEqual(rows(maya(), ''));
+    expect(searchStarts(emptyData(), '')).toEqual([]);
+  });
+
+  it('typing filters the tiles first, then the other routines, then "New: <your words>" last; the first row is the marked one', () => {
+    const found = searchStarts(maya(), 'apply');
+    expect(found.map((r) => `${r.kind}:${r.words}`)).toEqual(['tile:Apply to Acme', 'routine:Apply for a grant', 'new:apply']);
+    expect(found.map((r) => r.first)).toEqual([true, false, false]);
+    expect(found.map((r) => r.action)).toEqual(['start', 'start', 'new']);
+    expect(found[0].routineId).toBe('acme');
+    expect(found[1].routineId).toBe('apply');
+    expect(found[2].routineId).toBeUndefined();
+  });
+
+  it('every word must start a word of the name, in any order, whatever the case or accents: "acm app" finds Apply to Acme, "art" does not find "start"', () => {
+    const d = world(seq('a', 'Apply to Acme', 1, undefined, { home: true }), seq('s', 'Start the café list', 2));
+    expect(rows(d, 'acm app')).toEqual(['tile:Apply to Acme', 'new:acm app']);
+    expect(rows(d, 'art')).toEqual(['new:art']);
+    expect(rows(d, 'CAFE')).toEqual(['routine:Start the café list', 'new:CAFE']);
+    expect(rows(d, 'apply zebra')).toEqual(['new:apply zebra']);
+  });
+
+  it('nothing matching: only "New: <your words>", tidied, and it is the first row', () => {
+    const found = searchStarts(maya(), '  learn   to juggle ');
+    expect(found).toEqual([{ kind: 'new', words: 'learn to juggle', action: 'new', first: true }]);
+  });
+
+  it('"New:" is not offered when a routine already has exactly that name (one version per name); a removed routine is never a row and does not hold its name', () => {
+    expect(rows(maya(), 'practise  DRAWING')).toEqual(['tile:Practise drawing']);
+    expect(rows(maya(), 'Proofread out loud')).toEqual(['routine:Proofread out loud']);
+    expect(rows(maya(), 'apply to oldco')).toEqual(['new:apply to oldco']);
+  });
+
+  it('a tile with a run going is one row, to Resume (never also a Start row), and is found by the step it is at, its reason and what it waits for', () => {
+    const a = ok(maya(), { kind: 'start', routineId: 'acme' });
+    let d = ok(a.data, { kind: 'pause', runId: a.runId!, reason: 'need the job ad open' }).data;
+    expect(searchStarts(d, 'apply')[0]).toMatchObject({ kind: 'tile', words: 'Apply to Acme', action: 'resume', routineId: 'acme', runId: a.runId, first: true });
+    expect(rows(d, 'tailor')).toEqual(['tile:Apply to Acme', 'new:tailor']);
+    expect(rows(d, 'job ad')).toEqual(['tile:Apply to Acme', 'new:job ad']);
+    d = ok(d, { kind: 'next', runId: a.runId! }).data;
+    expect(rows(d, 'reply')).toEqual(['tile:Apply to Acme', 'new:reply']);
+    expect(rows(d, 'tailor')).toEqual(['new:tailor']); // no longer the step it is at
+    // A routine not on home with a run going is a tile, not a routine row.
+    const p = ok(ok(d, { kind: 'home', runId: a.runId! }).data, { kind: 'start', routineId: 'proof' });
+    expect(rows(p.data, 'proof')).toEqual(['tile:Proofread out loud', 'new:proof']);
+  });
+
+  it('unnamed things you have done come after routines: found by their words, each distinct thing once (the newest), to start again', () => {
+    const u = (id: string, words: string, day: number, extra: Record<string, unknown> = {}): Routine => ({ id, words, named: false, createdAt: made(day), items: [step(`${id}-1`, 'part one')], ...extra });
+    const d: Data = { ...maya(), routines: { ...maya().routines, u1: u('u1', 'Tidy the desk', 8), u2: u('u2', 'tidy  the DESK', 9), u3: u('u3', 'Tidy the shed', 10) } };
+    const found = searchStarts(d, 'tidy');
+    expect(found.map((r) => `${r.kind}:${r.words}:${r.routineId ?? ''}`)).toEqual(['unnamed:tidy  the DESK:u2', 'unnamed:Tidy the shed:u3', 'new:tidy:']);
+    expect(found[0].action).toBe('start');
+    // Starting one makes it a tile like any other.
+    const going = ok(d, { kind: 'start', routineId: 'u3' }).data;
+    expect(rows(going, 'tidy')).toEqual(['tile:Tidy the shed', 'unnamed:tidy  the DESK', 'new:tidy']);
+  });
+
+  it('an unnamed thing is not a row while it belongs to a run still going, once it is part of a routine (a kept breakdown), or when a routine has its name', () => {
+    const base = world(seq('r', 'Report', 1, [step('a', 'Write the summary'), step('b', 'Send it')], { home: true }), seq('s', 'Sort the post', 2));
+    const run = ok(base, { kind: 'start', routineId: 'r' });
+    const broken = ok(run.data, { kind: 'breakDown', runId: run.runId!, steps: ['outline'] }).data;
+    expect(rows(broken, 'summary')).toEqual(['new:summary']); // (the tile is at "outline" now)
+    const kept = ok(broken, { kind: 'keep', runId: run.runId!, change: 'all' }).data;
+    const ended = ok(kept, { kind: 'jump', runId: run.runId!, to: { level: 0 } }).data;
+    expect(rows(ok(ended, { kind: 'done', runId: run.runId! }).data, 'summary')).toEqual(['new:summary']); // kept: part of Report
+    // Not kept, and its run has ended: it is found by its words.
+    const left = ok(ok(broken, { kind: 'jump', runId: run.runId!, to: { level: 0 } }).data, { kind: 'done', runId: run.runId! }).data;
+    expect(rows(left, 'summary')).toEqual(['unnamed:Write the summary', 'new:summary']);
+    // A routine has the same name: the routine is the one row.
+    const named: Data = { ...left, routines: { ...left.routines, w: seq('w', 'write the Summary', 3) } };
+    expect(rows(named, 'summary')).toEqual(['routine:write the Summary', 'new:summary']);
+  });
+
+  it('rows do not jump about as you type: within each group they stay in the order the things were first made', () => {
+    const d = world(seq('b', 'Bake bread', 2, undefined, { home: true }), seq('a', 'Bake a cake', 1, undefined, { home: true }), seq('c', 'Bake biscuits', 3), seq('e', 'Batch cook', 4));
+    expect(rows(d, 'b')).toEqual(['tile:Bake a cake', 'tile:Bake bread', 'routine:Bake biscuits', 'routine:Batch cook', 'new:b']);
+    expect(rows(d, 'ba')).toEqual(['tile:Bake a cake', 'tile:Bake bread', 'routine:Bake biscuits', 'routine:Batch cook', 'new:ba']);
+    expect(rows(d, 'bak')).toEqual(['tile:Bake a cake', 'tile:Bake bread', 'routine:Bake biscuits', 'new:bak']);
+    expect(rows(d, 'bake br')).toEqual(['tile:Bake bread', 'new:bake br']);
+  });
+});

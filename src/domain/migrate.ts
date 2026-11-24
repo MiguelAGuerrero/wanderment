@@ -52,13 +52,27 @@ const READ: { [K in Collection]: (raw: unknown, key: string, bad: Bad) => Record
     };
   },
   // Routines and runs (P-85): structure only. The record must be an object whose stored columns have
-  // the right types; everything else it carries is kept exactly as it is. What it means (items that
-  // exist, no routine inside itself, frames that point somewhere) is P-86's to check.
+  // the right types; everything else it carries is kept exactly as it is. P-86 adds the shape of what
+  // the runner reads (steps, a run's place and changes) for imports; what it means (items that exist,
+  // no routine inside itself, frames that point somewhere) is repaired when read, never refused.
   routines(raw, key, bad) {
     const r = raw as Partial<Routine> | null;
     if (!isRecord(r) || typeof r.words !== 'string' || typeof r.named !== 'boolean' || typeof r.createdAt !== 'string' || !textOrAbsent(r.removedAt)) {
       bad('A routine in the backup is malformed.');
       return undefined;
+    }
+    // P-86: its steps, when it has any, are a list of things each with an id of its own. Whether a
+    // step points at a routine that exists is not checked: reading copes (run.ts), and nothing is lost.
+    if (r.items !== undefined) {
+      const items = Array.isArray(r.items) ? r.items : undefined;
+      if (!items || !items.every((i) => isRecord(i) && typeof i.id === 'string' && !!i.id)) bad(`The routine “${clip(r.words)}” in the backup has steps that aren’t in the right shape.`);
+      else {
+        const ids = new Set<string>();
+        for (const { id } of items as { id: string }[]) {
+          if (ids.has(id)) bad(`The routine “${clip(r.words)}” in the backup has two steps with the same id (“${clip(id)}”).`);
+          ids.add(id);
+        }
+      }
     }
     return { ...withoutNulls(r, ['removedAt']), id: typeof r.id === 'string' && r.id ? r.id : key } as Routine;
   },
@@ -68,6 +82,10 @@ const READ: { [K in Collection]: (raw: unknown, key: string, bad: Bad) => Record
       bad('A run in the backup is malformed.');
       return undefined;
     }
+    // P-86: its place is a list of levels (a sequence, an item or none, a round), its changes a list.
+    const frame = (f: unknown) => isRecord(f) && typeof f.seq === 'string' && textOrAbsent(f.at) && (f.round === undefined || typeof f.round === 'number');
+    if (r.frames !== undefined && !(Array.isArray(r.frames) && r.frames.every(frame))) bad('A run in the backup has a place that isn’t in the right shape.');
+    if (r.changes !== undefined && !(Array.isArray(r.changes) && r.changes.every(isRecord))) bad('A run in the backup has changes that aren’t in the right shape.');
     return { ...withoutNulls(r, ['parentRunId', 'endedAt', 'waitingSince']), id: typeof r.id === 'string' && r.id ? r.id : key } as Run;
   },
 };

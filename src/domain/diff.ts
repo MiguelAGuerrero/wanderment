@@ -137,6 +137,9 @@ export function missingFrom(base: Data, incoming: Data): DataChanges {
 const valueOf = (record: object) =>
   JSON.stringify(Object.entries(record).filter(([, v]) => v !== undefined).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
 
+/** Whether two records hold the same value (P-86: a press kept while reconnecting is applied only if its run is unchanged). */
+export const sameValue = (a: object, b: object) => a === b || valueOf(a) === valueOf(b);
+
 /** `loaded`, but with `base`'s object wherever the value is the same; and whether any record differs. */
 function keepSame<T extends object>(base: Record<Id, T>, loaded: Record<Id, T>): { records: Record<Id, T>; changed: boolean } {
   let changed = Object.keys(base).some((id) => !get(loaded, id));
