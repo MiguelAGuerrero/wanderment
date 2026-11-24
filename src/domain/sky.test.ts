@@ -10,6 +10,8 @@ import {
   LABEL_H,
   landmarks,
   LANDMARKS_MAX,
+  latestNote,
+  latestNotes,
   moteCount,
   MOTES_MAX,
   SKY_LOOSE_MAX,
@@ -393,5 +395,23 @@ describe('P-73: a loose line on the sky says when it’s still lit (the state is
     ]);
     expect(footprintName(loose[1])).toBe('sketch hands, yesterday, lit');
     expect(footprintName(loose[0])).toBe('ran, today');
+  });
+});
+
+describe('latestNotes: every wander\'s latest note in one pass (the log → toast path, perf)', () => {
+  it('the note on the latest activity that has one, doing or to; blank notes skipped; the same as latestNote for every wander', () => {
+    let data = make('a', 'b', 'c', 'd');
+    data = feed(data, 'a', ['b'], 10, 'x', ' older a→b ');
+    data = feed(data, 'a', [], 5, 'x', 'newer a');
+    data = feed(data, 'b', [], 3, 'x', '   ');
+    data = feed(data, 'c', ['b'], 1, 'x');
+    data = feed(data, undefined, ['c'], 7, 'x', 'to c');
+    data = feed(data, undefined, ['c'], 7, 'x', 'to c, same moment');
+    const notes = latestNotes(data);
+    expect(notes.get('a')).toBe('newer a');
+    expect(notes.get('b')).toBe('older a→b');
+    expect(notes.get('c')).toBe('to c');
+    expect(notes.has('d')).toBe(false);
+    for (const id of Object.keys(data.threads)) expect(notes.get(id)).toBe(latestNote(data, id));
   });
 });

@@ -150,11 +150,28 @@ export interface Landmark {
   warm: boolean;
 }
 
+/**
+ * Every wander's latest note — the note on its latest activity (doing or to) that has one — in one pass
+ * over the activities (perf: a why's landmarks are recomputed on each log; sorting the whole history
+ * per landmark cost about a second with 4,000 lines). Same order as `sortedActivities`: newest first,
+ * the first logged of a tie.
+ */
+export function latestNotes(data: Data): Map<Id, string> {
+  const out = new Map<Id, { at: string; note: string }>();
+  for (const a of Object.values(data.activities)) {
+    const note = a.note?.trim();
+    if (!note) continue;
+    for (const id of [a.doingId, ...a.toIds]) {
+      if (!id) continue;
+      const was = out.get(id);
+      if (!was || a.occurredAt.localeCompare(was.at) > 0) out.set(id, { at: a.occurredAt, note });
+    }
+  }
+  return new Map([...out].map(([id, n]) => [id, n.note]));
+}
+
 /** The note on a wander's latest activity that has one (P-68 brings a note of its own). */
-export const latestNote = (data: Data, threadId: Id): string | undefined =>
-  activitiesOf(data, threadId)
-    .find((a) => a.note?.trim())
-    ?.note?.trim();
+export const latestNote = (data: Data, threadId: Id): string | undefined => latestNotes(data).get(threadId);
 
 /** Visible wanders that feed the why directly (doing → to), never the why itself. */
 function feeders(data: Data, whyId: Id, index: HeatIndex): Thread[] {
@@ -169,8 +186,9 @@ function feeders(data: Data, whyId: Id, index: HeatIndex): Thread[] {
 export function landmarks(data: Data, whyId: Id, opts: { now?: Date; shading?: boolean } = {}): { shown: Landmark[]; more: Landmark[] } {
   const { shading = true } = opts;
   const index = heatIndex(data);
+  const notes = latestNotes(data);
   const all = feeders(data, whyId, index)
-    .map((thread) => ({ thread, walked: index.latest.get(thread.id), step: thread.next?.trim() || undefined, note: latestNote(data, thread.id), warm: false }))
+    .map((thread) => ({ thread, walked: index.latest.get(thread.id), step: thread.next?.trim() || undefined, note: notes.get(thread.id), warm: false }))
     .sort(
       (a, b) =>
         (a.thread.createdAt < b.thread.createdAt ? -1 : a.thread.createdAt > b.thread.createdAt ? 1 : 0) ||
