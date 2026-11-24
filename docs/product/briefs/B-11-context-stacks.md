@@ -139,6 +139,15 @@ shows that the round is finished, with **Again** (filled — a loop goes on unle
 finishes on its last Next, with Undo. Leaving mid-pass, changing the words and going back a step are
 behind a tap on the block; "Done with <name>" is also in the Paused screen's menu.
 
+**The step is a sticky note** (owner, decided). On the runner the step is a fixed, roughly square note,
+centred, with empty space above and below — the space is what gives it focus. It never stretches. **A
+step should be short and concrete, and the design leads there without saying so:** a few words fit with
+air; longer words step the type down; a step too long looks *full* (edge to edge, scrolling inside
+rather than clipped — the person's words are never hidden, counted or warned about), and then **Break
+it down carries a quiet mark**. The same happens where steps are written: a long line visibly outgrows
+the note and "Break it down" is offered beside Add. "This run only / Keep in <routine>" lives in the
+sheet behind the note, so the runner keeps to three buttons.
+
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
 their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**

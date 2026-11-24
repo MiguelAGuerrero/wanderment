@@ -18,6 +18,16 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — The step is a sticky note; long steps should lead to a breakdown
+On the three-button runner: "The block seems a little bit too stretched. It should be the size of a
+sticky note and centered — that way the blank space between the top and bottom portions of the viewer
+gives it focus — and I want [there] to be a subtle indication that steps shouldn't be very long; they
+should be very concrete and to the point. Any elaborate [step] is a cause for a breakdown and that's
+where the design should be leading to."
+*Interpretation:* the step sits as a fixed, sticky-note-sized block in the middle of the runner with
+space around it. A short step fits with air; a long one visibly fills the note (never clipped, never
+counted), and Break it down is quietly marked — in the runner and where steps are written.
+
 ## 2026-11-24 — The runner: focus on the prompt; loop only shown at the end of a pass
 On the simplified runner (is the third button Done; should Break it down stay visible): "It could be
 the third button — [in] my case if you [want] to break it down in execution, you can do that. I just
