@@ -18,6 +18,21 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Since when: yes; reactions must hold something; no "one more round"
+"A wait [may say] since when, because that's useful contextual information. And a reaction, as in a
+decision point, should be appended to one or more other actions or routines. Otherwise, there's really
+no point. And at least bare minimum [it] serves as a document of your intentions based on what you
+might do. And you don't have to remember what that is at the time you recover it, especially for maybe
+long-standing tasks. You don't want to try to recall what you intend to do if you could just jot that
+right then and there … I don't want to support a one more round after a counted loop because that goes
+against the design of the routine itself. And that's already defined with a jump to as an escape hatch.
+So I don't want to necessarily program a UI that allows for a loop to just be disregarded that way,
+because then at that point, why not just set it to 999 and just iterate as much as you can and abort?
+… So I wouldn't want to support that."
+*Interpretation:* decided — a wait says since when, in words. Decided — a reaction always holds one or
+more steps or routines; its least job is to record what you meant to do. Decided — no "one more round":
+a counted loop means its number; Jump to… is the way to go back in.
+
 ## 2026-11-24 — Audit the additions against what people expect
 "Given these additions, run through again a fresh agent to assess the user journeys with these and
 ensure that we have a comprehensive assessment on what's typically afforded for features like these,

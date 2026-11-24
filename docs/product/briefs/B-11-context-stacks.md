@@ -284,13 +284,16 @@ timers, notifications and check-again dates is consistent. **Proposed answers to
    is dimmed, and the panel adds "Stop waiting for this" (makes it a plain step for this run).
 2. A run resting on a wait: the paused screen is titled **Waiting**; home reads "waiting for <words>";
    an interrupted run reads "at <step>" with its reason.
-3. ★ A wait may say **since when**, in words only ("since Tuesday"), on home and the paused screen.
+3. **Decided (owner):** a wait says **since when**, in words only ("since Tuesday"), on home and the
+   paused screen — useful context.
 4. A thing that is out is named by **the words of the step that set it going** (optionally a shorter
    name you give it) — never words the app invents.
 5. A step can be marked **"Sets something going"** by itself; "Wait for this later…" is that mark plus a
    tied wait.
-6. ★ After a reaction you **rejoin after the wait**; a reaction may instead be set to "then leave
-   <routine>"; going round again is always the loop's job.
+6. **Decided (owner):** a reaction always holds **one or more steps or routines** — otherwise it has no
+   point. Its least job is to record what you meant to do, so you don't have to recall it when the answer
+   comes, especially on long-standing things. *(Still proposed:* after a reaction you rejoin after the
+   wait; a reaction may instead be set to "then leave <routine>".)
 7. The reactions offered always end with a plain **"Something else"** that just carries on.
 8. A kept item whose run has ended sits on home **under its first layer**, with "It's happened" and "Let
    it go"; removing that first layer names such items.
@@ -318,8 +321,8 @@ timers, notifications and check-again dates is consistent. **Proposed answers to
     repeat number); the round is part of a run's place.
 20. Slices: the runner, counted repeats, reason, plain wait and Jump to… with the first running slices;
     reactions next; rails, open ends, things out and the leaving ask last, as their own slice.
-21. ★ **One more round** after a counted loop finishes: Undo is enough at first; "One more round" joins
-    the panel later.
+21. **Decided (owner): no "one more round".** A counted loop means its number; offering more would
+    undo the routine's own design (one could as well set 999 and leave). To go back in, use Jump to….
 22. Keys: one for the panel and one for Done; Esc closes the panel before it pauses; the swipe starts on
     the note or the band above the buttons; a full note scrolls.
 23. "Pick it up again" for an ended run moves to the first build, since Done is now one tap away.
