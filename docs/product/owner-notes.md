@@ -18,6 +18,19 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Conditionals: for what's outside your control
+"the next idea is conditional logic. What's the benefit of having that? I know in programming there's
+ways to represent conditionals without using conditionals, and you can … have built-in checks into your
+routine, but that just offers complexity and computational thinking, and that is not intuitive as much
+as an if-then statement. So what's the payoff from encoding conditionals? My pain point with
+conditionals that I want to address is that sometimes you have to work with things that are outside of
+your control. Maybe that's feedback, maybe that's the unavailability of a service or a product or
+something that you do not have that you want to keep track of. So accounting for the external factors
+in a routine and reacting based on that is where I think conditionals have its strength."
+*Interpretation:* a question, not yet a decision. The need is narrow: a point in a routine where the
+outside world answers, and what you do for each answer. Proposed back: a "question step" with a few
+named answers, one of which can be "not yet" (wait). Under discussion; not on the redraw list yet.
+
 ## 2026-11-24 — Batch the tweaks; mark the last step of a round
 "To keep refinement, I want there to be one final redrawal just to save tokens, because these are just
 small little tweaks here and there, so let's [batch] them until the end, until we finalize our ideas.
