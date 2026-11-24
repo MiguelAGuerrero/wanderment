@@ -14,7 +14,7 @@ out loud*.
 | J01 | **First open** | Start with nothing and be doing something within seconds | a) empty home: only the prompt · b) typed words, "New foundation" offered · c) running an empty foundation: asked for a first small step |
 | J02 | **Come back and pick up** | See where everything stands and resume one thing | a) home ("Nothing running"): every foundation, paused runs under theirs, an empty foundation, the prompt · b) reopening straight into a running step |
 | J03 | **Say what you're going to do** | Let the app find it instead of browsing | a) typing: closest runs / routines / foundations, then "New foundation" · b) the same with nothing matching |
-| J04 | **Run a routine** | Do one small step at a time until you feel done | a) a plain step inside a loop · b) after Next: the next step with Undo · c) arriving at a routine item: Step in or Next past it · d) Done with an inner routine: back in the parent · e) Done at the top: the run ended, home with Undo |
+| J04 | **Run a routine** | Do one small step at a time until you feel done | a) a plain step inside a loop · b) after Next: the next step with Undo · c) arriving at a routine item: Step in or Next past it · d) Done with an inner routine: back in the parent · e) Done at the top: the run ended, home with Undo · f) the end of a round: Again / Done with <name> · g) after Done there, back in the parent · h) a run-once routine finishing on its last Next |
 | J05 | **Break it down** | Make a heavy step easy to start, without losing the block | a) the step being split into smaller steps · b) running the first of them, the change marked as this run's own with "Keep in <routine>" |
 | J06 | **Shape a routine** | Write down how you go about something, and check it reads right | a) Blocks: steps, the divider with its grip, the loop bracket, a routine inside folded · b) a step's ⋯ menu · c) the divider's other positions (top: all repeats; none: runs once) · d) Read it, collapsed · e) Read it, one routine expanded in place |
 | J07 | **Group steps into a routine** | Keep something useful for later | a) choosing steps · b) naming it · c) grouped, with Undo |
@@ -63,6 +63,6 @@ waits while the rest of its sequence carries on.
 J10 · Stop J11 · Break it down J05 · Group J07 · Copy J08, J13. Blanks J09 · child runs J09, J10 · Map
 J02, J10 · Read it J06 · found-by-words J12 · run-only revisions J05, J13 · errors J15 · access J16.
 
-**Renders:** the converged set, `.polish/product/b11-final/` — 101 states, with the final audit's fixes
+**Renders:** the converged set, `.polish/product/b11-final/` — 104 states, with the three-button runner and the final audit's fixes
 applied; its `NOTES.md` holds the design system, the Reduce Motion list, accessible names and the J27
 keyboard-and-Back table.

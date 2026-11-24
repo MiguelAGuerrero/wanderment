@@ -142,7 +142,7 @@ behind a tap on the block; "Done with <name>" is also in the Paused screen's men
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
 their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**
-**The current mockups are the converged set, `.polish/product/b11-final/`: 101 states (the final audit's fixes applied), `sheet-01` …
+**The current mockups are the converged set, `.polish/product/b11-final/`: 104 states (the final audit's fixes and the three-button runner applied; `sheet-runner` shows before and after), `sheet-01` …
 `sheet-13`.** It merges two independent redraws (`b11-mine/`, `b11-alt/`): where both agreed — home as
 the tree with the prompt beneath, one step alone with its level in words, Next as the only filled
 button, Paused with siblings / Up / Stop, "this run only" with Keep, the divider's grip and three-way
