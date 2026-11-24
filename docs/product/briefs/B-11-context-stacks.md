@@ -116,6 +116,19 @@ block, top-down reading order. **Fold-ins — the build must meet all of these:*
    matches its stack.
 10. Running: the energy switch and Stack in thumb reach (above the field), not at the top.
 
+**Audit of the x-frames** (`.polish/product/ui-audit-B-11-x.md`) — further fold-ins:
+11. One Done. "That was a lot" is offered on the Undo line after Done, and only for pieces that can
+    come back (reused pieces); never a second Done button (a rating at every completion, 14 px from Done).
+12. Buttons never swap places: Done stays where it is; a heavy piece marks **Break it down** (a mark,
+    not a sentence), "then:" stays, and the mark goes once the piece is broken down or done without it.
+13. Editing a shared piece: Save names the stacks it changes, "Save as a new piece" is beside it, and
+    an Undo follows; deleting a line and Cancel are drawn.
+14. Suggestions: your own typed text first (nearest the field), then earlier pieces, each named as
+    "piece" or "reusable piece" for screen readers; announced without a number; fits with the keyboard up.
+15. Opening cards look tappable (a "›" and a pressed state); an empty pursuit shows "Add a first piece".
+16. Fold-ins 5, 7 and 8 hold on the new frames too ("Later — to the bottom"; one symbol per meaning;
+    pursuit names in the readable font).
+
 ## Persona panel
 _Simulated perspectives from `docs/product/PERSONAS.md`. A thinking tool, not user research._ Reports:
 `.polish/product/panel-B-11-{1,2}.md` (on the first frames).
