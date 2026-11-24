@@ -13,6 +13,10 @@ async function timedLog(page: Page, text: string) {
 }
 
 test('logging stays quick on Home and Activities with a large history', async ({ page }) => {
+  // A timing benchmark: it runs at the machine's real speed (verify's full run and CI). Under the
+  // CI-speed pass's CPU throttle (E2E_SLOW) it would measure the throttle, and the 4,000-line load
+  // outlasts its waits — that load time is P-46's to bring down.
+  test.skip(!!process.env.E2E_SLOW, 'timing benchmark: not meaningful under CPU throttling (P-46)');
   test.slow();
   await page.addInitScript(seedScript, bigBlob(220, 4000));
   await page.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)

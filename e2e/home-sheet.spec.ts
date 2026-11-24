@@ -406,8 +406,13 @@ test.describe('P-84: the sheet’s search lights the stars above', () => {
   test.use({ viewport: { width: 390, height: 844 } });
   const search = (page: Page) => dialog(page).getByRole('textbox', { name: 'Search', exact: true });
   const stars = (page: Page) => page.getByTestId('search-star');
-  const placed = (page: Page) =>
+  const where = (page: Page) =>
     stars(page).evaluateAll((els) => Object.fromEntries(els.map((e) => [e.getAttribute('data-id'), `${Math.round(e.getBoundingClientRect().x)},${Math.round(e.getBoundingClientRect().y)}`])));
+  /** Where each star sits once laid out (a star just added reads 0,0 until its first layout on a slow CPU). */
+  const placed = async (page: Page) => {
+    await expect.poll(async () => Object.values(await where(page)).some((at) => at === '0,0')).toBe(false);
+    return where(page);
+  };
 
   /** Lines a search can find: three about sketching (one long ago), others not. */
   function searchWorld() {
