@@ -37,36 +37,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-74 One home: the sky at rest, sessions over it `[feature]` `[a11y]` L
-*Status:* in-progress
-*Why:* B-08 slice 2, reshaped by D-15 (one home).
-*Also when:* the trailhead and the sky are one home — at rest your recent lines as faint unlabelled
-stars, guiding stars brighter, Map a labelled signpost by the lantern; "I'm not sure" and tapping a
-star tilt up into a session layer that folds in today's star and trail screens; a session ends by
-itself after a choice and the camera comes down to the lantern; `/sky`, `/star`, `/trail` open the
-home already tilted; never any "away N days" or withering.
-*Done when:* "I'm not sure" shows recent lines as stars (the last ~60 days or ~12 lines, whichever is
-more) — lit ones glowing by warmth, settled ones dim, a just-settled one twinkling — and whys as
-brighter fixed guiding stars (accent colour only for them); tapping a lit star brings back Done it /
-First step / Toward…; screen-reader list with headings (guiding stars, lines newest first with state
-in each name, then constellations once P-76 lands); hit areas ≥ 44 pt; Reduce Motion; e2e + axe.
-
-### P-73 The rise: lines become stars `[feature]` `[data]` `[capture]` `[a11y]` M
-*Status:* in-progress
-*Why:* B-08 slice 1 (D-14 go with changes). `docs/product/briefs/B-08-constellations.md`.
-*One home (D-15):* built as the first camera tilt of the one home (B-08 "One home"), not a separate
-landing screen.
-*Done when:* Return still saves the line at once as typed; the camera tilts up and the line rises as
-a star with your words (a heading, focus on it): by default a **lit** pursuit with quiet **Done it**
-(✦), **↳ First step** and a corner **Toward…**; with the sticky **done** chip on, it lights and
-settles at once (several in a row; the chip stays on until turned off or you leave); Done it
-settles it (twinkle, dim, "Settled" announced, Undo that waits under assistive tech); ↳ First step
-opens a step field and only Return creates the wander (named with your words) and sets its step,
-Undo; Toward… attaches to any wander, Undo; a lit star's glow fades like warmth; lit stars in night
-ink, never the accent colour; the rise never blocks typing; no hint lines; additive optional
-`settledAt` (older activities read as settled); export/import round-trip; "Kept, loose · Move it?"
-retired; migration + persistence tests (mutation-checked); e2e + axe at the end.
-
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
 *Note (2026-11-23):* after P-48–P-61 the ratio reads 1.13–1.23×, once 1.33× on a 4-worker run; cleanup of the unused bridge store code (`bridgeFor`, `attachToNew`, `BRIDGE_QUESTION`) belongs with this.
@@ -425,6 +395,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-24 · P-74, P-73 (B-08 slices 1–2 with D-15) — one home: the sky is drawn once; at rest your recent lines are faint unlabelled stars (last ~60 days or ~12 lines; never dimmed by absence), whys brighter guiding stars, Map a signpost; "I'm not sure" or a star tilts the camera up into a session over the same sky (the sky, a why's wanders, a trail), which ends by itself after a choice, or by Esc, Back, a swipe down or tapping the ground; `/sky`, `/star`, `/trail` open it tilted. The rise: Return saves the line as typed and lifts it as the session's heading — a lit pursuit with ✦ Done it, ↳ First step, Toward… and Undo of the Return; the sticky done chip lights and settles lines at once; Undo carries into the toast when a session ends; "Kept, loose · Move it?" retired; a lit glow fades like warmth; additive `lit`/`settledAt` (migration 3; old lines read settled) · evidence: `src/domain/{home,rise}.test.ts`, `src/store/trailhead.test.ts`, migration/persistence/import tests (mutation-checked), `e2e/{one-home,rise,trailhead,sky,transitions}.spec.ts`; old-release migration checked by the auditor · audit: 9 reported · 7 reproduced · 8 fixed · 1 deferred (F8 accepted: an old-release tab rewriting a line resets lit to settled, no text lost) · this commit
 - 2026-11-24 · P-72 — transitions that move through the picture: looking up sinks the hills and fades the stars in; a star raises its landmarks and walks the wanderer to camp; a trail walks the wanderer up the path; back reverses; Map dims in like dusk; only the picture moves (text and controls never do), never blocks input, ≤ 600 ms; Reduce Motion: none · evidence: `src/domain/passage.test.ts` (18), `e2e/transitions.spec.ts` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier; tests first, e2e run once at the end) · this commit
 - 2026-11-24 · P-71 — brief B-08 "Constellations" written with the owner's landing folded in; mockups G–J; persona panel (6 personas, 3 panelists) synthesized; owner answered D-14 go with changes · evidence: `docs/product/briefs/B-08-constellations.md`, `.polish/product/panel-B-08-{1,2,3}.md` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (docs only) · this commit
 - 2026-11-24 · P-65, P-66 (B-07 slices 1–2) — the trailhead is Home: a night sky, "Where are we wandering today?", Return logs at once (loose) with Undo, a quiet "Move it?" (never overwrites a staged step), typing offers "Open <wander>", "I'm not sure" → look up: whys as stars in fixed places at one size, warmth and motes by heat (floor of one), recent loose lines as stray footprints with Move it?; under a star: landmarks in a fixed order, cards that name their wander, trails; a wander's trail: "Here's where we left off", Did it, footprints in words; Esc goes back; the graph moved unchanged to Map, now in the night palette · evidence: `e2e/trailhead.spec.ts`, `e2e/sky.spec.ts`, `e2e/dark-map.spec.ts`, `src/domain/{trailhead,sky,heat}.test.ts`, `src/store/trailhead.test.ts`; specs' entry route `/` → `/map` marked P-65 · audit: 8 reported · 8 reproduced · 8 fixed · 0 deferred (adversarial UI/UX audit, different model, some reasoned rather than reproduced; plus a persona panel on the built screens, all six up to yes / leaning yes; tests written first and run at the end, owner's rule) · this commit

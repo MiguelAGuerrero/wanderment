@@ -1,6 +1,6 @@
 # B-08 — Constellations: every line becomes a star
 
-**Status:** building · **Decision:** D-14 → go with changes, 2026-11-24 (→ P-73 to P-77) · **Theme:** Capture anywhere / Seeing flow / Know the why · **Date:** 2026-11-24
+**Status:** building · **Decision:** D-14 → go with changes, 2026-11-24 (→ P-73 to P-77; slices 1–2 with one home shipped 2026-11-24) · **Theme:** Capture anywhere / Seeing flow / Know the why · **Date:** 2026-11-24
 
 Mockups: "Front door journey" canvas, https://claude.ai/artifact/GWjaYybmi4QxeBqTpGeHHp (private),
 row "Constellations: every line becomes a star" (G–J). Today's landing for comparison:

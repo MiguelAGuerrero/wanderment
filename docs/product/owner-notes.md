@@ -131,7 +131,7 @@ any end-to-end or regression testing should have just waited until all the batch
 the very end." → written into the polish and product skills ("Testing order"): tests first with unit
 runs while building every batch; audits and panels from the built app; one e2e/regression run at the
 end; builders export their own web build for screenshots.
-Led to: D-12; P-62 parked; B-07; D-13 → P-65 to P-70 (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
+Led to: D-12; P-62 parked; B-07; D-13 → P-65 to P-70; B-08 (D-14), one home (D-15) → P-73, P-74 shipped (`parked/P-62-quick-actions.patch`); P-64 (brief B-07).
 
 ## 2026-11-23 — screenshot: Home with one why (feel productive), first-run step card, "→ to" chip, toggle
 > This UI is very confusing, and the nodes are cropping with the text. There's too many prompts trying
