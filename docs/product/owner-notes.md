@@ -43,6 +43,11 @@ actions and see the stars lit up rather than create a new context stack. I'm usi
 — [something] you're pursuing in the moment — and you're using the app to [offload] that context for
 you." Answers: several done lines at once; the done chip stays on until turned off; lit glow fades
 like warmth (~2 weeks); kinds fixed plus write; a quiet "Toward…".
+One home (same day): "product investigation to see how these two views can be unified by looking
+how adjacent apps would do something similar … there could just be one home view with a log button,
+and then the home view just launches you into the session … like a video game home screen." After
+the discovery (`discovery/2026-11-24-one-home.md`): one home, yes; stars at rest faint and
+unlabelled; a session ends by itself after a choice; Map as a signpost by the lantern (D-15).
 2. **Transitions** tied to the picture: stars fading in and out, the landscape shifting between
    screens, the wanderer moving across. No data change; honours Reduce Motion. Small enough to build
    on today's screens while the landing is decided.

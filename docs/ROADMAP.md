@@ -40,7 +40,9 @@ _Empty. Write here — one line is enough._
 ### P-73 The rise: lines become stars `[feature]` `[data]` `[capture]` `[a11y]` M
 *Status:* todo
 *Why:* B-08 slice 1 (D-14 go with changes). `docs/product/briefs/B-08-constellations.md`.
-*Done when:* Return still saves the line at once as typed; the view looks up and the line rises as
+*One home (D-15):* built as the first camera tilt of the one home (B-08 "One home"), not a separate
+landing screen.
+*Done when:* Return still saves the line at once as typed; the camera tilts up and the line rises as
 a star with your words (a heading, focus on it): by default a **lit** pursuit with quiet **Done it**
 (✦), **↳ First step** and a corner **Toward…**; with the sticky **done** chip on, it lights and
 settles at once (several in a row; the chip stays on until turned off or you leave); Done it
@@ -50,18 +52,6 @@ Undo; Toward… attaches to any wander, Undo; a lit star's glow fades like warmt
 ink, never the accent colour; the rise never blocks typing; no hint lines; additive optional
 `settledAt` (older activities read as settled); export/import round-trip; "Kept, loose · Move it?"
 retired; migration + persistence tests (mutation-checked); e2e + axe at the end.
-
-### P-72 Transitions that move through the picture `[feature]` `[a11y]` M
-*Status:* in-progress
-*Why:* owner, 2026-11-24: "the app would benefit greatly from transitions, especially ones that
-interact with the metaphors … stars shining in and out, or the landscape changing, the wanderer
-moving across screens."
-*Done when:* moving between the trailhead, the sky, a star, a trail and Map feels like moving
-through one night: looking up (trailhead → sky) sinks the hills and fades the stars in; a star →
-its landmarks rise and the wanderer walks to its camp; a trail → the wanderer walks up the path;
-going back reverses it; Map dims in like dusk; each transition is short (≤ ~600 ms), never blocks
-input, and under Reduce Motion becomes a plain cross-fade or none; no layout jumps; unit tests for
-the transition choices; e2e that Reduce Motion stills them (run at the end).
 
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
@@ -81,9 +71,14 @@ genuinely lacks a feature); any browser that can't run SQLite lands in the fallb
 
 ## Next
 
-### P-74 The sky of lines `[feature]` `[a11y]` M
+### P-74 One home: the sky at rest, sessions over it `[feature]` `[a11y]` L
 *Status:* todo
-*Why:* B-08 slice 2.
+*Why:* B-08 slice 2, reshaped by D-15 (one home).
+*Also when:* the trailhead and the sky are one home — at rest your recent lines as faint unlabelled
+stars, guiding stars brighter, Map a labelled signpost by the lantern; "I'm not sure" and tapping a
+star tilt up into a session layer that folds in today's star and trail screens; a session ends by
+itself after a choice and the camera comes down to the lantern; `/sky`, `/star`, `/trail` open the
+home already tilted; never any "away N days" or withering.
 *Done when:* "I'm not sure" shows recent lines as stars (the last ~60 days or ~12 lines, whichever is
 more) — lit ones glowing by warmth, settled ones dim, a just-settled one twinkling — and whys as
 brighter fixed guiding stars (accent colour only for them); tapping a lit star brings back Done it /
@@ -398,6 +393,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   "done" chip for things already done — they light and settle at once, several in a row; pursuits
   rise lit and their glow fades like warmth; kinds fixed plus "write"; a quiet "Toward…"). → P-73 to
   P-77. Brief: `docs/product/briefs/B-08-constellations.md`.
+- **D-15 One home** — **answered 2026-11-24 by the owner:** the trailhead and the sky become one
+  home (a session is the camera looking up over the same sky); stars at rest faint and unlabelled;
+  a session ends by itself after a choice; Map as a signpost by the lantern. Folded into B-08 (→ P-73,
+  P-74). Discovery: `docs/product/discovery/2026-11-24-one-home.md`.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
@@ -426,6 +425,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-24 · P-72 — transitions that move through the picture: looking up sinks the hills and fades the stars in; a star raises its landmarks and walks the wanderer to camp; a trail walks the wanderer up the path; back reverses; Map dims in like dusk; only the picture moves (text and controls never do), never blocks input, ≤ 600 ms; Reduce Motion: none · evidence: `src/domain/passage.test.ts` (18), `e2e/transitions.spec.ts` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier; tests first, e2e run once at the end) · this commit
 - 2026-11-24 · P-71 — brief B-08 "Constellations" written with the owner's landing folded in; mockups G–J; persona panel (6 personas, 3 panelists) synthesized; owner answered D-14 go with changes · evidence: `docs/product/briefs/B-08-constellations.md`, `.polish/product/panel-B-08-{1,2,3}.md` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (docs only) · this commit
 - 2026-11-24 · P-65, P-66 (B-07 slices 1–2) — the trailhead is Home: a night sky, "Where are we wandering today?", Return logs at once (loose) with Undo, a quiet "Move it?" (never overwrites a staged step), typing offers "Open <wander>", "I'm not sure" → look up: whys as stars in fixed places at one size, warmth and motes by heat (floor of one), recent loose lines as stray footprints with Move it?; under a star: landmarks in a fixed order, cards that name their wander, trails; a wander's trail: "Here's where we left off", Did it, footprints in words; Esc goes back; the graph moved unchanged to Map, now in the night palette · evidence: `e2e/trailhead.spec.ts`, `e2e/sky.spec.ts`, `e2e/dark-map.spec.ts`, `src/domain/{trailhead,sky,heat}.test.ts`, `src/store/trailhead.test.ts`; specs' entry route `/` → `/map` marked P-65 · audit: 8 reported · 8 reproduced · 8 fixed · 0 deferred (adversarial UI/UX audit, different model, some reasoned rather than reproduced; plus a persona panel on the built screens, all six up to yes / leaning yes; tests written first and run at the end, owner's rule) · this commit
 - 2026-11-23 · P-64 — brief B-07 "Under the night sky" (`docs/product/briefs/B-07-night-sky.md`): prompt-first trailhead, whys as stars, wanders as trails with step stacks, camp, routines; persona panel (6 personas, 3 panelists) synthesized; owner answered D-13 go and reworded STRATEGY · evidence: mockups https://claude.ai/artifact/GWjaYybmi4QxeBqTpGeHHp, `.polish/product/panel-B-07-{1,2,3}.md` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (docs only) · this commit

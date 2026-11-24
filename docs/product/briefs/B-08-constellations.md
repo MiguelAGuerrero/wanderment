@@ -22,6 +22,18 @@ row "Constellations: every line becomes a star" (G–J). Today's landing for com
 - **Kinds are fixed:** make, read, write, research, watch, plan, move, people, rest.
 - **A quiet "Toward…"** in a corner of the landing attaches the line to any wander (Undo).
 
+## One home (D-15, owner, 2026-11-24)
+Discovery: `docs/product/discovery/2026-11-24-one-home.md`. The trailhead and the sky become **one
+home**: the night sky at rest — your recent lines as **faint, unlabelled stars** (faint constellation
+lines), guiding stars a little brighter, the hills, the lantern, the field at the foot, and **Map as a
+labelled signpost** by the lantern. Return, "I'm not sure" or tapping a star **tilts the camera up**
+into a **session**: one focused layer over the same sky (your star's words; Done it, ↳ First step,
+Toward…; for a pursuit with a trail, its current step with Did it) — the star and trail screens fold
+into it. The session **ends by itself after a choice** (or Esc, Back, a swipe down, tapping the
+ground; it waits under a screen reader) and the camera comes back down to the lantern, the new star
+in its fixed place. `/sky`, `/star/…` and `/trail/…` stay as links that open the home already
+tilted. One route, one camera value (P-72's `passage.tsx`), no new dependency.
+
 ## The problem, in the owner's terms
 After trying the shipped trailhead (owner-notes 2026-11-24, "The landing after Return"):
 > The home page was fine, but this new page doesn't … follow my intuition. I expected that to show
