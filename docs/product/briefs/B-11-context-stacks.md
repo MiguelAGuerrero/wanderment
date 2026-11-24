@@ -275,6 +275,58 @@ decided on return, and pre-planned; `.polish/product/review-B-11-no-if.md`; reas
 **Added to the final redraw:** leaving with something out (Let it go / Keep it out); Jump to…; free "out" items in the pull-up panel and on home; a routine block with an open end; the rail and its lanes; the reason on the paused screen and on home; a wait step in Blocks,
 Read it and on the runner; reactions offered on a wait step; "waiting for" on home.
 
+**From the expectations audit** (`.polish/product/audit-B-11-expectations.md`; journeys J34–J46 added).
+*Already strong:* the runner and counted repeats meet or beat adjacent products; pause vs wait is sharper
+than "on hold / blocked" elsewhere; Jump to… fixes a failure reviewers of routine apps describe; declining
+timers, notifications and check-again dates is consistent. **Proposed answers to what it found unsettled
+— the owner confirms or changes; marked ★ where the choice is really the owner's:**
+1. On a wait step the three buttons keep their places: Next reads **"It's happened"**, the middle slot
+   is dimmed, and the panel adds "Stop waiting for this" (makes it a plain step for this run).
+2. A run resting on a wait: the paused screen is titled **Waiting**; home reads "waiting for <words>";
+   an interrupted run reads "at <step>" with its reason.
+3. ★ A wait may say **since when**, in words only ("since Tuesday"), on home and the paused screen.
+4. A thing that is out is named by **the words of the step that set it going** (optionally a shorter
+   name you give it) — never words the app invents.
+5. A step can be marked **"Sets something going"** by itself; "Wait for this later…" is that mark plus a
+   tied wait.
+6. ★ After a reaction you **rejoin after the wait**; a reaction may instead be set to "then leave
+   <routine>"; going round again is always the loop's job.
+7. The reactions offered always end with a plain **"Something else"** that just carries on.
+8. A kept item whose run has ended sits on home **under its first layer**, with "It's happened" and "Let
+   it go"; removing that first layer names such items.
+9. Leaving with things out is **one sheet** listing each; "Keep it out" is the filled choice; Done's Undo
+   covers it.
+10. **Jump to…** is the one name: a step's "make it now" becomes "Jump here"; "Back to <step>" stays as
+    the one-step shortcut.
+11. The panel's order: where you are (round, last step, then, this run only) · what is out, each with
+    its two actions · the actions. The fullest case is drawn first.
+12. A move, Group or divider change that would split a rail is allowed, **unties it inside the same
+    Undo**, and the notice says so.
+13. Adding or removing a wait in a routine used elsewhere is named in the "Used in …" strip (it changes
+    that routine's open end everywhere).
+14. Jump to the start of a level is round one and fresh; picking a step keeps the round and this-run
+    changes; the sheet shows what will be out.
+15. A pause reason is edited in place, stays readable until the first Next after Resume, then is dropped;
+    never in Looking back.
+16. A reaction with nothing in it may exist while being written, drawn as unfinished, and is never
+    offered on the runner.
+17. A wait whose things have all happened is passed with an Undo notice if it has no reactions, and shown
+    if it has.
+18. The paused screen of a waiting run carries **"It's happened"**, which resumes at the reactions or
+    the next step.
+19. Stored data and the backup format carry every new kind (wait, reaction, rail, out item, reason,
+    repeat number); the round is part of a run's place.
+20. Slices: the runner, counted repeats, reason, plain wait and Jump to… with the first running slices;
+    reactions next; rails, open ends, things out and the leaving ask last, as their own slice.
+21. ★ **One more round** after a counted loop finishes: Undo is enough at first; "One more round" joins
+    the panel later.
+22. Keys: one for the panel and one for Done; Esc closes the panel before it pauses; the swipe starts on
+    the note or the band above the buttons; a full note scrolls.
+23. "Pick it up again" for an ended run moves to the first build, since Done is now one tap away.
+24. **This document contradicts itself in eleven places after the additions** ("there is no waiting
+    state", the verb table, stored data, slices…). It is rewritten clean in the same pass as the final
+    redraw.
+
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
 their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**
