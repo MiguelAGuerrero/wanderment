@@ -37,6 +37,22 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-87 The new app's first slice, after its panel `[ux]` `[a11y]` M
+*Status:* todo
+*Why:* the persona panel on the built slice (`.polish/product/panel-P-86-{1,2}.md`, from screenshots) and
+the audit's deferred notes. All six personas read the edge of a goal as a stall: an empty note, two
+dimmed buttons, and Done — the only way out — the smallest control on screen. Dimmed Resume / Start on
+home while something runs read as dead buttons. The Keep sheet shows no way to decline. At 200 % text the
+context line truncates to "Appl…", losing the wider context. Nothing has been checked on a real phone
+or with a screen reader.
+*Done when:* at the edge, the forward slot reads Done while the note is empty and Next once it has words
+(the three places never move); on home while a run is running the other tiles carry no dead buttons
+(tapping one offers to pause the running run first, or their buttons are absent); the Keep sheet has a
+visible "Not now"; the "Stop <name>?" confirm uses one verb; the context line wraps at large text and
+never truncates the level you are in; a wrapping notice never moves the note; since-when is consistent
+("since Tuesday" within a week, otherwise a date); one real pass on a phone (keyboard up, large text)
+and with a screen reader, its findings fixed or filed; e2e for each.
+
 ### P-46 Home's cost with a large history `[perf]` M
 *Status:* todo
 *Why:* the one home opens a 4,000-line history in ~4 s here and ~14 s at CI CPU speed (E2E_SLOW=4);
