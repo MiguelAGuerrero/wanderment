@@ -18,6 +18,33 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — The home's layout drifted; attaching does nothing; roll Map into the home
+Evidence: `evidence/2026-11-24-home-ui-drift.png` (iPhone: the big question, the field, a gap, "I'm
+not sure" far below, "Map" with a flag floating above the hills).
+> This UI isn't very good. The I'm not sure button is delocated or misplaced away from the dialogue.
+> And the map button is just situated awkwardly and in an unintuitive space, location. Something like
+> that may have been better as a swipe action, to swipe up or down to see what's available. I think
+> prior to UI changes, that has to go through an audit to ensure alignment with UI best practices,
+> because this is a drift. Also, the attaching or resolving an action to any of other nodes doesn't
+> really do anything. In fact, every time I try to attach something to, let's say, feeling
+> productive, it never updates the map at all. And the map seems like a side feature and is being
+> neglected. We should roll that into the homepage as a preview of recency. It will supersede the
+> graph view we had before, but instead of it being intentionally showing everything, it just shows a
+> select few at random. Almost like a live feed. It's not highlighting anything particular. It's just
+> showing what's been done. And let's move the prompt to be lower to where the bottom of the screen
+> is, almost like a messaging sort of thing, so that the map has a resting area. And when you're not
+> sure, it lights up the map to be more descriptive.
+
+Interpretation (by /product):
+1. **Attaching seems to do nothing** (e.g. Toward… "feel productive" → Map unchanged). Reproduce
+   first: a bug, or a line attached only "toward" a why drawing nothing new on Map by design. Either
+   way it reads as broken — fix it.
+2. **Process:** UI changes go through a **UI best-practice audit before they're built** (drift).
+3. **The home, redesigned (big):** the prompt moves to the bottom like a messaging composer, with
+   "I'm not sure" next to it; the top becomes the map's resting area — a **live feed of recency**,
+   a few recent things at random, nothing highlighted, superseding the graph Map; swipe up/down to
+   see what's available instead of a Map button; "I'm not sure" lights the map up to be descriptive.
+
 ## 2026-11-24 — "Deploys are failing"
 > Deploys are failing. Ensure we have proper CI pre-gates so this don't keep happening
 

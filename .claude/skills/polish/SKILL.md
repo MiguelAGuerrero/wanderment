@@ -57,6 +57,25 @@ open a log file only when a step fails.
 When in doubt it's Light; a Light item that turns out to touch stored data is re-tiered (write it
 down). Light-tier batches skip Phases 3, 4 and 6 below.
 
+## UI audit before UI changes (owner, 2026-11-24: "prior to UI changes, that has to go through an audit to ensure alignment with UI best practices, because this is a drift")
+
+Any item that changes a screen's layout, navigation, controls or gestures gets a **UI best-practice
+audit of the design before it is built** — mockups or a written layout, not code. One fresh agent
+(`polish-auditor`, or `product-scout` when outside sources are needed), given the mockups, the
+current screenshots and `docs/DESIGN.md`, checks them against platform conventions (Apple HIG,
+Material 3, WCAG 2.2) and the app's own patterns:
+- **Layout:** primary actions in thumb reach; related controls grouped (a field's helpers sit with
+  the field); one clear primary action per screen; nothing floating without an anchor; safe areas.
+- **Navigation:** every place reachable by a visible control (a gesture is only a shortcut, with a
+  visible affordance such as a grabber); one obvious way back; deep links and Back agree.
+- **Feedback:** every action shows its result where the person is looking (not only in a toast).
+- **Text and targets:** 44 pt targets, contrast, Dynamic Type / 200 % zoom, Reduce Motion.
+- **Consistency:** the same control looks and behaves the same everywhere.
+
+Findings that fit `DESIGN.md` are folded into the design before the build; ones that would change
+what the owner asked for go to the owner. Record the audit at `.polish/current/P-##/ui-audit.md`
+(or with the brief). Copy, colour or spacing tweaks inside an existing layout don't need it.
+
 ## Testing order: test-first while building, end-to-end once at the end (owner, 2026-11-24)
 
 - **While building (every item, every batch, every fix round):** test-driven. Write the tests

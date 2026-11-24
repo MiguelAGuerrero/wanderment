@@ -116,6 +116,11 @@ ask (Step G).
 5. Commit it with the cycle's landing. If nothing else is landing, land it on its own via the
    polish scripts.
 
+### D1. UI audit of the design (any brief or slice that changes layout, navigation or gestures)
+Before asking for a decision on a UI-changing brief, and before building any UI-changing slice, run
+polish's **UI audit before UI changes** on the mockups (owner, 2026-11-24: the home "drifted").
+Fold its fits-DESIGN.md findings into the brief and mockups; put the rest in the decision question.
+
 ### D2. Persona panel (decisions that change the app's shape)
 Run it only when a decision changes **how the app works**: a new model concept (like chains of
 intention), a change to capture, a new primary screen, or a DESIGN.md/STRATEGY.md tension. Ordinary
