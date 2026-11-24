@@ -10,6 +10,7 @@ import { useReduceMotion } from '@/components/graph/scopeNav';
 import { lastInput, screenReaderNow } from '@/components/modality';
 import { NightSky } from '@/components/NightSky';
 import { PassageState, usePassage, Veil } from '@/components/passage';
+import { useWhileShown } from '@/components/shown';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { endsByItself, RestSky, restSky, RETURN_BEAT_MS } from '@/domain/home';
 import { Place } from '@/domain/passage';
@@ -84,6 +85,7 @@ export function Home() {
   const data = useStore((st) => st.data);
   const shading = useStore((st) => st.showShading);
   const reduce = useReduceMotion();
+  const setDoneChip = useStore((st) => st.setDoneChip);
   const { height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardUp();
@@ -143,9 +145,14 @@ export function Home() {
     setEnding(0);
     setPlace(p);
   }, []);
+  // P-73: the trailhead's done chip lasts while you're in the home; leaving it (Map, Settings…) turns it off.
+  useWhileShown(
+    shown,
+    useCallback(() => () => setDoneChip(false), [setDoneChip]),
+  );
   const ctx = useMemo<HomeContext>(() => ({ passage, arrive, leave: toRest, endSoon }), [passage, arrive, endSoon]);
   // Only while it's in front (Map over it logs without redrawing the home's sky).
-  const sky = useMemo(() => (shown ? restSky(data) : undefined), [shown, data]);
+  const sky = useMemo(() => (shown ? restSky(data, new Date(), { shading }) : undefined), [shown, data, shading]);
 
   return (
     <View style={styles.home} testID="home" {...{ dataSet: { camera: up ? 'up' : 'rest' } }}>
@@ -167,6 +174,9 @@ export function Home() {
 /** A line's star (px) and a guiding star's size. */
 const DOT = 3;
 const GUIDE = 13;
+/** A lit line's star, and the room its glow takes. */
+const LIT_STAR = 8;
+const LIT = 18;
 
 /**
  * The sky at rest (P-74): your recent lines as faint, unlabelled stars (each in a fixed place, all
@@ -189,9 +199,19 @@ function Stars({ sky, camera }: { sky: RestSky; camera: Animated.Value }) {
           })}
         </Svg>
       )}
-      {sky.lines.map((l) => (
-        <View key={l.id} testID="rest-line" style={[styles.line, { left: l.x * width - DOT / 2, top: l.y * height - DOT / 2 }]} />
-      ))}
+      {sky.lines.map((l) =>
+        l.lit ? (
+          // P-73: a lit line is a small star in night ink (never the accent), its glow fading like warmth.
+          <View key={l.id} testID="rest-line" {...{ dataSet: { state: 'lit' } }} style={[styles.lit, { left: l.x * width - LIT / 2, top: l.y * height - LIT / 2 }]}>
+            {l.lit.glow > 0 && <View testID="rest-glow" style={[styles.glow, { opacity: 0.3 * l.lit.glow }]} />}
+            <Svg width={LIT_STAR} height={LIT_STAR} viewBox="0 0 24 24">
+              <Path d={STAR_PATH} fill={N.ink} />
+            </Svg>
+          </View>
+        ) : (
+          <View key={l.id} testID="rest-line" {...{ dataSet: { state: 'settled' } }} style={[styles.line, { left: l.x * width - DOT / 2, top: l.y * height - DOT / 2 }]} />
+        ),
+      )}
       {sky.guides.map((g) => (
         <View key={g.id} testID="rest-guide" style={[styles.guide, { left: g.x * width - GUIDE / 2, top: g.y * height - GUIDE / 2 }]}>
           <Svg width={GUIDE} height={GUIDE} viewBox="0 0 24 24">
@@ -208,6 +228,8 @@ const styles = StyleSheet.create({
   // Dimmer than any text (P-66's rule for the sky's dots).
   line: { position: 'absolute', width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: N.ink, opacity: 0.45 },
   guide: { position: 'absolute', width: GUIDE, height: GUIDE, opacity: 0.85 },
+  lit: { position: 'absolute', width: LIT, height: LIT, alignItems: 'center', justifyContent: 'center', opacity: 0.8 },
+  glow: { position: 'absolute', width: LIT, height: LIT, borderRadius: LIT / 2, backgroundColor: N.ink },
   // Over the lantern's core (96 above the bottom), 64 square.
   groundTap: { position: 'absolute', bottom: 96 - 32, left: '50%', marginLeft: -32, width: 64, height: 64 },
 });

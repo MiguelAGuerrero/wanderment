@@ -34,6 +34,10 @@ export interface LogInput {
   fromNextOf?: Id;
   /** The step as it was when it was loaded: if given, a step edited since then is left alone. */
   fromNextText?: string;
+  /** P-73: sent up from the trailhead without the done chip — a lit line (nothing else is ever lit). */
+  lit?: boolean;
+  /** P-73: sent up with the done chip — settled at once (`settledAt` now). */
+  settled?: boolean;
 }
 
 /** The thread that owns the "next" for an activity: its doing thread, else its first "to". */
@@ -54,6 +58,9 @@ export function logActivity(data: Data, input: LogInput, now = new Date()): { da
     doingId,
     toIds,
     note: input.note?.trim() || undefined,
+    // Only present when set, so every other log reads exactly as before (absent = settled).
+    ...(input.lit && !input.settled && { lit: true as const }),
+    ...(input.settled && { settledAt: now.toISOString() }),
   };
   const threads = { ...data.threads };
   // Logging to a hidden thread brings it back.

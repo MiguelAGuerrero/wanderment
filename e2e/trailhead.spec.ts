@@ -1,4 +1,7 @@
-/** P-65 (B-07 slice 1, D-13): the trailhead — a night-sky prompt is Home; today's graph is Map. */
+/**
+ * P-65 (B-07 slice 1, D-13): the trailhead — a night-sky prompt is Home; today's graph is Map.
+ * P-73 retired "Kept, loose · Undo" and "Move it?": Return now rises (e2e/rise.spec.ts covers the rise).
+ */
 import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
@@ -12,8 +15,8 @@ const LINE = 'want to sketch hands tonight';
 
 const field = (page: Page) => page.getByRole('textbox', { name: PROMPT, exact: true });
 const words = (page: Page) => page.getByTestId('trail-words');
-const moves = (page: Page) => page.getByRole('group', { name: 'Move it?', exact: true });
-const elsewhere = (page: Page) => page.getByRole('group', { name: 'Somewhere else', exact: true });
+const towardList = (page: Page) => page.getByRole('group', { name: 'Toward…', exact: true });
+const riseStar = (page: Page) => page.getByTestId('rise-star');
 const button = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
 const said = (page: Page, text: string) => page.getByRole('status').filter({ hasText: text });
 const suggestions = (page: Page) => page.getByRole('listbox', { name: 'Suggestions' });
@@ -36,10 +39,11 @@ const NIGHT_BG = 'rgb(14, 16, 32)'; // N.bg
  * P-65 fix 1: no part of the ground (hills, dashed path, lantern) lies under a control that's in view
  * (its box, clipped to the scroller it sits in).
  */
-async function expectGroundClear(page: Page, what: string) {
+async function expectGroundClear(page: Page, what: string, root = 'trailhead') {
   const ground = await Promise.all((await page.locator('[data-testid="sky-ground"], [data-testid="sky-lantern"], [data-testid="sky-core"]').filter({ visible: true }).all()).map((l) => l.boundingBox()));
-  const scroller = (await page.getByTestId('trailhead-scroll').boundingBox())!;
-  const controls = page.getByTestId('trailhead').locator('a, button, input, [role="button"], [role="option"], [role="link"]').filter({ visible: true });
+  // P-73: the rise is a session over the home (its own scroller, `rise-scroll`).
+  const scroller = (await page.getByTestId(`${root}-scroll`).boundingBox())!;
+  const controls = page.getByTestId(root).locator('a, button, input, [role="button"], [role="option"], [role="link"]').filter({ visible: true });
   for (const c of await controls.all()) {
     const b = await c.boundingBox();
     if (!b) continue;
@@ -138,7 +142,8 @@ test.describe('the trailhead', () => {
     // Return logs what's typed, as typed, picking nothing.
     await field(page).press('Enter');
     await expect(words(page)).toHaveText('cl');
-    await expect(said(page, 'Kept, loose')).toBeVisible();
+    // P-73: it rises lit (was: "Kept, loose").
+    await expect(riseStar(page)).toHaveAttribute('data-state', 'lit');
     // A tap does attach (and the step's line completes it).
     await button(page, NEW_LINE).click(); // P-65 fix 4: was the prompt's words
     await field(page).pressSequentially('cl');
@@ -146,91 +151,34 @@ test.describe('the trailhead', () => {
     await expect(field(page)).toHaveValue('Clean my car');
     await field(page).press('Enter');
     await expect(said(page, 'Logged → feel productive')).toBeVisible();
-    await expect(moves(page)).toHaveCount(0);
+    // P-73: an attached line has no ↳ First step or Toward… (was: no "Move it?").
+    await expect(button(page, 'First step')).toHaveCount(0);
+    await expect(button(page, 'Toward…')).toHaveCount(0);
   });
 
-  test('Return logs exactly as typed, loose, with no toast; the words become the billboard; Undo takes it back', async ({ page }) => {
+  test('Return logs exactly as typed, lit, with no toast; the camera tilts up and the words are the heading, focused; no “Kept, loose”', async ({ page }) => {
+    // P-73: was “…loose…; the words become the billboard; Undo takes it back” (Kept, loose · Undo is retired).
     await open(page);
     await keep(page, LINE);
-    await expect(said(page, 'Kept, loose')).toBeVisible();
+    await expect(page).toHaveURL(/\/wanderment\/line\/[^/]+$/);
+    await expect(page.getByTestId('home')).toHaveAttribute('data-camera', 'up');
+    await expect(riseStar(page)).toHaveAttribute('data-state', 'lit');
+    await expect(page.getByText('Kept, loose')).toHaveCount(0);
     await expect(page.getByText(/^Logged/).filter({ visible: true })).toHaveCount(0);
     await expect(field(page)).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: LINE, exact: true })).toBeVisible();
     await expect(words(page)).toBeFocused();
-    await expect(button(page, 'Undo')).toBeVisible();
-    expect((await button(page, 'Undo').boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    // Undo: the line goes, its words back in the field.
-    await button(page, 'Undo').click();
-    await expect(words(page)).toHaveCount(0);
-    await expect(field(page)).toHaveValue(LINE);
-    await expect(field(page)).toBeFocused();
-    await expect(await looseOnMap(page, LINE)).toHaveCount(0);
-  });
-
-  test('“Move it?” offers Next on / Log toward the guessed wander / Somewhere else, each one tap with Undo', async ({ page }) => {
-    await open(page);
-    await keep(page, LINE);
-    await expect(moves(page).getByRole('button')).toHaveText(['Next on draw better hands', 'Log toward draw better hands', 'Somewhere else…']);
-    for (const b of await moves(page).getByRole('button').all()) expect((await b.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    await expectNoSeriousViolations(page);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/p65-trailhead-move-it.png` });
-
-    // Log toward: one tap; Undo makes it loose again.
-    await button(page, 'Log toward draw better hands').click();
-    await expect(said(page, 'Logged toward draw better hands')).toBeVisible();
-    await expect(moves(page)).toHaveCount(0);
-    await expect(button(page, 'Undo')).toBeFocused();
-    await button(page, 'Undo').click();
-    await expect(said(page, 'Kept, loose')).toBeVisible();
-    await expect(moves(page)).toBeVisible();
-
-    // Next on: the words become the step (the line isn't a log any more); Undo puts it back.
-    await button(page, 'Next on draw better hands').click();
-    await expect(said(page, 'Next on draw better hands')).toBeVisible();
-    await expect(words(page)).toHaveText(LINE);
-    await button(page, 'Undo').click();
-    await expect(said(page, 'Kept, loose')).toBeVisible();
-
-    // Somewhere else: any wander (most recently walked first), one tap.
-    await button(page, 'Somewhere else…').click();
-    await expect(elsewhere(page).getByRole('button')).toHaveText(['feel productive', 'draw better hands', 'Make it', 'Cancel']); // fix 5
-    await expectNoSeriousViolations(page);
-    await elsewhere(page).getByRole('button', { name: 'feel productive', exact: true }).click();
-    await expect(said(page, 'Logged toward feel productive')).toBeVisible();
-    await button(page, 'Undo').click();
-    await expect(said(page, 'Kept, loose')).toBeVisible();
-
-    // Next on, kept: Map's Wanders shows it as draw better hands' step, and the line isn't loose.
-    await button(page, 'Next on draw better hands').click();
-    await expect(await looseOnMap(page, LINE)).toHaveCount(0);
-    await openSheet(page, 'Wanders');
-    await expect(page.getByRole('dialog').getByText(LINE).filter({ visible: true }).first()).toBeVisible();
-  });
-
-  test('Next on is never offered over a staged step; with no guess only Somewhere else, where a new wander can be named', async ({ page }) => {
-    await open(page);
-    await keep(page, 'cooked dinner');
-    await expect(moves(page).getByRole('button')).toHaveText(['Log toward feel productive', 'Somewhere else…']);
-    await button(page, 'Log toward feel productive').click();
-    await expect(said(page, 'Logged toward feel productive')).toBeVisible();
-
-    await button(page, NEW_LINE).click(); // P-65 fix 4: was the prompt's words
-    await expect(field(page)).toBeFocused();
-    await keep(page, 'went for a swim');
-    await expect(moves(page).getByRole('button')).toHaveText(['Somewhere else…']);
-    await button(page, 'Somewhere else…').click();
-    const name = elsewhere(page).getByRole('textbox', { name: 'A new wander', exact: true });
-    await name.fill('get fit');
-    await name.press('Enter');
-    await expect(said(page, 'Logged toward get fit')).toBeVisible();
-    await button(page, 'Undo').click();
-    await expect(said(page, 'Kept, loose')).toBeVisible();
-    await button(page, 'Somewhere else…').click();
-    await expect(elsewhere(page).getByRole('button', { name: 'get fit', exact: true })).toHaveCount(0);
+    // Nothing chosen, nothing to undo.
+    await expect(button(page, 'Undo')).toHaveCount(0);
+    await button(page, NEW_LINE).click();
+    await expect(await looseOnMap(page, LINE)).toBeVisible();
   });
 
   test('leaving keeps the line: it stays loose, and coming back is the question again', async ({ page }) => {
     await open(page);
     await keep(page, LINE);
+    // P-73: Map isn't on the rise; New line comes back down first.
+    await button(page, NEW_LINE).click();
     await expect(await looseOnMap(page, LINE)).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
     await page.getByRole('button', { name: 'Back to the prompt', exact: true }).click();
@@ -339,11 +287,13 @@ test.describe('the trailhead', () => {
       if (SHOTS) await page.screenshot({ path: `${SHOTS}/p65-trailhead-typing-${width}x${height}.png` });
       await field(page).fill(LINE);
       await field(page).press('Enter');
-      await expect(moves(page)).toBeVisible();
-      await expectGroundClear(page, 'Move it?');
-      if (SHOTS) await page.screenshot({ path: `${SHOTS}/p65-trailhead-move-it-${width}x${height}.png` });
-      await button(page, 'Somewhere else…').click();
-      await expectGroundClear(page, 'Somewhere else');
+      // P-73: the rise (was "Move it?" and "Somewhere else").
+      await expect(button(page, 'Done it')).toBeVisible();
+      await expectGroundClear(page, 'the rise', 'rise');
+      if (SHOTS) await page.screenshot({ path: `${SHOTS}/p73-rise-${width}x${height}.png` });
+      await button(page, 'Toward…').click();
+      await expect(towardList(page)).toBeVisible();
+      await expectGroundClear(page, 'Toward…', 'rise');
     });
 
   test('fix 2: the field’s focus ring is the night palette’s (≥ 3:1), and the dashed “doing?” chip reads at 4.5:1', async ({ page }) => {
@@ -365,7 +315,8 @@ test.describe('the trailhead', () => {
     expect(contrast(color, NIGHT_BG)).toBeGreaterThanOrEqual(4.5);
   });
 
-  test('fix 3: the moves are as quiet as “Kept, loose” — one muted colour, never larger than it', async ({ page }) => {
+  test('fix 3 (P-73): the rise’s choices are quiet — one muted colour, never larger than the status line', async ({ page }) => {
+    // P-73: was “the moves are as quiet as Kept, loose” (retired); the same rule for Done it, First step, Toward….
     await open(page);
     await keep(page, LINE);
     const look = (l: Locator) =>
@@ -373,14 +324,15 @@ test.describe('the trailhead', () => {
         const cs = getComputedStyle(el);
         return { color: cs.color, size: parseFloat(cs.fontSize) };
       });
-    const kept = await look(said(page, 'Kept, loose'));
-    const ms = await moves(page).getByRole('button').all();
-    expect(ms.length).toBe(3);
-    for (const m of ms) {
-      const cs = await look(m);
-      expect(cs.color, await m.innerText()).toBe(kept.color);
-      expect(kept.size).toBeGreaterThanOrEqual(cs.size);
+    const choices = [button(page, 'Done it'), button(page, 'First step'), button(page, 'Toward…')];
+    const first = await look(choices[0]);
+    for (const c of choices) {
+      const cs = await look(c);
+      expect(cs.color).toBe(first.color);
+      expect(cs.size).toBeLessThanOrEqual(15);
+      expect((await c.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
+    expect(first.color).not.toBe('rgb(242, 180, 140)'); // never the accent (N.lantern)
   });
 
   test('fix 4: above your words is “New line” (a tap, or typing, starts one); your words are a heading', async ({ page }) => {
@@ -402,19 +354,6 @@ test.describe('the trailhead', () => {
     await button(page, NEW_LINE).click();
     await expect(field(page)).toBeFocused();
     await expect(field(page)).toHaveValue('');
-  });
-
-  test('fix 5: “A new wander” has a visible Make it button besides Return', async ({ page }) => {
-    await open(page);
-    await keep(page, 'went for a swim');
-    await button(page, 'Somewhere else…').click();
-    const make = elsewhere(page).getByRole('button', { name: 'Make it', exact: true });
-    await expect(make).toBeVisible();
-    expect((await make.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-    await elsewhere(page).getByRole('textbox', { name: 'A new wander', exact: true }).fill('get fit');
-    await make.click();
-    await expect(said(page, 'Logged toward get fit')).toBeVisible();
-    await expectNoSeriousViolations(page);
   });
 
   test('fix 6: Map is one Shift+Tab from the field, and no scroller is a Tab stop', async ({ page }) => {
@@ -442,17 +381,19 @@ test.describe('the trailhead', () => {
     expect(await scrollStops()).toBe(0);
   });
 
-  test('first run: nothing yet, the same question; the first line is kept loose and can name the first wander', async ({ page }) => {
+  test('first run: nothing yet, the same question; the first line rises lit and can become the first wander', async ({ page }) => {
+    // P-73: was “kept loose … can name the first wander” through Somewhere else (retired); ↳ First step does it now.
     await open(page, null);
     await expect(field(page)).toBeFocused();
-    await keep(page, 'went for a walk');
-    await expect(said(page, 'Kept, loose')).toBeVisible();
-    await button(page, 'Somewhere else…').click();
-    await expect(elsewhere(page).getByRole('button')).toHaveText(['Make it', 'Cancel']); // fix 5
-    const name = elsewhere(page).getByRole('textbox', { name: 'A new wander', exact: true });
-    await name.fill('move more');
-    await name.press('Enter');
-    await expect(said(page, 'Logged toward move more')).toBeVisible();
+    await keep(page, 'move more');
+    await expect(riseStar(page)).toHaveAttribute('data-state', 'lit');
+    // No wanders yet: nothing to go toward.
+    await expect(button(page, 'Toward…')).toHaveCount(0);
+    await button(page, 'First step').click();
+    const step = page.getByRole('textbox', { name: 'First step', exact: true });
+    await step.fill('walk to the shop');
+    await step.press('Enter');
+    await expect(said(page, 'First step on move more')).toBeVisible();
     await expectNoSeriousViolations(page);
   });
 
@@ -479,7 +420,7 @@ test.describe('the trailhead', () => {
     await expect(suggestions(page).getByRole('option', { name: 'Open feel productive', exact: true })).toBeVisible();
     await field(page).press('Enter');
     await expect(words(page)).toHaveText('feel');
-    await expect(said(page, 'Kept, loose')).toBeVisible();
+    await expect(riseStar(page)).toHaveAttribute('data-state', 'lit'); // P-73: was "Kept, loose"
     await button(page, NEW_LINE).click();
     await field(page).pressSequentially('feel');
     await suggestions(page).getByRole('option', { name: 'Open feel productive', exact: true }).click();

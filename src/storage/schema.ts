@@ -38,6 +38,12 @@ export const MIGRATIONS: string[] = [
   `,
   // 2: when a thread was marked as what it's for (NULL: it isn't). Old rows read NULL.
   `ALTER TABLE threads ADD COLUMN declared_at TEXT;`,
+  // 3 (P-73): a line sent up lit (1) — old rows, and an older copy's rewrites, read 0: settled — and
+  // when it was settled (NULL: never stamped).
+  `
+  ALTER TABLE activities ADD COLUMN lit INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE activities ADD COLUMN settled_at TEXT;
+  `,
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

@@ -127,6 +127,8 @@ describe('sessions: what a session over the home is about', () => {
       [{ kind: 'why', id: 'a b' }, 'star', '/star/a%20b'],
       [{ kind: 'wander', id: 'x' }, 'trail', '/trail/x'],
       [{ kind: 'wander', id: 'x', star: 'a b' }, 'trail', '/trail/x?star=a%20b'],
+      // P-73: a line just sent up rises over the sky.
+      [{ kind: 'line', activityId: 'l 1' }, 'sky', '/line/l%201'],
     ];
     for (const [s, place, href] of cases) {
       expect(subjectPlace(s)).toBe(place);

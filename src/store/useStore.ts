@@ -27,7 +27,7 @@ import { Selection, selectToward, unselect } from '@/domain/select';
 import { SheetSection } from '@/domain/sheet';
 import { cardLabel, HomeFace, restingFace, whatsNextNode } from '@/domain/slot';
 import { lastActivities } from '@/domain/selectors';
-import { applyMove, Move } from '@/domain/trailhead';
+import { firstStep, settle, toward, undoFirstStep } from '@/domain/rise';
 import { Data, emptyData, Id } from '@/domain/types';
 
 /** What's currently in the log box. Shared so a crumb on Home can load into it. */
@@ -62,17 +62,30 @@ export interface LogOptions {
    * stays, and while reconnecting it's refused out loud instead of waiting like a Return.
    */
   keepLine?: boolean;
-  /** Return on the trailhead (P-65): no toast; the line is kept for its billboard (`kept`). */
+  /** Return on the trailhead (P-65): no toast; the line rises (`kept`), lit (P-73) unless `done`. */
   trail?: boolean;
+  /** P-73: the trailhead's done chip was on at Return: the line settles at once. Captured at Return. */
+  done?: boolean;
 }
 
-/** The line Return just kept on the trailhead (P-65), and where "Move it?" moved it. Session only. */
+/** What was chosen in the rise (P-73); its Undo takes it back. */
+export type Choice =
+  /** Sent up with the done chip: settled at once; Undo takes the line back out. */
+  | { kind: 'done' }
+  /** Done it. */
+  | { kind: 'settled' }
+  /** ↳ First step: the line went toward this wander (made, or found by name). */
+  | { kind: 'step'; threadId: Id }
+  /** Toward… */
+  | { kind: 'toward'; threadId: Id };
+
+/** The line Return just sent up (P-73's rise; P-65's billboard), and what was chosen for it. Session only. */
 export interface Kept {
   activityId: Id;
-  /** As logged (the billboard keeps showing it after "Next on" takes the log out). */
+  /** As logged. */
   text: string;
-  moved?: { kind: 'toward' | 'next'; threadId: Id };
-  /** Opened again from the sky (fix 18), not just logged: Undo only ever takes back a move. */
+  did?: Choice;
+  /** Opened again from the sky (fix 18), not just logged: Undo only ever takes back a choice. */
   reopened?: boolean;
 }
 
@@ -175,8 +188,10 @@ interface State {
   saveError?: string;
   /** Return pressed while reconnecting (P-29). */
   toLog?: ToLog;
-  /** The trailhead's billboard (P-65). */
+  /** The line rising over the home (P-73; was P-65's billboard). */
   kept?: Kept;
+  /** P-73: the trailhead's done chip — sticky until turned off or the home is left. Session only, never stored. */
+  doneChip: boolean;
 
   setDraft: (patch: Partial<Draft>) => void;
   clearDraft: () => void;
@@ -254,20 +269,26 @@ interface State {
   putOffWhy: () => boolean;
   /** The first run is over (finished, skipped, or a log came in): it never shows again. */
   endFirstRun: () => boolean;
-  /** "Move it?" on the trailhead (P-65): one tap moves the kept line (`applyMove`); false when refused. */
-  moveKept: (move: Move) => boolean;
+  /** P-73 Done it: the rising lit line settles. False when refused (nothing lit, or already chosen). */
+  settleKept: () => boolean;
+  /** P-73 ↳ First step + Return: the line becomes a wander with that step (`firstStep`). False when refused. */
+  firstStepKept: (step: string) => boolean;
+  /** P-73 Toward…: the rising line goes toward a visible wander. False when refused. */
+  towardKept: (threadId: Id) => boolean;
   /**
-   * The billboard's Undo (P-65): after a move, the line is loose again (and Undo once more takes it
-   * out); otherwise the line goes and its words go back in the field.
+   * The rise's Undo (P-73): takes back the choice (Done it, First step, Toward…), and the line is as it
+   * was; for a done-chip line, the line goes and its words go back in the field. False with no choice.
    */
   undoKept: () => boolean;
-  /** The billboard goes (a new line, or the trailhead was left); the line stays as it is. */
-  leaveKept: () => void;
+  /** The rise ends (a new line, or it was left); the line stays as it is. With an id: only that line's. */
+  leaveKept: (activityId?: Id) => void;
   /**
-   * A loose line tapped on the sky (fix 18): it's on the trailhead's billboard again with "Move it?";
-   * there's nothing to undo until a move. False when it isn't there or isn't loose.
+   * A loose line tapped on the sky (fix 18): it rises again, with its choices as it is now (P-73);
+   * there's nothing to undo until a choice. False when it isn't there or isn't loose.
    */
   keepLoose: (activityId: Id) => boolean;
+  /** P-73: turns the trailhead's done chip on or off (session only). */
+  setDoneChip: (on: boolean) => void;
 }
 
 const emptyDraft = (): Draft => ({ text: '', toIds: [] });
@@ -334,6 +355,7 @@ export const useStore = create<State>()((set, get) => ({
   firstRunDone: false,
   dismissedPullIn: [],
   storage: { state: 'loading' },
+  doneChip: false,
 
   setDraft: (patch) => set((s) => ({ draft: { ...s.draft, ...patch } })),
   clearDraft: () => set({ draft: emptyDraft() }),
@@ -429,6 +451,9 @@ export const useStore = create<State>()((set, get) => ({
         fromNextText: extra?.fromNextOf ? extra.fromNextText : draft.fromNextText,
         occurredAt: extra?.occurredAt,
         note: extra?.note,
+        // P-73: only the trailhead's Return sends a line up lit (settled at once with the done chip).
+        lit: !!opts?.trail && !opts.done,
+        settled: !!opts?.trail && !!opts.done,
       });
       const owner = nextOwner(res.activity);
       const ownerName = owner ? res.data.threads[owner]?.name : undefined;
@@ -457,7 +482,7 @@ export const useStore = create<State>()((set, get) => ({
               ...(bridge && { detail: BRIDGE_QUESTION }),
               activityId: res.activity.id,
             },
-        kept: opts?.trail ? { activityId: res.activity.id, text: res.activity.text } : get().kept,
+        kept: opts?.trail ? { activityId: res.activity.id, text: res.activity.text, ...(opts.done && { did: { kind: 'done' as const } }) } : get().kept,
         toLog: undefined,
       });
       return res.activity.id;
@@ -631,40 +656,49 @@ export const useStore = create<State>()((set, get) => ({
   putOffWhy: gated<State['putOffWhy']>(false, () => change({ whyOfferOff: true })),
   endFirstRun: gated<State['endFirstRun']>(false, () => change({ firstRunDone: true })),
 
-  moveKept: gated<State['moveKept']>(false, (move) => {
+  settleKept: gated<State['settleKept']>(false, () => {
     const { kept, data } = get();
-    if (!kept || kept.moved) return false;
-    const res = applyMove(data, kept.activityId, move);
+    if (!kept || kept.did) return false;
+    const next = settle(data, kept.activityId);
+    if (next === data) return false;
+    set({ data: next, undo: undoEntry(data, next), kept: { ...kept, did: { kind: 'settled' } } });
+    return true;
+  }),
+
+  firstStepKept: gated<State['firstStepKept']>(false, (step) => {
+    const { kept, data } = get();
+    if (!kept || kept.did || data.activities[kept.activityId]?.doingId) return false;
+    const res = firstStep(data, kept.activityId, step);
     if (!res) return false;
-    set({
-      data: res.data,
-      undo: undoEntry(data, res.data),
-      kept: { ...kept, moved: { kind: move.kind === 'next' ? 'next' : 'toward', threadId: res.threadId } },
-    });
+    set({ data: res.data, undo: undoEntry(data, res.data), kept: { ...kept, did: { kind: 'step', threadId: res.threadId } } });
+    return true;
+  }),
+
+  towardKept: gated<State['towardKept']>(false, (threadId) => {
+    const { kept, data } = get();
+    if (!kept || kept.did || data.activities[kept.activityId]?.doingId) return false;
+    const next = toward(data, kept.activityId, threadId);
+    if (!next) return false;
+    set({ data: next, undo: undoEntry(data, next), kept: { ...kept, did: { kind: 'toward', threadId } } });
     return true;
   }),
 
   undoKept: gated<State['undoKept']>(false, () => {
-    const { kept, undo, draft } = get();
-    if (!kept || !undo) return false;
-    // A line reopened from the sky has nothing of its own to undo until it's moved (the pending
-    // Undo belongs to whatever came before, and stays for it).
-    if (kept.reopened && !kept.moved) return false;
-    const data = applyUndo(get().data, undo);
-    const a = data.activities[kept.activityId];
-    if (kept.moved && a && kept.reopened) {
-      // Loose again; it was logged long before, so there's nothing more to undo.
-      set({ data, undo: undefined, kept: { activityId: a.id, text: kept.text, reopened: true } });
-    } else if (kept.moved && a) {
-      // Loose again; the next Undo takes the line out, as the one before the move would have.
-      set({ data, undo: undoEntry(deleteActivity(data, a.id), data), kept: { activityId: a.id, text: kept.text } });
-    } else {
-      set({ data, undo: undefined, kept: undefined, draft: draft.text.trim() ? draft : { ...emptyDraft(), text: kept.text } });
+    const { kept, undo, draft, data } = get();
+    // Nothing chosen yet (a line just sent up, or opened again from the sky): nothing of its own to undo.
+    if (!kept?.did || !undo) return false;
+    const { did, ...was } = kept;
+    if (did.kind === 'done') {
+      // Sent up with the done chip: the line goes, and its words go back in the field.
+      set({ data: applyUndo(data, undo), undo: undefined, kept: undefined, draft: draft.text.trim() ? draft : { ...emptyDraft(), text: kept.text } });
+      return true;
     }
+    const back = did.kind === 'step' ? undoFirstStep(data, undo, did.threadId) : applyUndo(data, undo);
+    set({ data: back, undo: undefined, kept: was });
     return true;
   }),
 
-  leaveKept: () => set((s) => (s.kept ? { kept: undefined } : {})),
+  leaveKept: (activityId) => set((s) => (s.kept && (!activityId || s.kept.activityId === activityId) ? { kept: undefined } : {})),
 
   keepLoose: (activityId) => {
     const a = get().data.activities[activityId];
@@ -673,6 +707,8 @@ export const useStore = create<State>()((set, get) => ({
     set({ kept: { activityId, text: a.text, reopened: true } });
     return true;
   },
+
+  setDoneChip: (on) => set((s) => (s.doneChip === on ? {} : { doneChip: on })),
 }));
 
 /** Threads ordered by most recent use, for autocomplete ranking. */

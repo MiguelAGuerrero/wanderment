@@ -70,6 +70,10 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
       doingId,
       toIds: [...new Set(rawTo.filter((t): t is string => typeof t === 'string' && !!t && t !== doingId))],
       note: typeof a.note === 'string' && a.note.trim() ? a.note : undefined,
+      // P-73: only when set (absent = settled, as older backups read); only `true` is lit, and only a
+      // real ISO timestamp is a settledAt (as with declaredAt).
+      ...(a.lit === true && { lit: true as const }),
+      ...(isIsoStamp(a.settledAt) && { settledAt: utc(a.settledAt) }),
     };
   }
   if (strict) refuseSameNames(threads);

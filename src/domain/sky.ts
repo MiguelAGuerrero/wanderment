@@ -10,6 +10,7 @@
  */
 import { emptyHeatIndex, HeatIndex, indexHeat, latestUnder, nodeHeat } from './heat';
 import { declaredWhys } from './model';
+import { looksLit } from './rise';
 import { BIG_TEXT, headerWhys, looseLogs } from './overview';
 import { activitiesOf } from './selectors';
 import { Data, Id, Thread } from './types';
@@ -228,19 +229,20 @@ export function footprints(data: Data, threadId: Id, now = new Date()): { id: Id
 }
 
 /** A footprint's accessible name: "sketched a hand, today" (the "·" shown between them is spoken as a comma). */
-export const footprintName = (f: { text: string; when: string }) => `${f.text}, ${f.when}`;
+export const footprintName = (f: { text: string; when: string; lit?: boolean }) => `${f.text}, ${f.when}${f.lit ? ', lit' : ''}`;
 
 /** Loose lines drawn on the sky at most (fix 18; Map's rule, LOOSE_MAX). */
 export const SKY_LOOSE_MAX = 3;
 
 /**
  * Your recent loose lines on the sky (fix 18): Map's loose logs (no doing, no to, the last three weeks,
- * newest first), at most SKY_LOOSE_MAX, each with its words and when it happened in words.
+ * newest first), at most SKY_LOOSE_MAX, each with its words and when it happened in words, and (P-73)
+ * whether it still looks lit (its spoken name says so).
  */
-export function skyLoose(data: Data, now = new Date()): { id: Id; text: string; when: string }[] {
+export function skyLoose(data: Data, now = new Date()): { id: Id; text: string; when: string; lit: boolean }[] {
   return looseLogs(data, { now })
     .slice(0, SKY_LOOSE_MAX)
-    .map((l) => ({ id: l.id, text: l.text, when: walkedWords(data.activities[l.id].occurredAt, now) }));
+    .map((l) => ({ id: l.id, text: l.text, when: walkedWords(data.activities[l.id].occurredAt, now), lit: looksLit(data.activities[l.id], now) }));
 }
 
 /** At the largest text sizes (BIG_TEXT, as on Map) the sky is a plain list of its stars, not a picture. */

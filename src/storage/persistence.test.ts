@@ -437,6 +437,128 @@ describe('what a thread is for (P-14)', () => {
   });
 });
 
+describe('lit and settled lines (P-73)', () => {
+  const lit = (store: Awaited<ReturnType<typeof load>>, text: string, done = false) => {
+    store.getState().setDraft({ text });
+    return store.getState().log(undefined, { trail: true, done })!;
+  };
+  const line = (store: Awaited<ReturnType<typeof load>>, id: string) => store.getState().data.activities[id];
+
+  it('a lit line, a done-chip line, Done it and its Undo all survive a reload in SQLite; a note edited later wipes nothing', async () => {
+    let store = await load();
+    const a = lit(store, 'sketch hands');
+    const b = lit(store, 'read a chapter', true);
+    const c = lit(store, 'went for a swim');
+    store.getState().settleKept(); // c, the line rising now
+    await settle();
+    store = await load();
+    expect(line(store, a)).toMatchObject({ lit: true });
+    expect(line(store, a).settledAt).toBeUndefined();
+    expect(line(store, b).lit).toBeUndefined();
+    expect(line(store, b).settledAt).toMatch(/^\d{4}-\d\d-\d\dT.*Z$/);
+    expect(line(store, c).lit).toBeUndefined();
+    expect(line(store, c).settledAt).toEqual(expect.any(String));
+
+    // Every edit rewrites the whole row: none may drop lit or settledAt.
+    store.getState().updateActivity(a, { note: 'with charcoal' });
+    store.getState().updateActivity(b, { note: 'chapter 3' });
+    await settle();
+    store = await load();
+    expect(line(store, a)).toMatchObject({ lit: true, note: 'with charcoal' });
+    expect(line(store, b)).toMatchObject({ settledAt: expect.any(String), note: 'chapter 3' });
+
+    // Done it, then Undo, saved: lit again on disk.
+    store.setState({ kept: { activityId: a, text: 'sketch hands' } });
+    store.getState().settleKept();
+    await settle();
+    store.getState().undoKept();
+    await settle();
+    store = await load();
+    expect(line(store, a).lit).toBe(true);
+    expect(line(store, a).settledAt).toBeUndefined();
+  });
+
+  it('↳ First step survives a reload (the wander, its step, the line settled toward it); its Undo does too', async () => {
+    let store = await load();
+    const a = lit(store, 'learn watercolour');
+    expect(store.getState().firstStepKept('buy a brush')).toBe(true);
+    const tid = line(store, a).doingId!;
+    await settle();
+    store = await load();
+    expect(store.getState().data.threads[tid]).toMatchObject({ name: 'learn watercolour', next: 'buy a brush' });
+    expect(line(store, a)).toMatchObject({ doingId: tid, settledAt: expect.any(String) });
+    expect(line(store, a).lit).toBeUndefined();
+    store.setState({ kept: { activityId: a, text: 'learn watercolour', did: { kind: 'step', threadId: tid } }, undo: undefined });
+    // A fresh page has no Undo for it: refused, nothing changes.
+    expect(store.getState().undoKept()).toBe(false);
+  });
+
+  it('survives the tab closing before SQLite commits (journal)', async () => {
+    let store = await load();
+    await settle();
+    env.state.hangWrites = true;
+    const a = lit(store, 'sketch hands');
+    const b = lit(store, 'read', true);
+    await settle();
+    env.state.hangWrites = false;
+    store = await load();
+    expect(line(store, a).lit).toBe(true);
+    expect(line(store, b).settledAt).toEqual(expect.any(String));
+    expect(env.ls.has('wanderment:journal')).toBe(false);
+  });
+
+  it('a browser that can’t run SQLite keeps them in the old format (localStorage), then moves them once it can', async () => {
+    env.state.openError = new Error('no OPFS');
+    let store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+    const a = lit(store, 'sketch hands');
+    const b = lit(store, 'read', true);
+    const settledAt = line(store, b).settledAt;
+    await settle();
+    store = await load();
+    expect(line(store, a).lit).toBe(true);
+    expect(line(store, b).settledAt).toBe(settledAt);
+    env.state.openError = undefined;
+    store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(line(store, a).lit).toBe(true);
+    expect(line(store, b).settledAt).toBe(settledAt);
+  });
+
+  it('the lenient load of a saved blob with a damaged record keeps the rest’s lit and settledAt', async () => {
+    env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: { ...act('a1', 'sketch'), lit: true }, a2: { ...act('a2', 'read'), settledAt: at }, bad: { id: 'bad' } } }));
+    const store = await load();
+    expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+    expect(line(store, 'a1').lit).toBe(true);
+    expect(line(store, 'a2').settledAt).toBe(at);
+    expect(line(store, 'bad')).toBeUndefined();
+  });
+
+  it('export → import keeps both through a reload; an older export (no such fields) imports and reads settled', async () => {
+    const { toBackup, fromBackup } = await import('@/domain/backup');
+    let store = await load();
+    const a = lit(store, 'sketch hands');
+    const b = lit(store, 'read', true);
+    const settledAt = line(store, b).settledAt;
+    const json = toBackup(store.getState().data);
+    store.getState().removeActivity(a);
+    await settle();
+    store.getState().replaceData(fromBackup(json));
+    await settle();
+    store = await load();
+    expect(line(store, a).lit).toBe(true);
+    expect(line(store, b).settledAt).toBe(settledAt);
+
+    const older = JSON.stringify({ app: 'wanderment', exportedAt: at, data: { version: 1, threads: {}, activities: { o1: act('o1', 'scales') } } });
+    store.getState().replaceData(fromBackup(older));
+    await settle();
+    store = await load();
+    expect(Object.keys(store.getState().data.activities)).toEqual(['o1']);
+    expect(line(store, 'o1').lit).toBeUndefined();
+    expect(line(store, 'o1').settledAt).toBeUndefined();
+  });
+});
+
 describe('another copy of the app holds the data (P-29)', () => {
   const WEBKIT_HELD = 'The object is in an invalid state.';
   const held = () => new Error(WEBKIT_HELD);
@@ -1386,7 +1508,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     const fixture = () => ({
       version: 1 as const,
       threads: { t1: thread('t1', 'draw', { next: 'step', declaredAt: at }), t2: thread('t2', 'read') },
-      activities: { a1: act('a1', 'unattached'), a2: { ...act('a2', 'drew'), doingId: 't1' }, a3: act('a3', 'to delete') },
+      // P-73: a1 is lit (sent up from the trailhead), so Done it has something to settle.
+      activities: { a1: { ...act('a1', 'unattached'), lit: true as const }, a2: { ...act('a2', 'drew'), doingId: 't1' }, a3: act('a3', 'to delete') },
     });
     const other = () => ({ version: 1 as const, threads: {}, activities: { i1: act('i1', 'imported') } });
     type S = ReturnType<Store['getState']>;
@@ -1416,13 +1539,15 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       setShowShading: { args: [false] },
       putOffWhy: { args: [] },
       endFirstRun: { args: [] },
-      // P-65: the trailhead's "Move it?" and its Undo change the data (the kept line is a1, loose).
-      moveKept: { args: [{ kind: 'toward', threadId: 't2' }], setup: (store) => store.setState({ kept: { activityId: 'a1', text: 'unattached' } }) },
+      // P-73: the rise's choices and their Undo change the data (the rising line is a1, loose and lit).
+      settleKept: { args: [], setup: (store) => store.setState({ kept: { activityId: 'a1', text: 'unattached' } }) },
+      firstStepKept: { args: ['first'], setup: (store) => store.setState({ kept: { activityId: 'a1', text: 'unattached' } }) },
+      towardKept: { args: ['t2'], setup: (store) => store.setState({ kept: { activityId: 'a1', text: 'unattached' } }) },
       undoKept: {
         args: [],
         setup: (store) => {
           store.setState({ kept: { activityId: 'a1', text: 'unattached' } });
-          store.getState().moveKept({ kind: 'toward', threadId: 't2' });
+          store.getState().towardKept('t2');
         },
       },
     };
@@ -1452,10 +1577,12 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       openSheet: ['activities'],
       closeSheet: [],
       showSheetSection: ['activities'],
-      // P-65: walking away from the trailhead's kept line (session only).
+      // P-65/P-73: walking away from the rising line (session only).
       leaveKept: [],
-      // Fix 18: a loose line tapped on the sky reopens the trailhead's Move it? (session only).
+      // Fix 18 (P-73): a loose line tapped on the sky rises again (session only).
       keepLoose: ['a1'],
+      // P-73: the trailhead's done chip (session only, never stored).
+      setDoneChip: [true],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>

@@ -6,6 +6,7 @@
  * sky at rest shows, what a session is about, and when one ends by itself. Nothing here is stored.
  */
 import { Place } from './passage';
+import { litGlow, looksLit } from './rise';
 import { hash, skyStars } from './sky';
 import { Data, Id } from './types';
 
@@ -20,6 +21,8 @@ export interface RestStar {
   id: Id;
   x: number;
   y: number;
+  /** P-73: a line that still looks lit (drawn as a star in night ink), with its glow (0 with the shading off). Absent: settled. */
+  lit?: { glow: number };
 }
 /** A guiding star (a why): where it sits. */
 export interface Guide {
@@ -63,16 +66,17 @@ export function stems(text: string): string[] {
 /**
  * The sky at rest: your recent lines (the last ~60 days or the newest ~12, whichever is more; at most
  * ~80, the oldest thinned first), each in a fixed place from its id and all alike — nothing dims,
- * withers or counts with time away; faint lines between stars that share a word stem (each joins at
+ * withers or counts with time away (P-73: a lit line is a star with a glow that fades like warmth, and
+ * draws as settled about a month on); faint lines between stars that share a word stem (each joins at
  * most the latest earlier one); and the sky's whys as guiding stars, high up, each in a fixed place.
  */
-export function restSky(data: Data, now = new Date()): RestSky {
+export function restSky(data: Data, now = new Date(), { shading = true }: { shading?: boolean } = {}): RestSky {
   const since = new Date(now.getTime() - REST_WINDOW_DAYS * 864e5).toISOString();
   const all = Object.values(data.activities).sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : a.occurredAt > b.occurredAt ? -1 : a.id < b.id ? -1 : 1));
   const recent = all.findIndex((a) => a.occurredAt < since);
   const n = Math.min(REST_MAX, Math.max(recent < 0 ? all.length : recent, REST_FLOOR));
   const shown = all.slice(0, n);
-  const lines = shown.map((a) => ({ id: a.id, ...place(a.id, LINE_BAND, 'line') }));
+  const lines = shown.map((a): RestStar => ({ id: a.id, ...place(a.id, LINE_BAND, 'line'), ...(looksLit(a, now) && { lit: { glow: litGlow(a, now, shading) } }) }));
 
   const links: RestSky['links'] = [];
   const seen: { id: Id; stems: string[] }[] = [];
@@ -91,19 +95,20 @@ export function restSky(data: Data, now = new Date()): RestSky {
 
 /**
  * What a session over the home is about: the whys (look up), one why (its wanders), or one wander (its
- * trail; `star` is the why it was opened from). P-73 adds a line (`{ kind: 'line', activityId }`).
+ * trail; `star` is the why it was opened from), or a line just sent up (P-73: the rise).
  */
-export type Subject = { kind: 'whys' } | { kind: 'why'; id: Id } | { kind: 'wander'; id: Id; star?: Id };
+export type Subject = { kind: 'whys' } | { kind: 'why'; id: Id } | { kind: 'wander'; id: Id; star?: Id } | { kind: 'line'; activityId: Id };
 
 /** Where the camera is for a subject (P-72's places: the passage between them). */
 export function subjectPlace(s: Subject): Exclude<Place, 'trailhead' | 'map'> {
-  return s.kind === 'whys' ? 'sky' : s.kind === 'why' ? 'star' : 'trail';
+  return s.kind === 'whys' || s.kind === 'line' ? 'sky' : s.kind === 'why' ? 'star' : 'trail';
 }
 
 /** A session's link: the home, already tilted to it. */
 export function subjectHref(s: Subject): string {
   if (s.kind === 'whys') return '/sky';
   if (s.kind === 'why') return `/star/${encodeURIComponent(s.id)}`;
+  if (s.kind === 'line') return `/line/${encodeURIComponent(s.activityId)}`;
   return `/trail/${encodeURIComponent(s.id)}${s.star ? `?star=${encodeURIComponent(s.star)}` : ''}`;
 }
 

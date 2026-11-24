@@ -378,3 +378,20 @@ describe('skyLoose (fix 18): your recent loose lines, as stray footprints on the
     expect(skyLoose(make('a'), NOW)).toEqual([]);
   });
 });
+
+describe('P-73: a loose line on the sky says when it’s still lit (the state is in its spoken name)', () => {
+  it('a lit line that still looks lit says “lit”; settled ones don’t (a month on it looks settled: rise.test.ts)', () => {
+    let data = make('draw');
+    data = logActivity(data, { text: 'old pursuit', lit: true }, new Date(NOW.getTime() - 20 * 864e5)).data;
+    data = logActivity(data, { text: 'sketch hands', lit: true }, new Date(NOW.getTime() - 864e5)).data;
+    data = logActivity(data, { text: 'ran' }, NOW).data;
+    const loose = skyLoose(data, NOW);
+    expect(loose.map((l) => [l.text, l.lit])).toEqual([
+      ['ran', false],
+      ['sketch hands', true],
+      ['old pursuit', true],
+    ]);
+    expect(footprintName(loose[1])).toBe('sketch hands, yesterday, lit');
+    expect(footprintName(loose[0])).toBe('ran, today');
+  });
+});

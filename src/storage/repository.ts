@@ -19,6 +19,8 @@ interface ActivityRow {
   created_at: string;
   doing_id: string | null;
   note: string | null;
+  lit: number;
+  settled_at: string | null;
 }
 interface ToRow {
   activity_id: string;
@@ -46,6 +48,9 @@ export async function loadData(db: Db): Promise<Data> {
       doingId: r.doing_id ?? undefined,
       toIds: [],
       note: r.note ?? undefined,
+      // Only when set (P-73): absent = settled, as every older activity reads.
+      ...(r.lit === 1 && { lit: true as const }),
+      ...(r.settled_at && { settledAt: r.settled_at }),
     };
   }
   for (const r of await db.all<ToRow>('SELECT activity_id, thread_id FROM activity_to ORDER BY activity_id, position')) {
@@ -65,14 +70,17 @@ const upsertThread = (db: Db, t: Thread) =>
     t.declaredAt ?? null,
   ]);
 
+/** A whole-record write, too: a column left out here (P-73's lit, settled_at) would be wiped by every edit. */
 async function upsertActivity(db: Db, a: Activity) {
-  await db.run('INSERT OR REPLACE INTO activities (id, text, occurred_at, created_at, doing_id, note) VALUES (?, ?, ?, ?, ?, ?)', [
+  await db.run('INSERT OR REPLACE INTO activities (id, text, occurred_at, created_at, doing_id, note, lit, settled_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)', [
     a.id,
     a.text,
     a.occurredAt,
     a.createdAt,
     a.doingId ?? null,
     a.note ?? null,
+    a.lit === true ? 1 : 0,
+    a.settledAt ?? null,
   ]);
   await db.run('DELETE FROM activity_to WHERE activity_id = ?', [a.id]);
   for (const [position, threadId] of a.toIds.entries()) {

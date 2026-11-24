@@ -7,6 +7,10 @@ These came out of the design sessions and several rounds of persona reviews. Cha
 - **Wander** (`Thread` in code and stored data): an ongoing pursuit named as an action ("practice drawing", "make apparel"). At most one visible **next** step.
 - **Links between wanders are never stored.** They are derived from activities (doing → to), counted. Both directions are distinct intentions ("drawing to make apparel" ≠ "making apparel to practise drawing").
 - Everything references ids, so renaming a wander never rewrites history.
+- A line sent up from the trailhead is **lit** (something you're pursuing now) until **Done it**
+  settles it (`settledAt`); with the **done** chip it settles at once. Every other log, and everything
+  older, is settled. Lit is never counted or nagged about: its glow fades like warmth, and about a
+  month on it looks settled. Heat and Map treat lit and settled alike. _(Owner, D-14; P-73.)_
 - A wander can be created with just a name. If nothing flows into it, it simply fades.
 - A wander can be marked as **what it's for** (a "why"): a direction, not a goal — no target, progress
   or deadline. A why can be declared (named up front) or earned (most activity flows into it); both
@@ -26,12 +30,13 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   (staged steps, then past entries, then wanders) appear under the field; a tap attaches. When the
   words match a wander, a quiet last item **Open <wander>** opens its trail (a why: its star) and
   never attaches or logs. **Return
-  logs at once, exactly as typed, loose** (no toast): your words become the billboard (a heading),
-  under a "New line" button (typing starts one too), with "Kept, loose · Undo", and below it, quietly
-  (the moves no louder than "Kept, loose": kept is the default), **Move it?** — *Next on <guessed wander>* (only while
-  that wander has no step: a step is never overwritten), *Log toward <guessed wander>*, *Somewhere
-  else…* (any wander, or a new one, named with Return or **Make it**). The guess is P-61's matching on the line, then on its longest
-  words. Each move is one tap with Undo; leaving without a tap keeps the line as it is. Reduce Motion
+  logs at once, exactly as typed** (no toast) and the line **rises** (P-73): the camera looks up and
+  your words are the heading, lit, with quiet **✦ Done it**, **↳ First step** (a step field; only its
+  Return makes the wander, named with your words, and sets its step — never over a staged one) and a
+  corner **Toward…** (a visible wander); each has Undo on the line (no timer), then the session ends by
+  itself. With the **done** chip on (shown once you type; sticky until turned off or you leave the
+  home) each line rises settled. "New line" (or typing) starts the next line; leaving keeps the line as
+  it is. No hint lines. "Kept, loose · Move it?" is retired. Reduce Motion
   stills the sky; at large text and in short windows the big line steps down so the field stays above
   the keyboard, and the ground (hills, path, lantern) is drawn only where it fits below the content,
   which scrolls above it — never under a control. **I'm not sure** looks up (P-66).
@@ -43,9 +48,9 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   there's no warmth and no motes; under Reduce Motion the motes hold a soft glow. For a screen reader
   the stars are a list of buttons in that fixed order, "<why>, last walked <when>"; at the largest text
   they're a plain list. Near the ground, your recent **loose lines** (Map's rule: the last three
-  weeks, at most three) are stray footprints with their words; one opens the trailhead's **Move it?**
-  for that line (Undo takes back a move only). For a screen reader they're a "Loose" group after the
-  stars, "<words>, <when>". With no whys: "No stars yet." and a **Map** link. "Back to typing" (or Esc)
+  weeks, at most three) are stray footprints with their words; one rises again with its choices as it
+  is now (lit: Done it, First step, Toward…; settled: Toward… only; Undo takes back a choice only). For a screen reader they're a "Loose" group after the
+  stars, "<words>, <when>" (", lit" while it looks lit). With no whys: "No stars yet." and a **Map** link. "Back to typing" (or Esc)
   returns to the prompt.
 - **Under a star** (`/star/<id>`): the star and its name; on the hills its **landmarks** (the wanders
   feeding it), each a flag with a dotted trail from camp, names in a row above every flag (never on a

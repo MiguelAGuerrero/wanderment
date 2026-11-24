@@ -297,15 +297,16 @@ test.describe('one home', () => {
     await expect(page).toHaveURL(/\/star\//);
   });
 
-  test('typing at rest works as before: Return logs as typed and the words become the billboard; a new faint star', async ({ page }) => {
+  test('typing at rest works as before: Return logs as typed and the line rises (P-73); a new star, lit', async ({ page }) => {
     await openHome(page);
     await field(page).fill('watched the sunset');
     await field(page).press('Enter');
     await expect(page.getByTestId('trail-words')).toHaveText('watched the sunset');
-    await expect(page.getByRole('status').filter({ hasText: 'Kept, loose' })).toBeVisible();
-    await expect(page.getByRole('group', { name: 'Move it?', exact: true })).toBeVisible();
+    // P-73: the rise (was "Kept, loose" and "Move it?" with the camera at rest).
+    await expect(page.getByRole('button', { name: 'Done it', exact: true })).toBeVisible();
     await expect(page.getByTestId('rest-line')).toHaveCount(LINES + 1);
-    await expect(home(page)).toHaveAttribute('data-camera', 'rest');
+    await expect(page.locator('[data-testid="rest-line"][data-state="lit"]')).toHaveCount(1);
+    await expect(home(page)).toHaveAttribute('data-camera', 'up');
   });
 
   test('at 200 % zoom the field stays in view, nothing is wider than the screen, and axe is clean at rest and in a session', async ({ page }) => {

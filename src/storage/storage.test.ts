@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { diffData } from '@/domain/diff';
 import { parseLegacyState } from '@/domain/migrate';
-import { attachActivity, declareThread, ensureThread, logActivity, undeclareThread, updateThread } from '@/domain/model';
+import { attachActivity, declareThread, editActivity, ensureThread, logActivity, undeclareThread, updateThread } from '@/domain/model';
+import { settle } from '@/domain/rise';
 import { emptyData } from '@/domain/types';
 
 import { nodeDb } from './nodeDb';
@@ -118,7 +119,8 @@ describe('schema 2: what a thread is for (P-14)', () => {
 
     expect(await migrateSchema(db)).toBe(1);
     const [{ user_version }] = await db.all<{ user_version: number }>('PRAGMA user_version');
-    expect(user_version).toBe(2);
+    // P-73: migration 3 runs too (was 2).
+    expect(user_version).toBe(3);
     const loaded = await loadData(db);
     expect(loaded).toEqual({
       version: 1,
@@ -129,8 +131,8 @@ describe('schema 2: what a thread is for (P-14)', () => {
       activities: { a1: { id: 'a1', text: 'scales', occurredAt: at, createdAt: at, doingId: 't2', toIds: ['t1'], note: 'slow' } },
     });
     expect(Object.values(loaded.threads).map((t) => t.declaredAt)).toEqual([undefined, undefined]);
-    // Running again is a no-op.
-    expect(await migrateSchema(db)).toBe(2);
+    // Running again is a no-op (P-73: it starts from 3 now; was 2).
+    expect(await migrateSchema(db)).toBe(3);
 
     // The migrated database keeps a mark, and an edit to the thread doesn't wipe it.
     const declared = declareThread(loaded, 't1', new Date(at2));
@@ -142,5 +144,80 @@ describe('schema 2: what a thread is for (P-14)', () => {
     const off = undeclareThread(renamed, 't1');
     await saveChanges(db, diffData(renamed, off));
     expect((await loadData(db)).threads.t1.declaredAt).toBeUndefined();
+  });
+});
+
+describe('schema 3: lit and settled lines (P-73)', () => {
+  /** A version-2 database (as every installed app has before P-73) with a few activities. */
+  async function v2Db() {
+    const db = (current = nodeDb());
+    await db.exec(MIGRATIONS[0]);
+    await db.exec(MIGRATIONS[1]);
+    await db.exec('PRAGMA user_version = 2');
+    await db.run('INSERT INTO threads (id, name, next, hidden, created_at, declared_at) VALUES (?, ?, ?, ?, ?, ?)', ['t1', 'play guitar', null, 0, at, at2]);
+    await db.run('INSERT INTO activities (id, text, occurred_at, created_at, doing_id, note) VALUES (?, ?, ?, ?, ?, ?)', ['a1', 'scales', at, at, 't1', 'slow']);
+    await db.run('INSERT INTO activities (id, text, occurred_at, created_at, doing_id, note) VALUES (?, ?, ?, ?, ?, ?)', ['a2', 'loose line', at2, at2, null, null]);
+    await db.run('INSERT INTO activity_to (activity_id, position, thread_id) VALUES (?, ?, ?)', ['a2', 0, 't1']);
+    return db;
+  }
+
+  it('a version-2 database with rows migrates to 3: every activity is kept, and all read as settled', async () => {
+    const db = await v2Db();
+    expect(await migrateSchema(db)).toBe(2);
+    const [{ user_version }] = await db.all<{ user_version: number }>('PRAGMA user_version');
+    expect(user_version).toBe(3);
+    const loaded = await loadData(db);
+    expect(loaded.activities).toEqual({
+      a1: { id: 'a1', text: 'scales', occurredAt: at, createdAt: at, doingId: 't1', toIds: [], note: 'slow' },
+      a2: { id: 'a2', text: 'loose line', occurredAt: at2, createdAt: at2, toIds: ['t1'] },
+    });
+    for (const a of Object.values(loaded.activities)) {
+      expect('lit' in a, a.id).toBe(false);
+      expect('settledAt' in a, a.id).toBe(false);
+    }
+    expect(loaded.threads.t1.declaredAt).toBe(at2);
+    expect(await migrateSchema(db)).toBe(3);
+  });
+
+  it('lit and settledAt round-trip through saveChanges, and an edit (a note, an attach) never wipes them', async () => {
+    const db = await freshDb();
+    const base = ensureThread(emptyData(), 'draw');
+    const one = logActivity(base.data, { text: 'sketch hands', lit: true }, new Date(at));
+    const two = logActivity(one.data, { text: 'cooked dinner', settled: true }, new Date(at2));
+    await saveChanges(db, diffData(emptyData(), two.data));
+    let loaded = await loadData(db);
+    expect(loaded.activities[one.activity.id].lit).toBe(true);
+    expect(loaded.activities[two.activity.id].settledAt).toBe(at2);
+    expect(loaded.activities[two.activity.id].lit).toBeUndefined();
+    expect(loaded).toEqual(two.data);
+
+    // Every edit rewrites the whole row: none may drop lit or settledAt.
+    const noted = editActivity(two.data, one.activity.id, { note: 'with charcoal' });
+    const attached = attachActivity(noted, two.activity.id, base.thread.id);
+    await saveChanges(db, diffData(two.data, attached));
+    loaded = await loadData(db);
+    expect(loaded.activities[one.activity.id]).toMatchObject({ lit: true, note: 'with charcoal' });
+    expect(loaded.activities[two.activity.id]).toMatchObject({ settledAt: at2, toIds: [base.thread.id] });
+
+    // Done it, and its Undo, reach the disk.
+    const settled = settle(attached, one.activity.id, new Date(at2));
+    await saveChanges(db, diffData(attached, settled));
+    loaded = await loadData(db);
+    expect(loaded.activities[one.activity.id].lit).toBeUndefined();
+    expect(loaded.activities[one.activity.id].settledAt).toBe(at2);
+    await saveChanges(db, diffData(settled, attached));
+    loaded = await loadData(db);
+    expect(loaded.activities[one.activity.id].lit).toBe(true);
+    expect(loaded.activities[one.activity.id].settledAt).toBeUndefined();
+  });
+
+  it('an older copy of the app (its INSERT without the new columns) rewrites a lit line as settled, never the other way', async () => {
+    const db = await freshDb();
+    const one = logActivity(emptyData(), { text: 'sketch hands', lit: true }, new Date(at));
+    await saveChanges(db, diffData(emptyData(), one.data));
+    await db.run('INSERT OR REPLACE INTO activities (id, text, occurred_at, created_at, doing_id, note) VALUES (?, ?, ?, ?, ?, ?)', [one.activity.id, 'sketch hands', at, at, null, 'old tab']);
+    const a = (await loadData(db)).activities[one.activity.id];
+    expect(a.lit).toBeUndefined();
+    expect(a.note).toBe('old tab');
   });
 });

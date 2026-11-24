@@ -127,10 +127,12 @@ test.describe('look up, and under a star', () => {
     const field = page.getByRole('textbox', { name: PROMPT, exact: true });
     await field.fill('sat by the window');
     await field.press('Enter');
-    await button(page, 'Somewhere else…').click();
-    await page.getByRole('group', { name: 'Somewhere else' }).getByRole('button', { name: 'a calm space', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Logged toward a calm space' })).toBeVisible();
-    // The billboard gives way to the question, and "I’m not sure" is there again.
+    // P-73: the rise's Toward… (was "Move it?"'s Somewhere else…).
+    await button(page, 'Toward…').click();
+    await page.getByRole('group', { name: 'Toward…' }).getByRole('button', { name: 'a calm space', exact: true }).focus();
+    await page.keyboard.press('Enter'); // from the keyboard, so the session waits for New line
+    await expect(page.getByRole('status').filter({ hasText: 'Toward a calm space' })).toBeVisible();
+    // The rise gives way to the question, and "I’m not sure" is there again.
     await button(page, 'New line').click(); // P-65 fix 4: was the prompt's words
     await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
     await expect(stars(page).nth(2)).toHaveAccessibleName('a calm space, last walked today');
@@ -397,7 +399,7 @@ test.describe('look up, and under a star', () => {
     await expect(page).toHaveURL(/\/wanderment\/map$/);
   });
 
-  test('fix 18: recent loose lines are stray footprints on the sky; one opens the trailhead’s Move it? for that line, with Undo', async ({ page }) => {
+  test('fix 18: recent loose lines are stray footprints on the sky; one rises again with its choices (P-73; was Move it?), with Undo', async ({ page }) => {
     const json = JSON.parse(world());
     const at = (d: number) => new Date(Date.now() - d * DAY).toISOString();
     Object.assign(json.state.data.activities, {
@@ -425,17 +427,21 @@ test.describe('look up, and under a star', () => {
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/p66-sky-loose.png` });
 
     await loose.first().click();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    // P-73: it rises again as a session (was: the trailhead's billboard, "Kept, loose").
+    await expect(page).toHaveURL(/\/wanderment\/line\/l1$/);
     await expect(page.getByTestId('trail-words')).toHaveText('sat by the window');
-    await expect(page.getByRole('status').filter({ hasText: 'Kept, loose' })).toBeVisible();
-    // Nothing to undo yet (the line was kept long ago); a move has its Undo, which leaves the line loose.
+    await expect(page.getByTestId('trail-words')).toBeFocused();
+    // Settled long ago: Toward… only (no Done it, no First step). Nothing to undo until a choice.
+    await expect(button(page, 'Done it')).toHaveCount(0);
+    await expect(button(page, 'First step')).toHaveCount(0);
     await expect(button(page, 'Undo')).toHaveCount(0);
-    await button(page, 'Somewhere else…').click();
-    await page.getByRole('group', { name: 'Somewhere else' }).getByRole('button', { name: 'a calm space', exact: true }).click();
-    await expect(page.getByRole('status').filter({ hasText: 'Logged toward a calm space' })).toBeVisible();
+    await button(page, 'Toward…').click();
+    await page.getByRole('group', { name: 'Toward…' }).getByRole('button', { name: 'a calm space', exact: true }).focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('status').filter({ hasText: 'Toward a calm space' })).toBeVisible();
     await button(page, 'Undo').click();
-    await expect(page.getByRole('status').filter({ hasText: 'Kept, loose' })).toBeVisible();
     await expect(button(page, 'Undo')).toHaveCount(0);
+    await expect(button(page, 'Toward…')).toBeVisible();
     await expect(page.getByTestId('trail-words')).toHaveText('sat by the window');
   });
 });

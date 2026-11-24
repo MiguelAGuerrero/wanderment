@@ -10,6 +10,7 @@ import { StarGlyph, useMotes } from '@/components/StarGlyph';
 import { PROMPT } from '@/components/Trailhead';
 import { useEscBack } from '@/components/useEscBack';
 import { decorative } from '@/components/a11y';
+import { subjectHref } from '@/domain/home';
 import { footprintName, skyAsList, skyLoose, skyStars, STAR_SLOTS, starName, starTarget } from '@/domain/sky';
 import { GROUND_H, groundFits } from '@/domain/trailhead';
 import { useStore } from '@/store/useStore';
@@ -58,8 +59,8 @@ export function LookUp() {
   const ground = groundFits({ height, insets: insets.top + insets.bottom });
   const keepLoose = useStore((st) => st.keepLoose);
   const loose = useMemo(() => skyLoose(data), [data]);
-  // A stray footprint opens the trailhead's "Move it?" for that line (fix 18).
-  const reopen = (id: string) => keepLoose(id) && toPrompt();
+  // A stray footprint rises again, with its choices as it is now (fix 18; P-73).
+  const reopen = (id: string) => keepLoose(id) && router.push(subjectHref({ kind: 'line', activityId: id }));
 
   const w = Math.min(width, MAX_W);
   const itemW = Math.min(150, w * 0.42);

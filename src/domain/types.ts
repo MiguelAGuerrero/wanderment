@@ -31,6 +31,13 @@ export interface Activity {
   /** What it was to (zero or more threads). */
   toIds: Id[];
   note?: string;
+  /**
+   * P-73 (B-08): a line sent up from the trailhead without the done chip is **lit** — something
+   * you're pursuing now. Absent = settled (every other log, and everything older). Only ever `true`.
+   */
+  lit?: true;
+  /** When it was settled (Done it, or at once with the done chip); absent for older data. */
+  settledAt?: string; // ISO
 }
 
 export interface Data {

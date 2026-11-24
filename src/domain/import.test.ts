@@ -237,3 +237,47 @@ describe('planImport: what a backup holds and how it differs from what’s here'
     expect(performance.now() - t0).toBeLessThan(1000);
   });
 });
+
+describe('P-73: lit and settled lines in backups and saved data', () => {
+  const settledAt = '2026-03-02T08:00:00.000Z';
+  const both = data([thread('t1', 'draw')], [act('a1', 'sketch hands', { lit: true }), act('a2', 'cooked dinner', { settledAt }), act('a3', 'ran')]);
+
+  it('export → import keeps lit and settledAt', async () => {
+    const { toBackup } = await import('./backup');
+    const back = fromBackup(toBackup(both));
+    expect(back.activities.a1.lit).toBe(true);
+    expect(back.activities.a2.settledAt).toBe(settledAt);
+    expect(back).toEqual(both);
+    expect('lit' in back.activities.a3 || 'settledAt' in back.activities.a3).toBe(false);
+  });
+
+  it('an older export (no such fields) imports unchanged and reads settled; the format is still version 1', () => {
+    const old = fromBackup(backup({ version: 1, threads: {}, activities: { a1: act('a1', 'scales') } }));
+    expect(old.version).toBe(1);
+    expect(old.activities.a1).toEqual(act('a1', 'scales'));
+    expect(old.activities.a1.lit).toBeUndefined();
+  });
+
+  it('junk is repaired, never trusted: lit only when exactly true, settledAt only a real ISO stamp (as UTC)', () => {
+    const d = migrateData({
+      version: 1,
+      threads: {},
+      activities: {
+        a1: { ...act('a1', 'x'), lit: 'yes', settledAt: '1' },
+        a2: { ...act('a2', 'y'), lit: 1, settledAt: 'March 7' },
+        a3: { ...act('a3', 'z'), lit: true, settledAt: '2026-03-02T09:00:00+01:00' },
+      },
+    });
+    expect(d.activities.a1).toEqual(act('a1', 'x'));
+    expect(d.activities.a2).toEqual(act('a2', 'y'));
+    expect(d.activities.a3).toEqual({ ...act('a3', 'z'), lit: true, settledAt: settledAt });
+  });
+
+  it('the localStorage format (fallback) and the lenient load keep them', () => {
+    const legacyState = parseLegacyState(legacy(both))!;
+    expect(legacyState.data.activities.a1.lit).toBe(true);
+    expect(legacyState.data.activities.a2.settledAt).toBe(settledAt);
+    const lenient = migrateData({ ...both, activities: { ...both.activities, bad: { id: 'bad' } } }, { skipInvalid: true });
+    expect(lenient).toEqual(both);
+  });
+});
