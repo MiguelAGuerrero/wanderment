@@ -14,13 +14,13 @@ out loud*.
 | J01 | **First open** | Start with nothing and be doing something within seconds | a) empty home: only the prompt · b) typed words, "New foundation" offered · c) running an empty foundation: asked for a first small step |
 | J02 | **Come back and pick up** | See where everything stands and resume one thing | a) home ("Nothing running"): every foundation, paused runs under theirs, an empty foundation, the prompt · b) reopening straight into a running step |
 | J03 | **Say what you're going to do** | Let the app find it instead of browsing | a) typing: closest runs / routines / foundations, then "New foundation" · b) the same with nothing matching |
-| J04 | **Run a routine** | Do one small step at a time until you feel done | a) a plain step inside a loop · b) after Next: the next step with Undo · c) arriving at a routine item: Step in or Next past it · d) Done with an inner routine: back in the parent · e) Done at the top: the run ended, home with Undo · f) the last step of a counted loop · g) just after: it finished by itself, the parent's next step with Undo · h) Done on the context line: out of this level, with Undo |
+| J04 | **Run a routine** | Do one small step at a time until you feel done | a) a plain step on the runner: context line with Done, the note, Pause · Break it down · Next · b) after Next: the next step with Undo · c) a routine as the step: the middle button reads Step in · d) Done on the context line: out of this level, the parent's next step with Undo · e) Done at the top: the run ended, home with Undo · f) the last step of a round, with its corner mark · g) a counted loop finishing by itself: the parent's next step with "Finished <name> · Undo" · h) the pull-up panel over a step in a loop (round, then, actions) · i) a long step: the note full, Break it down marked |
 | J05 | **Break it down** | Make a heavy step easy to start, without losing the block | a) the step being split into smaller steps · b) running the first of them, the change marked as this run's own with "Keep in <routine>" |
 | J06 | **Shape a routine** | Write down how you go about something, and check it reads right | a) Blocks: steps, the divider with its grip, the loop bracket, a routine inside folded · b) a step's ⋯ menu · c) the divider's other positions (top: all repeats; none: runs once) · d) Read it, collapsed · e) Read it, one routine expanded in place · f) Blocks with a counted repeat ("3 times") · g) Read it: "repeat 3 times" |
 | J07 | **Group steps into a routine** | Keep something useful for later | a) choosing steps · b) naming it · c) grouped, with Undo |
 | J08 | **Reuse and vary** | Use a routine in a second place; change it knowingly | a) adding an existing routine to another · b) editing a shared routine: Save names where it changes, "Save as a new routine" beside it · c) Copy as a new routine |
 | J09 | **Run it for something in particular** | The same routine for different inputs, each its own run | a) Your routines: Start, Start with…, values used before · b) filling the blank · c) inside a parent run: starting another run of the routine with a different value (child runs listed) |
-| J10 | **Pause and switch** | Put one thing down and pick up another, on purpose | a) Paused: Resume, siblings to switch to, Up, Stop (list) · b) the same as a map · c) after Up: foundations |
+| J10 | **Pause and switch** | Put one thing down and pick up another, on purpose | a) Paused: Resume, a reason field, siblings to switch to, Up, Stop (list) · b) the same as a map · c) after Up: everything you have going |
 | J11 | **Stop** | Leave the app with nothing running | a) home after Stop (as J02-a, with the run just left marked) |
 | J12 | **Find something unnamed** | Get back a one-off or a breakdown by its words | a) "You've done this before": Do it again / Name it, keep it |
 | J13 | **Change course in a run** | Leave the routine's way without changing the routine | a) See it all for a run: a loop removed and other steps put in, marked as this run's own · b) Copy as its own run |
@@ -46,21 +46,20 @@ build** unless marked *(design now, build later)*.
 | J15+ | **More that can go wrong** | — | g) a step removed, with Undo · h) an empty step or name · i) starting something while a run is running · j) the way into (i) |
 | J26 | **Forget things** *(design now)* | Privacy and tidiness | a) remove one History entry / clear History · b) forget a value used in a blank · c) forget an unnamed sequence · d) reopen an ended run from History · e) Clear all, confirmed |
 | J28 | **Paste a list** *(design now)* | Bring steps in from elsewhere | a) pasted lines becoming several steps, with Undo |
-| J29 | **Move within a run** *(design now)* | Go where you actually are | a) See it all: make a step "now" · b) going back a step · c) dropping a this-run-only change |
+| J29 | **Move within a run** *(see J39 Jump to…)* | Go where you actually are | a) See it all: "Jump here" on a step · b) Back to <step> from the panel · c) dropping a this-run-only change |
 | J30 | **More with steps and blanks** *(design now)* | — | a) duplicate a step · c) send a step to another routine · b) placing, rewording and removing a blank; two blanks in one routine |
 | J31 | **Where only a button is drawn** *(design now)* | — | a) Walk through · b) Focus on one routine · c) Copy as text and its confirmation · d) after "Name it, keep it" |
 | J32 | **Opt-ins** *(design now)* | — | a) Settings: "How did this feel?" and the pace note switched on |
 | J33 | **Find old things** *(design now)* | — | a) searching History (lines and notes) |
 | J16+ | **Large text, focus** *(design now)* | — | c) a ⋯ menu and a dialog at 200 % · d) visible focus, and where it lands after Undo, a dialog, a removal |
 
-**J27 Keyboard and Back** is a table in the design document, not a render: Return, Esc, Tab order and a
+**J27 Keyboard and Back** is a table, not a render — it includes the panel, Done and Jump to…: Return, Esc, Tab order and a
 key for Next on every screen; browser Back; each screen's address; what each retired route does.
 
 ## Journeys for the additions since the converged set
-From `.polish/product/audit-B-11-expectations.md` (a fresh review of the runner, counted repeats, pause
-with a reason, wait steps, reactions, rails, things out and Jump to… against adjacent products and
-against what each feature implies). None of these is drawn yet; they are the list for the one final
-redraw. "First build" / "design now" is the reviewer's recommendation.
+From `.polish/product/audit-B-11-expectations.md`. "First build" / "design now" follows the design's
+slices. Where a state below mentions a "then leave" setting or "one more round", the design has since
+decided against it (see the design, 3.1): draw what the design says.
 
 | # | Journey | To what end | States to render |
 |---|---|---|---|
@@ -80,10 +79,6 @@ redraw. "First build" / "design now" is the reviewer's recommendation.
 
 **Additions to existing journeys** (states, not new journeys): J04 — a) with the last-step mark · J15 — k) a move untied a rail · l) removing a routine empties a reaction · J16 — e) home as a plain list with waiting, reason and out · J19 — d) removing a first layer that has kept items · J25 — e) five things out on one home row · f) three lanes beside thirty steps, keyboard up · J27 — rows for the panel, Done, Jump to, and Esc with the panel open.
 
-**Stale after the additions:** J04-h (dropped), J27 (the keyboard table needs the panel, Done and Jump
-to…), J29-a ("make a step now" becomes "Jump here"); 26 of J01–J33 change in some state — listed in the
-audit, section C.1.
-
 **Not in the first build, so not rendered:** the opt-in "How did this feel?" and pace note; a step that
 waits while the rest of its sequence carries on.
 
@@ -91,6 +86,6 @@ waits while the rest of its sequence carries on.
 J10 · Stop J11 · Break it down J05 · Group J07 · Copy J08, J13. Blanks J09 · child runs J09, J10 · Map
 J02, J10 · Read it J06 · found-by-words J12 · run-only revisions J05, J13 · errors J15 · access J16.
 
-**Renders:** the converged set, `.polish/product/b11-final/` — 107 states, with the sticky-note, three-button runner and the final audit's fixes
-applied; its `NOTES.md` holds the design system, the Reduce Motion list, accessible names and the J27
-keyboard-and-Back table.
+**Renders:** none current. The earlier converged set (`.polish/product/b11-final/`, 107 states) predates
+wait steps, reasons, reactions, rails, things out, Jump to… and the final runner; it is superseded by the
+final redraw, which draws every state in this file — J01–J46 — from the design and this list alone.

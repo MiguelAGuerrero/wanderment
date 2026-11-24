@@ -18,6 +18,24 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Rewrite, and one final double-blind redraw
+"Rewrite and one final redraw. Again, ensure that this is double-blinded in the sense that you write
+your redraw in another fresh agent with just the design specifications, user journeys mapped out, we'll
+draw it and we converge. The practice we have to ensure is UI, UX, industry standards with layouts,
+spacing, icon placement, settings placement … the components leveraged in traditional adjacent apps,
+their layouts, we should borrow as much as we can to align ourselves with expectations of productivity
+and ensure minimalism where we can. So minimalism is preferring icons over text, disclosing or hiding
+additional text that … are instructional unnecessarily. Any disclaimers or any thing that has to
+explain what the app does is a sign of a failure of the app to communicate its design and functionality
+without it. So I'm not saying to be overzealous with this principle, but it's a nice way of trying to
+ensure that the app is well designed to communicate its features without over explanation … Outside of
+basic labels for forms, explaining interaction buttons, or button labels, etc." Then: "each agent
+performs an adversarial audit of UI independent of each other. So there's refinement in both
+submissions."
+*Interpretation:* B-11 rewritten clean; two fresh designers each draw every journey from the design and
+the journeys alone, blind to each other and to earlier mockups; each set gets its own independent
+adversarial audit and is refined; then the two are converged. The minimalism principle is in B-11 §6.
+
 ## 2026-11-24 — A reaction may end things; don't over-specify
 "So remember, so yes, a reaction may abort, but if there's no associated step with it, you just rely on
 the user to exercise their own judgment, and the app holds enough context for them to do their work. It
