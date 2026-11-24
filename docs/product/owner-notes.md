@@ -18,6 +18,11 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — "Jump to"
+"Maybe jump to could be a better way of phrasing that. 'Cause set my place feels in the right
+direction, but my place feels ambiguous."
+*Interpretation:* decided — the action is named **Jump to…**.
+
 ## 2026-11-24 — Not "catch up": set yourself to a point that makes sense
 "Well, catch up might not necessarily reflect the use case of a person exiting mid gesture drawing
 practice, where if they leave, it's more so [an] indication that they're done practicing and they don't
