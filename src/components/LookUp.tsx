@@ -1,11 +1,12 @@
 import { Link, router, useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo } from 'react';
+import { ComponentRef, useMemo, useRef } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReduceMotion } from '@/components/graph/scopeNav';
 import { NightSky } from '@/components/NightSky';
+import { PassageStars, usePassage, Veil } from '@/components/passage';
 import { StarGlyph, useMotes } from '@/components/StarGlyph';
 import { PROMPT } from '@/components/Trailhead';
 import { useEscBack } from '@/components/useEscBack';
@@ -43,6 +44,9 @@ export function LookUp() {
   const reduce = useReduceMotion();
   const still = reduce || !shown;
   const loops = useMotes(still);
+  // P-72: looking up, the hills sink and the stars fade in (back from a star, the hills come back up); focus to the question.
+  const heading = useRef<ComponentRef<typeof Text>>(null);
+  const passage = usePassage('sky', shown, () => heading.current);
   const { width, height, fontScale } = useWindowDimensions();
   // The largest text sizes: a plain list of the stars, in the same order (P-66 fix).
   const asList = skyAsList(fontScale);
@@ -66,14 +70,14 @@ export function LookUp() {
   const band = Math.max(440, height - 330 - strays);
 
   return (
-    <View style={styles.screen} testID="look-up">
+    <View style={styles.screen} testID="look-up" {...passage.mark}>
       {shown && <StatusBar style="light" />}
-      <NightSky still={still} warm={shading} ground={ground} />
+      <NightSky still={still} warm={shading} ground={ground} passage={passage} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <ScrollView {...(web ? { tabIndex: -1 } : {})} contentContainerStyle={[styles.content, { width: w }]}>
           <View style={styles.head}>
             {/* Only the small question (fix 16: no "Not sure."). */}
-            <Text accessibilityRole="header" style={styles.asked}>
+            <Text ref={heading} accessibilityRole="header" {...(web ? { tabIndex: -1 } : {})} style={styles.asked}>
               {PROMPT}
             </Text>
           </View>
@@ -87,7 +91,9 @@ export function LookUp() {
                     accessibilityLabel={starName(st, now)}
                     testID={`star-${st.thread.id}`}
                     style={styles.row}>
-                    <StarGlyph size={STAR} heat={st.heat} motes={st.motes} loops={loops} still={still} />
+                    <PassageStars s={passage}>
+                      <StarGlyph size={STAR} heat={st.heat} motes={st.motes} loops={loops} still={still} />
+                    </PassageStars>
                     <Text style={[styles.name, styles.rowName]}>{st.thread.name}</Text>
                   </Pressable>
                 </View>
@@ -105,7 +111,9 @@ export function LookUp() {
                       accessibilityLabel={starName(st, now)}
                       testID={`star-${st.thread.id}`}
                       style={styles.star}>
-                      <StarGlyph size={STAR} heat={st.heat} motes={st.motes} loops={loops} still={still} />
+                      <PassageStars s={passage}>
+                        <StarGlyph size={STAR} heat={st.heat} motes={st.motes} loops={loops} still={still} />
+                      </PassageStars>
                       <Text style={styles.name} numberOfLines={2}>
                         {st.thread.name}
                       </Text>
@@ -147,6 +155,7 @@ export function LookUp() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      <Veil s={passage} />
     </View>
   );
 }
@@ -156,7 +165,8 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   content: { flexGrow: 1, alignSelf: 'center', paddingBottom: 24 },
   head: { paddingHorizontal: 28, paddingTop: 40, paddingBottom: 28, gap: 6 },
-  asked: { fontFamily: display, fontSize: 16, fontWeight: '500', color: N.faint },
+  // Focused on arrival only so a screen reader starts there (never by Tab): no focus box.
+  asked: { fontFamily: display, fontSize: 16, fontWeight: '500', color: N.faint, ...(web && ({ outlineStyle: 'none' } as object)) },
   place: { position: 'absolute' },
   star: { alignItems: 'center', gap: 8, minHeight: 44, paddingVertical: 2 },
   name: { color: N.ink, fontSize: 15, fontWeight: '500', textAlign: 'center' },

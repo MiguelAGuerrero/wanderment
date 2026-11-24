@@ -6,6 +6,7 @@ import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from
 import { decorative } from '@/components/a11y';
 import { moveFocus, useFirstRun } from '@/components/FirstRun';
 import { DarkProvider } from '@/components/palette';
+import { usePassage, Veil } from '@/components/passage';
 import { ExploreIcon, homeContentWidth, LiveGraph, useGraphIcon } from '@/components/graph/HomeGraph';
 import { useScopeNav } from '@/components/graph/scopeNav';
 import { Screen } from '@/components/Screen';
@@ -40,6 +41,8 @@ export default function Map() {
   const { sheet, homeRef, handleRef, tabRefs } = useHomeSheet();
   const focused = useIsFocused();
   const shown = focused && !sheet.open;
+  // P-72: Map dims in like dusk (its own focus is as it was).
+  const passage = usePassage('map', focused);
   // An attached wander (P-35's selection) is one moment on Home: it goes when Home is left (focus and
   // scope stay, P-50): another screen, or its sheet pulled out. Home stays mounted, so this runs when
   // it's left, and when it's back too (in case anything set it meanwhile). P-61: no bridge any more.
@@ -78,7 +81,7 @@ export default function Map() {
   return (
     // Dark Map (owner, 2026-11-24): Map, its sheet and the shared parts on it take the night palette.
     <DarkProvider value>
-      <View style={styles.home}>
+      <View style={styles.home} testID="map" {...passage.mark}>
         {focused && <StatusBar style="light" />}
         {/* Under the open sheet (a modal dialog), Home is out of reach of assistive tech and the keyboard. */}
         <View ref={homeRef} style={styles.home} {...(sheet.open ? decorative : {})}>
@@ -138,6 +141,7 @@ export default function Map() {
           </ShownProvider>
         </View>
         <HomeSheet sheet={sheet} tabRefs={tabRefs} />
+        <Veil s={passage} />
       </View>
     </DarkProvider>
   );

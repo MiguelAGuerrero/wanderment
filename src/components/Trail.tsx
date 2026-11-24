@@ -9,6 +9,7 @@ import { decorative } from '@/components/a11y';
 import { useReduceMotion } from '@/components/graph/scopeNav';
 import { BackGlyph } from '@/components/icons';
 import { NightSky } from '@/components/NightSky';
+import { usePassage, Veil } from '@/components/passage';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { Toast } from '@/components/Toast';
 import { useEscBack } from '@/components/useEscBack';
@@ -48,6 +49,9 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const [step, setStep] = useState('');
   const addRef = useRef<ComponentRef<typeof View>>(null);
   const didRef = useRef<ComponentRef<typeof View>>(null);
+  // P-72: the wanderer walks up the path; focus to the wander's name.
+  const heading = useRef<ComponentRef<typeof Text>>(null);
+  const passage = usePassage('trail', shown, () => heading.current);
 
   const thread = data.threads[id];
   const why = starId && data.threads[starId] && !data.threads[starId].hidden ? data.threads[starId] : undefined;
@@ -87,9 +91,9 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const w = Math.min(width, MAX_W);
   const tint = starTint(overhead?.heat ?? 0);
   return (
-    <View style={styles.screen} testID="trail">
+    <View style={styles.screen} testID="trail" {...passage.mark}>
       {shown && <StatusBar style="light" />}
-      <NightSky still={reduce || !shown} warm={shading} />
+      <NightSky still={reduce || !shown} warm={shading} passage={passage} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <ScrollView {...(web ? { tabIndex: -1 } : {})} contentContainerStyle={[styles.content, { width: w }]} keyboardShouldPersistTaps="handled">
           <View style={styles.top}>
@@ -106,7 +110,7 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
                 {overhead.thread.id !== id && <Text style={styles.why}>{overhead.thread.name}</Text>}
               </>
             )}
-            <Text accessibilityRole="header" style={[styles.landmark, !shading && { color: N.ink }]}>
+            <Text ref={heading} accessibilityRole="header" {...(web ? { tabIndex: -1 } : {})} style={[styles.landmark, !shading && { color: N.ink }]}>
               {thread.name}
             </Text>
           </View>
@@ -181,6 +185,7 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
           <Toast />
         </View>
       </SafeAreaView>
+      <Veil s={passage} />
     </View>
   );
 }
@@ -193,7 +198,8 @@ const styles = StyleSheet.create({
   backBtn: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   head: { alignItems: 'center', gap: 6, paddingHorizontal: 28 },
   why: { color: N.muted, fontSize: 13, textAlign: 'center' },
-  landmark: { color: N.lantern, fontSize: 15, fontWeight: '600', textAlign: 'center', marginTop: 10 },
+  // Focused on arrival only so a screen reader starts there (never by Tab): no focus box.
+  landmark: { color: N.lantern, fontSize: 15, fontWeight: '600', textAlign: 'center', marginTop: 10, ...(web && ({ outlineStyle: 'none' } as object)) },
   here: { paddingHorizontal: 28, paddingTop: 40, gap: 14 },
   leftOff: { fontFamily: display, fontSize: 16, fontWeight: '500', color: N.muted },
   step: { fontFamily: display, fontSize: 40, fontWeight: '700', lineHeight: 42, letterSpacing: -1, color: N.ink },

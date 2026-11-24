@@ -63,6 +63,11 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   then nodes; a tap attaches (and a step suggestion completes that step); while it's open, tapping a
   node attaches it. Return logs exactly what's typed. The card's node is only shown. Its ‹ (or Esc
   with nothing else to do, or Back) returns to the trailhead.
+- **Moving between screens moves through the picture** (owner, 2026-11-24; P-72): looking up sinks
+  the hills and fades the stars in; under a star its landmarks rise and the wanderer walks to camp; on
+  a trail the wanderer walks up the path; going back reverses it; Map dims in like dusk. Only the
+  picture moves (never the controls: each screen is usable at once and nothing shifts), at most ~600 ms,
+  and focus goes to the screen's heading (the trailhead: its field). Under Reduce Motion nothing moves.
 - **Map is night** (owner, 2026-11-24, "Dark Map"): Map, its sheet and its bottom use the trailhead's night palette (theme `M`); heat reads dim and cool when cold, warm amber when hot, and the shading off still removes it. Other screens are still light.
 - `@` opens up to 3 wander suggestions (prefix match, then recency). **Tap** (or **Tab** on web) picks. Return never picks or creates a wander; an unmatched `@word` stays plain text.
 - A "doing" can be *suggested* from words in the sentence (dashed chip) but is never applied silently.

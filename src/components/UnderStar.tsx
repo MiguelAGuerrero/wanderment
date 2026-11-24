@@ -1,7 +1,7 @@
 import { Redirect, router, useIsFocused } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { ComponentRef, useMemo, useRef, useState } from 'react';
+import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 
@@ -9,6 +9,7 @@ import { decorative } from '@/components/a11y';
 import { useReduceMotion } from '@/components/graph/scopeNav';
 import { BackGlyph } from '@/components/icons';
 import { NightSky } from '@/components/NightSky';
+import { campWalk, from, PassageStars, usePassage, Veil, Wanderer } from '@/components/passage';
 import { StarGlyph, useMotes } from '@/components/StarGlyph';
 import { useEscBack } from '@/components/useEscBack';
 import { landmarkName, landmarks, SCENE_H, skyStars, starScene, starTarget } from '@/domain/sky';
@@ -42,6 +43,9 @@ export function UnderStar({ id }: { id: Id }) {
   const { width } = useWindowDimensions();
   const [moreOpen, setMoreOpen] = useState(false);
   useEscBack(shown, toSky);
+  // P-72: the landmarks rise and the wanderer walks to camp (back from a trail, down to camp); focus to the why's name.
+  const heading = useRef<ComponentRef<typeof Text>>(null);
+  const passage = usePassage('star', shown, () => heading.current);
 
   const why = data.threads[id];
   const star = useMemo(() => skyStars(data, { shading }).find((s) => s.thread.id === id), [data, shading, id]);
@@ -54,11 +58,12 @@ export function UnderStar({ id }: { id: Id }) {
   const scene = starScene(lm.shown.length, w);
   const heat = star?.heat ?? 0;
   const motes = star?.motes ?? 0;
+  const walk = campWalk(passage.motion.walk, scene.camp, SCENE_H);
 
   return (
-    <View style={styles.screen} testID="under-star">
+    <View style={styles.screen} testID="under-star" {...passage.mark}>
       {shown && <StatusBar style="light" />}
-      <NightSky still={still} warm={shading} ground={false} />
+      <NightSky still={still} warm={shading} ground={false} passage={passage} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <ScrollView {...(web ? { tabIndex: -1 } : {})} contentContainerStyle={[styles.content, { width: w }]}>
           <View style={styles.top}>
@@ -67,39 +72,45 @@ export function UnderStar({ id }: { id: Id }) {
             </Pressable>
           </View>
           <View style={styles.head}>
-            <StarGlyph size={52} heat={heat} motes={motes} loops={loops} still={still} />
-            <Text accessibilityRole="header" style={styles.title}>
+            <PassageStars s={passage}>
+              <StarGlyph size={52} heat={heat} motes={motes} loops={loops} still={still} />
+            </PassageStars>
+            <Text ref={heading} accessibilityRole="header" {...(web ? { tabIndex: -1 } : {})} style={styles.title}>
               {why.name}
             </Text>
           </View>
 
-          <View style={{ height: SCENE_H }} {...decorative} testID="star-scene">
-            <Svg width={w} height={SCENE_H} style={StyleSheet.absoluteFill}>
-              <Defs>
-                <RadialGradient id="camp" cx="50%" cy="50%" r="50%">
-                  <Stop offset="0" stopColor={shading ? N.lantern : N.silver} stopOpacity={0.5} />
-                  <Stop offset="1" stopColor={shading ? N.lantern : N.silver} stopOpacity={0} />
-                </RadialGradient>
-              </Defs>
-              <Path d={scene.ridge} fill={N.hillFar} />
-              {scene.trails.map((t, i) => (
-                <Path key={i} d={t.d} fill="none" stroke={lm.shown[i].warm ? N.lantern : N.trail} strokeWidth={2.5} strokeDasharray="2 7" strokeLinecap="round" testID="star-trail" />
+          {/* P-72: the landmarks rise from below the ridge's foot (clipped there: nothing crosses the cards). */}
+          <View style={[styles.sceneClip, { height: SCENE_H }]} {...decorative}>
+            <Animated.View style={{ height: SCENE_H, transform: [{ translateY: from(passage.p, passage.motion.scene, 0) }] }} testID="star-scene">
+              <Svg width={w} height={SCENE_H} style={StyleSheet.absoluteFill}>
+                <Defs>
+                  <RadialGradient id="camp" cx="50%" cy="50%" r="50%">
+                    <Stop offset="0" stopColor={shading ? N.lantern : N.silver} stopOpacity={0.5} />
+                    <Stop offset="1" stopColor={shading ? N.lantern : N.silver} stopOpacity={0} />
+                  </RadialGradient>
+                </Defs>
+                <Path d={scene.ridge} fill={N.hillFar} />
+                {scene.trails.map((t, i) => (
+                  <Path key={i} d={t.d} fill="none" stroke={lm.shown[i].warm ? N.lantern : N.trail} strokeWidth={2.5} strokeDasharray="2 7" strokeLinecap="round" testID="star-trail" />
+                ))}
+                {scene.flags.map((f, i) => (
+                  <Path key={i} d={`M${f.x} ${f.y} v-16 l9 4 -9 4`} fill={lm.shown[i].warm ? N.lantern : N.faint} testID="landmark-flag" />
+                ))}
+                <Circle cx={scene.camp.x} cy={scene.camp.y} r={34} fill="url(#camp)" />
+                <Circle cx={scene.camp.x} cy={scene.camp.y + 2} r={6} fill={N.lanternCore} />
+              </Svg>
+              {scene.labels.map((l, i) => (
+                <Text
+                  key={i}
+                  numberOfLines={2}
+                  testID="landmark-label"
+                  style={[styles.label, { left: l.x, top: l.y, width: l.w, height: l.h }, lm.shown[i].warm && { color: N.lantern }]}>
+                  {lm.shown[i].thread.name}
+                </Text>
               ))}
-              {scene.flags.map((f, i) => (
-                <Path key={i} d={`M${f.x} ${f.y} v-16 l9 4 -9 4`} fill={lm.shown[i].warm ? N.lantern : N.faint} testID="landmark-flag" />
-              ))}
-              <Circle cx={scene.camp.x} cy={scene.camp.y} r={34} fill="url(#camp)" />
-              <Circle cx={scene.camp.x} cy={scene.camp.y + 2} r={6} fill={N.lanternCore} />
-            </Svg>
-            {scene.labels.map((l, i) => (
-              <Text
-                key={i}
-                numberOfLines={2}
-                testID="landmark-label"
-                style={[styles.label, { left: l.x, top: l.y, width: l.w, height: l.h }, lm.shown[i].warm && { color: N.lantern }]}>
-                {lm.shown[i].thread.name}
-              </Text>
-            ))}
+              {walk && <Wanderer s={passage} a={walk.a} b={walk.b} />}
+            </Animated.View>
           </View>
 
           <View style={styles.cards} role="list" aria-label="Wanders">
@@ -150,6 +161,7 @@ export function UnderStar({ id }: { id: Id }) {
           )}
         </ScrollView>
       </SafeAreaView>
+      <Veil s={passage} />
     </View>
   );
 }
@@ -161,7 +173,9 @@ const styles = StyleSheet.create({
   top: { flexDirection: 'row', paddingHorizontal: 8, paddingTop: 8 },
   back: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   head: { alignItems: 'center', gap: 14, paddingHorizontal: 28, paddingBottom: 12 },
-  title: { fontFamily: display, fontSize: 24, fontWeight: '700', color: N.ink, textAlign: 'center', letterSpacing: -0.3 },
+  // Focused on arrival only so a screen reader starts there (never by Tab): no focus box.
+  title: { fontFamily: display, fontSize: 24, fontWeight: '700', color: N.ink, textAlign: 'center', letterSpacing: -0.3, ...(web && ({ outlineStyle: 'none' } as object)) },
+  sceneClip: { overflow: 'hidden' },
   // A halo in the sky's colour keeps a background dot from reading as part of a word (P-66 fix).
   label: { position: 'absolute', textAlign: 'center', fontSize: 13, lineHeight: 18, color: N.muted, textShadowColor: N.bg, textShadowRadius: 6, textShadowOffset: { width: 0, height: 0 } },
   cards: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 12 },

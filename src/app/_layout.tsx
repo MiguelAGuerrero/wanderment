@@ -13,6 +13,12 @@ import { StorageStatus, useStore } from '@/store/useStore';
 import { C, N, s } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
+
+/**
+ * P-72: the night screens (trailhead, sky, star, trail, Map) move through the picture themselves
+ * (`components/passage`), so on iOS and Android the stack only cross-fades between them, briefly.
+ */
+const NIGHT = { contentStyle: { backgroundColor: N.bg }, animation: 'fade', animationDuration: 250 } as const;
 registerServiceWorker();
 void startPersistence();
 
@@ -58,12 +64,12 @@ export default function RootLayout() {
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
           {/* Home is the trailhead (P-65); Map is the graph, whose sheet holds Wanders and Activities (P-58). */}
-          <Stack.Screen name="index" />
-          <Stack.Screen name="map" options={{ contentStyle: { backgroundColor: N.bg } }} />
+          <Stack.Screen name="index" options={{ animation: NIGHT.animation, animationDuration: NIGHT.animationDuration }} />
+          <Stack.Screen name="map" options={NIGHT} />
           {/* "I’m not sure" (P-66): the sky, under a star, on the trail. */}
-          <Stack.Screen name="sky" options={{ contentStyle: { backgroundColor: N.bg } }} />
-          <Stack.Screen name="star/[id]" options={{ contentStyle: { backgroundColor: N.bg } }} />
-          <Stack.Screen name="trail/[id]" options={{ contentStyle: { backgroundColor: N.bg } }} />
+          <Stack.Screen name="sky" options={NIGHT} />
+          <Stack.Screen name="star/[id]" options={NIGHT} />
+          <Stack.Screen name="trail/[id]" options={NIGHT} />
           <Stack.Screen name="wanders" />
           <Stack.Screen name="activities" />
           <Stack.Screen name="thread/[id]" />

@@ -9,6 +9,7 @@ import { decorative } from '@/components/a11y';
 import { Composer } from '@/components/Composer';
 import { useReduceMotion } from '@/components/graph/scopeNav';
 import { NightSky } from '@/components/NightSky';
+import { usePassage, Veil } from '@/components/passage';
 import { useWhileShown } from '@/components/shown';
 import { Toast } from '@/components/Toast';
 import { GROUND_H, groundFits, moveOffer, promptSize } from '@/domain/trailhead';
@@ -65,6 +66,8 @@ export function Trailhead() {
   const focusLogBox = useStore((st) => st.focusLogBox);
   const warm = useStore((st) => st.showShading);
   const reduce = useReduceMotion();
+  // P-72: coming back down from the sky (or Map), the hills rise into place; the field keeps its focus.
+  const passage = usePassage('trailhead', shown);
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardUp();
@@ -92,9 +95,9 @@ export function Trailhead() {
 
   const size = promptSize({ width, height, fontScale });
   return (
-    <View style={styles.screen} testID="trailhead">
+    <View style={styles.screen} testID="trailhead" {...passage.mark}>
       {shown && <StatusBar style="light" />}
-      <NightSky still={reduce || !shown} warm={warm} ground={ground} />
+      <NightSky still={reduce || !shown} warm={warm} ground={ground} passage={passage} />
       <SafeAreaView style={styles.fill} edges={['top', 'bottom']}>
         <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <ScrollView
@@ -135,6 +138,7 @@ export function Trailhead() {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <Veil s={passage} />
     </View>
   );
 }
