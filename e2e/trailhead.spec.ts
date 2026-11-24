@@ -41,7 +41,7 @@ function world() {
   return JSON.stringify(json);
 }
 
-async function open(page: Page, seed: string | undefined = world()) {
+async function open(page: Page, seed: string | null = world()) {
   if (seed) await page.addInitScript(seedScript, seed);
   await page.goto('./');
   await expect(field(page)).toBeVisible();
@@ -280,7 +280,7 @@ test.describe('the trailhead', () => {
   });
 
   test('first run: nothing yet, the same question; the first line is kept loose and can name the first wander', async ({ page }) => {
-    await open(page, undefined);
+    await open(page, null);
     await expect(field(page)).toBeFocused();
     await keep(page, 'went for a walk');
     await expect(said(page, 'Kept, loose')).toBeVisible();
