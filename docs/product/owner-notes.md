@@ -18,6 +18,20 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — A routine is a sequence in a frame; simplify the thread model
+"a routine can have subloops, and each of those loops can have their own subloops until you define
+done. So the practice gesture drawing can always have a setup task that … can precede a loop of
+gesture drawings, and then you keep iterating in that loop until you feel like you're done and you
+move on. Now, the thing with the stack is that a routine or a function can be in sequence, and that's
+not a stack … There has to be some notion of a frame that contains a sequence of steps. So … this
+thread execution type of model … see where we can simplify that thread model to the basic core of
+breaking down steps, executing until you feel like you're done, recalling previous routines, pushing
+them onto the stack, and popping them off when you're done, allowing for complex frames that might
+have one-off tasks in context of its own routine, and then that routine might have other subroutines
+until you feel like you're done." Asked: "what do you propose?"
+*Interpretation:* the stack holds frames; a frame is a running routine (a sequence with a place in
+it). Proposal written into B-11 ("The execution model, simplified").
+
 ## 2026-11-24 — Tasks are one-off; routines are named and loop
 "if we're going to keep in line with this programming metaphor … a stack can have blocks that loop
 until you're done, and anything prior to that are just one-off tasks by default. And you can define

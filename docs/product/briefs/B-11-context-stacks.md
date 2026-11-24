@@ -34,6 +34,25 @@ with you, one small piece at a time.
    is separate from what you're in (the stack); reopening the app offers **Resume** or **Restart** (a
    save state).
 
+### The execution model, simplified (proposed to the owner, 2026-11-24)
+**Three things exist.**
+- **Step** — a line of your words.
+- **Routine** — a named, ordered sequence kept in reference. Each item is a step or another routine.
+  It has one mark, **↻ repeat from here**: items above it run once (setup), items below repeat until
+  you say done. A new routine has the mark at the top (it loops, the owner's default); with no mark
+  it runs once through.
+- **Thread** — something you declared and are in: a stack of **frames**. A frame is a running routine
+  plus its place in the sequence. Each thread is its own save state; a wait parks a thread.
+**Five verbs.** **Declare** (start a thread: a routine by name, or a typed one-off) · **Next** (move on;
+at the end, back to the mark, or the frame finishes if there is none) · **Step in** (the item is a
+routine: push its frame — or just Next past it, working at that level) · **Done** (pop this frame, at
+any point; the frame beneath moves on) · **Break it down** (turn a step into a sequence in place:
+unnamed, once through, gone when popped; name it and it's a routine in reference).
+**Never shown as words:** frame, thread, stack, pointer. The path line *is* the stack; "now" is the
+place in the frame. A routine can't contain itself.
+**What this removes:** a task/routine kind picker (a name is the difference), a loop/once switch (the
+mark's position), and nested blocks just to get "setup, then loop".
+
 **Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
 what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
 in a structure that opens to any depth, measured (only if you ask) against your own pace.
