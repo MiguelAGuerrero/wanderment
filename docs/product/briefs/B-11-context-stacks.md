@@ -128,7 +128,17 @@ as things to add; a reusable routine is named as such for screen readers. A rout
   with nothing showing how much is left; the divider checked against Read it; Break it down and Group
   as a pair; the Resume card after days away. Its tensions led to blanks, child runs, "found by its
   words", and Done vs Switch.
-- **Implementation review** — `review-B-11-impl.md` (requested by the owner).
+- **Implementation review** (`review-B-11-impl.md`, against the code). *Sound:* one pure engine (run +
+  verb → next run) can serve Running, Walk through, Undo and most tests; a run's frame stack as one field
+  of one record fits today's whole-record writes and single undo slot; drag as only a shortcut.
+  *Blind spots:* (1) storage names its two collections by hand — journal, tab hand-over, undo, fallback,
+  export and import would silently drop routines and runs unless each is extended; (2) "a why with
+  wanders = a routine holding routines" is not in the data (links are derived from activity counts), and
+  converting on migration would create things without a tap; (3) once the new schema lands, older builds
+  are locked out, so "reversible" can't mean reverting a deploy; (4) data actions are refused while a
+  returning page takes its data back — exactly when someone presses Next; (5) a looping run never ends,
+  so history stays empty and Declare asks Resume / Start over daily; (6) frames `z1`, `z7`, `z8`, `c1`
+  still show Wait / Waiting.
 
 ## 8. Open
 1. Child runs: where they are started and listed (inside the parent's Running / See it all, and folded
@@ -138,16 +148,28 @@ as things to add; a reusable routine is named as such for screen readers. A rout
    current frame set; how "Choose steps" is entered.
 4. Later, only if it can be made simple: a step that waits while the rest of its sequence carries on.
 5. Whether history records anything beyond ended runs.
+6. A looping run never ends by itself: is "done for today" a third thing beside Done and Switch, and
+   what does Declare offer the next day (Resume without asking)?
+7. Whether today's wanders are copied across by a tap, or left as history only.
 
-## 9. Slices (reversible order)
-1. **Routines and steps, stored** (L, Full): the new shape and migration; Your routines; Blocks with the
-   divider; Read it — **alongside today's home**, nothing retired.
-2. **Declare and Running** (M–L, Full: runs, frames, saved places): Next, Step in, Done, Switch.
-3. **Break it down and Group** (M); found-by-its-words.
-4. **Blanks and child runs** (M–L, Full).
-5. **History; retire the sky and logging** (M), only after the owner has lived with 1–4; DESIGN.md and
+## 9. Slices (as the implementation review recommends)
+0. **Groundwork** (M, Full, no visible change): storage driven by one list of collections instead of two
+   named by hand; export format 2; then the new tables, **added only** — nothing converted.
+1. **Declare, Running and Break it down** (L, Full) with a plain editor (no drag, no routines inside
+   routines yet), alongside today's home. "Start from your wanders" copies them by one tap, with Undo;
+   the old and new sides are not kept in sync until the last slice. The smallest slice that lets the
+   owner feel the idea on their own data.
+2. **Reuse** (M–L, Full): routines inside routines, Group, found-by-its-words, edit-everywhere; Blocks
+   folding, the divider's grip, Read it.
+3. **Blanks** (M, Full), then **child runs** (M–L, Full), separately.
+4. **History; retire the sky and logging** (L), only after the owner has lived with 1–3; DESIGN.md and
    STRATEGY.md rewritten.
+**Rules to pin at build:** frames hold item ids, and an edit repairs any frame it strands inside the same
+Undo; removal is soft; a breakdown belongs to the run, with "Keep in <routine>" to make it permanent;
+one small event is recorded per verb from slice 1; Next is queued while a page reconnects; a divider at
+the bottom means none; Group and "Name it" add no loop; Step in opens a frame, Start with a value opens
+a child run.
 
 ## Decision requested
-**D-18:** Go on B-11 — slices 1–4 alongside today's home, then slice 5 after living with it?
+**D-18:** Go on B-11 — slices 0–3 alongside today's home, then slice 4 after living with it?
 **Go** / **Go, but change …** / **Not now**.
