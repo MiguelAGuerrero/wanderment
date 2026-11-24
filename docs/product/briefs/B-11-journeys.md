@@ -39,15 +39,15 @@ build** unless marked *(design now, build later)*.
 | J19 | **Tend your foundations** | Keep home to what matters now | a) a foundation's ⋯: rename, move up / down, remove · b) removing one with paused runs under it · c) home after removal, with Undo |
 | J20 | **A routine as a whole** | Manage a routine, not just its steps | a) the routine's own menu: Rename, Copy as a new routine, Copy as text, Remove · b) New routine from scratch · c) Your routines, empty · d) the editor of a routine used in several places: where it is used, "Edit a copy instead" |
 | J21 | **End or discard a run** | Finish with something, from anywhere it shows | a) the "This run" menu reached from See it all, Paused and home · b) ending a run that has open child runs · c) home after it, with Undo · d) starting a routine that already has a paused run: Resume / Start another |
-| J22 | **Settings and your data** | Know where your data is; take it out, bring it back, wipe it | a) Settings: where the data lives, Export, Import, Erase, version · b) import preview: what the backup holds, Replace / Cancel · c) Erase everything: confirm, export first · d) exported / imported confirmation |
+| J22 | **Settings and your data** | Know where your data is; take it out, bring it back, wipe it | a) Settings: where the data lives, Export, Import, Erase, version · b) import preview: what the backup holds, Replace / Cancel · c) Erase everything: confirm, export first · d) exported · e) imported |
 | J23 | **The app's own states** | Understand what the app is doing when it isn't ready | a) Opening… · b) can't open the data: Reload, download the local copy · c) another tab took over / reconnecting, with a pressed Next kept · d) a new version is ready · e) saved by a newer version |
 | J24 | **Coming from the old app** | Lose nothing, know where it went | a) first open after the update with existing data · b) History showing earlier logged lines with their notes |
 | J25 | **A lot of it** | It still works when full | a) home with 20 foundations and 10 runs under one · b) a three-line step and a long "Done with …" on Running · c) a 30-step routine in Blocks with the keyboard up |
-| J15+ | **More that can go wrong** | — | g) a step removed, with Undo · h) an empty step or name · i) starting something while a run is running |
-| J26 | **Forget things** *(design now)* | Privacy and tidiness | a) remove one History entry / clear History · b) forget a value used in a blank · c) forget an unnamed sequence · d) reopen an ended run from History |
+| J15+ | **More that can go wrong** | — | g) a step removed, with Undo · h) an empty step or name · i) starting something while a run is running · j) the way into (i) |
+| J26 | **Forget things** *(design now)* | Privacy and tidiness | a) remove one History entry / clear History · b) forget a value used in a blank · c) forget an unnamed sequence · d) reopen an ended run from History · e) Clear all, confirmed |
 | J28 | **Paste a list** *(design now)* | Bring steps in from elsewhere | a) pasted lines becoming several steps, with Undo |
 | J29 | **Move within a run** *(design now)* | Go where you actually are | a) See it all: make a step "now" · b) going back a step · c) dropping a this-run-only change |
-| J30 | **More with steps and blanks** *(design now)* | — | a) duplicate a step; send a step to another routine · b) placing, rewording and removing a blank; two blanks in one routine |
+| J30 | **More with steps and blanks** *(design now)* | — | a) duplicate a step · c) send a step to another routine · b) placing, rewording and removing a blank; two blanks in one routine |
 | J31 | **Where only a button is drawn** *(design now)* | — | a) Walk through · b) Focus on one routine · c) Copy as text and its confirmation · d) after "Name it, keep it" |
 | J32 | **Opt-ins** *(design now)* | — | a) Settings: "How did this feel?" and the pace note switched on |
 | J33 | **Find old things** *(design now)* | — | a) searching History (lines and notes) |
@@ -62,3 +62,7 @@ waits while the rest of its sequence carries on.
 **Coverage check (verbs → journeys):** Start J01–J03, J09 · Next J04 · Step in J04 · Done J04 · Pause
 J10 · Stop J11 · Break it down J05 · Group J07 · Copy J08, J13. Blanks J09 · child runs J09, J10 · Map
 J02, J10 · Read it J06 · found-by-words J12 · run-only revisions J05, J13 · errors J15 · access J16.
+
+**Renders:** the converged set, `.polish/product/b11-final/` — 101 states, with the final audit's fixes
+applied; its `NOTES.md` holds the design system, the Reduce Motion list, accessible names and the J27
+keyboard-and-Back table.
