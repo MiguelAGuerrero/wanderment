@@ -63,6 +63,6 @@ waits while the rest of its sequence carries on.
 J10 · Stop J11 · Break it down J05 · Group J07 · Copy J08, J13. Blanks J09 · child runs J09, J10 · Map
 J02, J10 · Read it J06 · found-by-words J12 · run-only revisions J05, J13 · errors J15 · access J16.
 
-**Renders:** the converged set, `.polish/product/b11-final/` — 105 states, with the sticky-note, three-button runner and the final audit's fixes
+**Renders:** the converged set, `.polish/product/b11-final/` — 106 states, with the sticky-note, three-button runner and the final audit's fixes
 applied; its `NOTES.md` holds the design system, the Reduce Motion list, accessible names and the J27
 keyboard-and-Back table.
