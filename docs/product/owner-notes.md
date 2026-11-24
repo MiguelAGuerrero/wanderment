@@ -18,6 +18,35 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — The landing after Return; transitions
+Evidence: `evidence/2026-11-24-landing-after-return.png` (typed "Testing out wanderment", pressed
+Return: "New line", the words, "✓ Kept, loose · Undo", "Move it? / Somewhere else…").
+> In testing out Wanderment, this was my initial prompt. The home page was fine, but this new page
+> doesn't, I guess, follow my intuition. I guess I expected that to show up in the constellations or
+> … in the night sky as a focus prompt, like that's where I'm heading towards. And then I can define
+> my substacks sequentially from there. Or I can log that as complete. But right now, as it stands,
+> this direction is close, but this landing is not what I expected. Also, the app would benefit
+> greatly from transitions, especially ones that interact with the metaphors, whether that be stars
+> shining in and out, or the landscape changing, the wanderer moving across screens, etc.
+
+Interpretation (by /product):
+1. **The landing is wrong.** What you type should go *up into the sky* as a star — a focus you're
+   heading toward — and from there you either break it into steps, one after another, or log it as
+   done. "Kept, loose" + "Move it?" reads as filing paperwork, not as the night sky. This is a capture
+   change and ties into B-08 (constellations: each log is a star). Big → decision first.
+Answers: the line **rises into the sky** as a focus star, with "Done it" and "↳ First step"; leaving
+keeps it as a star; a done star **twinkles and dims** and stays; fold all of it into B-08 and write it
+now.
+D-14 (after the B-08 panel): go, with changes — "the double tap could be addressed if we have a
+separate chip to declare things we already done today … the loop is that you just get to log the
+actions and see the stars lit up rather than create a new context stack. I'm using 'wander' loosely
+— [something] you're pursuing in the moment — and you're using the app to [offload] that context for
+you." Answers: several done lines at once; the done chip stays on until turned off; lit glow fades
+like warmth (~2 weeks); kinds fixed plus write; a quiet "Toward…".
+2. **Transitions** tied to the picture: stars fading in and out, the landscape shifting between
+   screens, the wanderer moving across. No data change; honours Reduce Motion. Small enough to build
+   on today's screens while the landing is decided.
+
 ## 2026-11-23 — Mindstream overlap; stacks and a companion prompt
 > I need you to attach yourself to the [Mindstream] repo … overlap in philosophy … survey … how
 > [Wanderment] differs enough to sustain it as its own thing or be rolled into [Mindstream] as a

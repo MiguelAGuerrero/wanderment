@@ -37,18 +37,31 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-71 Brief B-08: constellations — stars are logs, patterns emerge `[feature]` L
+### P-73 The rise: lines become stars `[feature]` `[data]` `[capture]` `[a11y]` M
 *Status:* todo
-*Why:* owner, 2026-11-24: "logging still should happen independent of a why … stars in the sky
-should just be your recent activity … constellations can be derived from that when you see a
-picture form. That's a working metaphor, not an explicit concept to be named in the app." Answers:
-each log is a star; constellations are drawn as faint lines and, tapped, quietly offer "Name this?"
-(a wander or why only on a tap); a why you name becomes a brighter fixed guiding star (Polaris) with
-its wanders and trails on the ground; clustering on-device from words plus an optional standard
-vocabulary of kinds offered as quick-action chips while logging ("read, make, research, watch,
-plan…"), freeform always allowed. Open: a fixed set of kinds, or a standard set you can add to.
-*Done when:* brief B-08 written (data: an optional kind per log; capture change; the sky's new
-meaning; how B-07's star screens change), persona panel run, owner's go/no-go recorded.
+*Why:* B-08 slice 1 (D-14 go with changes). `docs/product/briefs/B-08-constellations.md`.
+*Done when:* Return still saves the line at once as typed; the view looks up and the line rises as
+a star with your words (a heading, focus on it): by default a **lit** pursuit with quiet **Done it**
+(✦), **↳ First step** and a corner **Toward…**; with the sticky **done** chip on, it lights and
+settles at once (several in a row; the chip stays on until turned off or you leave); Done it
+settles it (twinkle, dim, "Settled" announced, Undo that waits under assistive tech); ↳ First step
+opens a step field and only Return creates the wander (named with your words) and sets its step,
+Undo; Toward… attaches to any wander, Undo; a lit star's glow fades like warmth; lit stars in night
+ink, never the accent colour; the rise never blocks typing; no hint lines; additive optional
+`settledAt` (older activities read as settled); export/import round-trip; "Kept, loose · Move it?"
+retired; migration + persistence tests (mutation-checked); e2e + axe at the end.
+
+### P-72 Transitions that move through the picture `[feature]` `[a11y]` M
+*Status:* in-progress
+*Why:* owner, 2026-11-24: "the app would benefit greatly from transitions, especially ones that
+interact with the metaphors … stars shining in and out, or the landscape changing, the wanderer
+moving across screens."
+*Done when:* moving between the trailhead, the sky, a star, a trail and Map feels like moving
+through one night: looking up (trailhead → sky) sinks the hills and fades the stars in; a star →
+its landmarks rise and the wanderer walks to its camp; a trail → the wanderer walks up the path;
+going back reverses it; Map dims in like dusk; each transition is short (≤ ~600 ms), never blocks
+input, and under Reduce Motion becomes a plain cross-fade or none; no layout jumps; unit tests for
+the transition choices; e2e that Reduce Motion stills them (run at the end).
 
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
@@ -67,6 +80,38 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
+
+### P-74 The sky of lines `[feature]` `[a11y]` M
+*Status:* todo
+*Why:* B-08 slice 2.
+*Done when:* "I'm not sure" shows recent lines as stars (the last ~60 days or ~12 lines, whichever is
+more) — lit ones glowing by warmth, settled ones dim, a just-settled one twinkling — and whys as
+brighter fixed guiding stars (accent colour only for them); tapping a lit star brings back Done it /
+First step / Toward…; screen-reader list with headings (guiding stars, lines newest first with state
+in each name, then constellations once P-76 lands); hit areas ≥ 44 pt; Reduce Motion; e2e + axe.
+
+### P-75 Kinds `[feature]` `[data]` `[capture]` `[a11y]` S
+*Status:* todo
+*Why:* B-08 slice 3.
+*Done when:* once you've typed, a fixed row — make, read, write, research, watch, plan, move,
+people, rest — in one container after the suggestions, "I'm not sure" and the done chip; tap tags
+(again untags), "selected" spoken, never takes focus or catches Return, no layout jump; optional
+`kind` stored, exported, round-trips; never counted.
+
+### P-76 Constellations and "Name this?" `[feature]` `[a11y]` M
+*Status:* todo
+*Why:* B-08 slice 4.
+*Done when:* derived on the fly (never stored): lines draw faint links when they share word stems,
+or a kind within a few days (a kind alone only pulls stars near); ≥ 3 within a few weeks; tapping
+shows the lines with dates in words and the shared word or kind highlighted, and **Name this?** (a
+wander or a why) attaches them in one tap with Undo; screen readers hear "Lines that go together:
+…", no count; a named theme keeps its lines reachable from its star.
+
+### P-77 B-08 in DESIGN.md `[feature]` S
+*Status:* todo
+*Why:* B-08 slice 5.
+*Done when:* DESIGN.md describes lines as stars (pursuit and done), the done chip, kinds,
+constellations and guiding stars; B-07's P-67 (step stacks) continues from ↳ First step.
 
 ### P-67 Step stacks `[data]` `[feature]` M
 *Status:* todo
@@ -349,6 +394,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   DESIGN.md's "graph is Home" and Home-capture rules updated? And reword STRATEGY.md's refusal of
   "milestones" to "no schedules, deadlines or progress toward a goal" so landmarks and saved routes
   fit? Recommended: go, and reword.
+- **D-14 B-08: constellations** — **answered 2026-11-24 by the owner: go, with changes** (a sticky
+  "done" chip for things already done — they light and settle at once, several in a row; pursuits
+  rise lit and their glow fades like warmth; kinds fixed plus "write"; a quiet "Toward…"). → P-73 to
+  P-77. Brief: `docs/product/briefs/B-08-constellations.md`.
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 
@@ -377,6 +426,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-24 · P-71 — brief B-08 "Constellations" written with the owner's landing folded in; mockups G–J; persona panel (6 personas, 3 panelists) synthesized; owner answered D-14 go with changes · evidence: `docs/product/briefs/B-08-constellations.md`, `.polish/product/panel-B-08-{1,2,3}.md` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (docs only) · this commit
 - 2026-11-24 · P-65, P-66 (B-07 slices 1–2) — the trailhead is Home: a night sky, "Where are we wandering today?", Return logs at once (loose) with Undo, a quiet "Move it?" (never overwrites a staged step), typing offers "Open <wander>", "I'm not sure" → look up: whys as stars in fixed places at one size, warmth and motes by heat (floor of one), recent loose lines as stray footprints with Move it?; under a star: landmarks in a fixed order, cards that name their wander, trails; a wander's trail: "Here's where we left off", Did it, footprints in words; Esc goes back; the graph moved unchanged to Map, now in the night palette · evidence: `e2e/trailhead.spec.ts`, `e2e/sky.spec.ts`, `e2e/dark-map.spec.ts`, `src/domain/{trailhead,sky,heat}.test.ts`, `src/store/trailhead.test.ts`; specs' entry route `/` → `/map` marked P-65 · audit: 8 reported · 8 reproduced · 8 fixed · 0 deferred (adversarial UI/UX audit, different model, some reasoned rather than reproduced; plus a persona panel on the built screens, all six up to yes / leaning yes; tests written first and run at the end, owner's rule) · this commit
 - 2026-11-23 · P-64 — brief B-07 "Under the night sky" (`docs/product/briefs/B-07-night-sky.md`): prompt-first trailhead, whys as stars, wanders as trails with step stacks, camp, routines; persona panel (6 personas, 3 panelists) synthesized; owner answered D-13 go and reworded STRATEGY · evidence: mockups https://claude.ai/artifact/GWjaYybmi4QxeBqTpGeHHp, `.polish/product/panel-B-07-{1,2,3}.md` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (docs only) · this commit
 - 2026-11-23 · P-61 — ＋ to log (D-11): the What's next / Log toggle is gone; the What's next card is always shown with a round ＋ that opens the log field; as you type it suggests staged steps ("✓ Clean my car · feel productive": a tap attaches and completes it), past entries (re-attaching their target), then nodes; tapping a node while open attaches; the "Toward something — or just itself?" bridge and the toast's question are removed (toast: "Logged → <node>"); DESIGN.md updated · evidence: `logSuggest.test.ts` (11, 8 mutants killed), `e2e/home-plus.spec.ts` (10), spec updates marked P-61; perf 1.13–1.23× (one 4-worker run 1.33×) · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier, full suite) · this commit
