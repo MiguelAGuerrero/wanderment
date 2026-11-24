@@ -3,7 +3,9 @@
 **Status:** proposed · **Decision:** D-18 · **Theme:** Seeing flow / Warm return · **Date:** 2026-11-24
 **Supersedes:** B-10 (D-17, never decided) and the night-sky visuals of B-07/B-08/B-09.
 
-Mockups (local): `.polish/product/b11-shots/` — revised **`r1-running`, `r2-breakdown`, `r3-stack`,
+Mockups (local): `.polish/product/b11-shots/` — **with the re-audit's fixes: `w1-running`, `w2-after-done`
+(Undo), `w3-breakdown`, `w4-last-piece`, `w5-stack` (⋯ menu open), `w6-all`, `w7-routines`, `w8-history`,
+`w9-switch`** (overview `w-sheet.png`); before them `r1-running`, `r2-breakdown`, `r3-stack`,
 `r4-all`, `r5-routines`, `r6-history`**; first drafts `p1`–`p4` (Tetris wells, superseded).
 
 ## The problem, in the owner's terms
