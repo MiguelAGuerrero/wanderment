@@ -37,63 +37,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-79 The composer at the bottom, "I'm not sure" beside it `[feature]` `[capture]` `[a11y]` M
-*Status:* in-progress
-*Why:* B-09 slice 1 (D-16 go).
-*Done when:* the question is a small heading in a bottom composer (grabber, "I'm not sure" chip right above the
-field, field + send), in thumb reach and keyboard-aware; the B-08 states (suggestions above the field,
-the done chip, the rise with Done it / First step / Toward… / Undo) live in it, the composer may grow
-and the map yields; keyboard up or large text collapses the heading; targets ≥ 44 pt; the chip is a
-toggle (pressed state, non-colour mark, name "I'm not sure — light up the map"); no chat-bubble look;
-UI audit fold-ins 1–3, 6 (`docs/product/briefs/B-09-home-live-map.md`); e2e + axe at the end.
-
-### P-80 The live map at rest `[feature]` `[a11y]` M
-*Status:* todo
-*Why:* B-09 slice 2.
-*Done when:* the area above the composer shows a random few of the last three weeks' lines (drawn once a day,
-places from each line's id, never redrawn while on screen), each a small light with its words and when
-in words (never faded below 4.5:1; lit and settled look alike); beyond three weeks a calm sky with no
-copy; tapping a line opens it (words, note, and its choices if lit); the night, hills and lantern stay;
-Reduce Motion stills it; at the largest text a plain list; screen readers: field first, then a
-"Recent" group newest first; fold-ins 4, 5; e2e + axe at the end.
-
-### P-81 "I'm not sure" lights the map `[feature]` `[a11y]` M
-*Status:* todo
-*Why:* B-09 slice 3.
-*Done when:* toggling the chip lights the map in place: whys and wanders as named nodes, all one size (warmth by
-glow only, shading off honoured), links ≥ 3:1 from the shown lines to the nodes they went toward —
-complete for the shown whys, never moving or replacing the feed's lines; it stays lit until toggled;
-"Map lit" announced, no count; tapping a node opens its session (B-08 camera, its trail with What's
-next); `/sky` is the lit state; fold-in 7; e2e + axe at the end.
-
-### P-82 Attaching lands where you're looking `[feature]` `[a11y]` S
-*Status:* todo
-*Why:* B-09 slice 4; fixes the owner's "attaching never updates the map".
-*Done when:* after Toward…, First step or attaching from a suggestion, the line travels into its node on the home
-(≤ 600 ms, picture only, never blocking input; under Reduce Motion it just appears there) and stays
-labelled there until the next action, the node warmed; the toast says it in words and sits above the
-composer and the keyboard; fold-in 9; e2e at the end.
-
-### P-83 Swipe up for the sheet; Map retired `[feature]` `[a11y]` M
-*Status:* todo
-*Why:* B-09 slice 5.
-*Done when:* the grabber (a 44 pt button with an expanded state) opens the Wanders / Activities sheet in the
-night palette by tap or by a swipe that starts on it; a visible close; rows for Explore, search,
-settings and export; the sheet and the lit state live in the URL so Back closes them first; `/map`
-redirects to the lit home; the graph Map, its card, focus and scope chains retire; DESIGN.md's Home
-rules rewritten; specs moved off `/map`; fold-ins 8, 10; e2e + axe at the end.
-
-
-### P-84 The sheet's search lights the stars above `[feature]` `[a11y]` S
-*Status:* in-progress
-*Why:* owner, 2026-11-24: "The search should reflect the state of the stars above so you get to see
-the movement of your energy" (clarified: the sheet's search).
-*Done when:* searching from the sheet leaves the sky visible above; every matching line appears as a
-star above (placed from its id, with its words and when in words), its node(s) lit as on the lit map;
-other feed lines dim; stars that stay never move as the query changes; clearing or closing returns
-the sky to rest; no counts; the results list stays the accessible source, the result announced in
-words without a number; Reduce Motion: appear/dim only; B-09 fold-ins hold; e2e at the end.
-
 ### P-46 Home's cost with a large history `[perf]` M
 *Status:* todo
 *Why:* the one home opens a 4,000-line history in ~4 s here and ~14 s at CI CPU speed (E2E_SLOW=4);
@@ -471,6 +414,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-24 · P-79, P-80, P-81, P-82, P-83, P-84 (B-09) — the home: the composer at the bottom ("I'm not sure" beside the field, the question a small heading, suggestions and the done chip above the field); above it a live map — a random few of the last three weeks' lines, drawn once a day, words and when in words, a calm sky beyond; "I'm not sure" lights the map in place (whys and wanders as nodes, routed links, nothing moving); attaching lands visibly in its node; the grabber (tap or swipe) opens the sheet with a visible Close and Explore / Settings / Export, and its search lights the matching stars above; the graph Map retired (`/map` → the lit home) · evidence: `src/domain/{feed,litMap,searchSky}.test.ts`, `e2e/{live-map,lit-map,attach-lands,home-sheet}.spec.ts`, whole suite 242 passed; UI audit before building (`docs/product/briefs/B-09-home-live-map.md`) · audit: 72 reported · 72 reproduced · 72 fixed · 0 deferred (the end-of-run full e2e run; one app bug — Back closing the sheet after reopening an activity — the rest specs moved off retired Map behaviour) · this commit
 - 2026-11-24 · P-78 — CI pre-gates (owner: "Deploys are failing. Ensure we have proper CI pre-gates"): the deploy now waits for the whole e2e suite (`needs: [build, e2e]`), so a red or flaky run never publishes; `scripts/polish/verify.sh` adds an "e2e-ci-like" pass — the changed specs again at CI CPU speed (`E2E_SLOW=4` via `e2e/fixtures.ts`, 2 workers, no retries) — so timing races fail before the push; the two CI flakes fixed at the cause (sky fix 11 measured while landmarks rose; one-home's 4,000-line load outlasted the default wait — noted on the per-log-cost perf item) · evidence: both specs 3/3 at E2E_SLOW=4, retries off; `.github/workflows/deploy-web.yml` · audit: 2 reported · 2 reproduced · 2 fixed · 0 deferred (CI run 45316632032) · this commit
 - 2026-11-24 · P-74, P-73 (B-08 slices 1–2 with D-15) — one home: the sky is drawn once; at rest your recent lines are faint unlabelled stars (last ~60 days or ~12 lines; never dimmed by absence), whys brighter guiding stars, Map a signpost; "I'm not sure" or a star tilts the camera up into a session over the same sky (the sky, a why's wanders, a trail), which ends by itself after a choice, or by Esc, Back, a swipe down or tapping the ground; `/sky`, `/star`, `/trail` open it tilted. The rise: Return saves the line as typed and lifts it as the session's heading — a lit pursuit with ✦ Done it, ↳ First step, Toward… and Undo of the Return; the sticky done chip lights and settles lines at once; Undo carries into the toast when a session ends; "Kept, loose · Move it?" retired; a lit glow fades like warmth; additive `lit`/`settledAt` (migration 3; old lines read settled) · evidence: `src/domain/{home,rise}.test.ts`, `src/store/trailhead.test.ts`, migration/persistence/import tests (mutation-checked), `e2e/{one-home,rise,trailhead,sky,transitions}.spec.ts`; old-release migration checked by the auditor · audit: 9 reported · 7 reproduced · 8 fixed · 1 deferred (F8 accepted: an old-release tab rewriting a line resets lit to settled, no text lost) · this commit
 - 2026-11-24 · P-72 — transitions that move through the picture: looking up sinks the hills and fades the stars in; a star raises its landmarks and walks the wanderer to camp; a trail walks the wanderer up the path; back reverses; Map dims in like dusk; only the picture moves (text and controls never do), never blocks input, ≤ 600 ms; Reduce Motion: none · evidence: `src/domain/passage.test.ts` (18), `e2e/transitions.spec.ts` · audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (Light tier; tests first, e2e run once at the end) · this commit

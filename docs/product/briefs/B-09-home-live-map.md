@@ -1,6 +1,6 @@
 # B-09 — The home: a live map above, the prompt below
 
-**Status:** building · **Decision:** D-16 → go, 2026-11-24 (→ P-79 to P-83) · **Theme:** Seeing flow / Capture anywhere / Warm return · **Date:** 2026-11-24
+**Status:** shipped · **Decision:** D-16 → go, 2026-11-24 (→ P-79 to P-83) · **Theme:** Seeing flow / Capture anywhere / Warm return · **Date:** 2026-11-24
 
 Mockups (local): `.polish/product/b09-shots/` — `0-today.png` (the owner's screenshot), `1-rest.png`,
 `2-notsure.png`, `3-attached.png`, `4-swipe-up.png`.
