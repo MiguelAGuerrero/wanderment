@@ -209,6 +209,24 @@ decided on return, and pre-planned; `.polish/product/review-B-11-no-if.md`; reas
   waiting lines on home edge toward a to-do list; a long reason on the context line; and whether it may
   say since when.
 
+**Pausing and waiting** (owner, decided 2026-11-24; replaces "there is no waiting state").
+- **Pause** says "I'm done with this for now" and may carry a **reason**. It reads as *unfinished*: home
+  shows "paused at <step>" and the reason.
+- **A wait step** is a deliberate step in a routine ("Wait for: the editor's notes"). Reaching it means
+  everything before it is done, to your knowledge. A run resting there reads as *waiting*, not
+  interrupted: home shows "waiting for <words>". Next on it means it has happened.
+- **Reactions** belong only to a wait step, and exist only when each one holds steps or a routine
+  ("Accepted → ▤ Announce it", "Revise → ▤ Apply the notes"). They are offered at that moment, when you
+  say it has happened, and nowhere else. A wait step with no reactions just moves on. There are no bare
+  yes / no answers, no conditions, no nesting.
+- **Waiting while carrying on** (proposed): a wait step stops you only where it stands, so the routine's
+  order does the work — put it right after what you set going to stop there, or later to carry on with
+  the steps between and meet it where the result is needed. Optional, later: the wait step names the
+  step that set it going, and from then until you reach it the pull-up panel and home say what is
+  "out".
+**Added to the final redraw:** the reason on the paused screen and on home; a wait step in Blocks,
+Read it and on the runner; reactions offered on a wait step; "waiting for" on home.
+
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
 their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**

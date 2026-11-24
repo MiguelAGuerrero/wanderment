@@ -18,6 +18,29 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Pause is incompleteness, a wait step is completeness; reactions only when they hold something
+"A pause is just saying I'm done executing on this task for now, and there should be allowed a reason
+to do that. They can make a deliberate step, a wait step, if that's more concrete. But … a pause is a
+mid-interruption … Whereas an explicit wait step means, okay, I've done the work, and everything I've
+done before that was complete to my knowledge. Whereas a pause naturally confers incompleteness. So
+there's two experiences with that. And the reactions should be surfaced only when it's relevant at a
+decision point, assuming we codify that. And only if there are routines or steps afforded to those
+reactions, because otherwise a yes or a no with no reaction might as well not have existed … It's only
+useful if there was already some decision made beforehand on how to proceed once you get the answer, so
+you don't have to remember or think about it. And … we should be able to wait on one thing and carry on
+with the rest of the task. In the sense that you can context switch freely. And if you are allowed to
+work within the same thread and allowed for asynchronous operations to occur, there needs to be an
+indication like, hey, there's some outgoing requests you have … And there has to be a natural await
+point for which you can't proceed without those requests … being resolved … If you await a statement,
+that whole block has to resolve before you can move on. But if you use something like a promise chain,
+where the promise is free to do its own work while you proceed with the rest of the routine … I can't
+think of a case where that sort of functionality would be useful. But … there might be … an example for
+which that sort of concurrency is valuable, if you can think of any."
+*Interpretation:* decided — Pause may carry a reason and reads as unfinished; a **wait step** is a
+deliberate step in a routine and reads as "everything before this is done"; reactions exist only on a
+decision point and only when each holds steps or a routine. Open — waiting on one thing while carrying
+on inside the same run; examples asked for.
+
 ## 2026-11-24 — Conditions without an if: pause with a reason, queue the response
 Asked for an agent to work the stress-test scenarios through "by just queuing up or pushing work in
 response on a pause … the tension I'm trying to resolve specifically is … what's the difference from
