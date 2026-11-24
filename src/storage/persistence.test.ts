@@ -1454,6 +1454,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       showSheetSection: ['activities'],
       // P-65: walking away from the trailhead's kept line (session only).
       leaveKept: [],
+      // Fix 18: a loose line tapped on the sky reopens the trailhead's Move it? (session only).
+      keepLoose: ['a1'],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>
