@@ -243,6 +243,16 @@ decided on return, and pre-planned; `.polish/product/review-B-11-no-if.md`; reas
   While you wait: make the filling; clean up. Then wait for: the dough has doubled. Then: shape the
   loaf." *Reactions* sit folded under the wait block as labelled routine blocks, like a routine's own
   contents. No "any order" group (owner).
+- **Several things out at once** (proposed; two examples to draw). *One wait closing several:* "Ask Dana
+  for a reference" and "Ask Sam for a reference" each open a rail; "Tailor the CV" and "Write the cover
+  letter" sit beside both; one wait block, "Wait for: both references are in", closes both — a wait may
+  be tied to more than one step. *Waits closing at different points:* "Put the dough to prove" and
+  "Start the stock" open two rails; "Wait for: the stock has reduced" closes one, "Wait for: the dough
+  has doubled" closes the other further down. Each rail has its own lane beside the blocks, so rails
+  never cross; three lanes at most — a routine needing more is offered Group, the same lead as a step
+  that is too long. While running, the pull-up panel and home name what is out ("out: dough · stock"),
+  never how many. Read it: "… While you wait for both: tailor the CV; write the cover letter. Then wait
+  for: both references are in."
 **Added to the final redraw:** the reason on the paused screen and on home; a wait step in Blocks,
 Read it and on the runner; reactions offered on a wait step; "waiting for" on home.
 

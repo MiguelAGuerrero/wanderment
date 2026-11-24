@@ -18,6 +18,11 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Several things out at once
+"Okay, so show an example of waiting for multiple outgoing items or requests, effectively."
+*Answered with two worked examples (B-11):* one wait that closes several rails ("both references are
+in"), and two waits that close at different points (stock, then dough), each rail in its own lane.
+
 ## 2026-11-24 — How a wait is laid out in the composer
 On an "any order" group: "No, that's fine. That resolves what my intuition was telling me. But then how
 would that be laid out intuitively on a UI? Like a wait for routine to wait for a step to resolve? As
