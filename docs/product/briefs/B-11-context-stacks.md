@@ -62,6 +62,16 @@ Frames: `y1` declare (with Resume / Restart), `y2` blocks with the divider, `y3`
 inside a loop (Next · Done with <routine> · Break it down), `y5` at a routine (Step in · Next as one
 thing).
 
+**Current frames (with fold-ins 17–25 and the owner's folding Read it): `z1`–`z8`, `z-sheet.png`.**
+`z1` declare — Resume the one primary, a card per waiting thread; `z2` "has a saved place: Resume there
+/ Start over / Cancel"; `z3` blocks — 48 px grip on the divider, the loop as a bracket, a routine inside
+a routine as its own outlined block (▤), routines you have offered as "＋ ▤ name"; `z4` **Read it,
+collapsed** to the routine's own items; `z5` one routine **expanded in place** (＋ / −), its loop named
+("until you're done with Hand studies"); `z6` **Focus** on one routine alone, with its place in the
+parent and its neighbours to step to; `z7`/`z8` running — Next, Step in, Break it down and Done in fixed
+places (Step in dimmed on a plain step), the level in words ("In Hand studies, inside Practise
+drawing"), Undo after Next, and See it all · Wait · Switch as three buttons.
+
 **Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
 what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
 in a structure that opens to any depth, measured (only if you ask) against your own pace.

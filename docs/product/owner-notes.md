@@ -18,6 +18,16 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Read it folds: top level first, expand or focus one section
+Asked for the frames redrawn with the fixes, and on the reading view's ambiguity: it shows the top
+level, "and then the user can expand out and scope in on particular sections of the routine so instead
+of seeing all the steps all at once they see practice drawing … practicing hand [studies] … gesture
+drawings … a quick look cause like ok I'll do this and then that … they can expand out or focus one at
+a time so that it makes sense in its context, like scope views, almost like expanding and collapsing,
+brackets, or function names."
+*Interpretation:* Read it opens collapsed to the routine's own items; a routine inside it expands in
+place or is focused on alone, with its place in the parent shown. Led to: B-11 frames z1–z8.
+
 ## 2026-11-24 — The model matches; a draggable divider and a readable form
 On the three-things, five-verbs model with the repeat mark: "Yes, this matches my intuition. And in
 terms of visualization, dragging the marker or divider can shift the layout of the stack and routine
