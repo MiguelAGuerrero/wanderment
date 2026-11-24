@@ -45,7 +45,8 @@ time, break a step down, pause and come back — beside today's home, nothing re
 them and "New: …"; a routine with steps and the Repeat divider (until I'm done / a number); the runner
 (context line with Done, the sticky note, Pause · Break it down / Step in · Next, the last-step mark, the
 pull-up panel with the round, Back to and Jump to…); Break it down as a run-only sequence with "Keep
-in"; Pause with a reason, the paused screen with Resume and Home (asks first); plain wait steps
+in"; the edge of a goal asking for the next small step, and leaving a level showing this run's changes
+with Keep (B-11 §9c); Pause with a reason, the paused screen with Resume and Home (asks first); plain wait steps
 ("waiting for … · since"); Undo after every reversible action; one pure engine (run + verb → run) with
 unit tests for every row of the execution table; journeys J01–J05, J10, J34–J39 covered by e2e at the
 end; B-11 §6 rules met (targets, text, one filled button, spoken names, Reduce Motion).

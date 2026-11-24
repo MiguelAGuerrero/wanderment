@@ -296,6 +296,24 @@ told apart only by their spoken names; long words break mid-word at 200 %; no re
   until the first Next after Resume; a kept wait sits on its tile; a jump to the start of a level is
   round one, to a step keeps the round; a move that would split a rail unties it inside the same Undo.
 
+## 9c. The structure is written by running it (owner: go on with these, 2026-11-24)
+What no neighbouring product does: an outliner grows a tree at a desk; a routine app runs a list that
+never grows. Here the playbook deepens and extends exactly where you stand. Two mechanisms make that the
+tool's doing rather than a way of describing it:
+- **The edge keeps extending.** A first layer that is a goal has an edge where what you have worked out
+  stops. Reaching it does not finish the run: the runner asks for **the next small step** (as it asks for
+  the first one on something new), and the step you add is kept in the routine. You lay the path one
+  step at a time; each finished step is what prompts the next. Done still ends the run whenever you
+  choose. A routine that is complete in itself ("ends here", set in its menu) finishes on its last Next
+  as in 3.6; a new first layer made from the prompt starts with the edge open.
+- **A run leaves the routine better.** Leaving a level in which you changed something for this run shows
+  those changes once, each with **Keep** (and Keep all), then goes on. It appears only when there is
+  something to keep, and never blocks leaving.
+Later: Looking back showing how a routine read earlier against now — the way getting sharper, not a
+tally.
+**The aim** (owner): flow — do, iterate, proceed — as a discipline the app helps form; to be judged by
+the owner's own use once the first slice exists. The name is deferred.
+
 ## 10. Still with the owner
 The font. Whether "Stop waiting for this", the life of a pause reason, where a kept item sits on home,
 what a jump keeps, and the rail-splitting rule stand as proposed. Keyboard: a key each for Next, Pause,

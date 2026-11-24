@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Keep going; the name can wait; flow state is the aim
+"Let's not worry about the name for now. Let's just continue on making the slices and your proposals and
+ensuring that this app really hones in on its ability to be a context management app for your work.
+Eventually, I really want to get into a position where this app can help you reach flow state, where in
+interacting with it, you can develop a discipline that allows you to do, iterate, and proceed forward.
+And I'll do that once I get my reps in with this app to see its strengths, at least for a person of my
+profile."
+*Interpretation:* the name is deferred. Go on with the slices and with the designer's proposals: the
+edge of a goal keeps extending (the runner asks for the next small step), and leaving a run shows what
+it changed, with Keep. The long aim is flow — do, iterate, proceed — to be judged by the owner's own use.
+"Next" stays as the word (the Step in / Step over vocabulary was not taken up).
+
 ## 2026-11-24 — This is a different app; Wanderment is retired; a new name
 On whether this is its own app: "Oh no, this is completely different from [Wanderment]. There are some
 ideas from [Wanderment] that I still value, like the ability to draw links between related activities so
