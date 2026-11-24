@@ -75,10 +75,25 @@ New: an ordered list of steps per stack, parent links for broken-down steps, rou
 back, usable in several stacks). A migration keeps every record.
 
 ## UI audit
-First frames: `.polish/product/ui-audit-B-11.md` (12 findings). Fixed in the r-frames: no counts ("3
-inside", "Loose: 2" gone); *now* labelled in words, distinct from "opens ›"; targets ≥ 48 px; your words
-in full, wrapping; readable body font; one primary per screen; Return no longer files anything silently
-(it only adds a step, where the label says). Re-audit of the r-frames: `ui-audit-B-11-r.md`.
+First frames: `.polish/product/ui-audit-B-11.md` (12 findings). Re-audit of the r-frames:
+`.polish/product/ui-audit-B-11-r.md` — fixed: nothing files silently, no counts, the unreadable cleared
+block, top-down reading order. **Fold-ins — the build must meet all of these:**
+1. Done and Not now: an Undo that stays until the next action, a spoken announcement ("Done: <step>.
+   Now: <next>"), focus moves to the new step; under Reduce Motion the change is instant.
+2. No explanation text on any screen (r2–r6); "When the last piece is done" becomes a real choice
+   asked at that moment, 48 px buttons.
+3. Move / make it now / send to another stack: a visible ⋯ button on every step, long-press only as a
+   shortcut.
+4. One filled primary per screen (Done on Running; ADD is outlined and disabled while the field is empty).
+5. "Not now" says where the step goes ("Later — to the bottom"), with a down arrow.
+6. All stacks: names wrap, the next column peeks so the sideways scroll is visible, a way back to Run,
+   column borders ≥ 3:1.
+7. One symbol per meaning: ▶ only for *now*; Run and Energy get their own words/marks.
+8. Buttons, labels and dates in the readable font at ≥ 16 px (pixel font for screen titles only);
+   layouts reflow at 200 % text; screen titles are headings.
+9. A stack's colour is fixed; a routine takes the colour of the stack it sits in; history's mark
+   matches its stack.
+10. Running: the energy switch and Stack in thumb reach (above the field), not at the top.
 
 ## Persona panel
 _Simulated perspectives from `docs/product/PERSONAS.md`. A thinking tool, not user research._ Reports:
@@ -98,12 +113,14 @@ _Simulated perspectives from `docs/product/PERSONAS.md`. A thinking tool, not us
 - **For the revised model:** C's return — the running screen after weeks away shows the step plainly,
   no "today" claim; A's sweep — "Rest this stack" (reversible) on All stacks.
 
-## Slices (draft, after go)
-1. **Stacks and steps, stored** (L, Full): the new shape + migration; Stack and All-stacks screens.
+## Slices (reversible order)
+1. **Stacks and steps, stored** (L, Full): the new shape + migration that keeps every record; Stack and
+   All-stacks screens — **alongside today's home**, nothing retired.
 2. **Running screen + energy switch** (M).
 3. **Break it down** (M, Full: parent links).
 4. **Routines** (M, Full).
-5. **History + retire the sky and logging** (M): DESIGN.md/STRATEGY.md rewritten.
+5. **History + retire the sky and logging** (M), only after the owner has lived with 1–4; DESIGN.md and
+   STRATEGY.md rewritten. If capture is missed, a small "did it" stays in history.
 
 ## Decision requested
-**D-18:** Go on B-11 — slices 1–5 in order? **Go** / **Go, but change …** / **Not now**.
+**D-18:** Go on B-11 — slices 1–4 alongside today's home, then slice 5 after living with it? **Go** / **Go, but change …** / **Not now**.
