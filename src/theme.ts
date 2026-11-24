@@ -15,7 +15,12 @@ export const C = {
   accentTint: '#F6E6DA',
   crumbBg: '#FBF7F2',
   quietBg: '#EFECE5',
+  /** Words on an ink-filled button or chip. */
+  onInk: '#FFFFFF',
 };
+
+export type Palette = typeof C;
+
 
 /** The trailhead's night (P-65, B-07): sky, hills, lantern; text and lines readable on it. */
 export const N = {
@@ -43,24 +48,53 @@ export const N = {
   tagInk: '#2A2238',
 };
 
+/**
+ * Dark Map (owner, 2026-11-24): Map and its sheet in the night palette, under C's names so the same
+ * styles take either. Words 4.5:1 or more on bg, surface, quietBg, crumbBg and accentTint; marks
+ * (dashed, accent) 3:1 or more.
+ */
+export const M: Palette = {
+  bg: N.bg,
+  surface: N.surface,
+  ink: N.ink,
+  body: '#D9D6E6',
+  muted: N.muted,
+  faint: N.faint,
+  line: N.line,
+  lineSoft: '#2A2643',
+  dashed: N.trail,
+  accent: N.lantern,
+  accentInk: '#F7CDAE',
+  accentTint: '#3A2A33',
+  crumbBg: '#15132A',
+  quietBg: '#1F1C38',
+  onInk: N.bg,
+};
+
 export const font = {
   display: 'SpaceGrotesk', // falls back to system if not loaded
 };
 
-export const s = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: C.bg },
-  content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 12, maxWidth: 640, width: '100%', alignSelf: 'center' },
-  h1: { fontSize: 28, fontWeight: '600', color: C.ink },
-  sectionLabel: { fontSize: 13, fontWeight: '600', letterSpacing: 0.5, color: C.accent, marginTop: 4 },
-  quietLabel: { fontSize: 13, fontWeight: '500', color: C.muted, marginTop: 4 },
-  meta: { fontSize: 13, color: C.muted },
-  body: { fontSize: 15, color: C.body, lineHeight: 22 },
-  chip: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
-  chipText: { fontSize: 14, fontWeight: '500', color: C.ink },
-  chipAccent: { borderColor: C.accent, backgroundColor: C.accentTint },
-  chipAccentText: { color: C.accentInk },
-  chipDashed: { borderStyle: 'dashed', borderColor: C.faint, backgroundColor: 'transparent' },
-  primaryBtn: { minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  primaryBtnText: { color: '#FFFFFF', fontWeight: '600', fontSize: 15 },
-  card: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: 14, padding: 14 },
-});
+/** The shared styles in a palette (`s` by day, `sm` on dark Map). */
+const shared = (C: Palette) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: C.bg },
+    content: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 24, gap: 12, maxWidth: 640, width: '100%', alignSelf: 'center' },
+    h1: { fontSize: 28, fontWeight: '600', color: C.ink },
+    sectionLabel: { fontSize: 13, fontWeight: '600', letterSpacing: 0.5, color: C.accent, marginTop: 4 },
+    quietLabel: { fontSize: 13, fontWeight: '500', color: C.muted, marginTop: 4 },
+    meta: { fontSize: 13, color: C.muted },
+    body: { fontSize: 15, color: C.body, lineHeight: 22 },
+    chip: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
+    chipText: { fontSize: 14, fontWeight: '500', color: C.ink },
+    chipAccent: { borderColor: C.accent, backgroundColor: C.accentTint },
+    chipAccentText: { color: C.accentInk },
+    chipDashed: { borderStyle: 'dashed', borderColor: C.faint, backgroundColor: 'transparent' },
+    primaryBtn: { minHeight: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+    primaryBtnText: { color: C.onInk, fontWeight: '600', fontSize: 15 },
+    card: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: 14, padding: 14 },
+  });
+
+export const s = shared(C);
+export const sm = shared(M);
+export type Shared = typeof s;

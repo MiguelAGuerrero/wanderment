@@ -1,7 +1,7 @@
 /** P-48: heat flows upward — the warmth of the most recent activity on a node or anything feeding it. */
 import { describe, expect, it } from 'vitest';
 
-import { HEAT_LABEL_DARK, HEAT_LABEL_LIGHT, contrast, heatFill, heatInk, heatLabel, nodeHeat } from './heat';
+import { HEAT_LABEL_DARK, HEAT_LABEL_LIGHT, contrast, heatFill, heatInk, heatLabel, nightHeatFill, nightHeatInk, nightHeatLabel, nodeHeat } from './heat';
 import { logActivity } from './model';
 import { Data, emptyData, Id } from './types';
 
@@ -123,5 +123,54 @@ describe('heat colours: cool stone → amber → ember, readable at every heat',
     const lum = (c: string) => 1 / contrast(c, '#FFFFFF');
     for (let i = 1; i < steps.length; i++) expect(lum(heatFill(steps[i])), `${steps[i]}`).toBeLessThanOrEqual(lum(heatFill(steps[i - 1])) + 1e-9);
     expect(heatFill(0)).not.toBe(heatFill(1));
+  });
+});
+
+/** Map's night page and cards (dark Map: theme M.bg, M.surface). */
+const NIGHT_BG = '#0E1020';
+const NIGHT_SURFACE = '#1A1830';
+const NIGHT_INK = '#F5F3EE';
+
+describe('night heat colours (dark Map): dim and cool when cold, warm amber when hot, readable at every heat', () => {
+  const steps = Array.from({ length: 101 }, (_, i) => i / 100);
+  const channels = (c: string) => (c.match(/\d+/g) ?? []).slice(0, 3).map(Number);
+
+  it('a label inside a circle is 4.5:1 or more against its fill at every heat', () => {
+    for (const h of steps) expect(contrast(nightHeatLabel(h), nightHeatFill(h)), `${h}`).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('light words on a cold circle, dark words on a hot one', () => {
+    expect(nightHeatLabel(0)).toBe(NIGHT_INK);
+    expect(nightHeatLabel(1)).toBe(NIGHT_BG);
+  });
+
+  it('a label under a circle (light, on the night page) is 4.5:1 or more', () => {
+    expect(contrast(NIGHT_INK, NIGHT_BG)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('every mark (outline, ring, branch, log dot) is 3:1 or more against the night page and cards at every heat', () => {
+    for (const h of steps) {
+      expect(contrast(nightHeatInk(h), NIGHT_BG), `${h}`).toBeGreaterThanOrEqual(3);
+      expect(contrast(nightHeatInk(h), NIGHT_SURFACE), `${h} on a card`).toBeGreaterThanOrEqual(3);
+    }
+  });
+
+  it('cold is dim and cool (blue at least red), hot is a bright warm amber', () => {
+    const [cr, , cb] = channels(nightHeatFill(0));
+    expect(cb).toBeGreaterThanOrEqual(cr);
+    const [hr, hg, hb] = channels(nightHeatFill(1));
+    expect(hr).toBeGreaterThan(hg);
+    expect(hg).toBeGreaterThan(hb);
+    // Brighter as heat rises (the opposite of the day ramp, which darkens toward ember).
+    const lum = (c: string) => 1 / contrast(c, '#000000');
+    for (let i = 1; i < steps.length; i++) expect(lum(nightHeatFill(steps[i])), `${steps[i]}`).toBeLessThanOrEqual(lum(nightHeatFill(steps[i - 1])) + 1e-9);
+    expect(contrast(nightHeatFill(1), nightHeatFill(0))).toBeGreaterThanOrEqual(3);
+    expect(contrast(nightHeatInk(1), nightHeatInk(0))).toBeGreaterThan(1.5);
+  });
+
+  it('out-of-range heat is clamped, as by day', () => {
+    expect(nightHeatFill(-1)).toBe(nightHeatFill(0));
+    expect(nightHeatFill(2)).toBe(nightHeatFill(1));
+    expect(nightHeatFill(Number.NaN)).toBe(nightHeatFill(0));
   });
 });

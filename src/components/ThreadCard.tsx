@@ -2,18 +2,14 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { nightHeatInk } from '@/domain/heat';
 import { ageLabel, ThreadSummary } from '@/domain/selectors';
 import { useStore } from '@/store/useStore';
 import { decorative } from '@/components/a11y';
-import { C } from '@/theme';
+import { M } from '@/theme'; // dark Map: the night palette
 
-/** Interpolates from faint to accent by warmth (0..1). */
-function warmColor(w: number) {
-  const from = [0xe8, 0xd5, 0xc6];
-  const to = [0xa8, 0x46, 0x0f];
-  const c = from.map((f, i) => Math.round(f + (to[i] - f) * w));
-  return `rgb(${c.join(',')})`;
-}
+/** Dim violet to lantern amber by warmth (0..1): Map's night heat marks (dark Map). */
+const warmColor = nightHeatInk;
 
 /** A thread card with its next-step crumb attached underneath. */
 export function ThreadCard({ summary }: { summary: ThreadSummary }) {
@@ -72,7 +68,7 @@ export function ThreadCard({ summary }: { summary: ThreadSummary }) {
               <Text style={styles.logThis}>Log this</Text>
             </Pressable>
             <Pressable onPress={() => router.push(`/thread/${thread.id}`)} style={styles.pen} accessibilityRole="button" accessibilityLabel={`Edit next step for ${thread.name}`}>
-              <Text style={{ color: C.faint, fontSize: 16 }} {...decorative}>✎</Text>
+              <Text style={{ color: M.faint, fontSize: 16 }} {...decorative}>✎</Text>
             </Pressable>
           </View>
         )
@@ -102,7 +98,7 @@ function NextInput({ threadId, name, quiet, onSet }: { threadId: string; name: s
         onChangeText={setValue}
         autoFocus={open}
         placeholder={quiet ? '+ What’s next? (optional)' : `What’s next for ${name}?`}
-        placeholderTextColor={C.faint}
+        placeholderTextColor={M.faint}
         style={styles.nextInput}
         returnKeyType="done"
         onSubmitEditing={() => value.trim() && onSet(threadId, value)}
@@ -110,7 +106,7 @@ function NextInput({ threadId, name, quiet, onSet }: { threadId: string; name: s
       />
       {value.trim() ? (
         <Pressable onPress={() => onSet(threadId, value)} style={styles.setBtn} accessibilityRole="button" accessibilityLabel={`Set next step for ${name}`}>
-          <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Set</Text>
+          <Text style={{ color: M.onInk, fontWeight: '600', fontSize: 14 }}>Set</Text>
         </Pressable>
       ) : null}
     </View>
@@ -118,22 +114,22 @@ function NextInput({ threadId, name, quiet, onSet }: { threadId: string; name: s
 }
 
 const styles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, paddingVertical: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderTopLeftRadius: 14, borderTopRightRadius: 14 },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, paddingVertical: 12, backgroundColor: M.surface, borderWidth: 1, borderColor: M.line, borderTopLeftRadius: 14, borderTopRightRadius: 14 },
   bar: { width: 4, height: 34, borderRadius: 2 },
-  name: { fontSize: 16, fontWeight: '600', color: C.ink },
-  meta: { fontSize: 13, color: C.muted },
-  chev: { color: C.faint, fontSize: 18 },
-  crumb: { flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingLeft: 14, paddingRight: 4, backgroundColor: C.crumbBg, borderWidth: 1, borderTopWidth: 0, borderColor: C.line, borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
+  name: { fontSize: 16, fontWeight: '600', color: M.ink },
+  meta: { fontSize: 13, color: M.muted },
+  chev: { color: M.faint, fontSize: 18 },
+  crumb: { flexDirection: 'row', alignItems: 'center', minHeight: 52, paddingLeft: 14, paddingRight: 4, backgroundColor: M.crumbBg, borderWidth: 1, borderTopWidth: 0, borderColor: M.line, borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
   crumbMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
-  crumbText: { flex: 1, fontSize: 15, color: C.accentInk },
-  arrow: { color: C.dashed, marginRight: 4 },
-  logThis: { fontSize: 12, fontWeight: '600', color: C.accent },
+  crumbText: { flex: 1, fontSize: 15, color: M.accentInk },
+  arrow: { color: M.dashed, marginRight: 4 },
+  logThis: { fontSize: 12, fontWeight: '600', color: M.accent },
   pen: { width: 44, height: 44, marginLeft: 8, alignItems: 'center', justifyContent: 'center' },
   crumbLoaded: { gap: 10, paddingRight: 14 },
-  loadedText: { color: C.muted, textDecorationLine: 'line-through' },
-  loadedHint: { fontSize: 12, fontWeight: '500', color: C.muted, flexShrink: 1, maxWidth: '40%', textAlign: 'right' },
-  crumbEmpty: { backgroundColor: 'transparent', borderStyle: 'dashed', borderColor: C.dashed, minHeight: 44, gap: 6 },
-  emptyText: { fontSize: 14, color: C.muted },
-  nextInput: { flex: 1, fontSize: 15, color: C.ink, minHeight: 40 },
-  setBtn: { minHeight: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' },
+  loadedText: { color: M.muted, textDecorationLine: 'line-through' },
+  loadedHint: { fontSize: 12, fontWeight: '500', color: M.muted, flexShrink: 1, maxWidth: '40%', textAlign: 'right' },
+  crumbEmpty: { backgroundColor: 'transparent', borderStyle: 'dashed', borderColor: M.dashed, minHeight: 44, gap: 6 },
+  emptyText: { fontSize: 14, color: M.muted },
+  nextInput: { flex: 1, fontSize: 15, color: M.ink, minHeight: 40 },
+  setBtn: { minHeight: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: M.ink, alignItems: 'center', justifyContent: 'center' },
 });

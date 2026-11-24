@@ -1,15 +1,16 @@
 import Svg, { Circle, Line, Path } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
-import { C } from '@/theme';
+import { usePalette } from '@/components/palette';
 
-/** P-60: Home's header icons, drawn 24 pt (a text glyph's ink was 12–14 pt); their buttons carry the names. */
+/** P-60: Home's header icons (dark Map: in the palette where they're drawn), drawn 24 pt (a text glyph's ink was 12–14 pt); their buttons carry the names. */
 export const ICON = 24;
 
 const props = { width: ICON, height: ICON, viewBox: '0 0 24 24', fill: 'none', ...decorative };
 
 /** ⋔ Explore: a branch splitting in two. */
 export function ExploreGlyph() {
+  const { C } = usePalette();
   return (
     <Svg {...props} testID="icon-explore">
       <Path d="M12 21V12M12 12C12 8.5 7 8 6 3.5M12 12C12 8.5 17 8 18 3.5" stroke={C.body} strokeWidth={2} strokeLinecap="round" />
@@ -20,6 +21,7 @@ export function ExploreGlyph() {
 
 /** ⌕ Search: a magnifier. */
 export function SearchGlyph() {
+  const { C } = usePalette();
   return (
     <Svg {...props} testID="icon-search">
       <Circle cx={10.5} cy={10.5} r={6.5} stroke={C.body} strokeWidth={2} />
@@ -32,6 +34,7 @@ const TEETH = Array.from({ length: 8 }, (_, i) => (i * Math.PI) / 4);
 
 /** ⚙ Settings: a cog. */
 export function SettingsGlyph() {
+  const { C } = usePalette();
   return (
     <Svg {...props} testID="icon-settings">
       {TEETH.map((a) => (
@@ -44,10 +47,11 @@ export function SettingsGlyph() {
 }
 
 /** ‹ Back to the prompt (Map's header, P-65); on the night screens (P-66) in a light `color`. */
-export function BackGlyph({ color = C.body }: { color?: string }) {
+export function BackGlyph({ color }: { color?: string }) {
+  const { C } = usePalette();
   return (
     <Svg {...props} testID="icon-back">
-      <Path d="M15 5l-7 7 7 7" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15 5l-7 7 7 7" stroke={color ?? C.body} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

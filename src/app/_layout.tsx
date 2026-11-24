@@ -59,7 +59,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
           {/* Home is the trailhead (P-65); Map is the graph, whose sheet holds Wanders and Activities (P-58). */}
           <Stack.Screen name="index" />
-          <Stack.Screen name="map" />
+          <Stack.Screen name="map" options={{ contentStyle: { backgroundColor: N.bg } }} />
           {/* "I’m not sure" (P-66): the sky, under a star, on the trail. */}
           <Stack.Screen name="sky" options={{ contentStyle: { backgroundColor: N.bg } }} />
           <Stack.Screen name="star/[id]" options={{ contentStyle: { backgroundColor: N.bg } }} />

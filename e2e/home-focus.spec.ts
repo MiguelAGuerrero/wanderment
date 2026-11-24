@@ -109,7 +109,7 @@ test.describe('at 390 px', () => {
     await expect(page.getByTestId('graph-step-read')).toHaveCount(0);
     // A filled ink dot, below the circle and beside it, with its words further out.
     const dot = page.getByTestId('graph-step-dot-draw better hands');
-    expect(await dot.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(24, 24, 27)');
+    expect(await dot.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(245, 243, 238)'); // dark Map: M.ink (was C.ink)
     const d = (await dot.boundingBox())!;
     const c = (await centres(page))['draw better hands'];
     expect(d.y + d.height / 2).toBeGreaterThan(c.y + c.r / 2);

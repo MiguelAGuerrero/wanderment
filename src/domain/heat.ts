@@ -123,3 +123,32 @@ export function contrast(a: string, b: string): number {
   const [x, y] = [lum(a), lum(b)];
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
+
+// ─── Night colours (dark Map) ──────────────────────────────────────────────
+
+/**
+ * Map on the night palette (theme M): cold is a dim, cool slate, rising to a dusky ember; from
+ * NIGHT_DARK_FROM it steps to a warm amber, brightening toward the lantern. Light words (M.ink) on the
+ * dim fills, the night page's colour (M.bg) on the amber ones: 4.5:1 or more either way.
+ */
+const COLD_N: RGB = [40, 40, 66];
+const DUSK_N: RGB = [104, 66, 58];
+const AMBER_N: RGB = [214, 140, 82];
+const HOT_N: RGB = [246, 186, 128];
+/** From here up, labels inside the circle are dark. */
+export const NIGHT_DARK_FROM = 0.5;
+export const NIGHT_LABEL_LIGHT = '#F5F3EE';
+export const NIGHT_LABEL_DARK = '#0E1020';
+/** Outlines, rings, branches and log dots: the sky's trail violet to the lantern, 3:1 or more on the night page and cards. */
+const INK_COLD_N: RGB = [110, 104, 144];
+const INK_HOT_N: RGB = [242, 180, 140];
+
+export function nightHeatFill(heat: number): string {
+  const h = clamp(heat);
+  if (h < NIGHT_DARK_FROM) return rgb(mix(COLD_N, DUSK_N, h / NIGHT_DARK_FROM));
+  return rgb(mix(AMBER_N, HOT_N, (h - NIGHT_DARK_FROM) / (1 - NIGHT_DARK_FROM)));
+}
+
+export const nightHeatLabel = (heat: number) => (clamp(heat) < NIGHT_DARK_FROM ? NIGHT_LABEL_LIGHT : NIGHT_LABEL_DARK);
+
+export const nightHeatInk = (heat: number) => rgb(mix(INK_COLD_N, INK_HOT_N, clamp(heat)));

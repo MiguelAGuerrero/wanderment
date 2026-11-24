@@ -9,7 +9,7 @@ import { findThreadByName } from '@/domain/model';
 import { ageLabel, homeThreads, ThreadSummary } from '@/domain/selectors';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
-import { C, s } from '@/theme';
+import { M, sm } from '@/theme'; // dark Map: the night palette
 
 /**
  * The Wanders section of Home's sheet (P-58; the Wanders tab of P-34): what Home was before the graph
@@ -39,13 +39,13 @@ export function WandersSection() {
 
   return (
     <Screen edges={['bottom']}>
-      <Text style={s.h1} accessibilityRole="header">
+      <Text style={sm.h1} accessibilityRole="header">
         Wanders
       </Text>
 
       {firstThread && (
         <View style={styles.banner}>
-          <Text style={{ color: C.accentInk, fontSize: 15, lineHeight: 22 }}>
+          <Text style={{ color: M.accentInk, fontSize: 15, lineHeight: 22 }}>
             <Text style={{ fontWeight: '600' }}>Your first wander.</Text> Everything you log to “{firstThread.thread.name}” gathers here. Give it a next step if you like.
           </Text>
         </View>
@@ -63,7 +63,7 @@ export function WandersSection() {
 
       {(rest.length > 0 || groups.length === 0) && (
         <View style={styles.labelRow}>
-          <Text style={[s.sectionLabel, { marginTop: 0 }]} accessibilityRole="header" aria-level={2}>
+          <Text style={[sm.sectionLabel, { marginTop: 0 }]} accessibilityRole="header" aria-level={2}>
             {groups.length ? 'OTHER WANDERS' : 'YOUR WANDERS'}
           </Text>
           <NewThread />
@@ -73,7 +73,7 @@ export function WandersSection() {
         const sum = byId.get(id);
         return sum ? <ThreadCard key={id} summary={sum} /> : null;
       })}
-      {current.length === 0 && <Text style={s.meta}>Nothing attached to a wander yet — that’s fine. Your activities are under Activities.</Text>}
+      {current.length === 0 && <Text style={sm.meta}>Nothing attached to a wander yet — that’s fine. Your activities are under Activities.</Text>}
       {groups.length > 0 && rest.length === 0 && (
         <View style={[styles.labelRow, { justifyContent: 'flex-end' }]}>
           <NewThread />
@@ -81,18 +81,18 @@ export function WandersSection() {
       )}
 
       {earlier.length > 0 && (
-        <Text style={s.quietLabel} accessibilityRole="header" aria-level={2}>
+        <Text style={sm.quietLabel} accessibilityRole="header" aria-level={2}>
           Earlier
         </Text>
       )}
       {earlier.map(({ thread, last }) => (
         <Link key={thread.id} href={`/thread/${thread.id}`} asChild>
           <Pressable style={styles.earlier} accessibilityRole="button">
-            <Text style={{ flex: 1, color: C.muted, fontSize: 14 }} numberOfLines={1}>
+            <Text style={{ flex: 1, color: M.muted, fontSize: 14 }} numberOfLines={1}>
               {thread.name}
               {thread.next ? ` · “${thread.next}”` : ''}
             </Text>
-            <Text style={{ color: C.muted, fontSize: 14 }}>{last ? ageLabel(last.occurredAt) : ''}</Text>
+            <Text style={{ color: M.muted, fontSize: 14 }}>{last ? ageLabel(last.occurredAt) : ''}</Text>
           </Pressable>
         </Link>
       ))}
@@ -107,7 +107,7 @@ function ValueHeader({ valueId, label }: { valueId: Id; label: string }) {
   return (
     <View style={{ gap: 6 }}>
       <Pressable onPress={() => setOpen((o) => !o)} style={styles.labelRow} accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityHint="Explains why this header is here">
-        <Text style={[s.sectionLabel, { marginTop: 0 }]} accessibilityRole="header" aria-level={2}>
+        <Text style={[sm.sectionLabel, { marginTop: 0 }]} accessibilityRole="header" aria-level={2}>
           {label}
         </Text>
         <Text style={styles.why}>why here?</Text>
@@ -140,7 +140,7 @@ function NewThread() {
   if (!naming) {
     return (
       <Pressable onPress={() => setNaming(true)} style={styles.newBtn} accessibilityRole="button">
-        <Text style={{ color: C.accent, fontSize: 14, fontWeight: '500' }}>+ New wander</Text>
+        <Text style={{ color: M.accent, fontSize: 14, fontWeight: '500' }}>+ New wander</Text>
       </Pressable>
     );
   }
@@ -150,7 +150,7 @@ function NewThread() {
       onChangeText={setName}
       autoFocus
       placeholder="Name it as an action…"
-      placeholderTextColor={C.faint}
+      placeholderTextColor={M.faint}
       onSubmitEditing={submit}
       onBlur={() => !name.trim() && setNaming(false)}
       returnKeyType="done"
@@ -161,7 +161,7 @@ function NewThread() {
 }
 
 const styles = StyleSheet.create({
-  banner: { padding: 14, borderRadius: 14, backgroundColor: C.accentTint },
+  banner: { padding: 14, borderRadius: 14, backgroundColor: M.accentTint },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -170,14 +170,14 @@ const styles = StyleSheet.create({
     minHeight: 44,
     marginTop: 4,
   },
-  why: { fontSize: 12, color: C.muted, textDecorationLine: 'underline' },
+  why: { fontSize: 12, color: M.muted, textDecorationLine: 'underline' },
   explain: {
     fontSize: 14,
     lineHeight: 20,
-    color: C.body,
+    color: M.body,
     padding: 12,
     borderRadius: 12,
-    backgroundColor: C.quietBg,
+    backgroundColor: M.quietBg,
   },
   newBtn: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
   newInput: {
@@ -185,9 +185,9 @@ const styles = StyleSheet.create({
     maxWidth: 240,
     minHeight: 44,
     fontSize: 15,
-    color: C.ink,
+    color: M.ink,
     borderBottomWidth: 1,
-    borderColor: C.line,
+    borderColor: M.line,
   },
   earlier: {
     flexDirection: 'row',
@@ -196,6 +196,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
     borderRadius: 12,
-    backgroundColor: C.quietBg,
+    backgroundColor: M.quietBg,
   },
 });

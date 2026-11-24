@@ -7,7 +7,7 @@ import { suggestDoing } from '@/domain/compose';
 import { ageLabel, describeLink, sortedActivities } from '@/domain/selectors';
 import { Activity, Data, Id } from '@/domain/types';
 import { recentThreadOrder, useStore } from '@/store/useStore';
-import { C, s } from '@/theme';
+import { M, sm } from '@/theme'; // dark Map: the night palette
 
 /** The Activities section of Home's sheet (P-58; the Activities tab before): everything logged, newest first. */
 export function ActivitiesSection() {
@@ -22,7 +22,7 @@ export function ActivitiesSection() {
 
   return (
     <Screen edges={['bottom']}>
-      <Text style={s.h1}>Activities</Text>
+      <Text style={sm.h1}>Activities</Text>
       <View style={{ flexDirection: 'row', gap: 8 }} accessibilityRole="tablist">
         {[
           ['All', false],
@@ -31,22 +31,22 @@ export function ActivitiesSection() {
           <Pressable
             key={String(label)}
             onPress={() => setOnlyLoose(val as boolean)}
-            style={[s.chip, onlyLoose === val && { backgroundColor: C.ink, borderColor: C.ink }]}
+            style={[sm.chip, onlyLoose === val && { backgroundColor: M.ink, borderColor: M.ink }]}
             accessibilityRole="tab"
             accessibilityState={{ selected: onlyLoose === val }}>
-            <Text style={[s.chipText, onlyLoose === val && { color: '#fff' }]}>{label as string}</Text>
+            <Text style={[sm.chipText, onlyLoose === val && { color: M.onInk }]}>{label as string}</Text>
           </Pressable>
         ))}
       </View>
-      {list.length === 0 && <Text style={s.meta}>{onlyLoose ? 'Everything has a wander.' : 'Nothing logged yet.'}</Text>}
-      <View style={[s.card, { padding: 0, overflow: 'hidden' }]}>
+      {list.length === 0 && <Text style={sm.meta}>{onlyLoose ? 'Everything has a wander.' : 'Nothing logged yet.'}</Text>}
+      <View style={[sm.card, { padding: 0, overflow: 'hidden' }]}>
         {list.slice(0, shown).map((a, i) => (
           <Row key={a.id} a={a} first={i === 0} data={data} recent={recent} />
         ))}
       </View>
       {list.length > shown && (
-        <Pressable onPress={() => setShown((n) => n + PAGE)} style={[s.chip, { alignSelf: 'center' }]} accessibilityRole="button">
-          <Text style={s.chipText}>Show {Math.min(PAGE, list.length - shown)} more</Text>
+        <Pressable onPress={() => setShown((n) => n + PAGE)} style={[sm.chip, { alignSelf: 'center' }]} accessibilityRole="button">
+          <Text style={sm.chipText}>Show {Math.min(PAGE, list.length - shown)} more</Text>
         </Pressable>
       )}
     </Screen>
@@ -66,36 +66,36 @@ function Row({ a, first, data, recent }: { a: Activity; first: boolean; data: Da
       <Link href={`/activity/${a.id}`} asChild>
         <Pressable style={styles.rowTop} accessibilityRole="button">
           <Text style={styles.text}>{a.text}</Text>
-          <Text style={s.meta}>{ageLabel(a.occurredAt)}</Text>
+          <Text style={sm.meta}>{ageLabel(a.occurredAt)}</Text>
         </Pressable>
       </Link>
       {link ? (
-        <Text style={s.meta}>{link}</Text>
+        <Text style={sm.meta}>{link}</Text>
       ) : (
         <View style={styles.chips}>
-          <Text style={s.meta}>No wander{suggestion ? ' · maybe:' : ''}</Text>
+          <Text style={sm.meta}>No wander{suggestion ? ' · maybe:' : ''}</Text>
           {suggestion && (
             <Pressable onPress={() => attach(a.id, suggestion.id)} style={styles.hit} accessibilityRole="button" accessibilityLabel={`+ ${suggestion.name}: attach to ${suggestion.name}`}>
               <View style={[styles.small, styles.dashed]}>
-                <Text style={{ color: C.accentInk, fontSize: 13, fontWeight: '500' }}>+ {suggestion.name}</Text>
+                <Text style={{ color: M.accentInk, fontSize: 13, fontWeight: '500' }}>+ {suggestion.name}</Text>
               </View>
             </Pressable>
           )}
           <Pressable onPress={() => setPicking((p) => !p)} style={styles.hit} accessibilityRole="button" accessibilityState={{ expanded: picking }}>
             <View style={styles.small}>
-              <Text style={{ fontSize: 13, fontWeight: '500', color: C.ink }}>Attach…</Text>
+              <Text style={{ fontSize: 13, fontWeight: '500', color: M.ink }}>Attach…</Text>
             </View>
           </Pressable>
         </View>
       )}
       {picking && !link && (
         <View style={styles.chips}>
-          {recent.length === 0 && <Text style={s.meta}>No wanders yet — type @name in the log box to start one.</Text>}
+          {recent.length === 0 && <Text style={sm.meta}>No wanders yet — type @name in the log box to start one.</Text>}
           {recent.map((id) =>
             data.threads[id] ? (
               <Pressable key={id} onPress={() => attach(a.id, id)} style={styles.hit} accessibilityRole="button" accessibilityLabel={`${data.threads[id].name}: attach`}>
                 <View style={styles.small}>
-                  <Text style={{ fontSize: 13, color: C.ink }}>{data.threads[id].name}</Text>
+                  <Text style={{ fontSize: 13, color: M.ink }}>{data.threads[id].name}</Text>
                 </View>
               </Pressable>
             ) : null,
@@ -108,11 +108,11 @@ function Row({ a, first, data, recent }: { a: Activity; first: boolean; data: Da
 
 const styles = StyleSheet.create({
   row: { padding: 14, paddingVertical: 12, gap: 6 },
-  rowBorder: { borderTopWidth: 1, borderTopColor: C.lineSoft },
+  rowBorder: { borderTopWidth: 1, borderTopColor: M.lineSoft },
   rowTop: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  text: { flex: 1, fontSize: 15, fontWeight: '500', color: C.ink },
+  text: { flex: 1, fontSize: 15, fontWeight: '500', color: M.ink },
   chips: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6 },
   hit: { minHeight: 44, justifyContent: 'center' },
-  small: { minHeight: 32, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, justifyContent: 'center' },
-  dashed: { borderStyle: 'dashed', borderColor: C.accent, backgroundColor: 'transparent' },
+  small: { minHeight: 32, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: M.line, backgroundColor: M.surface, justifyContent: 'center' },
+  dashed: { borderStyle: 'dashed', borderColor: M.accent, backgroundColor: 'transparent' },
 });

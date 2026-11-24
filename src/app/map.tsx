@@ -1,9 +1,11 @@
 import { Link, router, useIsFocused } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { ComponentRef, useCallback, useMemo, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { decorative } from '@/components/a11y';
 import { moveFocus, useFirstRun } from '@/components/FirstRun';
+import { DarkProvider } from '@/components/palette';
 import { ExploreIcon, homeContentWidth, LiveGraph, useGraphIcon } from '@/components/graph/HomeGraph';
 import { useScopeNav } from '@/components/graph/scopeNav';
 import { Screen } from '@/components/Screen';
@@ -13,7 +15,7 @@ import { ShownProvider, useWhileShown } from '@/components/shown';
 import { headerWhys } from '@/domain/overview';
 import { restingFace } from '@/domain/slot';
 import { useStore } from '@/store/useStore';
-import { C, s } from '@/theme';
+import { M, sm } from '@/theme'; // dark Map: the night palette
 
 const EXAMPLES = ['practiced guitar', 'edited a clip', 'leg day', 'sketched for fun'];
 
@@ -36,7 +38,8 @@ export default function Map() {
   const ready = useStore((st) => st.storage.state === 'ready');
   // P-58: Home is in front while it's focused and its sheet is away.
   const { sheet, homeRef, handleRef, tabRefs } = useHomeSheet();
-  const shown = useIsFocused() && !sheet.open;
+  const focused = useIsFocused();
+  const shown = focused && !sheet.open;
   // An attached wander (P-35's selection) is one moment on Home: it goes when Home is left (focus and
   // scope stay, P-50): another screen, or its sheet pulled out. Home stays mounted, so this runs when
   // it's left, and when it's back too (in case anything set it meanwhile). P-61: no bridge any more.
@@ -73,66 +76,70 @@ export default function Map() {
   useScopeNav(shown, toPrompt);
 
   return (
-    <View style={styles.home}>
-      {/* Under the open sheet (a modal dialog), Home is out of reach of assistive tech and the keyboard. */}
-      <View ref={homeRef} style={styles.home} {...(sheet.open ? decorative : {})}>
-        <ShownProvider value={!sheet.open}>
-          <Screen slot below={<SheetHandle sheet={sheet} handleRef={handleRef} />} bottomHidden={sheet.settled}>
-            <View style={styles.header}>
-              <Pressable onPress={toPrompt} accessibilityRole="button" accessibilityLabel="Back to the prompt" style={styles.icon}>
-                <BackGlyph />
-              </Pressable>
-              <Text ref={title} {...(Platform.OS === 'web' ? { tabIndex: -1 } : {})} style={[s.h1, styles.title, tightHeader && { fontSize: 24 }]} numberOfLines={1} accessibilityRole="header">
-                Wanderment
-              </Text>
-              <View style={styles.icons}>
-                {wanders && graphIcon && <ExploreIcon style={styles.icon} />}
-                <Link href="/search" asChild>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Search" style={styles.icon}>
-                    <SearchGlyph />
-                  </Pressable>
-                </Link>
-                <Link href="/settings" asChild>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Settings and backup" style={styles.icon}>
-                    <SettingsGlyph />
-                  </Pressable>
-                </Link>
-              </View>
-            </View>
-
-            {/* P-58: out of sight under the sheet once it's out (as a hidden tab was); the header stays above it. */}
-            <View style={[styles.body, sheet.settled && styles.gone]}>
-              <LiveGraph data={data} surfacing={surfacing} firstRun={firstRun} />
-
-              {isEmpty && (
-                <View style={{ gap: 18, marginTop: 12 }}>
-                  <Text style={styles.hero}>Log what you just did.</Text>
-                  <Text style={s.body}>
-                    Anything counts. Connect it to what it’s <Text style={{ fontStyle: 'italic' }}>to</Text> now, later, or never — no big reasons needed. Over time you’ll see where your energy goes.
-                  </Text>
-                  <Text style={s.meta}>Try one — tap to fill the box below</Text>
-                  <View style={styles.wrap}>
-                    {EXAMPLES.map((e) => (
-                      <Pressable key={e} onPress={() => {
-                          // P-61: the example goes in the log field, which opens.
-                          setDraft({ text: e });
-                          focusLogBox();
-                        }} style={s.chip} accessibilityRole="button">
-                        <Text style={s.chipText}>{e}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                  <Text style={s.meta}>
-                    Tip: type <Text style={styles.at}>@</Text> to say what it was to, e.g. “scales @play guitar”.
-                  </Text>
+    // Dark Map (owner, 2026-11-24): Map, its sheet and the shared parts on it take the night palette.
+    <DarkProvider value>
+      <View style={styles.home}>
+        {focused && <StatusBar style="light" />}
+        {/* Under the open sheet (a modal dialog), Home is out of reach of assistive tech and the keyboard. */}
+        <View ref={homeRef} style={styles.home} {...(sheet.open ? decorative : {})}>
+          <ShownProvider value={!sheet.open}>
+            <Screen slot below={<SheetHandle sheet={sheet} handleRef={handleRef} />} bottomHidden={sheet.settled}>
+              <View style={styles.header}>
+                <Pressable onPress={toPrompt} accessibilityRole="button" accessibilityLabel="Back to the prompt" style={styles.icon}>
+                  <BackGlyph />
+                </Pressable>
+                <Text ref={title} {...(Platform.OS === 'web' ? { tabIndex: -1 } : {})} style={[sm.h1, styles.title, tightHeader && { fontSize: 24 }]} numberOfLines={1} accessibilityRole="header">
+                  Wanderment
+                </Text>
+                <View style={styles.icons}>
+                  {wanders && graphIcon && <ExploreIcon style={styles.icon} />}
+                  <Link href="/search" asChild>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Search" style={styles.icon}>
+                      <SearchGlyph />
+                    </Pressable>
+                  </Link>
+                  <Link href="/settings" asChild>
+                    <Pressable accessibilityRole="button" accessibilityLabel="Settings and backup" style={styles.icon}>
+                      <SettingsGlyph />
+                    </Pressable>
+                  </Link>
                 </View>
-              )}
-            </View>
-          </Screen>
-        </ShownProvider>
+              </View>
+
+              {/* P-58: out of sight under the sheet once it's out (as a hidden tab was); the header stays above it. */}
+              <View style={[styles.body, sheet.settled && styles.gone]}>
+                <LiveGraph data={data} surfacing={surfacing} firstRun={firstRun} />
+
+                {isEmpty && (
+                  <View style={{ gap: 18, marginTop: 12 }}>
+                    <Text style={styles.hero}>Log what you just did.</Text>
+                    <Text style={sm.body}>
+                      Anything counts. Connect it to what it’s <Text style={{ fontStyle: 'italic' }}>to</Text> now, later, or never — no big reasons needed. Over time you’ll see where your energy goes.
+                    </Text>
+                    <Text style={sm.meta}>Try one — tap to fill the box below</Text>
+                    <View style={styles.wrap}>
+                      {EXAMPLES.map((e) => (
+                        <Pressable key={e} onPress={() => {
+                            // P-61: the example goes in the log field, which opens.
+                            setDraft({ text: e });
+                            focusLogBox();
+                          }} style={sm.chip} accessibilityRole="button">
+                          <Text style={sm.chipText}>{e}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    <Text style={sm.meta}>
+                      Tip: type <Text style={styles.at}>@</Text> to say what it was to, e.g. “scales @play guitar”.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </Screen>
+          </ShownProvider>
+        </View>
+        <HomeSheet sheet={sheet} tabRefs={tabRefs} />
       </View>
-      <HomeSheet sheet={sheet} tabRefs={tabRefs} />
-    </View>
+    </DarkProvider>
   );
 }
 
@@ -144,7 +151,7 @@ const styles = StyleSheet.create({
   title: { flexShrink: 1, marginRight: 'auto' },
   icons: { flexDirection: 'row', flexShrink: 0 },
   icon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  hero: { fontSize: 26, fontWeight: '600', color: C.ink, lineHeight: 32 },
+  hero: { fontSize: 26, fontWeight: '600', color: M.ink, lineHeight: 32 },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  at: { backgroundColor: C.accentTint, color: C.accentInk },
+  at: { backgroundColor: M.accentTint, color: M.accentInk },
 });

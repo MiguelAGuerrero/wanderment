@@ -10,7 +10,7 @@ import { stepFocus, validScope } from '@/domain/focus';
 import { cardLabel, whatsNextNode } from '@/domain/slot';
 import { Id } from '@/domain/types';
 import { holdsData, useStore } from '@/store/useStore';
-import { C } from '@/theme';
+import { M } from '@/theme'; // dark Map: the night palette
 
 type Focusable = ComponentRef<typeof View> | null;
 
@@ -312,7 +312,7 @@ function NextCard({ id, canPrev, canNext, swiped }: { id: Id; canPrev: boolean; 
           onChangeText={setStep}
           autoFocus
           placeholder={`One next step toward ${name}`}
-          placeholderTextColor={C.faint}
+          placeholderTextColor={M.faint}
           onSubmitEditing={save}
           submitBehavior="submit"
           // react-native-web ignores submitBehavior and blurs on Enter (which would cancel a blank step).
@@ -366,33 +366,33 @@ const styles = StyleSheet.create({
   face: { paddingHorizontal: 12, paddingTop: 8, paddingBottom: 8, userSelect: 'none', flexDirection: 'row', alignItems: 'flex-end', gap: 8 },
   cardSlot: { flex: 1, minWidth: 0 },
   // P-61: the round ＋ at the card's bottom-right corner (56 pt), clear of ✓.
-  plus: { width: 56, height: 56, borderRadius: 28, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  plusText: { fontSize: 30, lineHeight: 34, color: '#FFFFFF', fontWeight: '500' },
+  plus: { width: 56, height: 56, borderRadius: 28, backgroundColor: M.ink, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  plusText: { fontSize: 30, lineHeight: 34, color: M.onInk, fontWeight: '500' },
   gone: { display: 'none' },
-  card: { backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.ink, borderRadius: 16, paddingTop: 7, paddingBottom: 6, paddingLeft: 16, paddingRight: 6, gap: 2 },
+  card: { backgroundColor: M.surface, borderWidth: 1.5, borderColor: M.ink, borderRadius: 16, paddingTop: 7, paddingBottom: 6, paddingLeft: 16, paddingRight: 6, gap: 2 },
   // P-50: the name is the way to its page (a 44 px target), with ‹ › beside it on web.
   // One line; its 44 px targets reach into the card's padding (and a little past it) rather than making it taller.
   labelRow: { flexDirection: 'row', alignItems: 'center', minHeight: 30 },
-  label: { fontSize: 13, fontWeight: '600', color: C.muted, flexShrink: 0 },
-  labelName: { color: C.ink, textDecorationLine: 'underline', textDecorationColor: C.line },
+  label: { fontSize: 13, fontWeight: '600', color: M.muted, flexShrink: 0 },
+  labelName: { color: M.ink, textDecorationLine: 'underline', textDecorationColor: M.line },
   nameLink: { minHeight: 44, marginVertical: -7, justifyContent: 'center', flexShrink: 1, minWidth: 0, paddingRight: 10 },
   nav: { flexDirection: 'row', marginLeft: 'auto', flexShrink: 0 },
   navBtn: { width: 44, height: 44, marginVertical: -7, alignItems: 'center', justifyContent: 'center' },
-  navText: { fontSize: 22, lineHeight: 26, color: C.ink },
-  navOff: { color: C.dashed },
-  peek: { position: 'absolute', top: 22, height: 48, width: 7, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line },
+  navText: { fontSize: 22, lineHeight: 26, color: M.ink },
+  navOff: { color: M.dashed },
+  peek: { position: 'absolute', top: 22, height: 48, width: 7, backgroundColor: M.surface, borderWidth: 1, borderColor: M.line },
   // In the face's padding (left) and the gap before ＋ (right), outside the card.
   peekL: { left: -10, borderLeftWidth: 0, borderTopRightRadius: 6, borderBottomRightRadius: 6 },
   peekR: { right: -8, borderRightWidth: 0, borderTopLeftRadius: 6, borderBottomLeftRadius: 6 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 48 },
-  step: { flex: 1, fontSize: 18, lineHeight: 24, fontWeight: '600', color: C.ink },
-  empty: { fontWeight: '500', color: C.muted, paddingVertical: 12 },
+  step: { flex: 1, fontSize: 18, lineHeight: 24, fontWeight: '600', color: M.ink },
+  empty: { fontWeight: '500', color: M.muted, paddingVertical: 12 },
   emptyLabel: { paddingTop: 3 },
-  check: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: C.ink, alignItems: 'center', justifyContent: 'center' },
-  checkText: { fontSize: 18, color: C.ink },
+  check: { width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: M.ink, alignItems: 'center', justifyContent: 'center' },
+  checkText: { fontSize: 18, color: M.ink },
   add: { minHeight: 48, justifyContent: 'center', alignSelf: 'flex-start', paddingRight: 12 },
-  addText: { fontSize: 17, fontWeight: '500', color: C.accent },
-  field: { minHeight: 48, marginRight: 10, fontSize: 17, color: C.ink, borderBottomWidth: 1.5, borderColor: C.ink },
-  reconnecting: { position: 'absolute', left: 16, right: 16, bottom: '100%', marginBottom: 2, fontSize: 12, color: C.muted },
+  addText: { fontSize: 17, fontWeight: '500', color: M.accent },
+  field: { minHeight: 48, marginRight: 10, fontSize: 17, color: M.ink, borderBottomWidth: 1.5, borderColor: M.ink },
+  reconnecting: { position: 'absolute', left: 16, right: 16, bottom: '100%', marginBottom: 2, fontSize: 12, color: M.muted },
   srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 },
 });

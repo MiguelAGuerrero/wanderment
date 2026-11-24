@@ -63,6 +63,7 @@ These came out of the design sessions and several rounds of persona reviews. Cha
   then nodes; a tap attaches (and a step suggestion completes that step); while it's open, tapping a
   node attaches it. Return logs exactly what's typed. The card's node is only shown. Its ‹ (or Esc
   with nothing else to do, or Back) returns to the trailhead.
+- **Map is night** (owner, 2026-11-24, "Dark Map"): Map, its sheet and its bottom use the trailhead's night palette (theme `M`); heat reads dim and cool when cold, warm amber when hot, and the shading off still removes it. Other screens are still light.
 - `@` opens up to 3 wander suggestions (prefix match, then recency). **Tap** (or **Tab** on web) picks. Return never picks or creates a wander; an unmatched `@word` stays plain text.
 - A "doing" can be *suggested* from words in the sentence (dashed chip) but is never applied silently.
 - The next-step **crumb** hangs under each wander card. Tapping it **loads** the text into the log box with the wander as doing — it doesn't complete anything. If you've already started a line, your words stay and a removable "↳ step" chip says the line counts as that step (D-6). Logging turns it into an activity and clears the next (only if the step hasn't changed since it was loaded).

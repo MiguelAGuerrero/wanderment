@@ -8,13 +8,13 @@ import { ExploreGlyph } from '@/components/icons';
 import { goUp, useReduceMotion } from '@/components/graph/scopeNav';
 import { useShown } from '@/components/shown';
 import { FocusMap, scopeIds, STEP_ADD_R, STEP_DOT_R, stepMark, validScope } from '@/domain/focus';
-import { heatFill, heatInk, heatLabel } from '@/domain/heat';
+import { nightHeatFill, nightHeatInk, nightHeatLabel } from '@/domain/heat';
 import { LooseLogs } from '@/components/graph/LooseLogs';
 import { BIG_TEXT, LABEL_FONT, LABEL_LINE, LaidDot, LaidDotLine, LaidLink, LaidNode, looseLogs, looseOverview, NARROW_W, RING_OUT, overview, Overview, overviewLayout, OverviewLayout, pictureItems, scopeLayout } from '@/domain/overview';
 import { whatsNextNode } from '@/domain/slot';
 import { Data, Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
-import { C } from '@/theme';
+import { M } from '@/theme'; // dark Map: the night palette
 
 /** Content width on Home before it's measured: Screen's padding (20 each side) inside its 640 cap. */
 export const homeContentWidth = (windowWidth: number) => Math.min(windowWidth, 640) - 40;
@@ -129,7 +129,7 @@ function WhyOffer({ canPutOff }: { canPutOff: boolean }) {
           onChangeText={setName}
           autoFocus
           placeholder="A feeling or a reason, e.g. feel calmer"
-          placeholderTextColor={C.faint}
+          placeholderTextColor={M.faint}
           onSubmitEditing={submit}
           submitBehavior="submit"
           blurOnSubmit={false}
@@ -304,7 +304,7 @@ export function HomeGraph({ ov, focusId }: { ov: Overview; /** P-50: the What's 
 // Memoised by value: a log re-renders only the dot and lines it adds (Home must not get slower).
 const DotLine = memo(
   function DotLine({ line: l }: { line: LaidDotLine }) {
-    return <Line testID={`graph-dotline-${l.dot}-${l.thread}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.newest ? C.muted : C.faint} strokeWidth={l.newest ? 1.5 : 1} />;
+    return <Line testID={`graph-dotline-${l.dot}-${l.thread}`} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke={l.newest ? M.muted : M.faint} strokeWidth={l.newest ? 1.5 : 1} />;
   },
   ({ line: a }, { line: b }) => a.key === b.key && a.newest === b.newest && a.x1 === b.x1 && a.y1 === b.y1 && a.x2 === b.x2 && a.y2 === b.y2,
 );
@@ -326,8 +326,8 @@ const LinkLine = memo(
       <>
         <Defs>
           <LinearGradient id={id} gradientUnits="userSpaceOnUse" x1={b.x1} y1={b.y1} x2={b.x2} y2={b.y2}>
-            <Stop offset="0" stopColor={heatInk(b.fromHeat)} />
-            <Stop offset="1" stopColor={heatInk(b.toHeat)} />
+            <Stop offset="0" stopColor={nightHeatInk(b.fromHeat)} />
+            <Stop offset="1" stopColor={nightHeatInk(b.toHeat)} />
           </LinearGradient>
         </Defs>
         <Polygon testID={`graph-link-${l.from}-${l.to}`} points={b.points} fill={`url(#${id})`} />
@@ -376,7 +376,7 @@ const LogRow = memo(
             testID={`graph-dot-${d.id}`}
             {...({ dataSet: { heat: heat.toFixed(2), ...(d.newest && { newest: 'true' }) } } as object)}
             style={styles.logRow}>
-            <View style={d.newest ? styles.newest : [styles.dot, styles.logDot, { backgroundColor: heatInk(heat) }]} {...decorative} />
+            <View style={d.newest ? styles.newest : [styles.dot, styles.logDot, { backgroundColor: nightHeatInk(heat) }]} {...decorative} />
             <Text style={[styles.logText, d.newest && styles.logNewest]} numberOfLines={1}>
               {d.text}
             </Text>
@@ -444,9 +444,9 @@ function NodeView({ node: n, focused }: { node: LaidNode; focused: boolean }) {
         testID={`graph-node-${n.id}`}
         {...({ dataSet: { kind: n.kind, ...(n.under && { under: n.under.join('|') }), ...(focused && { focused: 'true' }), heat: c.heat.toFixed(2), label: c.inside ? 'inside' : 'under' } } as object)}
         style={[StyleSheet.absoluteFill, styles.nodeHit]}>
-        <View testID={`graph-circle-${n.id}`} style={[styles.circle, { marginTop: c.cy - n.y - c.r, width: 2 * c.r, height: 2 * c.r, borderRadius: c.r, backgroundColor: heatFill(c.heat), borderColor: heatInk(c.heat) }]}>
+        <View testID={`graph-circle-${n.id}`} style={[styles.circle, { marginTop: c.cy - n.y - c.r, width: 2 * c.r, height: 2 * c.r, borderRadius: c.r, backgroundColor: nightHeatFill(c.heat), borderColor: nightHeatInk(c.heat) }]}>
           {c.inside && (
-            <Text style={[styles.label, styles.inside, { width: c.labelW, color: heatLabel(c.heat) }]} numberOfLines={2}>
+            <Text style={[styles.label, styles.inside, { width: c.labelW, color: nightHeatLabel(c.heat) }]} numberOfLines={2}>
               {n.name}
             </Text>
           )}
@@ -459,8 +459,8 @@ function NodeView({ node: n, focused }: { node: LaidNode; focused: boolean }) {
             </Text>
           </View>
         )}
-        {c.declared && <Ring n={n} gap={4} width={1} color={heatInk(c.heat)} testID={`graph-why-ring-${n.id}`} />}
-        {focused && <Ring n={n} gap={c.declared ? RING_OUT : 5} width={2} color={C.ink} testID={`graph-selected-${n.id}`} />}
+        {c.declared && <Ring n={n} gap={4} width={1} color={nightHeatInk(c.heat)} testID={`graph-why-ring-${n.id}`} />}
+        {focused && <Ring n={n} gap={c.declared ? RING_OUT : 5} width={2} color={M.ink} testID={`graph-selected-${n.id}`} />}
       </Pressable>
     </View>
   );
@@ -469,7 +469,7 @@ function NodeView({ node: n, focused }: { node: LaidNode; focused: boolean }) {
 /** The focused node's step branch (P-50), under the circles: tapered to the dot, or dashed to the ＋. */
 function StepBranch({ node: n, width, height }: { node: LaidNode; width: number; height: number }) {
   const m = stepMark(n.circle!, width, height);
-  return n.step ? <Polygon points={m.branch} fill={C.body} /> : <Path d={m.path} fill="none" stroke={C.faint} strokeWidth={1.2} strokeDasharray="2 3" />;
+  return n.step ? <Polygon points={m.branch} fill={M.body} /> : <Path d={m.path} fill="none" stroke={M.faint} strokeWidth={1.2} strokeDasharray="2 3" />;
 }
 
 /**
@@ -581,50 +581,50 @@ const styles = StyleSheet.create({
   ring: { position: 'absolute' },
   label: { fontSize: LABEL_FONT, lineHeight: LABEL_LINE, textAlign: 'center' },
   inside: { fontWeight: '600' },
-  under: { fontWeight: '500', color: C.ink, paddingHorizontal: 2, ...(Platform.OS === 'web' && ({ overflowWrap: 'anywhere' } as object)) },
+  under: { fontWeight: '500', color: M.ink, paddingHorizontal: 2, ...(Platform.OS === 'web' && ({ overflowWrap: 'anywhere' } as object)) },
   // P-60: the label's box under the circle (the layout's `labelY`), as wide as the target.
   underBox: { position: 'absolute', left: 0, right: 0, alignItems: 'center', overflow: 'hidden' },
   underWhy: { fontWeight: '600' },
   // Text the branches pass behind: the page colour under it, so a line never runs through words.
-  mask: { backgroundColor: C.bg },
+  mask: { backgroundColor: M.bg },
   // P-50: the focused node's step, as a filled ink dot with its words, or a dashed ＋.
-  stepDot: { position: 'absolute', width: 2 * STEP_DOT_R, height: 2 * STEP_DOT_R, borderRadius: STEP_DOT_R, backgroundColor: C.ink },
+  stepDot: { position: 'absolute', width: 2 * STEP_DOT_R, height: 2 * STEP_DOT_R, borderRadius: STEP_DOT_R, backgroundColor: M.ink },
   stepLabel: { position: 'absolute' },
-  step: { fontSize: LABEL_FONT, lineHeight: LABEL_LINE + 2, fontWeight: '600', color: C.ink, paddingHorizontal: 2, maxWidth: '100%' },
-  addStep: { width: 2 * STEP_ADD_R, height: 2 * STEP_ADD_R, borderRadius: STEP_ADD_R, borderWidth: 1.2, borderStyle: 'dashed', borderColor: C.faint, backgroundColor: C.surface, alignItems: 'center', justifyContent: 'center' },
-  addStepText: { fontSize: 12, lineHeight: 14, color: C.muted },
+  step: { fontSize: LABEL_FONT, lineHeight: LABEL_LINE + 2, fontWeight: '600', color: M.ink, paddingHorizontal: 2, maxWidth: '100%' },
+  addStep: { width: 2 * STEP_ADD_R, height: 2 * STEP_ADD_R, borderRadius: STEP_ADD_R, borderWidth: 1.2, borderStyle: 'dashed', borderColor: M.faint, backgroundColor: M.surface, alignItems: 'center', justifyContent: 'center' },
+  addStepText: { fontSize: 12, lineHeight: 14, color: M.muted },
   // P-50: the scope chip.
   chipRow: { flexDirection: 'row', alignItems: 'center', minHeight: 28 },
-  chip: { minHeight: 44, marginVertical: -8, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: C.ink, justifyContent: 'center', maxWidth: '100%', backgroundColor: C.surface },
-  chipText: { fontSize: 14, fontWeight: '600', color: C.ink },
-  whyText: { fontWeight: '600', color: C.accentInk },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.muted },
+  chip: { minHeight: 44, marginVertical: -8, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: M.ink, justifyContent: 'center', maxWidth: '100%', backgroundColor: M.surface },
+  chipText: { fontSize: 14, fontWeight: '600', color: M.ink },
+  whyText: { fontWeight: '600', color: M.accentInk },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: M.muted },
   // Your latest log: larger, in the accent colour, until the next one (so every log visibly lands).
-  newest: { width: 14, height: 14, borderRadius: 7, backgroundColor: C.accent },
+  newest: { width: 14, height: 14, borderRadius: 7, backgroundColor: M.accent },
   // P-57: a log's row (no wanders): its dot in a fixed column, its words beside it on one line.
   logRow: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44 },
   // Centred in the newest dot's 14 px column, so every row's words start at the same place.
   logDot: { marginHorizontal: 2 },
-  logText: { flex: 1, fontSize: 15, color: C.ink },
+  logText: { flex: 1, fontSize: 15, color: M.ink },
   logNewest: { fontWeight: '500' },
-  moreText: { fontSize: 13, fontWeight: '500', color: C.accent },
+  moreText: { fontSize: 13, fontWeight: '500', color: M.accent },
   graph: { gap: 12, marginTop: 8 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   open: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
-  openText: { color: C.accent, fontSize: 14, fontWeight: '500' },
+  openText: { color: M.accent, fontSize: 14, fontWeight: '500' },
   items: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   listItem: { maxWidth: '100%' },
-  item: { minHeight: 44, maxWidth: '100%', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 22, borderWidth: 1, borderColor: C.line, backgroundColor: C.surface, justifyContent: 'center' },
-  itemWhy: { borderColor: C.accent },
+  item: { minHeight: 44, maxWidth: '100%', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 22, borderWidth: 1, borderColor: M.line, backgroundColor: M.surface, justifyContent: 'center' },
+  itemWhy: { borderColor: M.accent },
   // P-50: the focused node's button carries the focus as the ring does: ink.
-  itemSelected: { borderWidth: 2, borderColor: C.ink },
+  itemSelected: { borderWidth: 2, borderColor: M.ink },
   itemText: { fontSize: 14, flexShrink: 1 },
-  itemName: { fontWeight: '500', color: C.ink },
-  itemRole: { color: C.muted },
+  itemName: { fontWeight: '500', color: M.ink },
+  itemRole: { color: M.muted },
   offerRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  offerNode: { minHeight: 44, paddingHorizontal: 16, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: C.accent, alignItems: 'center', justifyContent: 'center' },
-  offerText: { fontSize: 15, fontWeight: '600', color: C.accentInk },
-  offerInput: { flexGrow: 1, flexBasis: 200, minHeight: 44, fontSize: 15, color: C.ink, borderBottomWidth: 1, borderColor: C.line },
+  offerNode: { minHeight: 44, paddingHorizontal: 16, borderRadius: 16, borderWidth: 1.5, borderStyle: 'dashed', borderColor: M.accent, alignItems: 'center', justifyContent: 'center' },
+  offerText: { fontSize: 15, fontWeight: '600', color: M.accentInk },
+  offerInput: { flexGrow: 1, flexBasis: 200, minHeight: 44, fontSize: 15, color: M.ink, borderBottomWidth: 1, borderColor: M.line },
   notNow: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 8 },
-  notNowText: { fontSize: 14, color: C.muted, textDecorationLine: 'underline' },
+  notNowText: { fontSize: 14, color: M.muted, textDecorationLine: 'underline' },
 });

@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { candidatesForThread } from '@/domain/emergence';
 import { useStore } from '@/store/useStore';
-import { C } from '@/theme';
+import { themed, usePalette } from '@/components/palette';
 
 import { decorative } from './a11y';
 
@@ -12,6 +12,8 @@ import { decorative } from './a11y';
  * activities that mention it. Ignoring it leaves no trace.
  */
 export function PullInOffer() {
+  const { C, dark } = usePalette();
+  const styles = sheet(dark);
   const data = useStore((st) => st.data);
   const offer = useStore((st) => st.pullInOffer);
   const setOffer = useStore((st) => st.setPullInOffer);
@@ -43,10 +45,12 @@ export function PullInOffer() {
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginTop: 8, borderRadius: 14, backgroundColor: C.quietBg },
-  main: { flex: 1, minHeight: 44, justifyContent: 'center', paddingLeft: 14 },
-  text: { fontSize: 14, color: C.body },
-  link: { color: C.accent, fontWeight: '600' },
-  close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-});
+const sheet = themed((C) =>
+  StyleSheet.create({
+    row: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 12, marginTop: 8, borderRadius: 14, backgroundColor: C.quietBg },
+    main: { flex: 1, minHeight: 44, justifyContent: 'center', paddingLeft: 14 },
+    text: { fontSize: 14, color: C.body },
+    link: { color: C.accent, fontWeight: '600' },
+    close: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  }),
+);

@@ -5,7 +5,7 @@ import { FirstRun, firstRunStep, STEP_EXAMPLE, WHY_EXAMPLES } from '@/domain/fir
 import { headerWhys, overview } from '@/domain/overview';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
-import { C, s } from '@/theme';
+import { themed, usePalette } from '@/components/palette';
 
 type Going = Exclude<FirstRun, { step: 1 }>;
 
@@ -57,6 +57,8 @@ export function moveFocus(el: ComponentRef<typeof View> | ComponentRef<typeof Te
 
 /** One step: a labelled (non-modal) dialog, its name the visible heading. `focus`: focus moves to it as it appears. */
 function Step({ label, title, focus, children }: { label: string; title: string; focus?: boolean; children: ReactNode }) {
+  const { dark } = usePalette();
+  const styles = sheet(dark);
   const ref = useRef<ComponentRef<typeof View>>(null);
   useEffect(() => {
     if (focus) moveFocus(ref.current);
@@ -73,6 +75,8 @@ function Step({ label, title, focus, children }: { label: string; title: string;
 
 /** A field that never takes focus by itself. Return (or "Next") goes on once something's typed. */
 function Field({ value, onChange, onSubmit, label, placeholder }: { value: string; onChange: (t: string) => void; onSubmit: () => void; label: string; placeholder: string }) {
+  const { C, dark } = usePalette();
+  const styles = sheet(dark);
   return (
     <TextInput
       value={value}
@@ -89,6 +93,8 @@ function Field({ value, onChange, onSubmit, label, placeholder }: { value: strin
 }
 
 function Buttons({ next, onNext, skip, onSkip }: { next: boolean; onNext: () => void; skip: ReactNode; onSkip: () => void }) {
+  const { s, dark } = usePalette();
+  const styles = sheet(dark);
   return (
     <View style={styles.buttons}>
       {next && (
@@ -105,6 +111,8 @@ function Buttons({ next, onNext, skip, onSkip }: { next: boolean; onNext: () => 
 
 /** ① A feeling or a reason, in your own words: named, and marked as what it's for (P-14's declare). */
 function StepWhy({ onWhy, onSkip }: { onWhy: (why: Id) => void; onSkip: () => void }) {
+  const { s, dark } = usePalette();
+  const styles = sheet(dark);
   const createThread = useStore((st) => st.createThread);
   const declareThread = useStore((st) => st.declareThread);
   const [name, setName] = useState('');
@@ -144,6 +152,8 @@ function StepWhy({ onWhy, onSkip }: { onWhy: (why: Id) => void; onSkip: () => vo
 
 /** ② One next step toward it: it can wait, and mundane is welcome. */
 function StepNext({ why, onNext }: { why: Id; onNext: () => void }) {
+  const { s, dark } = usePalette();
+  const styles = sheet(dark);
   const setNext = useStore((st) => st.setNext);
   const name = useStore((st) => st.data.threads[why]?.name ?? '');
   const [step, setStep] = useState('');
@@ -164,6 +174,8 @@ function StepNext({ why, onNext }: { why: Id; onNext: () => void }) {
 
 /** ③ The graph with both, the log box ready. It says what the picture shows (its summary). */
 function StepSee({ why, onDone }: { why: Id; onDone: () => void }) {
+  const { s, dark } = usePalette();
+  const styles = sheet(dark);
   const data = useStore((st) => st.data);
   const staged = !!data.threads[why]?.next;
   const summary = useMemo(() => overview(data, headerWhys(data))?.summary ?? '', [data]);
@@ -187,14 +199,16 @@ function StepSee({ why, onDone }: { why: Id; onDone: () => void }) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { ...StyleSheet.flatten(s.card), gap: 12, borderColor: C.accent, borderStyle: 'dashed', borderWidth: 1.5, alignSelf: 'stretch' },
-  title: { fontSize: 20, fontWeight: '600', color: C.ink },
-  why: { fontWeight: '600', color: C.accentInk },
-  examples: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  input: { minHeight: 44, fontSize: 15, color: C.ink, borderBottomWidth: 1, borderColor: C.line },
-  buttons: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
-  skip: { minHeight: 44, justifyContent: 'center', flexShrink: 1 },
-  skipText: { fontSize: 14, color: C.muted },
-  skipWord: { textDecorationLine: 'underline', color: C.ink },
-});
+const sheet = themed((C, s) =>
+  StyleSheet.create({
+    card: { ...StyleSheet.flatten(s.card), gap: 12, borderColor: C.accent, borderStyle: 'dashed', borderWidth: 1.5, alignSelf: 'stretch' },
+    title: { fontSize: 20, fontWeight: '600', color: C.ink },
+    why: { fontWeight: '600', color: C.accentInk },
+    examples: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    input: { minHeight: 44, fontSize: 15, color: C.ink, borderBottomWidth: 1, borderColor: C.line },
+    buttons: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12 },
+    skip: { minHeight: 44, justifyContent: 'center', flexShrink: 1 },
+    skipText: { fontSize: 14, color: C.muted },
+    skipWord: { textDecorationLine: 'underline', color: C.ink },
+  }),
+);

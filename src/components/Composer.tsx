@@ -10,7 +10,8 @@ import { openOffer } from '@/domain/trailhead';
 import { Id } from '@/domain/types';
 import { holdsData, LogOptions, recentThreadOrder, sameDraft, useStore } from '@/store/useStore';
 import { decorative } from '@/components/a11y';
-import { C, N, s } from '@/theme';
+import { themed, usePalette } from '@/components/palette';
+import { N } from '@/theme';
 
 /**
  * The one-line log box. Return always logs, exactly as typed.
@@ -55,6 +56,8 @@ export function Composer({
   /** The trailhead (fix 17): a quiet "Open <wander>" after the suggestions opens its trail (or star); it never attaches or logs. */
   openWanders?: boolean;
 }) {
+  const { C, s, dark } = usePalette();
+  const styles = sheet(dark);
   const data = useStore((st) => st.data);
   const draft = useStore((st) => st.draft);
   const setDraft = useStore((st) => st.setDraft);
@@ -342,7 +345,7 @@ export function Composer({
                   accessibilityLabel={`${c.kind === 'doing' ? 'Doing' : 'To'}: ${c.label}. Remove`}
                   style={[styles.hit, styles.stepHit]}>
                   <View style={[styles.smallChip, c.kind === 'doing' ? styles.doingChip : s.chipAccent]}>
-                    <Text style={[styles.smallChipText, c.kind === 'doing' ? { color: '#fff' } : s.chipAccentText]}>{c.label} ×</Text>
+                    <Text style={[styles.smallChipText, c.kind === 'doing' ? { color: C.onInk } : s.chipAccentText]}>{c.label} ×</Text>
                   </View>
                 </Pressable>
               </View>
@@ -413,7 +416,7 @@ export function Composer({
           {!(night && !draft.text.trim()) && (
           <Pressable
             onPress={submit}
-            style={[s.primaryBtn, arrow && styles.arrow, night && styles.nightSend, !draft.text.trim() ? { opacity: 0.4 } : reconnecting && styles.logWaiting]}
+            style={[s.primaryBtn, arrow && styles.arrow, (night || dark) && styles.nightSend, !draft.text.trim() ? { opacity: 0.4 } : reconnecting && styles.logWaiting]}
             disabled={!draft.text.trim()}
             accessibilityRole="button"
             accessibilityLabel={reconnecting ? 'Log, reconnecting' : arrow ? 'Log' : undefined}
@@ -440,6 +443,8 @@ export function Composer({
  * entry ("cooked dinner · feel productive") or a wander ("→ draw"). Its name starts with what it shows.
  */
 function LogOption({ sg, first, night, onPress }: { sg: LogSuggestion; first: boolean; night?: boolean; onPress: () => void }) {
+  const { dark } = usePalette();
+  const styles = sheet(dark);
   const main = sg.kind === 'node' ? sg.name : sg.text;
   const where = sg.kind === 'step' ? sg.name : sg.kind === 'past' ? sg.targetName : undefined;
   const label = suggestionName(sg);
@@ -458,54 +463,56 @@ function LogOption({ sg, first, night, onPress }: { sg: LogSuggestion; first: bo
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: { paddingHorizontal: 12, paddingVertical: 8, gap: 8, backgroundColor: C.bg },
-  box: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.dashed, borderRadius: 24, padding: 4, paddingLeft: 16, gap: 2 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  inputWrap: { flex: 1, justifyContent: 'center' },
-  input: { fontSize: 16, lineHeight: 22, paddingVertical: 11, paddingHorizontal: 0, minHeight: 44 },
-  // The input sits above the highlight layer (and stays transparent) so the @word stays readable and
-  // taps reach the input; on web an absolutely positioned layer would otherwise paint over it.
-  field: { color: C.ink, backgroundColor: 'transparent', position: 'relative', zIndex: 1 },
-  mirror: { position: 'absolute', left: 0, right: 0, color: 'transparent', zIndex: 0 },
-  mentionMark: { backgroundColor: C.accentTint, borderRadius: 4 },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, paddingTop: 2, paddingRight: 8 },
-  /** 44 px tall touch target around a smaller visual chip. */
-  hit: { minHeight: 44, justifyContent: 'center' },
-  smallChip: { minHeight: 30, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
-  smallChipText: { fontSize: 13, fontWeight: '500', color: C.ink },
-  doingChip: { backgroundColor: C.ink, borderColor: C.ink },
-  /** P-61: a long wander's name wraps inside its chip too (a suggestion can attach any wander). */
-  chipWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, maxWidth: '100%' },
-  /** Long steps wrap inside the chip instead of running off the box. */
-  stepHit: { flexShrink: 1, maxWidth: '100%' },
-  stepChip: { backgroundColor: C.crumbBg, borderColor: C.dashed, alignItems: 'flex-start' },
-  to: { fontSize: 13, fontWeight: '600', color: C.accent },
-  suggestions: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: 16, overflow: 'hidden' },
-  suggestion: { minHeight: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: C.lineSoft },
-  suggestionActive: { backgroundColor: C.accentTint },
-  suggestionText: { fontSize: 16, color: C.ink },
-  hint: { fontSize: 12, color: C.accentInk },
-  logOption: { justifyContent: 'flex-start', paddingVertical: 6 },
-  optionMark: { color: C.accent, fontWeight: '600' },
-  optionWhere: { color: C.muted },
-  openText: { fontSize: 15, color: C.muted },
-  srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 },
-  /** Dimmed, but still readable (it can be pressed: the line logs once the data is back). */
-  logWaiting: { backgroundColor: C.muted },
-  arrow: { width: 44, paddingHorizontal: 0 },
-  arrowText: { fontSize: 20, lineHeight: 24 },
-  reconnecting: { position: 'absolute', left: 16, right: 16, bottom: '100%', marginBottom: 2, fontSize: 12, color: C.muted },
-  // P-65: the trailhead's line on the night sky (mockup Sky1): no card, an underline, light words.
-  nightWrap: { backgroundColor: 'transparent', paddingHorizontal: 0 },
-  nightBox: { backgroundColor: 'transparent', borderWidth: 0, borderBottomWidth: 2, borderColor: N.line, borderRadius: 0, paddingLeft: 0, minHeight: 56, justifyContent: 'center' },
-  nightInput: { color: N.ink, fontSize: 18, lineHeight: 24 },
-  nightSuggestions: { backgroundColor: N.surface, borderColor: N.line },
-  nightOption: { borderTopColor: N.line },
-  nightSend: { backgroundColor: N.lantern },
-  // The dashed "<wander>?" chip on the night sky: its words at 4.5:1 or more (P-65 fix).
-  nightDashed: { borderColor: N.faint },
-  // Web: the field's own focus ring in the night palette (lantern on the sky, well over 3:1).
-  noRing: { outlineStyle: 'none' } as object,
-  nightRing: { outlineStyle: 'solid', outlineWidth: 2, outlineColor: N.lantern, outlineOffset: 4, borderRadius: 4 } as object,
-});
+const sheet = themed((C, s) =>
+  StyleSheet.create({
+    wrap: { paddingHorizontal: 12, paddingVertical: 8, gap: 8, backgroundColor: C.bg },
+    box: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.dashed, borderRadius: 24, padding: 4, paddingLeft: 16, gap: 2 },
+    inputRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    inputWrap: { flex: 1, justifyContent: 'center' },
+    input: { fontSize: 16, lineHeight: 22, paddingVertical: 11, paddingHorizontal: 0, minHeight: 44 },
+    // The input sits above the highlight layer (and stays transparent) so the @word stays readable and
+    // taps reach the input; on web an absolutely positioned layer would otherwise paint over it.
+    field: { color: C.ink, backgroundColor: 'transparent', position: 'relative', zIndex: 1 },
+    mirror: { position: 'absolute', left: 0, right: 0, color: 'transparent', zIndex: 0 },
+    mentionMark: { backgroundColor: C.accentTint, borderRadius: 4 },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 6, paddingTop: 2, paddingRight: 8 },
+    /** 44 px tall touch target around a smaller visual chip. */
+    hit: { minHeight: 44, justifyContent: 'center' },
+    smallChip: { minHeight: 30, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 15, borderWidth: 1, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+    smallChipText: { fontSize: 13, fontWeight: '500', color: C.ink },
+    doingChip: { backgroundColor: C.ink, borderColor: C.ink },
+    /** P-61: a long wander's name wraps inside its chip too (a suggestion can attach any wander). */
+    chipWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1, maxWidth: '100%' },
+    /** Long steps wrap inside the chip instead of running off the box. */
+    stepHit: { flexShrink: 1, maxWidth: '100%' },
+    stepChip: { backgroundColor: C.crumbBg, borderColor: C.dashed, alignItems: 'flex-start' },
+    to: { fontSize: 13, fontWeight: '600', color: C.accent },
+    suggestions: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: 16, overflow: 'hidden' },
+    suggestion: { minHeight: 48, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: C.lineSoft },
+    suggestionActive: { backgroundColor: C.accentTint },
+    suggestionText: { fontSize: 16, color: C.ink },
+    hint: { fontSize: 12, color: C.accentInk },
+    logOption: { justifyContent: 'flex-start', paddingVertical: 6 },
+    optionMark: { color: C.accent, fontWeight: '600' },
+    optionWhere: { color: C.muted },
+    openText: { fontSize: 15, color: C.muted },
+    srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0 },
+    /** Dimmed, but still readable (it can be pressed: the line logs once the data is back). */
+    logWaiting: { backgroundColor: C.muted },
+    arrow: { width: 44, paddingHorizontal: 0 },
+    arrowText: { fontSize: 20, lineHeight: 24 },
+    reconnecting: { position: 'absolute', left: 16, right: 16, bottom: '100%', marginBottom: 2, fontSize: 12, color: C.muted },
+    // P-65: the trailhead's line on the night sky (mockup Sky1): no card, an underline, light words.
+    nightWrap: { backgroundColor: 'transparent', paddingHorizontal: 0 },
+    nightBox: { backgroundColor: 'transparent', borderWidth: 0, borderBottomWidth: 2, borderColor: N.line, borderRadius: 0, paddingLeft: 0, minHeight: 56, justifyContent: 'center' },
+    nightInput: { color: N.ink, fontSize: 18, lineHeight: 24 },
+    nightSuggestions: { backgroundColor: N.surface, borderColor: N.line },
+    nightOption: { borderTopColor: N.line },
+    nightSend: { backgroundColor: N.lantern },
+    // The dashed "<wander>?" chip on the night sky: its words at 4.5:1 or more (P-65 fix).
+    nightDashed: { borderColor: N.faint },
+    // Web: the field's own focus ring in the night palette (lantern on the sky, well over 3:1).
+    noRing: { outlineStyle: 'none' } as object,
+    nightRing: { outlineStyle: 'solid', outlineWidth: 2, outlineColor: N.lantern, outlineOffset: 4, borderRadius: 4 } as object,
+  }),
+);

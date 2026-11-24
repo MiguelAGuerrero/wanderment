@@ -296,7 +296,7 @@ test('lines, dots and borders stand out from the page (at least 3:1)', async ({ 
     const [r, g, b] = (rgb.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map((v) => Number(v) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
-  const page_ = lum('rgb(245, 243, 238)'); // the page background (theme C.bg)
+  const page_ = lum('rgb(14, 16, 32)'); // the page background (theme M.bg) // dark Map
   for (const c of colours) {
     expect(c, c).toMatch(/^rgb\(/);
     expect((Math.max(lum(c), page_) + 0.05) / (Math.min(lum(c), page_) + 0.05), c).toBeGreaterThanOrEqual(3);
@@ -414,9 +414,9 @@ test('every log visibly lands: the newest dot is marked, even once the dots are 
       const d = e.firstElementChild!;
       return [d.getBoundingClientRect().width, getComputedStyle(d).backgroundColor];
     });
-  expect(await look('graph-dot-a11')).toEqual([14, 'rgb(168, 70, 15)']);
+  expect(await look('graph-dot-a11')).toEqual([14, 'rgb(242, 180, 140)']); // dark Map: M.accent (was C.accent)
   // P-57: the others are coloured by their recency, P-48's heat (was: C.muted).
-  expect(await look('graph-dot-a10')).toEqual([10, 'rgb(150, 57, 11)']);
+  expect(await look('graph-dot-a10')).toEqual([10, 'rgb(241, 179, 140)']); // dark Map: nightHeatInk (was heatInk)
   // P-48: logs on their own have no dot lines (was: the newest dot's line to draw is stronger).
 
   await logLine(page, 'sketched again'); // P-48: a plain log, so there are still no wanders (was @draw).

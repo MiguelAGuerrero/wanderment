@@ -8,7 +8,7 @@ import { useReduceMotion } from '@/components/graph/scopeNav';
 import { ShownProvider } from '@/components/shown';
 import { dragEndsOpen, SHEET_SECTIONS, SheetSection } from '@/domain/sheet';
 import { useStore } from '@/store/useStore';
-import { C } from '@/theme';
+import { M } from '@/theme'; // dark Map: the night palette
 
 import { ActivitiesSection } from './ActivitiesSection';
 import { WandersSection } from './WandersSection';
@@ -365,27 +365,28 @@ const styles = StyleSheet.create({
   gone: { display: 'none' },
   handleWrap: { alignSelf: 'stretch', userSelect: 'none' },
   handle: { minHeight: 44, alignItems: 'center', justifyContent: 'center', gap: 4, paddingTop: 4, paddingBottom: 6 },
-  grab: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.dashed },
-  handleText: { fontSize: 12, fontWeight: '600', color: C.muted },
-  scrim: { backgroundColor: C.ink },
+  grab: { width: 36, height: 4, borderRadius: 2, backgroundColor: M.dashed },
+  handleText: { fontSize: 12, fontWeight: '600', color: M.muted },
+  // Dark Map: the scrim darkens (the ink is light on the night palette).
+  scrim: { backgroundColor: '#000000' },
   sheet: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: C.bg,
+    backgroundColor: M.bg,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     overflow: 'hidden',
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: C.line,
+    borderColor: M.line,
   },
   top: { userSelect: 'none', paddingBottom: 4, paddingHorizontal: 12 },
   grabHit: { minHeight: 44, alignSelf: 'center', minWidth: 88, alignItems: 'center', justifyContent: 'center' },
-  seg: { flexDirection: 'row', width: '100%', maxWidth: 616, alignSelf: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 14, overflow: 'hidden', backgroundColor: C.surface },
+  seg: { flexDirection: 'row', width: '100%', maxWidth: 616, alignSelf: 'center', borderWidth: 1, borderColor: M.line, borderRadius: 14, overflow: 'hidden', backgroundColor: M.surface },
   tab: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  tabOn: { backgroundColor: C.ink },
-  tabText: { fontSize: 15, fontWeight: '500', color: C.muted },
-  tabTextOn: { color: '#FFFFFF', fontWeight: '600' },
+  tabOn: { backgroundColor: M.ink },
+  tabText: { fontSize: 15, fontWeight: '500', color: M.muted },
+  tabTextOn: { color: M.onInk, fontWeight: '600' },
   body: { flex: 1 },
 });

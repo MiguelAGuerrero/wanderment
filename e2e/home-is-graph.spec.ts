@@ -169,7 +169,7 @@ test('P-57: with the recency shading off, every dot but the newest mark is neutr
   await openHome(page);
   await expect(dots(page)).toHaveCount(2);
   await expect(dots(page).nth(1)).toHaveAttribute('data-heat', '0.00');
-  expect(await dots(page).nth(1).evaluate((e) => getComputedStyle(e.firstElementChild!).backgroundColor)).toBe('rgb(122, 116, 108)');
+  expect(await dots(page).nth(1).evaluate((e) => getComputedStyle(e.firstElementChild!).backgroundColor)).toBe('rgb(110, 104, 144)'); // dark Map: nightHeatInk(0) (was heatInk(0))
 });
 
 test('“+ What’s it all for?” names a wander and marks it what it’s for; Undo takes it back', async ({ page }) => {

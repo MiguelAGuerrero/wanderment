@@ -76,7 +76,7 @@ function contrast(a: string, b: string) {
   const [x, y] = [lum(a), lum(b)];
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 }
-const PAGE = 'rgb(245, 243, 238)'; // theme C.bg
+const PAGE = 'rgb(14, 16, 32)'; // theme M.bg // dark Map
 
 test('circles by level, coloured by heat that flows upward; no dots; tapered branches; readable everywhere', async ({ page }) => {
   await page.addInitScript(seedScript, world());
@@ -107,8 +107,8 @@ test('circles by level, coloured by heat that flows upward; no dots; tapered bra
     expect(n.text).toBe(id);
   }
   expect(l['make apparel'].where).toBe('inside');
-  expect(l['make apparel'].label).toBe('rgb(255, 255, 255)');
-  expect(l['get stronger'].label).toBe('rgb(24, 24, 27)');
+  expect(l['make apparel'].label).toBe('rgb(14, 16, 32)'); // dark Map: dark words on a hot (amber) circle
+  expect(l['get stronger'].label).toBe('rgb(245, 243, 238)'); // dark Map: light words on a cold circle
 
   // No label is clipped (nothing cut off, nothing past the 390 px screen).
   const clipped = await page.evaluate(() =>
@@ -183,7 +183,7 @@ test('the selection is one ink ring around the circle', async ({ page }) => {
   await node(page, 'sew').click();
   await expect(rings).toHaveCount(1);
   await expect(rings).toHaveAttribute('data-testid', 'graph-selected-sew');
-  expect(await rings.evaluate((e) => getComputedStyle(e).borderTopColor)).toBe('rgb(24, 24, 27)');
+  expect(await rings.evaluate((e) => getComputedStyle(e).borderTopColor)).toBe('rgb(245, 243, 238)'); // dark Map: M.ink
   // Heat never changes with selection.
   await expect(node(page, 'sew')).toHaveAttribute('data-heat', /^0\.2/);
   // Around the circle: centred on it, a little bigger.
@@ -207,7 +207,7 @@ test('with the recency shading off, every circle is neutral', async ({ page }) =
   for (const n of await nodes(page).all()) await expect(n).toHaveAttribute('data-heat', '0.00');
   const l = await looks(page);
   // Every circle the same cool stone, though draw and make apparel were logged toward just now.
-  expect(new Set(Object.values(l).map((n) => n.fill))).toEqual(new Set(['rgb(238, 234, 226)']));
+  expect(new Set(Object.values(l).map((n) => n.fill))).toEqual(new Set(['rgb(40, 40, 66)'])); // dark Map: nightHeatFill(0)
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/p48-shading-off.png` });
 });
 

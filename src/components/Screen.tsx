@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { Edge, SafeAreaView } from 'react-native-safe-area-context';
 
 import { Id } from '@/domain/types';
-import { C, s } from '@/theme';
+import { themed, usePalette } from '@/components/palette';
 
 import { Composer } from './Composer';
 import { HomeSlot } from './HomeSlot';
@@ -46,6 +46,8 @@ export function Screen({
   /** Safe-area edges (P-58: Home's sheet sits under the top inset, so its sections take the bottom one). */
   edges?: Edge[];
 }) {
+  const { s, dark } = usePalette();
+  const styles = sheet(dark);
   const scroller = useRef<ComponentRef<typeof ScrollView>>(null);
   useEffect(() => {
     if (scrollToTopOn) scroller.current?.scrollTo({ y: 0, animated: false });
@@ -77,7 +79,9 @@ export function Screen({
   );
 }
 
-const styles = StyleSheet.create({
-  bottom: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, backgroundColor: C.bg },
-  toastSlot: { position: 'absolute', left: 0, right: 0, bottom: '100%', height: 72 },
-});
+const sheet = themed((C) =>
+  StyleSheet.create({
+    bottom: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: C.line, backgroundColor: C.bg },
+    toastSlot: { position: 'absolute', left: 0, right: 0, bottom: '100%', height: 72 },
+  }),
+);

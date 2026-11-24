@@ -4,11 +4,11 @@ import { AccessibilityInfo, Animated, Easing, Platform, Pressable, StyleSheet, T
 
 import { decorative } from '@/components/a11y';
 import { suggestDoing } from '@/domain/compose';
-import { heatInk } from '@/domain/heat';
+import { nightHeatInk } from '@/domain/heat';
 import { LooseLog, PictureItem } from '@/domain/overview';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
-import { C, s } from '@/theme';
+import { M, sm } from '@/theme'; // dark Map: the night palette
 
 /** A log this fresh when its row appears has just landed: it glows once. */
 const FRESH_MS = 5000;
@@ -56,7 +56,7 @@ const LooseRow = memo(
               ) : (
                 <Animated.View style={[styles.halo, { opacity: glow.v.interpolate({ inputRange: [0, 1], outputRange: [0, 0.45] }), transform: [{ scale: glow.v.interpolate({ inputRange: [0, 1], outputRange: [1, 2.4] }) }] }]} />
               ))}
-            <View style={[styles.dot, { backgroundColor: heatInk(l.heat) }]} />
+            <View style={[styles.dot, { backgroundColor: nightHeatInk(l.heat) }]} />
           </View>
           <Text style={styles.text} numberOfLines={1}>
             {l.text}
@@ -78,15 +78,15 @@ function Chooser({ log, nodes }: { log: LooseLog; nodes: PictureItem[] }) {
   return (
     <View style={styles.chooser} role="group" aria-label={`Attach “${log.text}”`}>
       {ids.map((id) => (
-        <Pressable key={id} onPress={() => attach(log.id, id)} style={[s.chip, s.chipAccent]} accessibilityRole="button" accessibilityLabel={`→ to ${data.threads[id].name}: attach`}>
-          <Text style={[s.chipText, s.chipAccentText]} numberOfLines={1}>
+        <Pressable key={id} onPress={() => attach(log.id, id)} style={[sm.chip, sm.chipAccent]} accessibilityRole="button" accessibilityLabel={`→ to ${data.threads[id].name}: attach`}>
+          <Text style={[sm.chipText, sm.chipAccentText]} numberOfLines={1}>
             → to {data.threads[id].name}
           </Text>
         </Pressable>
       ))}
       <Link href={`/activity/${log.id}`} asChild>
-        <Pressable style={s.chip} accessibilityRole="link">
-          <Text style={s.chipText}>Open</Text>
+        <Pressable style={sm.chip} accessibilityRole="link">
+          <Text style={sm.chipText}>Open</Text>
         </Pressable>
       </Link>
     </View>
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   // The dot in a fixed 14 px column (as P-57's rows), the halo centred on it.
   dotCol: { width: 14, height: 14, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  halo: { position: 'absolute', width: 14, height: 14, borderRadius: 7, backgroundColor: C.accent },
+  halo: { position: 'absolute', width: 14, height: 14, borderRadius: 7, backgroundColor: M.accent },
   haloWeb: {
     opacity: 0,
     ...({
@@ -139,6 +139,6 @@ const styles = StyleSheet.create({
       animationTimingFunction: 'ease-out',
     } as object),
   },
-  text: { flex: 1, fontSize: 15, color: C.ink },
+  text: { flex: 1, fontSize: 15, color: M.ink },
   chooser: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingLeft: 24, paddingBottom: 8 },
 });
