@@ -39,6 +39,25 @@ no progress, no counts.
   separate, read-only review). When the last piece of a broken-down step is done, the app asks once
   whether the step is done too.
 
+## What makes it distinct (owner, 2026-11-24)
+The owner: as drawn it "turned into a rehash to-do app"; the faith is in "recursive thinking … smaller
+and smaller things … applicable across different contexts", and the original intent was direction from
+mood and from what you've done before. So the brief leans on three things (frames `x1`–`x5`,
+`x-sheet.png`):
+1. **Breaking down is the main act.** You split a step until it is easy to start. A piece that proved
+   heavy is offered for breaking down the next time it comes up (`x4`: "Last time this was a lot" and
+   Break it down becomes the primary button). No energy rating, no timer on screen.
+2. **Pieces are yours and reusable.** Every piece you've defined is a building block; breaking
+   something down offers your own earlier pieces as you type (`x2`, matched on the device, your words
+   only). A reused piece is a template: editing it changes it everywhere it's used, and Save says where
+   (`x5`). This widens "Routines" into **Pieces**.
+3. **You start from what you're drawn to.** The opening screen (`x1`) shows what's ongoing in every
+   pursuit — the feeling's name and its current piece — in a fixed order, nothing ranked; you pick by
+   inclination. It replaces the energy switch sheet.
+**Open:** how heaviness is gauged — `x3` draws a second button, "Done, but it was a lot" (one tap, no
+extra step); the alternative is to infer it (sent to Later more than once, or sitting as *now* across
+several visits).
+
 ## Screens (zoom levels)
 1. **Running** (`r1`, the main screen): today's stack's *now* step, large and alone; "then · <next>"
    below; **Done — next step** (primary), **Break it down**, **Not now** (sends it down the stack). The

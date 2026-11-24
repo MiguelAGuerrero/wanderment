@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Peruse by inclination; gauge effort; edits change a piece everywhere
+On the three questions: "I wouldn't push it towards an energy estimation. I would guess more so a way
+of perusing the options and selections based on what your feelings and inclinations are heading
+towards. So it kind of brings up all the things you are currently ongoing and makes it appeal to your
+current mood." · "There should be some way of gauging effort, because if a piece takes too long, then
+it should have been divided … hey, do you want to break this down next time so you don't feel like
+this piece is too much?" · "when a reused piece is edited, it should change everywhere it's used as
+part of a template."
+*Interpretation:* no "how much energy?" question — the opening shows what's ongoing in every pursuit
+and you pick what you're drawn to. A piece that proved heavy is offered for breaking down next time.
+Reused pieces are templates: one edit, everywhere. How effort is gauged is open (no timers on screen).
+
 ## 2026-11-24 — "A rehash to-do app"; faith in recursive, reusable small steps
 After the B-11 redraw (D-18 not answered): "given the crowded territory, how do we lean in on this
 app's distinctive features then? Because my initial intention was to resolve energy and mood and gain
