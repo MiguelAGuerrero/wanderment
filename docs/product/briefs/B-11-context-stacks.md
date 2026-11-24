@@ -224,6 +224,14 @@ decided on return, and pre-planned; `.polish/product/review-B-11-no-if.md`; reas
   the steps between and meet it where the result is needed. Optional, later: the wait step names the
   step that set it going, and from then until you reach it the pull-up panel and home say what is
   "out".
+- **Two kinds of "at the same time", one test** (owner's distinction, confirmed). *Separate runs* are
+  independent work: each has its own end, they never have to come back together, and you move between
+  them by pausing. *Waiting inside one run* is dependent work: the pieces belong to one outcome and
+  there is a point where the results are needed together — the wait step is that point. The test:
+  **is there a step that can't happen until both are done?** If yes, it is one run with a wait step; if
+  no, they are separate runs. Child runs (the same routine for different values under one parent) are
+  independent of each other; they meet only if the parent has a wait step for them. "The order does the
+  work" is confirmed: no further machinery.
 **Added to the final redraw:** the reason on the paused screen and on home; a wait step in Blocks,
 Read it and on the runner; reactions offered on a wait step; "waiting for" on home.
 

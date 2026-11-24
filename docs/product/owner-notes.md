@@ -18,6 +18,19 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Separate threads are independent; waiting inside one is dependent
+"Yes, the order does do the work for me. Now … you can have multiple concurrent threads going on, and
+you can context switch between them at a shared common layer. So how is that different than adding a
+sequence of actions and awaiting the response of another? … I'm trying to distill the fundamental
+difference between having multiple concurrent threads that you can context switch between versus …
+in-thread concurrency. My intuition is telling me that concurrent threads are independent work that
+don't relate to each other. While … if you're being concurrent within the same thread, … the work is
+dependent on each other, they just don't have to be done in a specified order or get done in the same
+order each and every time, as opposed to a standard sequential function."
+*Interpretation:* "the order does the work" is confirmed. The distinction is recorded as a principle
+(B-11): separate runs never have to come back together; inside one run there is a point where the
+results are needed together — the wait step.
+
 ## 2026-11-24 — Pause is incompleteness, a wait step is completeness; reactions only when they hold something
 "A pause is just saying I'm done executing on this task for now, and there should be allowed a reason
 to do that. They can make a deliberate step, a wait step, if that's more concrete. But … a pause is a
