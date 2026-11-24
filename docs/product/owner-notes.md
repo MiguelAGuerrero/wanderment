@@ -18,6 +18,14 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — The prompt stays and resolves from the map
+"[That] said, we can still keep the basic prompt of what you wanna do and it resolves from the map the
+thread that closely matches your [words], and if not, it allows you to create a new foundation to work
+off of."
+*Interpretation:* the "I'm going to…" field stays on the overview. Typing finds the closest runs,
+routines and foundations on the map to resume or start; when nothing fits, it offers a new foundation
+with those words. Led to: B-11 frame n3.
+
 ## 2026-11-24 — An empty foundation is a north star; start, pause, stop; one thing at a time
 "A foundation with nothing on it is still valuable because it is in a way a kind of north star, because
 you just see it and you can choose to execute on that foundation and start deriving or forming up what

@@ -74,6 +74,12 @@ beneath it), titled "Nothing running". The overview shows every **foundation**, 
 nothing under it yet — a value or goal that works as a north star, with Start on it. This replaces the
 Declare screen's "Where you left things" list and the Switch button.
 
+**The prompt resolves from the map** (owner; frame `n3`). "I'm going to…" stays on the overview. As
+you type, the closest things on your map are offered — paused runs to Resume, routines and foundations
+to Start, and unnamed things you've done before — and beneath them "＋ New foundation: <your words>".
+Nothing is started or created until you choose a row; Return takes the first row, which is always
+visible and marked.
+
 **Named and unnamed.** Only named routines live in reference. Anything unnamed (a typed one-off, a
 breakdown) is gone from the lists when its run ends, but typing what it said finds it ("You've done
 this before") to **Do it again** or **Name it, keep it** — retrieved by its words, not by a name.
