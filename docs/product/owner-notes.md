@@ -18,6 +18,15 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — The runner is cluttered: one prompt, about three buttons, the context
+On the converged set: "The runner looks very complicated. I almost expected just one prompt and just
+like three buttons pause move forward. The user doesn't necessarily need to see all that extra stuff
+and that most they need to see the context, but that's it looks very cluttered."
+*Interpretation:* the running screen shows where you are, the one step, and three buttons (pause, go
+forward, and a third — taken as Done, to confirm). Step in, Break it down, See it all, "then:" and the
+tags move behind a tap. This overrides the audit's "do not touch Running". Led to: runner proposal
+frames (`runner-a`–`runner-d`).
+
 ## 2026-11-24 — "Foundation" is just the first layer; history and search are a set
 On the capabilities audit's questions: "Keep your proposal. A foundation is just the first layer in a
 stack and doesn't really necessarily have any special treatment besides it just serving as the first
