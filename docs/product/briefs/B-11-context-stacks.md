@@ -186,6 +186,29 @@ tested with anyone, found:
   **question step**: two or three answers in your words, each leading to a step or routine and then
   rejoining (or leaving) — never conditions, never and / or / not, never nested.
 
+**Conditions without an if** (a fresh agent's walk-through of the same scenarios, each done twice —
+decided on return, and pre-planned; `.polish/product/review-B-11-no-if.md`; reasoned, not tested).
+- **Most "conditionals" were loops**: an editor's notes, drying, build-and-test, an engaged line, an
+  unpaid invoice are all "go round again, or Done" — repeat-until-done already holds them. A shop not
+  having something is a step in words. Only the job application had truly different multi-step
+  reactions.
+- **What is missing is the wait, not the fork**: home cannot tell "I walked away" from "it's in someone
+  else's court".
+- **The owner's gut feeling holds, with two corrections.** What deserves keeping is the *reaction* (a
+  routine) and the *wait* (a step) — not the choice between reactions, which cost nothing on return. And
+  of-the-moment thoughts ("ask Sam, he referred me") were the most valuable things to write down before
+  leaving; they belong to the run, never the routine. Keeping and pre-planning are different things.
+- **Proposed, in two stages.** (1) A **waiting line**: an optional "Waiting for…" on the paused screen;
+  home shows it after the run's step; on return the context line reads "Back from waiting for: …" until
+  the first action. Three buttons unchanged; a run never moves by itself. (2) Later, **set aside**: "For
+  when I'm back" lines on the paused screen — steps or routines — picked by a tap on return. Things done
+  repeatedly graduate with what exists: Break it down, "Name it, keep it", "Keep in <routine>".
+- **What it can't do**: Read it won't show the alternatives; nothing prompts an expected outcome;
+  silence ("nothing for weeks") stays unhandled — and an if would not fix that without a clock.
+- **To settle**: "waiting for" is words only (the design says there is no waiting state); several
+  waiting lines on home edge toward a to-do list; a long reason on the context line; and whether it may
+  say since when.
+
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (33 journeys and
 their renders) with [`B-11-capabilities.md`](B-11-capabilities.md) (the essentials checklist).**
