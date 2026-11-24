@@ -647,6 +647,9 @@ export const useStore = create<State>()((set, get) => ({
   undoKept: gated<State['undoKept']>(false, () => {
     const { kept, undo, draft } = get();
     if (!kept || !undo) return false;
+    // A line reopened from the sky has nothing of its own to undo until it's moved (the pending
+    // Undo belongs to whatever came before, and stays for it).
+    if (kept.reopened && !kept.moved) return false;
     const data = applyUndo(get().data, undo);
     const a = data.activities[kept.activityId];
     if (kept.moved && a && kept.reopened) {
@@ -666,7 +669,8 @@ export const useStore = create<State>()((set, get) => ({
   keepLoose: (activityId) => {
     const a = get().data.activities[activityId];
     if (!a || a.doingId || a.toIds.length) return false;
-    set({ kept: { activityId, text: a.text, reopened: true }, undo: undefined });
+    // Session only: a pending Undo (of whatever came before) is left as it is.
+    set({ kept: { activityId, text: a.text, reopened: true } });
     return true;
   },
 }));

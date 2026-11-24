@@ -122,7 +122,10 @@ describe('a loose line opened from the sky (fix 18)', () => {
   it('keepLoose puts it on the billboard with the same moves; before a move there is nothing to undo', () => {
     const { draw } = seed();
     const id = earlier('sketched on the bus');
+    const pending = st().undo;
     expect(st().keepLoose(id)).toBe(true);
+    // Reopening is session only: whatever Undo was pending stays as it was.
+    expect(st().undo).toBe(pending);
     expect(st().kept).toEqual({ activityId: id, text: 'sketched on the bus', reopened: true });
     expect(st().undoKept()).toBe(false);
     expect(st().data.activities[id]).toBeDefined();
