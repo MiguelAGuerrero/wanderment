@@ -41,14 +41,15 @@ different values, each parked at its own step, carried out at your leisure — t
 one job hunt, each at a different point. Child runs can have their own. This is the app's concurrency:
 there is no "waiting" state; a run is simply left at the step it was on.
 
-**Eight verbs.**
+**Nine verbs.**
 | Verb | What it does |
 |---|---|
 | **Start** | Begin a run — a foundation, a routine, or something typed ("I'm going to…") — or Resume a paused one. Only when nothing is running. |
 | **Next** | Move to the following item; at the end, back to the divider, or the frame finishes if there is none. |
 | **Step in** | The current item is a routine: open its frame. (Or Next past it, working at that level.) |
 | **Done** | End the frame you're in, at any point; the frame beneath moves on. Done at the top ends the run. |
-| **Pause** | Park the running run at its step and go to the overview. Switching is Pause, then Start or Resume. |
+| **Pause** | Hold the running run at its step and open its paused screen: Resume, Switch to another, or Stop. |
+| **Stop** | Exit to home with nothing running. The run stays where it was. |
 | **Break it down** | Turn a step into a sequence in place. Unnamed: it stays while it runs, then leaves. |
 | **Group** | The reverse: choose neighbouring steps, name them, and they become one routine in reference. |
 | **Copy** | A routine as a new routine, or a run as its own independent run. |
@@ -66,13 +67,17 @@ same thing. To vary, you **copy**: *Copy as a new routine* (keep the shape, twea
 name) or *Copy as its own run* (an independent run from the same place, with this run's revisions, tied
 to nothing).
 
-**One thing at a time** (owner; frames `n1`, `n2`). At most one run is **running**; every other open
-run is **paused** at its step. To switch you **Pause** the running one, which takes you to the overview,
-then **Start** or **Resume** another — there is no direct switch. The app opens **where you left off**:
-on the running run if there is one, otherwise on the **overview** (the Map with "I'm going to…"
-beneath it), titled "Nothing running". The overview shows every **foundation**, including one with
-nothing under it yet — a value or goal that works as a north star, with Start on it. This replaces the
-Declare screen's "Where you left things" list and the Switch button.
+**One thing at a time, like a game** (owner; frames `n1`, `n2`, `n4`). At most one run is **running**.
+- **Pause** (on the running screen) is a declaration that you can't go on, or can't right now. It opens
+  the **paused screen** for that run: **Resume**; **Switch to** another paused run or something else —
+  switching is only ever done here, explicitly; or **Stop**.
+- **Stop** is exiting to the **home screen**: nothing is running, you're done with the app for now. The
+  run is not ended; it stays at its step under its foundation.
+- **Home** ("Nothing running") is the Map with "I'm going to…" beneath it: every **foundation**,
+  including one with nothing under it yet — a value or goal that works as a north star, with Start on
+  it — and the paused runs under theirs, each with Resume.
+- The app opens **where you left off**: the running screen, the paused screen, or home.
+- **Done** is different from all three: it ends a frame or, at the top, the run itself.
 
 **The prompt resolves from the map** (owner; frame `n3`). "I'm going to…" stays on the overview. As
 you type, the closest things on your map are offered — paused runs to Resume, routines and foundations
@@ -179,7 +184,7 @@ as things to add; a reusable routine is named as such for screen readers. A rout
 6. (Settled: on the next pass it is the routine as named.)
 7. (Settled: wanders retire; not copied.)
 8. (Settled: every foundation is shown, empty ones too.)
-9. What **Stop** does beyond Pause: ends the run (Done at the top), or only rests the app.
+9. (Settled: Stop exits to home; Pause is where you switch.)
 
 ## 9. Slices (as the implementation review recommends)
 0. **Groundwork** (M, Full, no visible change): storage driven by one list of collections instead of two

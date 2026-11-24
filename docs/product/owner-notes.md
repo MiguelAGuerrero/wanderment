@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Stop is exiting to home; Pause is where you switch
+"Stop is just the state when nothing is running, and so when you stop you just [get brought] back to
+the home screen — think of it like exiting your video game. You're going back to effectively the screen
+to determine what you wanna do next. When you pause you should … offer [a] way to currently switch your
+context, but you have to do it explicitly when you're paused, because [it] is a declaration of either
+you can't proceed or that you can't at the moment … [stopping] means you're done with engaging with the
+app as a context management app."
+*Interpretation:* like a game. **Pause** opens a paused screen for the run you're in — Resume, switch to
+another (explicitly, only from here), or Stop. **Stop** exits to the home screen ("Nothing running"):
+you're done with the app for now; the run stays where it was. Led to: B-11 frame n4.
+
 ## 2026-11-24 — The prompt stays and resolves from the map
 "[That] said, we can still keep the basic prompt of what you wanna do and it resolves from the map the
 thread that closely matches your [words], and if not, it allows you to create a new foundation to work
