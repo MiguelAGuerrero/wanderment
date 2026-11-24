@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — "A rehash to-do app"; faith in recursive, reusable small steps
+After the B-11 redraw (D-18 not answered): "given the crowded territory, how do we lean in on this
+app's distinctive features then? Because my initial intention was to resolve energy and mood and gain
+direction from what you want to do based on what you've done before. So I do concede that this just
+turned into a rehash to-do app, but I do have faith in this idea of recursive thinking, where you can
+define smaller and smaller things to do that are actionable and really easy and applicable across
+different contexts in a way that makes performing a function of what you want to do kind of
+effortless … And you just piece together that in a way that's accessible for you."
+*Interpretation:* B-11 as drawn is not distinctive enough. What the owner believes in: breaking things
+down until they are effortless, and small pieces reused across pursuits; the original intent (energy
+and mood, direction from what you've done before) should come back through that. D-18 stays open.
+
 ## 2026-11-24 — Context management, not logging; Tetris is only the look
 Answers on B-11: Return — "I think we should get away from logging and instead this being an active
 way of capturing your progress. The logging itself shouldn't be introduced just because it has this
