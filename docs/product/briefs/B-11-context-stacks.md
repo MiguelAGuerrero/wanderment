@@ -97,18 +97,23 @@ routine".
 
 **Never shown as words:** frame, thread, stack, pointer, parameter, loop variable.
 
-## 2a. Rules the capabilities audit made necessary (proposed; the owner decides the marked ones)
+## 2a. Rules the capabilities audit made necessary
 **Safeguards, one rule.** Everything reversible gets an Undo and no confirm (Next, Done, removing a
 step, ending a run, Group, edits, "Keep in <routine>"). A confirm appears only when an action reaches
 beyond what is on screen — other routines, open runs, all data — and it still leaves an Undo where one
 is possible. Erase and import-replace confirm and offer an export first.
-**Foundations** *(owner to confirm)*. A foundation is a top-level routine kept on home: a value, a goal
-or a way of working. It has one base run; Start or Resume on it acts on that run; runs started with a
-value from inside it are its child runs. A routine used inside others is not a foundation until you
-start it from home. Foundations can be renamed, reordered and removed (removing one with paused runs
-confirms and names them).
-**Everything typed at home is a foundation** *(owner to confirm)* — there is no separate "typed
-one-off"; unnamed things come only from breaking a step down.
+**The first layer is nothing special** (owner, decided). What this document calls a "foundation" is only
+the first layer of a stack — the first line of entry into a goal, a feeling, an intuition or something
+quite concrete. It is **not a named concept and the word never appears in the app**. It is a routine
+like any other, shown on home because it is where a stack starts: it can be renamed, reordered, copied
+and removed like any routine (removing one with paused runs confirms and names them). Its run is the
+base run; runs started with a value from inside it are child runs.
+**Everything typed at home starts a new first layer** (owner, decided): the row reads "New: <your
+words>". There is no separate "typed one-off"; unnamed things come only from breaking a step down.
+**History and search are a set, not a log** (owner, decided). Every step and routine has one identity.
+History lists ended runs — one line per run — never one line per pass of a loop. Search (in History and
+from the prompt) returns each distinct step or routine once, however often it was done, saying where it
+lives; a routine in the results can be opened to its steps. Nothing says how many times.
 **Runs.** "End this run" is Done at the top; it leaves a history entry; open child runs are asked about
 (end them too, or keep them under the foundation). Starting a routine that has a paused run asks Resume
 / Start another. Starting anything while a run is running asks to pause that one first. A run's blank
@@ -120,7 +125,7 @@ replaces, after a preview, as today; Erase everything exists, with export first;
 stays automatic as today; the one Undo lasts until the next action.
 **Kept from today's app:** Settings, export, import preview, the opening / blocked / reconnecting
 states, the update banner, typed text surviving a reload, Esc and Back behaviour.
-*(Owner to decide: whether search over earlier logged lines and notes stays, in History.)*
+Search also covers what was logged before this design (lines and their notes).
 
 ## 3. Screens
 **The complete map of what the app does is [`B-11-journeys.md`](B-11-journeys.md) (journeys and their

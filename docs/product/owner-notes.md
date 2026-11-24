@@ -18,6 +18,24 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — "Foundation" is just the first layer; history and search are a set
+On the capabilities audit's questions: "Keep your proposal. A foundation is just the first layer in a
+stack and doesn't really necessarily have any special treatment besides it just serving as the first
+line of entry into a goal, feeling, or intuition that you have. They don't have to be explicitly
+defined as goals. In fact, they can be very concrete and executable in its own sake … there's nothing
+special about it … I'm only using the term foundation as a way of identifying what I mean. It's not
+like a named concept. I guess the analogy would be like the main thread. Maybe." And: "search can bring
+back what's been logged in history, popped off. But ensure that it's a set, not a collection … if you
+iterate over a loop so many times, you're obviously going to have the same step referenced over and
+over … that's going to clutter up the history. So maybe every step has a reference, and that reference
+is what resolves for searching, rather than history being populated by the same step over and over …
+if that reference is a routine that has its own sub-steps, that's also okay. That can be resolved in a
+search too." (Before the audit: asked for a list of journeys and capabilities to be audited for the
+basics — "like deletes or renaming" — so the mockups cover the essentials.)
+*Interpretation:* the first layer gets no special treatment and no name in the UI. Everything typed at
+home starts a new first layer. Each step and routine has one identity; history shows ended runs, never
+each pass of a loop; search returns each distinct step or routine once, routines openable.
+
 ## 2026-11-24 — One consolidated redraw, a second designer, and journeys as the completeness check
 "Perform one consolidated redraw. Now, I want you to present your design to another agent so they can
 also perform their redraw and see where you two converge and polish the strengths and reduce the
