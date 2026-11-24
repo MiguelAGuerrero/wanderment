@@ -46,8 +46,9 @@ export function useLoop(still: boolean, ms: number, delay = 0) {
  * false) the lantern's glow is silver. Without `ground` (P-66, under a star) it's only the sky: no
  * hills, path or lantern. With a `passage` (P-72) the hills sink or rise into place, the stars and the
  * lantern fade in, and the wanderer can walk up the path; under Reduce Motion the passage is still.
+ * `lift` (P-79): the ground stands that far above the bottom — at rest, just above the composer.
  */
-export function NightSky({ still, warm, ground = true, passage }: { still: boolean; warm: boolean; ground?: boolean; passage?: PassageState }) {
+export function NightSky({ still, warm, ground = true, passage, lift = 0 }: { still: boolean; warm: boolean; ground?: boolean; passage?: PassageState; lift?: number }) {
   const { width } = useWindowDimensions();
   const tw1 = useLoop(still, 4000);
   const tw2 = useLoop(still, 6000, 1500);
@@ -78,7 +79,7 @@ export function NightSky({ still, warm, ground = true, passage }: { still: boole
       </Animated.View>
       {ground && (
         <>
-          <Animated.View style={[styles.hills, passage && { transform: [{ translateY: hillsY(passage) }] }]} testID="sky-ground">
+          <Animated.View style={[styles.hills, lift > 0 && { bottom: lift }, passage && { transform: [{ translateY: hillsY(passage) }] }]} testID="sky-ground">
             <Svg width="100%" height={HILLS_H} viewBox={`0 0 390 ${HILLS_H}`} preserveAspectRatio="none">
               <Path d="M0 48 C 60 16 120 38 170 22 S 280 -14 330 6 S 380 26 390 16 V220 H0 Z" fill={N.hillFar} />
               <Path d="M0 100 C 90 76 170 104 250 84 S 360 76 390 88 V220 H0 Z" fill={N.hillNear} />
@@ -93,6 +94,7 @@ export function NightSky({ still, warm, ground = true, passage }: { still: boole
               testID="sky-lantern"
               style={[
                 styles.lamp,
+                lift > 0 && { bottom: LAMP_BOTTOM + lift },
                 still
                   ? { opacity: 0.9 }
                   : { opacity: lamp.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }), transform: [{ scale: lamp.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }] },
@@ -107,7 +109,7 @@ export function NightSky({ still, warm, ground = true, passage }: { still: boole
                 <Circle cx={70} cy={70} r={70} fill="url(#lamp)" />
               </Svg>
             </Animated.View>
-            <View style={styles.core} testID="sky-core" />
+            <View style={[styles.core, lift > 0 && { bottom: CORE_BOTTOM + lift }]} testID="sky-core" />
           </Animated.View>
         </>
       )}
@@ -115,10 +117,13 @@ export function NightSky({ still, warm, ground = true, passage }: { still: boole
   );
 }
 
+const LAMP_BOTTOM = 102 - 70;
+const CORE_BOTTOM = 96 - 6;
+
 const styles = StyleSheet.create({
   star: { position: 'absolute', backgroundColor: N.ink },
   hills: { position: 'absolute', left: 0, right: 0, bottom: 0, height: HILLS_H },
   // The lantern sits where the path starts: 102 above the bottom (742 of 844 in the mockup).
-  lamp: { position: 'absolute', bottom: 102 - 70, left: '50%', marginLeft: -70, width: 140, height: 140 },
-  core: { position: 'absolute', bottom: 96 - 6, left: '50%', marginLeft: -6, width: 12, height: 12, borderRadius: 6, backgroundColor: N.lanternCore },
+  lamp: { position: 'absolute', bottom: LAMP_BOTTOM, left: '50%', marginLeft: -70, width: 140, height: 140 },
+  core: { position: 'absolute', bottom: CORE_BOTTOM, left: '50%', marginLeft: -6, width: 12, height: 12, borderRadius: 6, backgroundColor: N.lanternCore },
 });

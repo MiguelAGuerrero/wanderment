@@ -283,6 +283,8 @@ interface State {
    * there's nothing to undo until a choice. False when it isn't there or isn't loose.
    */
   keepLoose: (activityId: Id) => boolean;
+  /** P-80: a line on the live map opens again as the rise's subject (any line, loose or attached), reopened. False when it's gone. */
+  reopenLine: (activityId: Id) => boolean;
   /** P-73: turns the trailhead's done chip on or off (session only). */
   setDoneChip: (on: boolean) => void;
 }
@@ -723,6 +725,14 @@ export const useStore = create<State>()((set, get) => ({
     const a = get().data.activities[activityId];
     if (!a || a.doingId || a.toIds.length) return false;
     // Session only: a pending Undo (of whatever came before) is left as it is.
+    set({ kept: { activityId, text: a.text, reopened: true } });
+    return true;
+  },
+
+  reopenLine: (activityId) => {
+    const a = get().data.activities[activityId];
+    if (!a) return false;
+    // Session only, as keepLoose: a pending Undo stays as it is.
     set({ kept: { activityId, text: a.text, reopened: true } });
     return true;
   },

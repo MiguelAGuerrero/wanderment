@@ -45,6 +45,10 @@ Interpretation (by /product):
    a few recent things at random, nothing highlighted, superseding the graph Map; swipe up/down to
    see what's available instead of a Map button; "I'm not sure" lights the map up to be descriptive.
 
+After a UI best-practice audit (`.polish/product/ui-audit-B-09.md`, local) and the panel: **go** on
+B-09 (D-16): the feed is a random few drawn once a day; the last three weeks, a calm sky beyond; Map's
+depth into the lit map and the sheet. Led to: P-79 to P-83; the UI-audit rule in the skills.
+
 ## 2026-11-24 — "Deploys are failing"
 > Deploys are failing. Ensure we have proper CI pre-gates so this don't keep happening
 

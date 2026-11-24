@@ -58,7 +58,7 @@ async function send(page: Page, text: string) {
 
 /** The sky's loose lines (the reachable stars), by accessible name. */
 async function looseNames(page: Page) {
-  await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+  await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
   // The sky is ready (its strays drawn) before reading them and leaving (audit F2).
   const group = page.getByRole('group', { name: 'Loose', exact: true });
   await expect(group.getByRole('button').first()).toBeVisible();
@@ -312,7 +312,10 @@ test.describe('the rise', () => {
       });
     await open(page, seed(true));
     await expect(lit(page)).toHaveCount(1);
-    await expect(page.getByTestId('rest-glow')).toHaveCount(1);
+    // P-80: was “one glow (the fresh lit line's)”: on the live map age glows, lit and settled alike —
+    // every line of the last three weeks has its glow (the 31-day-old one isn't drawn at all).
+    await expect(page.getByTestId('rest-line')).toHaveCount(3);
+    await expect(page.getByTestId('rest-glow')).toHaveCount(3);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/p73-rest-lit.png` });
     // Reachable as a star on the sky: the old one says so no more.
     const names = await looseNames(page);
@@ -391,7 +394,7 @@ test.describe('the rise', () => {
 
   test('audit F3: Esc pressed as the session starts to tilt still leaves (the sky, and the rise)', async ({ page }) => {
     await open(page);
-    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(AT_REST);
     await expect(field(page)).toBeFocused();
@@ -427,7 +430,7 @@ test.describe('the rise', () => {
 
   test('audit F7: the done chip’s row is kept before the first key — “I’m not sure” doesn’t move as you start typing', async ({ page }) => {
     await open(page);
-    const unsure = page.getByRole('link', { name: 'I’m not sure', exact: true });
+    const unsure = page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true });
     const before = (await unsure.boundingBox())!.y;
     await field(page).pressSequentially('r');
     await expect(chip(page)).toBeVisible();

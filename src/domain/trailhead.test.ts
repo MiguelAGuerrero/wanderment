@@ -1,8 +1,9 @@
 /** P-65: the trailhead — its big line, its ground, and "Open <wander>" (P-73 retired "Move it?": see rise.test.ts). */
 import { describe, expect, it } from 'vitest';
 
+import { FEED_ROW_MIN, FEED_ROWS } from './feed';
 import { logActivity } from './model';
-import { GROUND_H, groundFits, openOffer, promptSize, ROOM_ABOVE } from './trailhead';
+import { feedRowShown, GROUND_H, groundFits, headingCollapses, openOffer, promptSize, restLayout, ROOM_ABOVE, UNSURE_NAME, unsureChip } from './trailhead';
 import { Data, emptyData, Thread } from './types';
 
 const DAY = 864e5;
@@ -90,5 +91,60 @@ describe('openOffer (fix 17: typing can open a trail; it never attaches or logs)
     const before = JSON.stringify(data);
     openOffer(data, 'dr', RECENT);
     expect(JSON.stringify(data)).toBe(before);
+  });
+});
+
+// ─── P-79 / P-80 (B-09): the composer at the bottom, the live map above it ─────────────────────────
+
+
+describe('headingCollapses (B-09 fold-in 2: keyboard up or large text)', () => {
+  it('a phone at rest keeps the question as a small heading', () => {
+    expect(headingCollapses({ height: 844, fontScale: 1, keyboardUp: false })).toBe(false);
+  });
+  it('collapses with the keyboard up, in a short window (as with it) or at large text', () => {
+    expect(headingCollapses({ height: 844, fontScale: 1, keyboardUp: true })).toBe(true);
+    expect(headingCollapses({ height: 480, fontScale: 1, keyboardUp: false })).toBe(true);
+    expect(headingCollapses({ height: 422, fontScale: 1, keyboardUp: false })).toBe(true);
+    expect(headingCollapses({ height: 844, fontScale: 1.5, keyboardUp: false })).toBe(true);
+  });
+});
+
+describe('restLayout (the composer may grow; the map yields, never the other way)', () => {
+  const rows = FEED_ROWS * FEED_ROW_MIN;
+  it('room for the ground and the picture: both, each row at least 44 pt', () => {
+    const r = restLayout({ room: GROUND_H + rows + 100, top: 50, fontScale: 1 });
+    expect(r).toMatchObject({ ground: true, list: false });
+    expect(r.rowH).toBeGreaterThanOrEqual(44);
+    // The rows end above the ground (never drawn under the hills or the lantern).
+    expect(50 + FEED_ROWS * r.rowH).toBeLessThanOrEqual(GROUND_H + rows + 100 - GROUND_H);
+  });
+  it('the ground yields first (suggestions open, a short phone), then the picture becomes a list', () => {
+    expect(restLayout({ room: rows + 60, top: 50, fontScale: 1 })).toMatchObject({ ground: false, list: false });
+    expect(restLayout({ room: rows - 10, top: 0, fontScale: 1 })).toMatchObject({ ground: false, list: true });
+  });
+  it('at the largest text the map is a plain list, with no ground', () => {
+    expect(restLayout({ room: 2000, top: 50, fontScale: 1.5 })).toMatchObject({ ground: false, list: true });
+  });
+});
+
+describe('unsureChip (fold-in 6: a toggle, saying what it does)', () => {
+  it('its name starts with its words and says what it does', () => {
+    expect(UNSURE_NAME).toBe('I’m not sure — light up the map');
+    expect(UNSURE_NAME.startsWith('I’m not sure')).toBe(true);
+  });
+  it('pressed or not, with a mark that isn’t colour alone', () => {
+    const off = unsureChip(false);
+    const on = unsureChip(true);
+    expect(off.pressed).toBe(false);
+    expect(on.pressed).toBe(true);
+    expect(on.mark).not.toBe(off.mark);
+  });
+});
+
+describe('feedRowShown (the composer grows over the map; the lines never move)', () => {
+  it('a row is drawn only while all of it is above the composer', () => {
+    expect(feedRowShown(0, { top: 50, rowH: 50, room: 100 })).toBe(true);
+    expect(feedRowShown(1, { top: 50, rowH: 50, room: 149 })).toBe(false);
+    expect(feedRowShown(1, { top: 50, rowH: 50, room: 150 })).toBe(true);
   });
 });

@@ -87,9 +87,16 @@ export function restSky(data: Data, now = new Date(), { shading = true }: { shad
     seen.push({ id: a.id, stems: mine });
   }
 
-  const guides = skyStars(data, { now }).map((s) => ({ id: s.thread.id, ...place(s.thread.id, GUIDE_BAND, 'guide') }));
-  return { lines, links, guides };
+  return { lines, links, guides: restGuides(data, now) };
 }
+
+/** The sky's whys as guiding stars, high up, each in a fixed place from its id (P-74; still drawn at rest by P-80's home). */
+export function restGuides(data: Data, now = new Date()): Guide[] {
+  return skyStars(data, { now }).map((s) => ({ id: s.thread.id, ...place(s.thread.id, GUIDE_BAND, 'guide') }));
+}
+
+/** The guiding stars' band ends this far down the window (P-80: the live map's lines start below it). */
+export const GUIDE_BAND_END = GUIDE_BAND.y[1];
 
 // ─── Sessions ──────────────────────────────────────────────────────────────
 

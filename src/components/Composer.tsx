@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { ComponentRef, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ComponentRef, ReactNode, useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 import { useShown } from '@/components/shown';
 import { caretAfterEdit, mentionAt, mentionEnd, replaceActiveMention, suggestDoing, suggestThreads } from '@/domain/compose';
@@ -31,6 +31,7 @@ export function Composer({
   label,
   logOptions,
   openWanders,
+  chips: chipRow,
 }: {
   presetDoingId?: Id;
   placeholder?: string;
@@ -47,7 +48,7 @@ export function Composer({
   onEmptyBlur?: () => void;
   /** After a log: true when focus was taken care of (Home: the box went away with its face). */
   onLogged?: () => boolean;
-  /** The trailhead (P-65): a bare underlined line on the night sky, the send ↑ only once there are words. */
+  /** The home's composer (P-65, P-79): a rounded field on the night, its chips above it, its suggestions above them; the send ↑ always there. */
   night?: boolean;
   /** The field's name, when it isn't the placeholder (the trailhead: its question). */
   label?: string;
@@ -55,9 +56,16 @@ export function Composer({
   logOptions?: LogOptions;
   /** The trailhead (fix 17): a quiet "Open <wander>" after the suggestions opens its trail (or star); it never attaches or logs. */
   openWanders?: boolean;
+  /**
+   * The home's composer (P-79): drawn right above the field ("I'm not sure", the done chip), read
+   * after it; the suggestions open above them, so the field and its chips never move as you type.
+   */
+  chips?: ReactNode;
 }) {
   const { C, s, dark } = usePalette();
   const styles = sheet(dark);
+  // P-79: at 200 % zoom the composer's field keeps room for its placeholder beside the send ↑.
+  const narrow = useWindowDimensions().width < 260;
   const data = useStore((st) => st.data);
   const draft = useStore((st) => st.draft);
   const setDraft = useStore((st) => st.setDraft);
@@ -281,6 +289,153 @@ export function Composer({
     </View>
   );
 
+  const mentionList = open && (
+    // RN's Role type has no "listbox"; react-native-web passes any ARIA role through.
+    <View style={styles.suggestions} role={'listbox' as 'list'} aria-label="Wander suggestions">
+      {suggestions.map((t, i) => (
+        <Pressable
+          key={t.id}
+          onPress={() => pick(t.id)}
+          style={[styles.suggestion, i === 0 && { borderTopWidth: 0 }, i === activeIndex && styles.suggestionActive]}
+          role="option"
+          aria-selected={i === activeIndex}>
+          <Text style={[styles.suggestionText, i === activeIndex && { color: C.accentInk, fontWeight: '600' }]}>{t.name}</Text>
+          {i === activeIndex && (
+            <Text style={styles.hint}>
+              {Platform.OS === 'web' ? 'tab or tap' : 'tap to pick'}
+            </Text>
+          )}
+        </Pressable>
+      ))}
+      {canCreate && (
+        <Pressable onPress={createAndPick} style={[styles.suggestion, suggestions.length === 0 && { borderTopWidth: 0 }]} role="option" aria-selected={false}>
+          <Text style={[styles.suggestionText, { color: C.accent }]}>+ New wander “{mention!.query.trim()}”</Text>
+        </Pressable>
+      )}
+    </View>
+  );
+
+  const box = (
+    <View style={[styles.box, night && styles.nightBox, night && narrow && styles.nightBoxNarrow]}>
+      {reconnecting && (
+        // Over the space above the box, so nothing moves while it shows.
+        <Text style={styles.reconnecting} numberOfLines={1}>
+          {marked ? 'Reconnecting… it’ll log as soon as it’s back' : 'Reconnecting…'}
+        </Text>
+      )}
+      {(chips.length > 0 || step || suggestedDoing) && (
+        <View style={styles.chipRow}>
+          {chips.map((c, i) => (
+            <View key={c.id + c.kind} style={styles.chipWrap}>
+              {c.kind === 'to' && (i === 0 || chips[i - 1].kind === 'doing') && (
+                <Text style={styles.to} {...decorative}>
+                  → to
+                </Text>
+              )}
+              <Pressable
+                onPress={() => {
+                  if (c.kind === 'doing') setDraft({ doingId: null, fromNextOf: undefined, fromNextText: undefined });
+                  else {
+                    setDraft({ toIds: draft.toIds.filter((x) => x !== c.id) });
+                    // The selected wander's chip (P-35): removing it clears the selection too.
+                    if (c.id === selected) select(undefined);
+                  }
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`${c.kind === 'doing' ? 'Doing' : 'To'}: ${c.label}. Remove`}
+                style={[styles.hit, styles.stepHit]}>
+                <View style={[styles.smallChip, c.kind === 'doing' ? styles.doingChip : s.chipAccent]}>
+                  <Text style={[styles.smallChipText, c.kind === 'doing' ? { color: C.onInk } : s.chipAccentText]}>{c.label} ×</Text>
+                </View>
+              </Pressable>
+            </View>
+          ))}
+          {step && (
+            <Pressable
+              onPress={() => setDraft({ fromNextOf: undefined, fromNextText: undefined })}
+              accessibilityRole="button"
+              accessibilityLabel={`${step.text}, next step in ${step.name}. This line counts as it. Remove`}
+              style={[styles.hit, styles.stepHit]}>
+              <View style={[styles.smallChip, styles.stepChip]}>
+                <Text style={[styles.smallChipText, s.chipAccentText]}>
+                  {/* P-61: on Home it's the step the line completes. */}
+                  <Text {...decorative}>{autocomplete ? '✓ ' : '↳ '}</Text>
+                  {step.text} ×
+                </Text>
+              </View>
+            </Pressable>
+          )}
+          {suggestedDoing && (
+            <Pressable onPress={() => setDraft({ doingId: suggestedDoing.id })} style={styles.hit} accessibilityRole="button" accessibilityLabel={`Suggested: doing ${suggestedDoing.name}. Tap to accept.`}>
+              <View style={[styles.smallChip, s.chipDashed, night && styles.nightDashed]}>
+                <Text style={[styles.smallChipText, { color: night ? N.muted : C.muted }]}>{suggestedDoing.name}?</Text>
+              </View>
+            </Pressable>
+          )}
+        </View>
+      )}
+      <View style={[styles.inputRow, night && narrow && styles.nightRowNarrow]}>
+        <View style={styles.inputWrap}>
+          {mention && fits && (
+            <Text
+              style={[styles.input, styles.mirror]}
+              pointerEvents="none"
+              numberOfLines={Platform.OS === 'web' ? 1 : undefined}
+              {...decorative}
+              onTextLayout={(e) => Platform.OS !== 'web' && setFits(e.nativeEvent.lines.length <= 1)}>
+              {draft.text.slice(0, mention.start)}
+              <Text style={styles.mentionMark} testID="mention-highlight">
+                {draft.text.slice(mention.start, highlightEnd)}
+              </Text>
+              {draft.text.slice(highlightEnd)}
+            </Text>
+          )}
+          <TextInput
+            ref={inputRef}
+            value={draft.text}
+            onChangeText={onChangeText}
+            onSelectionChange={onSelectionChange}
+            selection={placeCaret}
+            placeholder={placeholder}
+            placeholderTextColor={night ? N.faint : C.faint}
+            style={[styles.input, styles.field, night && styles.nightInput, night && narrow && styles.nightInputNarrow, night && Platform.OS === 'web' && (hasFocus ? styles.nightRing : styles.noRing)]}
+            returnKeyType="done"
+            submitBehavior="submit"
+            // react-native-web ignores submitBehavior and blurs on Enter, a moment later (a 0 ms
+            // timer): that took focus from the box after a log, even once it was back in it and
+            // a new line had begun. Where focus goes after a log is `submit`'s call alone.
+            blurOnSubmit={false}
+            onSubmitEditing={submit}
+            onFocus={() => setHasFocus(true)}
+            onBlur={onBlur}
+            onKeyPress={onKeyPress as never}
+            accessibilityLabel={label ?? placeholder}
+          />
+        </View>
+        {/* The same "Log" (and width) while reconnecting, dimmed; pressing it still counts. P-79: always there, disabled while empty. */}
+        {(
+        <Pressable
+          onPress={submit}
+          style={[s.primaryBtn, arrow && styles.arrow, (night || dark) && styles.nightSend, !draft.text.trim() ? { opacity: 0.4 } : reconnecting && styles.logWaiting]}
+          disabled={!draft.text.trim()}
+          accessibilityRole="button"
+          accessibilityLabel={reconnecting ? 'Log, reconnecting' : arrow ? 'Log' : undefined}
+        >
+          {arrow ? (
+            <Text style={[s.primaryBtnText, styles.arrowText, night && { color: N.bg }]} {...decorative}>
+              ↑
+            </Text>
+          ) : (
+            <Text style={s.primaryBtnText}>Log</Text>
+          )}
+        </Pressable>
+        )}
+      </View>
+    </View>
+  );
+
+  // P-79: the home's composer is at the foot — drawn bottom up (the field, its chips right above it,
+  // then the suggestions above them), read top down from the field.
   return (
     <View style={[styles.wrap, night && styles.nightWrap]}>
       {Platform.OS === 'web' && (
@@ -288,152 +443,20 @@ export function Composer({
           <Text>{announcement}</Text>
         </View>
       )}
-      {open && (
-        // RN's Role type has no "listbox"; react-native-web passes any ARIA role through.
-        <View style={styles.suggestions} role={'listbox' as 'list'} aria-label="Wander suggestions">
-          {suggestions.map((t, i) => (
-            <Pressable
-              key={t.id}
-              onPress={() => pick(t.id)}
-              style={[styles.suggestion, i === 0 && { borderTopWidth: 0 }, i === activeIndex && styles.suggestionActive]}
-              role="option"
-              aria-selected={i === activeIndex}>
-              <Text style={[styles.suggestionText, i === activeIndex && { color: C.accentInk, fontWeight: '600' }]}>{t.name}</Text>
-              {i === activeIndex && (
-                <Text style={styles.hint}>
-                  {Platform.OS === 'web' ? 'tab or tap' : 'tap to pick'}
-                </Text>
-              )}
-            </Pressable>
-          ))}
-          {canCreate && (
-            <Pressable onPress={createAndPick} style={[styles.suggestion, suggestions.length === 0 && { borderTopWidth: 0 }]} role="option" aria-selected={false}>
-              <Text style={[styles.suggestionText, { color: C.accent }]}>+ New wander “{mention!.query.trim()}”</Text>
-            </Pressable>
-          )}
-        </View>
+      {night ? (
+        <>
+          {box}
+          {chipRow}
+          {mentionList}
+          {suggestionList}
+        </>
+      ) : (
+        <>
+          {mentionList}
+          {suggestionList}
+          {box}
+        </>
       )}
-
-      {!night && suggestionList}
-
-      <View style={[styles.box, night && styles.nightBox]}>
-        {reconnecting && (
-          // Over the space above the box, so nothing moves while it shows.
-          <Text style={styles.reconnecting} numberOfLines={1}>
-            {marked ? 'Reconnecting… it’ll log as soon as it’s back' : 'Reconnecting…'}
-          </Text>
-        )}
-        {(chips.length > 0 || step || suggestedDoing) && (
-          <View style={styles.chipRow}>
-            {chips.map((c, i) => (
-              <View key={c.id + c.kind} style={styles.chipWrap}>
-                {c.kind === 'to' && (i === 0 || chips[i - 1].kind === 'doing') && (
-                  <Text style={styles.to} {...decorative}>
-                    → to
-                  </Text>
-                )}
-                <Pressable
-                  onPress={() => {
-                    if (c.kind === 'doing') setDraft({ doingId: null, fromNextOf: undefined, fromNextText: undefined });
-                    else {
-                      setDraft({ toIds: draft.toIds.filter((x) => x !== c.id) });
-                      // The selected wander's chip (P-35): removing it clears the selection too.
-                      if (c.id === selected) select(undefined);
-                    }
-                  }}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${c.kind === 'doing' ? 'Doing' : 'To'}: ${c.label}. Remove`}
-                  style={[styles.hit, styles.stepHit]}>
-                  <View style={[styles.smallChip, c.kind === 'doing' ? styles.doingChip : s.chipAccent]}>
-                    <Text style={[styles.smallChipText, c.kind === 'doing' ? { color: C.onInk } : s.chipAccentText]}>{c.label} ×</Text>
-                  </View>
-                </Pressable>
-              </View>
-            ))}
-            {step && (
-              <Pressable
-                onPress={() => setDraft({ fromNextOf: undefined, fromNextText: undefined })}
-                accessibilityRole="button"
-                accessibilityLabel={`${step.text}, next step in ${step.name}. This line counts as it. Remove`}
-                style={[styles.hit, styles.stepHit]}>
-                <View style={[styles.smallChip, styles.stepChip]}>
-                  <Text style={[styles.smallChipText, s.chipAccentText]}>
-                    {/* P-61: on Home it's the step the line completes. */}
-                    <Text {...decorative}>{autocomplete ? '✓ ' : '↳ '}</Text>
-                    {step.text} ×
-                  </Text>
-                </View>
-              </Pressable>
-            )}
-            {suggestedDoing && (
-              <Pressable onPress={() => setDraft({ doingId: suggestedDoing.id })} style={styles.hit} accessibilityRole="button" accessibilityLabel={`Suggested: doing ${suggestedDoing.name}. Tap to accept.`}>
-                <View style={[styles.smallChip, s.chipDashed, night && styles.nightDashed]}>
-                  <Text style={[styles.smallChipText, { color: night ? N.muted : C.muted }]}>{suggestedDoing.name}?</Text>
-                </View>
-              </Pressable>
-            )}
-          </View>
-        )}
-        <View style={styles.inputRow}>
-          <View style={styles.inputWrap}>
-            {mention && fits && (
-              <Text
-                style={[styles.input, styles.mirror]}
-                pointerEvents="none"
-                numberOfLines={Platform.OS === 'web' ? 1 : undefined}
-                {...decorative}
-                onTextLayout={(e) => Platform.OS !== 'web' && setFits(e.nativeEvent.lines.length <= 1)}>
-                {draft.text.slice(0, mention.start)}
-                <Text style={styles.mentionMark} testID="mention-highlight">
-                  {draft.text.slice(mention.start, highlightEnd)}
-                </Text>
-                {draft.text.slice(highlightEnd)}
-              </Text>
-            )}
-            <TextInput
-              ref={inputRef}
-              value={draft.text}
-              onChangeText={onChangeText}
-              onSelectionChange={onSelectionChange}
-              selection={placeCaret}
-              placeholder={placeholder}
-              placeholderTextColor={night ? N.faint : C.faint}
-              style={[styles.input, styles.field, night && styles.nightInput, night && Platform.OS === 'web' && (hasFocus ? styles.nightRing : styles.noRing)]}
-              returnKeyType="done"
-              submitBehavior="submit"
-              // react-native-web ignores submitBehavior and blurs on Enter, a moment later (a 0 ms
-              // timer): that took focus from the box after a log, even once it was back in it and
-              // a new line had begun. Where focus goes after a log is `submit`'s call alone.
-              blurOnSubmit={false}
-              onSubmitEditing={submit}
-              onFocus={() => setHasFocus(true)}
-              onBlur={onBlur}
-              onKeyPress={onKeyPress as never}
-              accessibilityLabel={label ?? placeholder}
-            />
-          </View>
-          {/* The same "Log" (and width) while reconnecting, dimmed; pressing it still counts. */}
-          {!(night && !draft.text.trim()) && (
-          <Pressable
-            onPress={submit}
-            style={[s.primaryBtn, arrow && styles.arrow, (night || dark) && styles.nightSend, !draft.text.trim() ? { opacity: 0.4 } : reconnecting && styles.logWaiting]}
-            disabled={!draft.text.trim()}
-            accessibilityRole="button"
-            accessibilityLabel={reconnecting ? 'Log, reconnecting' : arrow ? 'Log' : undefined}
-          >
-            {arrow ? (
-              <Text style={[s.primaryBtnText, styles.arrowText, night && { color: N.bg }]} {...decorative}>
-                ↑
-              </Text>
-            ) : (
-              <Text style={s.primaryBtnText}>Log</Text>
-            )}
-          </Pressable>
-          )}
-        </View>
-      </View>
-      {/* P-65: on the trailhead the field is near the top, so its suggestions come under it. */}
-      {night && suggestionList}
     </View>
   );
 }
@@ -503,9 +526,14 @@ const sheet = themed((C, s) =>
     arrowText: { fontSize: 20, lineHeight: 24 },
     reconnecting: { position: 'absolute', left: 16, right: 16, bottom: '100%', marginBottom: 2, fontSize: 12, color: C.muted },
     // P-65: the trailhead's line on the night sky (mockup Sky1): no card, an underline, light words.
-    nightWrap: { backgroundColor: 'transparent', paddingHorizontal: 0 },
-    nightBox: { backgroundColor: 'transparent', borderWidth: 0, borderBottomWidth: 2, borderColor: N.line, borderRadius: 0, paddingLeft: 0, minHeight: 56, justifyContent: 'center' },
+    // P-79: drawn bottom up (the field at the foot), read top down.
+    nightWrap: { backgroundColor: 'transparent', paddingHorizontal: 0, paddingVertical: 0, flexDirection: 'column-reverse' },
+    // P-79: the composer's field — rounded, on the night, with the send ↑ at its end.
+    nightBox: { backgroundColor: N.surface, borderWidth: 1, borderColor: N.line, borderRadius: 26, paddingLeft: 18, minHeight: 52, justifyContent: 'center' },
     nightInput: { color: N.ink, fontSize: 18, lineHeight: 24 },
+    nightBoxNarrow: { paddingLeft: 8, paddingRight: 2, borderRadius: 24 },
+    nightInputNarrow: { fontSize: 14, lineHeight: 20 },
+    nightRowNarrow: { gap: 2 },
     nightSuggestions: { backgroundColor: N.surface, borderColor: N.line },
     nightOption: { borderTopColor: N.line },
     nightSend: { backgroundColor: N.lantern },
@@ -513,6 +541,6 @@ const sheet = themed((C, s) =>
     nightDashed: { borderColor: N.faint },
     // Web: the field's own focus ring in the night palette (lantern on the sky, well over 3:1).
     noRing: { outlineStyle: 'none' } as object,
-    nightRing: { outlineStyle: 'solid', outlineWidth: 2, outlineColor: N.lantern, outlineOffset: 4, borderRadius: 4 } as object,
+    nightRing: { outlineStyle: 'solid', outlineWidth: 2, outlineColor: N.lantern, outlineOffset: 2, borderRadius: 20 } as object,
   }),
 );

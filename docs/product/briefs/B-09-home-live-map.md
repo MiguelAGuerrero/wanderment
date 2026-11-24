@@ -1,6 +1,6 @@
 # B-09 — The home: a live map above, the prompt below
 
-**Status:** proposed · **Decision:** D-16 · **Theme:** Seeing flow / Capture anywhere / Warm return · **Date:** 2026-11-24
+**Status:** building · **Decision:** D-16 → go, 2026-11-24 (→ P-79 to P-83) · **Theme:** Seeing flow / Capture anywhere / Warm return · **Date:** 2026-11-24
 
 Mockups (local): `.polish/product/b09-shots/` — `0-today.png` (the owner's screenshot), `1-rest.png`,
 `2-notsure.png`, `3-attached.png`, `4-swipe-up.png`.
@@ -55,13 +55,68 @@ owner-notes 2026-11-24, "The home's layout drifted; attaching does nothing; roll
   "faint unlabelled stars at rest" becomes "a few labelled recent lines at rest"; the separate Map
   goes. The night sky, the rise, the done chip, sessions and trails stay.
 
-## UI audit
-(Filled in after the audit runs: `.polish/product/ui-audit-B-09.md`.)
+## UI audit (before any build; owner's rule, 2026-11-24)
+Full report (local): `.polish/product/ui-audit-B-09.md` — Apple HIG, Material 3, WCAG 2.2, cited
+from knowledge (no outside fetch). **Today's drift, named:** "I'm not sure" ~250 px from its field (a
+field's helper detached from it); "Map" an unanchored floating link with a small target; the field
+mid-screen with no send control; stars and links drawn through the heading; the placeholder under
+contrast. **Fold-ins — the build must meet all of these:**
+1. Mock and build the composer's B-08 states too (suggestions above the field, the done chip, the
+   rise with Done it / First step / Toward… / Undo); the composer may grow — the map yields, never
+   the other way.
+2. Keyboard up or large text: the heading collapses; at the largest text the map is a plain list.
+3. Targets ≥ 44 pt: the chip, the grabber (a labelled button with an expanded state), nodes, lines.
+4. Age is in words (and glow), never text faded below 4.5:1.
+5. The feed: positions come from each line's id; drawn once per arrival, never redrawn while on
+   screen (WCAG 2.2.2); Reduce Motion stills everything.
+6. "I'm not sure" is a toggle: pressed state, a non-colour mark, an accessible name that says what it
+   does ("I'm not sure — light up the map"); it stays lit until turned off.
+7. Lighting the map never moves or replaces the feed's lines; it adds nodes and links; nodes are all
+   one size (warmth by glow only); links meet 3:1.
+8. `/sky` becomes the lit state; `/map` redirects to it; the sheet and the lit state live in the URL so
+   Back closes them first.
+9. Attaching: the line travels into its node (≤ 600 ms, picture only, never blocks input; under Reduce
+   Motion it just appears there) and stays labelled there until the next action; the toast says it in
+   words and sits above the composer and the keyboard.
+10. The sheet: a visible close; rows for Explore, search, settings and export; the swipe only starts
+    on the grabber (never a one-finger swipe over the field).
 
 ## Persona panel
-(Filled in after the panel runs: `.polish/product/panel-B-09-{1,2,3}.md`.)
+_Simulated perspectives from `docs/product/PERSONAS.md`, run by /product before asking. A thinking
+tool, not user research._ Reports (local): `.polish/product/panel-B-09-{1,2}.md`.
 
-## Slices (proposed)
+| Persona | Reaction | What it hinges on |
+|---|---|---|
+| A · Dabbler | delighted · yes | the grabber not catching sloppy thumbs |
+| B · Builder | uneasy · maybe → yes | the lit map complete for the shown whys and staying lit; where What's next, focus and scope go |
+| C · Returner | uneasy · maybe | what the home shows after a month away (a gap shown by dated, fading lines) |
+| D · Meaning-Seeker | fine → delighted · yes | your words on the sky; tapping a line to see it again with its note |
+| E · Minimalist | fine, leaning uneasy · maybe → yes | content that changes on its own; personal lines readable by anyone nearby |
+| F · Assistive-Tech | uneasy · maybe | a random set that can't be learned; the toggle and the swipe (see fold-ins 3, 5, 6, 10) |
+
+- **Strong, lean on it:** the bottom composer (thumb reach, familiar); a feed with no highlights or
+  counts; one screen fewer; attaching that visibly lands (fixes the owner's report).
+- **Trade-offs:** favours open, visual, reflective people (the owner, A, D); costs pressure-sensitive
+  returners (C) and privacy- or predictability-first people (E, F) unless refined below.
+- **Refinements folded in (fit DESIGN.md):** the audit's fold-ins; lit and settled lines look alike
+  in the feed; tapping a feed line opens it (its words, note, and its choices if lit); no chat-bubble
+  or "sent" styling; the heading keeps some size at rest.
+- **Offered as options (D-16):** how the feed picks (random per day vs per visit vs newest); a
+  three-week window with an empty sky beyond; where Map's depth goes (What's next card, focus and
+  scope, Explore).
+- **Refused:** nudges to pick old interests back up (A), momentum/progress views (B), a summary that
+  counts or ranks (D) — DESIGN.md.
+- **Against the owner (P0):** every fold-in keeps "a select few at random … not highlighting anything
+  … just showing what's been done", "the prompt … at the bottom … like messaging", and "when you're not
+  sure, it lights up the map".
+
+## Owner's answers on go (D-16, 2026-11-24)
+- The feed: a **random few, drawn once a day**, in fixed places, never changing while you look.
+- After time away: **the last three weeks; beyond that a calm sky** (nothing dated shows the gap).
+- Map's depth goes **into the lit map and the sheet**: lit nodes open their trail session (What's
+  next as today); Explore, search, settings and export are rows in the sheet; focus/scope chains retire.
+
+## Slices
 1. **The composer at the bottom + I'm not sure beside it** (M, Light): layout only; the feed area
    shows today's faint stars until slice 2.
 2. **The live map at rest** (M, Light): a random few recent lines with words and when; the map

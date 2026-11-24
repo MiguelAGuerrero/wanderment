@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ComponentRef, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, GestureResponderEvent, Keyboard, PanResponder, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Line, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 import { decorative } from '@/components/a11y';
 import { useReduceMotion } from '@/components/graph/scopeNav';
@@ -12,7 +12,7 @@ import { NightSky } from '@/components/NightSky';
 import { PassageState, usePassage, Veil } from '@/components/passage';
 import { useWhileShown } from '@/components/shown';
 import { STAR_PATH } from '@/components/StarGlyph';
-import { endsByItself, RestSky, restSky, RETURN_BEAT_MS, swipeLeaves, swipeStarts } from '@/domain/home';
+import { endsByItself, Guide, restGuides, RETURN_BEAT_MS, swipeLeaves, swipeStarts } from '@/domain/home';
 import { Place } from '@/domain/passage';
 import { groundFits } from '@/domain/trailhead';
 import { useStore } from '@/store/useStore';
@@ -39,7 +39,14 @@ type HomeContext = {
    * arrived still leaves it, as soon as it does (audit F3: the navigation lands a moment later).
    */
   tilting: () => void;
+  /**
+   * P-79: the home at rest says where its ground goes — drawn or not, and how far above the bottom (just
+   * above the composer); `undefined` when it isn't shown.
+   */
+  rest: (r: RestGround | undefined) => void;
 };
+/** Where the ground stands at rest (P-79). */
+export type RestGround = { ground: boolean; lift: number };
 const Ctx = createContext<HomeContext | null>(null);
 
 /**
@@ -96,8 +103,8 @@ function dragFrom(target: EventTarget | null): { atTop: boolean; inField: boolea
 /**
  * One home (P-74, B-08 "One home", D-15): the trailhead, the sky, a star and a trail are one place.
  * The night is drawn once, here, and never unmounts between them; one camera value goes from the
- * ground at rest (0) to looking up (1) by P-72's passage. At rest the sky holds your recent lines as
- * faint unlabelled stars and your whys as guiding stars (decorative: nothing to read or follow); a
+ * ground at rest (0) to looking up (1) by P-72's passage. At rest the sky holds your whys as guiding
+ * stars (decorative: nothing to read or follow; P-80: your recent lines are the trailhead's live map); a
  * session (`/sky`, `/star/…`, `/trail/…`, rendered in the Slot) is one layer over the same sky, which
  * dims behind it. Its one way out — its Back control, Esc, Back, or tapping the ground — comes back
  * down to the lantern. Map's dusk is unchanged.
@@ -112,14 +119,20 @@ export function Home() {
   const insets = useSafeAreaInsets();
   const keyboardUp = useKeyboardUp();
   const [place, setPlace] = useState<HomePlace>();
+  // P-79: at rest the trailhead says whether its ground fits above the composer, and how high it stands.
+  const [restGround, setRestGround] = useState<RestGround>();
+  const rest = useCallback((r: RestGround | undefined) => setRestGround((was) => (was?.ground === r?.ground && was?.lift === r?.lift ? was : r)), []);
   const focusRef = useRef<() => Focusable>(undefined);
   const passage = usePassage(place, shown, () => focusRef.current?.() ?? null);
   const up = !!place && place !== 'trailhead';
 
-  // The ground as each place always drew it: only where it fits (the trailhead: not under the
-  // keyboard), never under a star (its own landscape), always on a trail.
+  // The ground as each place always drew it: only where it fits, never under a star (its own
+  // landscape), always on a trail; at rest (P-79) just above the composer, where the trailhead says it
+  // fits (never under the keyboard).
   const fits = groundFits({ height, insets: insets.top + insets.bottom });
-  const ground = place === 'star' ? false : place === 'trail' ? true : fits && !(place === 'trailhead' && keyboardUp);
+  const atRest = place === 'trailhead';
+  const ground = place === 'star' ? false : place === 'trail' ? true : atRest ? !!restGround?.ground && !keyboardUp : fits;
+  const lift = atRest && restGround?.ground ? restGround.lift : 0;
 
   // The camera: 0 at rest, 1 looking up; it moves with the passage (a cut when that's still).
   const camera = useMemo(() => new Animated.Value(0), []);
@@ -239,15 +252,16 @@ export function Home() {
       document.removeEventListener('pointercancel', cancel, true);
     };
   }, [up, shown]);
-  const ctx = useMemo<HomeContext>(() => ({ passage, arrive, leave: toRest, endSoon, tilting }), [passage, arrive, endSoon, tilting]);
-  // Only while it's in front (Map over it logs without redrawing the home's sky).
-  const sky = useMemo(() => (shown ? restSky(data, new Date(), { shading }) : undefined), [shown, data, shading]);
+  const ctx = useMemo<HomeContext>(() => ({ passage, arrive, leave: toRest, endSoon, tilting, rest }), [passage, arrive, endSoon, tilting, rest]);
+  // Only while it's in front (Map over it logs without redrawing the home's sky). P-80: your recent
+  // lines are the live map's now (the trailhead draws them, labelled); the whys stay as guiding stars.
+  const guides = useMemo(() => (shown ? restGuides(data, new Date()) : undefined), [shown, data]);
 
   return (
     <View style={styles.home} testID="home" {...{ dataSet: { camera: up ? 'up' : 'rest' } }}>
       {shown && <StatusBar style="light" />}
-      <NightSky still={reduce || !shown} warm={shading} ground={!!place && ground} passage={place ? passage : undefined} />
-      {sky && <Stars sky={sky} camera={camera} />}
+      <NightSky still={reduce || !shown} warm={shading} ground={!!place && ground} passage={place ? passage : undefined} lift={lift} />
+      {guides && guides.length > 0 && <Stars guides={guides} camera={camera} />}
       <View style={styles.layer} testID="home-layer" {...(up && !web ? swipe.panHandlers : {})}>
         <Ctx.Provider value={ctx}>
           <Slot />
@@ -262,48 +276,20 @@ export function Home() {
   );
 }
 
-/** A line's star (px) and a guiding star's size. */
-const DOT = 3;
+/** A guiding star's size. */
 const GUIDE = 13;
-/** A lit line's star, and the room its glow takes. */
-const LIT_STAR = 8;
-const LIT = 18;
 
 /**
- * The sky at rest (P-74): your recent lines as faint, unlabelled stars (each in a fixed place, all
- * alike, dimmer than any text), faint lines between ones that share a word, and your whys as guiding
- * stars a little brighter, in the accent colour (theirs alone). Decorative: hidden from screen
- * readers, never in the way of a tap. When a session is up it dims behind it.
+ * The sky at rest: your whys as guiding stars, in the accent colour (theirs alone), each in a fixed
+ * place high up. Decorative: hidden from screen readers, never in the way of a tap. When a session is
+ * up it dims behind it. (P-74's faint unlabelled stars for your lines gave way to P-80's live map.)
  */
-function Stars({ sky, camera }: { sky: RestSky; camera: Animated.Value }) {
+function Stars({ guides, camera }: { guides: Guide[]; camera: Animated.Value }) {
   const { width, height } = useWindowDimensions();
-  const at = useMemo(() => new Map(sky.lines.map((l) => [l.id, l])), [sky]);
   const opacity = camera.interpolate({ inputRange: [0, 1], outputRange: [1, 0.3] });
   return (
     <Animated.View style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents="none" {...decorative} testID="rest-sky">
-      {sky.links.length > 0 && (
-        <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
-          {sky.links.map(({ from, to }) => {
-            const a = at.get(from)!;
-            const b = at.get(to)!;
-            return <Line key={`${from}-${to}`} x1={a.x * width} y1={a.y * height} x2={b.x * width} y2={b.y * height} stroke={N.ink} strokeOpacity={0.16} strokeWidth={0.8} />;
-          })}
-        </Svg>
-      )}
-      {sky.lines.map((l) =>
-        l.lit ? (
-          // P-73: a lit line is a small star in night ink (never the accent), its glow fading like warmth.
-          <View key={l.id} testID="rest-line" {...{ dataSet: { state: 'lit' } }} style={[styles.lit, { left: l.x * width - LIT / 2, top: l.y * height - LIT / 2 }]}>
-            {l.lit.glow > 0 && <View testID="rest-glow" style={[styles.glow, { opacity: 0.3 * l.lit.glow }]} />}
-            <Svg width={LIT_STAR} height={LIT_STAR} viewBox="0 0 24 24">
-              <Path d={STAR_PATH} fill={N.ink} />
-            </Svg>
-          </View>
-        ) : (
-          <View key={l.id} testID="rest-line" {...{ dataSet: { state: 'settled' } }} style={[styles.line, { left: l.x * width - DOT / 2, top: l.y * height - DOT / 2 }]} />
-        ),
-      )}
-      {sky.guides.map((g) => (
+      {guides.map((g) => (
         <View key={g.id} testID="rest-guide" style={[styles.guide, { left: g.x * width - GUIDE / 2, top: g.y * height - GUIDE / 2 }]}>
           <Svg width={GUIDE} height={GUIDE} viewBox="0 0 24 24">
             <Path d={STAR_PATH} fill={N.lantern} />
@@ -317,11 +303,7 @@ function Stars({ sky, camera }: { sky: RestSky; camera: Animated.Value }) {
 const styles = StyleSheet.create({
   home: { flex: 1, backgroundColor: N.bg },
   layer: { flex: 1 },
-  // Dimmer than any text (P-66's rule for the sky's dots).
-  line: { position: 'absolute', width: DOT, height: DOT, borderRadius: DOT / 2, backgroundColor: N.ink, opacity: 0.45 },
   guide: { position: 'absolute', width: GUIDE, height: GUIDE, opacity: 0.85 },
-  lit: { position: 'absolute', width: LIT, height: LIT, alignItems: 'center', justifyContent: 'center', opacity: 0.8 },
-  glow: { position: 'absolute', width: LIT, height: LIT, borderRadius: LIT / 2, backgroundColor: N.ink },
   // Over the lantern's core (96 above the bottom), 64 square.
   groundTap: { position: 'absolute', bottom: 96 - 32, left: '50%', marginLeft: -32, width: 64, height: 64 },
 });

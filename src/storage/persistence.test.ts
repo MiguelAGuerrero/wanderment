@@ -1581,6 +1581,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       leaveKept: [],
       // Fix 18 (P-73): a loose line tapped on the sky rises again (session only).
       keepLoose: ['a1'],
+      // P-80: a line tapped on the live map opens again (session only).
+      reopenLine: ['a1'],
       // P-73: the trailhead's done chip (session only, never stored).
       setDoneChip: [true],
     };

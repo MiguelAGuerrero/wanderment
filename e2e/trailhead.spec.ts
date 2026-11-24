@@ -105,15 +105,22 @@ test.describe('the trailhead', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
   test('opening shows only the night sky, the question, “nothing yet is fine”, I’m not sure and Map; focus is in the field', async ({ page }) => {
+    // P-79/P-80: the composer at the bottom (the question, I’m not sure — a toggle button now — Map, the
+    // field and its send ↑, disabled while empty) and the live map's “Recent” lines above it.
     await open(page);
     await expect(page.getByRole('heading', { name: PROMPT, exact: true })).toBeVisible();
     await expect(field(page)).toBeFocused();
     await expect(field(page)).toHaveAttribute('placeholder', 'nothing yet is fine');
     await expect(field(page)).toHaveValue('');
-    // Nothing else to press, nothing to steer you: two links, no buttons (the send ↑ comes with words).
-    // P-74: Map is a signpost by the lantern, after I’m not sure (Tab order: field, I’m not sure, Map); was ['Map', 'I’m not sure'].
-    await expect(page.getByRole('link').filter({ visible: true })).toHaveText(['I’m not sure', 'Map']);
-    await expect(page.getByRole('button').filter({ visible: true })).toHaveCount(0);
+    // Nothing else to press, nothing to steer you. P-79: was “two links (I’m not sure, Map), no buttons (the
+    // send ↑ comes with words)”: Map is the one link; I’m not sure is a toggle button; the send ↑ is
+    // always there, disabled while empty; the only other buttons are the live map's lines (P-80).
+    await expect(page.getByRole('link').filter({ visible: true })).toHaveText(['Map']);
+    const unsure = page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true });
+    await expect(unsure).toHaveAttribute('aria-pressed', 'false');
+    await expect(page.getByRole('button', { name: 'Log', exact: true })).toBeDisabled();
+    const recent = page.getByRole('group', { name: 'Recent', exact: true }).getByRole('button');
+    await expect(page.getByRole('button').filter({ visible: true })).toHaveCount(2 + (await recent.count()));
     await expect(suggestions(page)).toHaveCount(0);
     // None of today's Home: no graph, no What's next, no ＋, no sheet handle.
     await expect(page.getByTestId('home-graph-picture')).toHaveCount(0);
@@ -121,8 +128,10 @@ test.describe('the trailhead', () => {
     await expect(page.getByText('Clean my car')).toHaveCount(0);
     // The sky is there and hidden from screen readers.
     await expect(page.getByTestId('night-sky')).toHaveAttribute('aria-hidden', 'true');
-    for (const name of ['Map', 'I’m not sure']) {
-      const b = (await page.getByRole('link', { name, exact: true }).boundingBox())!;
+    for (const [name, b] of [
+      ['Map', (await page.getByRole('link', { name: 'Map', exact: true }).boundingBox())!],
+      ['I’m not sure', (await unsure.boundingBox())!],
+    ] as const) {
       expect(b.height, name).toBeGreaterThanOrEqual(44);
       expect(b.width, name).toBeGreaterThanOrEqual(44);
     }
@@ -130,13 +139,15 @@ test.describe('the trailhead', () => {
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/p65-trailhead-empty.png` });
   });
 
-  test('suggestions appear only once you type (P-61’s), under the field; a tap attaches, Return never picks', async ({ page }) => {
+  test('suggestions appear only once you type (P-61’s), above the field (P-79); a tap attaches, Return never picks', async ({ page }) => {
     await open(page);
     await expect(suggestions(page)).toHaveCount(0);
     await field(page).pressSequentially('cl');
     const step = suggestions(page).getByRole('option', { name: /^Clean my car, feel productive/ }); // P-66 fix 14: “·” is spoken as a comma
     await expect(step).toBeVisible();
-    expect((await suggestions(page).boundingBox())!.y).toBeGreaterThan((await field(page).boundingBox())!.y);
+    // P-79: the field is at the foot, so its suggestions open above it (was: below it).
+    const list = (await suggestions(page).boundingBox())!;
+    expect(list.y + list.height).toBeLessThanOrEqual((await field(page).boundingBox())!.y);
     await expectNoSeriousViolations(page);
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/p65-trailhead-typing.png` });
     // Return logs what's typed, as typed, picking nothing.
@@ -214,7 +225,7 @@ test.describe('the trailhead', () => {
     await expect(field(page)).toBeVisible();
 
     // P-66: "I’m not sure" looks up at the sky (it opened Map until then); Back returns to the prompt.
-    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await expect(page).toHaveURL(/\/wanderment\/sky$/);
     await expect(page.getByTestId('look-up')).toBeVisible(); // fix 16: "Not sure." is gone (was its heading)
     await page.goBack();
@@ -368,15 +379,16 @@ test.describe('the trailhead', () => {
   });
 
   // P-74 tab order: the field, I’m not sure, then Map (a signpost by the lantern); was “Map is one Shift+Tab from the field”.
+  // P-79: the same order, in the composer's row (I’m not sure is a toggle button now, not a link; the disabled send ↑ isn't a stop).
   test('fix 6: Tab goes field → I’m not sure → Map, and no scroller is a Tab stop', async ({ page }) => {
     await open(page);
     await expect(field(page)).toBeFocused();
     await page.keyboard.press('Tab');
-    await expect(page.getByRole('link', { name: 'I’m not sure', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('link', { name: 'Map', exact: true })).toBeFocused();
     await page.keyboard.press('Shift+Tab');
-    await expect(page.getByRole('link', { name: 'I’m not sure', exact: true })).toBeFocused();
+    await expect(page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true })).toBeFocused();
     // Nothing that only scrolls takes a Tab stop (here, or on the sky).
     const scrollStops = () =>
       page.evaluate(() =>
@@ -388,7 +400,7 @@ test.describe('the trailhead', () => {
     expect(await scrollStops()).toBe(0);
     await page.keyboard.press('Tab');
     expect(await page.evaluate(() => document.activeElement?.getAttribute('role') ?? document.activeElement?.tagName)).not.toBe('DIV');
-    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await expect(page).toHaveURL(/\/sky$/);
     expect(await scrollStops()).toBe(0);
   });

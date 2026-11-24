@@ -54,7 +54,7 @@ test.describe('transitions through the picture', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await open(page);
 
-    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await expect(shown(page, 'look-up')).toHaveAttribute('data-passage', 'none');
     await expect(shown(page, 'look-up')).toHaveAttribute('data-moving', 'false');
     // P-74: the sky is drawn once by the one home, not inside each screen (was `shown(page, 'look-up').getByTestId('sky-ground')`).
@@ -83,7 +83,7 @@ test.describe('transitions through the picture', () => {
 
   test('looking up sinks the hills and fades the stars in; the sky is usable at once and settles within ~600 ms', async ({ page }) => {
     await open(page);
-    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await expectPassage(page, 'look-up', 'look-up', false);
     // Focus lands on the screen's heading.
     await expect(shown(page, 'look-up').getByRole('heading', { name: PROMPT })).toBeFocused();
@@ -97,7 +97,7 @@ test.describe('transitions through the picture', () => {
 
   test('never blocks input: a star opens mid-transition, its landmarks rise and the wanderer walks to camp; a trail, up the path', async ({ page }) => {
     await open(page);
-    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     // While the sky is still moving (the screen is there, its passage not finished): a tap goes through.
     // (Waits for the screen to mount first; a fixed 300 ms budget also timed the route load and flaked.)
     await expect(shown(page, 'look-up')).toHaveAttribute('data-moving', 'true');
@@ -117,7 +117,7 @@ test.describe('transitions through the picture', () => {
 
   test('going back reverses it: trail → star → sky → trailhead', async ({ page }) => {
     await open(page);
-    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await stars(page).first().click();
     await page.getByRole('list', { name: 'Wanders', exact: true }).getByRole('button').first().click();
     await expect(page).toHaveURL(/\/trail\//);

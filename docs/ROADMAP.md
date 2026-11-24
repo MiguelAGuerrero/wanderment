@@ -37,6 +37,53 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-79 The composer at the bottom, "I'm not sure" beside it `[feature]` `[capture]` `[a11y]` M
+*Status:* in-progress
+*Why:* B-09 slice 1 (D-16 go).
+*Done when:* the question is a small heading in a bottom composer (grabber, "I'm not sure" chip right above the
+field, field + send), in thumb reach and keyboard-aware; the B-08 states (suggestions above the field,
+the done chip, the rise with Done it / First step / Toward… / Undo) live in it, the composer may grow
+and the map yields; keyboard up or large text collapses the heading; targets ≥ 44 pt; the chip is a
+toggle (pressed state, non-colour mark, name "I'm not sure — light up the map"); no chat-bubble look;
+UI audit fold-ins 1–3, 6 (`docs/product/briefs/B-09-home-live-map.md`); e2e + axe at the end.
+
+### P-80 The live map at rest `[feature]` `[a11y]` M
+*Status:* todo
+*Why:* B-09 slice 2.
+*Done when:* the area above the composer shows a random few of the last three weeks' lines (drawn once a day,
+places from each line's id, never redrawn while on screen), each a small light with its words and when
+in words (never faded below 4.5:1; lit and settled look alike); beyond three weeks a calm sky with no
+copy; tapping a line opens it (words, note, and its choices if lit); the night, hills and lantern stay;
+Reduce Motion stills it; at the largest text a plain list; screen readers: field first, then a
+"Recent" group newest first; fold-ins 4, 5; e2e + axe at the end.
+
+### P-81 "I'm not sure" lights the map `[feature]` `[a11y]` M
+*Status:* todo
+*Why:* B-09 slice 3.
+*Done when:* toggling the chip lights the map in place: whys and wanders as named nodes, all one size (warmth by
+glow only, shading off honoured), links ≥ 3:1 from the shown lines to the nodes they went toward —
+complete for the shown whys, never moving or replacing the feed's lines; it stays lit until toggled;
+"Map lit" announced, no count; tapping a node opens its session (B-08 camera, its trail with What's
+next); `/sky` is the lit state; fold-in 7; e2e + axe at the end.
+
+### P-82 Attaching lands where you're looking `[feature]` `[a11y]` S
+*Status:* todo
+*Why:* B-09 slice 4; fixes the owner's "attaching never updates the map".
+*Done when:* after Toward…, First step or attaching from a suggestion, the line travels into its node on the home
+(≤ 600 ms, picture only, never blocking input; under Reduce Motion it just appears there) and stays
+labelled there until the next action, the node warmed; the toast says it in words and sits above the
+composer and the keyboard; fold-in 9; e2e at the end.
+
+### P-83 Swipe up for the sheet; Map retired `[feature]` `[a11y]` M
+*Status:* todo
+*Why:* B-09 slice 5.
+*Done when:* the grabber (a 44 pt button with an expanded state) opens the Wanders / Activities sheet in the
+night palette by tap or by a swipe that starts on it; a visible close; rows for Explore, search,
+settings and export; the sheet and the lit state live in the URL so Back closes them first; `/map`
+redirects to the lit home; the graph Map, its card, focus and scope chains retire; DESIGN.md's Home
+rules rewritten; specs moved off `/map`; fold-ins 8, 10; e2e + axe at the end.
+
+
 ### P-46 Home's per-log cost with a large history `[perf]` M
 *Status:* todo
 *Note (2026-11-23):* after P-48–P-61 the ratio reads 1.13–1.23×, once 1.33× on a 4-worker run; cleanup of the unused bridge store code (`bridgeFor`, `attachToNew`, `BRIDGE_QUESTION`) belongs with this.
@@ -370,6 +417,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   home (a session is the camera looking up over the same sky); stars at rest faint and unlabelled;
   a session ends by itself after a choice; Map as a signpost by the lantern. Folded into B-08 (→ P-73,
   P-74). Discovery: `docs/product/discovery/2026-11-24-one-home.md`.
+- **D-16 B-09: the home — a live map above, the prompt below** — **answered 2026-11-24 by the owner:
+  go** (feed: a random few drawn once a day; last three weeks, a calm sky beyond; Map's depth into the
+  lit map and the sheet) → P-79 to P-83. Brief:
+  `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
 - **D-3 Native builds** — start EAS development builds (needs an Expo account) so `[native]` items can
   be verified on devices?
 

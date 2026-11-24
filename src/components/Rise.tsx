@@ -191,6 +191,12 @@ export function Rise({ id }: { id: Id }) {
           <Text ref={heading} accessibilityRole="header" {...(web ? { tabIndex: -1 } : {})} style={[styles.words, { fontSize: size, lineHeight: Math.round(size * 1.05) }]} testID="trail-words">
             {kept.text}
           </Text>
+          {/* P-80: a line opened again from the live map shows its note too. */}
+          {!!a.note?.trim() && (
+            <Text style={styles.note} testID="rise-note">
+              {a.note.trim()}
+            </Text>
+          )}
 
           {stepping ? (
             <View style={styles.stepRow}>
@@ -289,6 +295,7 @@ const styles = StyleSheet.create({
   star: { alignSelf: 'flex-start', marginTop: 16 },
   // Focused only so a screen reader starts there (never by Tab): no focus box.
   words: { fontFamily: display, fontWeight: '700', color: N.ink, letterSpacing: -1.2, ...(web && ({ outlineStyle: 'none' } as object)) },
+  note: { color: N.muted, fontSize: 16, lineHeight: 22 },
   status: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
   statusText: { flex: 1 },
   statusWords: { color: N.muted, fontSize: 15 },

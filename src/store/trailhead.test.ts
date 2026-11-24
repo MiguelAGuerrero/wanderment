@@ -360,3 +360,41 @@ describe('a loose line opened from the sky (fix 18)', () => {
     expect(st().kept).toBeUndefined();
   });
 });
+
+describe('P-80: a line on the live map opens again (reopenLine)', () => {
+  function earlier(text: string, extra: { doingId?: string; lit?: true } = {}) {
+    st().setDraft({ text });
+    const id = st().log(undefined)!;
+    useStore.setState({ toast: undefined, data: { ...st().data, activities: { ...st().data.activities, [id]: { ...st().data.activities[id], ...extra } } } });
+    return id;
+  }
+
+  it('any line (loose or attached) becomes the rise’s subject, reopened: nothing to undo before a choice', () => {
+    const { draw } = seed();
+    const loose = earlier('sketched on the bus');
+    const attached = earlier('drew a hand', { doingId: draw });
+    const pending = st().undo;
+    expect(st().reopenLine(attached)).toBe(true);
+    expect(st().kept).toEqual({ activityId: attached, text: 'drew a hand', reopened: true });
+    expect(st().undo).toBe(pending);
+    expect(st().undoKept()).toBe(false);
+    // An attached line can't be sent toward another wander from here.
+    expect(st().towardKept(draw)).toBe(false);
+    expect(st().reopenLine(loose)).toBe(true);
+    expect(st().kept?.activityId).toBe(loose);
+  });
+
+  it('a lit line opens with its choices (Done it settles it, with Undo)', () => {
+    const id = earlier('learn to juggle', { lit: true });
+    expect(st().reopenLine(id)).toBe(true);
+    expect(st().settleKept()).toBe(true);
+    expect(st().data.activities[id].lit).toBeUndefined();
+    expect(st().undoKept()).toBe(true);
+    expect(st().data.activities[id].lit).toBe(true);
+  });
+
+  it('refuses a line that isn’t there', () => {
+    expect(st().reopenLine('nope')).toBe(false);
+    expect(st().kept).toBeUndefined();
+  });
+});

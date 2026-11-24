@@ -61,7 +61,7 @@ function world({ shading = true } = {}) {
 async function lookUp(page: Page, seed = world()) {
   await page.addInitScript(seedScript, seed);
   await page.goto('./');
-  await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+  await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
   await expect(page).toHaveURL(/\/wanderment\/sky$/);
   await expect(stars(page).first()).toBeVisible();
 }
@@ -134,7 +134,7 @@ test.describe('look up, and under a star', () => {
     await expect(page.getByRole('status').filter({ hasText: 'Toward a calm space' })).toBeVisible();
     // The rise gives way to the question, and "I’m not sure" is there again.
     await button(page, 'New line').click(); // P-65 fix 4: was the prompt's words
-    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await expect(stars(page).nth(2)).toHaveAccessibleName('a calm space, last walked today');
     expect(await Promise.all((await stars(page).all()).map(box))).toEqual(before);
     expect(await motesIn(star(page, 'a calm space'))).toBeGreaterThan(1); // fix 15: walked today, more than the floor (was > 0)
@@ -382,7 +382,7 @@ test.describe('look up, and under a star', () => {
     await expect(page).toHaveURL(/\/wanderment\/$/);
     await expect(page.getByRole('textbox', { name: PROMPT, exact: true })).toBeVisible();
     // Esc in a field is the field's (it doesn't leave the trail).
-    await page.getByRole('link', { name: 'I’m not sure', exact: true }).click();
+    await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
     await star(page, 'a calm space').click();
     await button(page, 'Add a next step').click();
     await page.getByRole('textbox', { name: 'A next step', exact: true }).press('Escape');
