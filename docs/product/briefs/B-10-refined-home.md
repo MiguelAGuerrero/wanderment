@@ -57,7 +57,45 @@ Pursuits first and Settings/Export apart; dates consistent. **Still to specify a
 (the landing and the walk are instant), focus order, Dynamic Type at 200 %.
 
 ## Persona panel
-(Filled in after the panel runs: `.polish/product/panel-B-10-{1,2}.md`.)
+_Simulated perspectives from `docs/product/PERSONAS.md`, run by /product before asking. A thinking
+tool, not user research._ Reports (local): `.polish/product/panel-B-10-{1,2}.md`.
+
+| Persona | Reaction | What it hinges on |
+|---|---|---|
+| A · Dabbler | delighted (capture) · yes | pursuits fading, not a list of shoulds |
+| B · Builder | uneasy → fine · likely yes | pursuits as named rows; footprints in focus |
+| C · Returner | uneasy · maybe | the return moment: "Pick up" as the only words on a calm sky |
+| D · Meaning-Seeker | delighted by the look · yes | notes visible; no app-written names |
+| E · Minimalist | fine → delighted · yes | the walk never costs input; one noun per thing |
+| F · Assistive-Tech | uneasy until specified · yes | reading order, large text, Reduce Motion written down |
+
+- **Strong, lean on it:** Return as done with one quiet note; three surfaces instead of ~20 parts; the
+  serif sky with age by glow; "Lately you've wandered toward…" as a description, not a score; Export
+  and Settings in plain view; focus as B's home.
+- **Refinements folded in (fit DESIGN.md):**
+  - **Return never attaches on its own**: the note says "Logged" (or "Logged → X" only when a wander
+    chip was tapped); the frames' v3 copy was wrong.
+  - The note stays until the next log or Undo (never on a keystroke, never on a timer); Pursue and
+    Undo equal weight, far apart.
+  - **Pursuits** rows: the pursuit's name, then its step and "last walked <when>"; only warm pursuits
+    listed, older under "Earlier", no counts; a short section so the day's writing starts above the fold.
+  - The staged step stays a suggestion chip while typing; logging it completes it (no stale Pick up).
+  - Focus keeps the footprints (dated words, no count) and the note.
+  - Constellation names are only names you gave; otherwise a quiet "Name this?" (owner, B-08).
+  - The by-day journal shows a note's first line.
+  - One noun per thing: **line** (what you log), **pursuit** (a wander you're heading toward, with
+    steps), **journal**; "wander" stays the code name.
+  - ✦ Not sure has a filled pressed state; reading order fixed: field, Send, Not sure, Journal, the
+    note, Pick up, recent lines, then lit names; dates spoken in full; spoken names for arcs and the
+    landing; at large text the sky is the plain list, focus's buttons stack, the step heading steps down,
+    the wanderer hides; Reduce Motion stills everything that moves on its own; the walk ≤ 600 ms and
+    never holds input.
+- **Offered as options (D-17):** Pick up following warmth; whether Pursue converts the line; the
+  wanderer's motion.
+- **Refused:** progress and reminders (B) — DESIGN.md; app-written theme names — the owner's
+  "Name this?".
+- **Against the owner (P0):** all fold-ins keep "done by default, Pursue", "Pick up by the lantern",
+  "the wanderer walks", "keep the bones".
 
 ## Slices (proposed)
 1. **The composer and the landing** (M): one bar; Return logs as done; the persistent note with Pursue
