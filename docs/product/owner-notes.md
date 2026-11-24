@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — A parent can always wait on its children; a child knows nothing of its parent
+"resolve this tension. You can always wait for something at the outermost context that allows for it.
+So a parent is always aware of its child, but a child isn't aware of its parent. That just keeps things
+modular and scoped. And I think it tracks cleanly because that's, for example, returning a promise
+value from any async function. A function that has an async value is by definition async, and that
+itself becomes a wait value. And by that point, everything's async. So it only makes sense that the
+outermost context can wait on its children. I think that's the most faithful to async programming or
+concurrent programming."
+*Interpretation:* decided. Something set going and not waited for inside a routine makes that routine
+itself something that can be waited for, by whatever uses it — and so on outward, to the first layer.
+Nothing ever reaches inward or upward.
+
 ## 2026-11-24 — A wait closes several; waits and the level they belong to
 "A wait should be able to resolve several joins at a single step. That being said, the implication is
 that if you're awaiting something within a … routine, you can't leave that routine by definition until

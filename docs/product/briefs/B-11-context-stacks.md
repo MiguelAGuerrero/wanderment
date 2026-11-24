@@ -254,15 +254,16 @@ decided on return, and pre-planned; `.polish/product/review-B-11-no-if.md`; reas
   never how many. Read it: "… While you wait for both: tailor the CV; write the cover letter. Then wait
   for: both references are in."
 - **A wait may close several rails** (owner, decided).
-- **Waits and levels** (proposed, answering the owner's scope question). *A rail lives within one
-  level.* If a routine sets something going **and** waits for it inside itself, it is self-contained:
-  you are not through that routine until the wait is met. If a routine sets something going and does
-  **not** wait for it ("Start the wash": load, add detergent, start), then in the routine that uses it
-  the **routine block as a whole is the open end** — the outer rail starts at "▤ Start the wash" and
-  closes at the outer "Wait for: the wash has finished". An outer wait never reaches into an inner
-  routine's steps. While running, what an inner routine left out is listed as out at the level that
-  waits for it. Leaving a level early with Done lets go of whatever that level still had out, and the
-  Undo notice names it.
+- **Waits and levels** (owner, decided): **a parent can always wait on its children; a child knows
+  nothing of its parent.** A step is marked as setting something going ("Wait for this later…"). If its
+  wait is inside the same routine, the routine is self-contained: you are not through it until the wait
+  is met. If it is not, **the routine itself becomes something that can be waited for**: wherever it is
+  used, its block shows an open end, and that routine may close it with a wait — or leave it open, in
+  which case *it* carries the open end outward in turn, as far as the first layer. A rail lives within
+  one level and its open end is a step or a whole routine block; nothing reaches into an inner routine's
+  steps, and nothing inside refers to what is outside. While running, what is out is listed at the level
+  that can wait for it; leaving an inner level with Done passes its open items up to its parent; only
+  the end of the whole run lets them go, and the notice names them.
 **Added to the final redraw:** the reason on the paused screen and on home; a wait step in Blocks,
 Read it and on the runner; reactions offered on a wait step; "waiting for" on home.
 
