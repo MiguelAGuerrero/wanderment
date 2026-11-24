@@ -113,10 +113,11 @@ export function UnderStar({ id }: { id: Id }) {
                   style={[styles.card, l.warm && styles.cardWarm]}>
                   {/* Its wander, so a card never relies on its column (P-66 fix). */}
                   <Text style={[styles.cardName, l.warm && { color: N.lantern }]} numberOfLines={2}>
-                    {l.thread.name}
+                    {/* The trailing space keeps the visible text's words apart (the name starts with it, in order). */}
+                    {`${l.thread.name} `}
                   </Text>
                   {l.step ? (
-                    <Text style={styles.step}>{l.step}</Text>
+                    <Text style={styles.step}>{`${l.step} `}</Text>
                   ) : (
                     // A small line in the card, not a card of its own (P-66 fix).
                     <Text style={styles.noStep}>

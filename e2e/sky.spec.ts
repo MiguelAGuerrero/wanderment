@@ -341,6 +341,8 @@ test.describe('look up, and under a star', () => {
       if (width === 390) await lookUp(page);
       else await page.reload();
       if (width === 390) await star(page, ILLUSTRATE).click();
+      // Wait for the screen (`all()` doesn't wait).
+      await expect(page.getByTestId('landmark-label').filter({ visible: true })).toHaveCount(3);
       const labels = await Promise.all((await page.getByTestId('landmark-label').filter({ visible: true }).all()).map(box));
       const marks = await Promise.all((await page.locator('[data-testid="landmark-flag"], [data-testid="star-trail"]').all()).map(box));
       expect(labels.length).toBe(3);
@@ -359,6 +361,7 @@ test.describe('look up, and under a star', () => {
     await star(page, ILLUSTRATE).click();
     await card(page, 'draw better hands').click();
     await expect(page).toHaveURL(/\/trail\//);
+    await expect(page.getByRole('heading', { name: 'draw better hands', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
     await expect(page).toHaveURL(/\/wanderment\/star\/become%20an%20illustrator$/);
     await expect(cards(page)).toHaveCount(3);

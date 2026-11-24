@@ -1,7 +1,7 @@
 /** P-48: heat flows upward — the warmth of the most recent activity on a node or anything feeding it. */
 import { describe, expect, it } from 'vitest';
 
-import { HEAT_LABEL_DARK, HEAT_LABEL_LIGHT, contrast, heatFill, heatInk, heatLabel, nightHeatFill, nightHeatInk, nightHeatLabel, nodeHeat } from './heat';
+import { HEAT_LABEL_DARK, HEAT_LABEL_LIGHT, contrast, heatFill, heatInk, heatLabel, NIGHT_DARK_FROM, NIGHT_LABEL_DARK, NIGHT_LABEL_LIGHT, nightHeatFill, nightHeatInk, nightHeatLabel, nodeHeat } from './heat';
 import { logActivity } from './model';
 import { Data, emptyData, Id } from './types';
 
@@ -172,5 +172,19 @@ describe('night heat colours (dark Map): dim and cool when cold, warm amber when
     expect(nightHeatFill(-1)).toBe(nightHeatFill(0));
     expect(nightHeatFill(2)).toBe(nightHeatFill(1));
     expect(nightHeatFill(Number.NaN)).toBe(nightHeatFill(0));
+  });
+});
+
+describe('night heat colours at the light/dark crossover (dark Map)', () => {
+  it('either side of NIGHT_DARK_FROM, the label is 4.5:1 or more on its own fill, and the label changes with the fill', () => {
+    for (const h of [0, NIGHT_DARK_FROM - 1e-6, NIGHT_DARK_FROM - 0.001, NIGHT_DARK_FROM, NIGHT_DARK_FROM + 1e-6, 1]) {
+      expect(contrast(nightHeatLabel(h), nightHeatFill(h)), `${h}`).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(nightHeatLabel(NIGHT_DARK_FROM - 1e-6)).toBe(NIGHT_LABEL_LIGHT);
+    expect(nightHeatLabel(NIGHT_DARK_FROM)).toBe(NIGHT_LABEL_DARK);
+  });
+
+  it('shading off (heat 0): light words on the cold fill, 4.5:1 or more', () => {
+    expect(contrast(nightHeatLabel(0), nightHeatFill(0))).toBeGreaterThanOrEqual(4.5);
   });
 });

@@ -191,7 +191,7 @@ test.describe('the trailhead', () => {
 
     // Somewhere else: any wander (most recently walked first), one tap.
     await button(page, 'Somewhere else…').click();
-    await expect(elsewhere(page).getByRole('button')).toHaveText(['feel productive', 'draw better hands', 'Cancel']);
+    await expect(elsewhere(page).getByRole('button')).toHaveText(['feel productive', 'draw better hands', 'Make it', 'Cancel']); // fix 5
     await expectNoSeriousViolations(page);
     await elsewhere(page).getByRole('button', { name: 'feel productive', exact: true }).click();
     await expect(said(page, 'Logged toward feel productive')).toBeVisible();
@@ -447,7 +447,7 @@ test.describe('the trailhead', () => {
     await keep(page, 'went for a walk');
     await expect(said(page, 'Kept, loose')).toBeVisible();
     await button(page, 'Somewhere else…').click();
-    await expect(elsewhere(page).getByRole('button')).toHaveText(['Cancel']);
+    await expect(elsewhere(page).getByRole('button')).toHaveText(['Make it', 'Cancel']); // fix 5
     const name = elsewhere(page).getByRole('textbox', { name: 'A new wander', exact: true });
     await name.fill('move more');
     await name.press('Enter');

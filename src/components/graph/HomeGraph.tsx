@@ -583,7 +583,8 @@ const styles = StyleSheet.create({
   inside: { fontWeight: '600' },
   under: { fontWeight: '500', color: M.ink, paddingHorizontal: 2, ...(Platform.OS === 'web' && ({ overflowWrap: 'anywhere' } as object)) },
   // P-60: the label's box under the circle (the layout's `labelY`), as wide as the target.
-  underBox: { position: 'absolute', left: 0, right: 0, alignItems: 'center', overflow: 'hidden' },
+  // Dark Map: the box's own (inherited, on web) colour is the label's, not the browser's black on the night page.
+  underBox: { position: 'absolute', left: 0, right: 0, alignItems: 'center', overflow: 'hidden', ...({ color: M.ink } as object) },
   underWhy: { fontWeight: '600' },
   // Text the branches pass behind: the page colour under it, so a line never runs through words.
   mask: { backgroundColor: M.bg },
