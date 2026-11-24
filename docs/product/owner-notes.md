@@ -18,6 +18,25 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Conditions without an if: pause with a reason, queue the response
+Asked for an agent to work the stress-test scenarios through "by just queuing up or pushing work in
+response on a pause … the tension I'm trying to resolve specifically is … what's the difference from
+having a conditional and working those conditionals out in real time? The most gut feeling I have … is
+that if those reactions are routine work, then they deserve to be codified. But if those reactions are
+just [of the moment] … I would have something like submit work, and then maybe I'll pause it there,
+maybe for a reason, and I think the natural way of having a waiting step [is] you pause with a reason,
+or you put in the context await, waiting for a response, much like how you await an asynchronous
+request … And then once you're ready to return to that, you then define what your next step would be
+anyway, without the condition, because you're going to write the response next anyway, rather than
+having that response be pre-recorded. However, I do like the idea of pre-planning it out … You already
+know what you're going to do next when you're ready to return to it, and that's furthering offloading
+context in your head … It's already spelled out for you. Those are the two tensions I have, and I just
+want to see what an agent who's running through this without an if statement would propose in terms of
+user friendliness or in user intuition."
+*Interpretation:* two candidate ways with no branching — decide on return, or set the response aside
+ahead of time — to be walked through the scenarios by a fresh agent
+(`.polish/product/review-B-11-no-if.md`). Not decided.
+
 ## 2026-11-24 — Stress-test conditionals across uses
 "Can you stress test the idea across different applications of this tool? Creative, intellectual, or
 basic productivity, to see where conditionals make sense and where it serves to complicate things where
