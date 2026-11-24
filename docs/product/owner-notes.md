@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-24 — Tasks are one-off; routines are named and loop
+"if we're going to keep in line with this programming metaphor … a stack can have blocks that loop
+until you're done, and anything prior to that are just one-off tasks by default. And you can define
+that clearly as part of a composer … When you're creating the stack and you start pushing things onto
+it, you can push a routine, and that routine is by default a loop. Otherwise, you're gonna push
+one-off tasks that when popped, don't return. And routines are named constructs in the app that you
+can reference always."
+*Interpretation:* two kinds of block. A **task** is typed, one-off, gone when popped. A **routine** is
+named, kept in reference, pushed from the composer, and loops until you say done. Setup goes before a
+loop as tasks. Led to: B-11 Direction point 7.
+
 ## 2026-11-24 — The second philosophy: pop when done, push again from reference; save state
 "The other philosophy is that you pop it off the stack as soon as you're done. And you redefine it
 when you're ready to execute that function, so to speak. … When you pop a block that's saying, I'm

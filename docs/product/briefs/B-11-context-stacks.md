@@ -27,6 +27,13 @@ with you, one small piece at a time.
    down?" Waits are never counted. Off by default; no opinion until you turn it on.
 6. **Pieces are reusable templates** (edit once, changes everywhere), offered as you break things down.
 
+7. **Two kinds of block, chosen in the composer** (owner, decided). A **task** is typed and one-off:
+   popped, it doesn't return. A **routine** is a named construct kept in reference, pushed by name, and
+   it **loops** until you say done; popping it only takes it off the stack ("done with that for now"),
+   never out of reference. One-off setup sits before a loop as tasks. What you've defined (reference)
+   is separate from what you're in (the stack); reopening the app offers **Resume** or **Restart** (a
+   save state).
+
 **Against to-do apps:** their unit is a task that disappears when done, in a flat list, measured by
 what's left and by deadlines. Here the unit is a piece of your own know-how that stays to be run again,
 in a structure that opens to any depth, measured (only if you ask) against your own pace.
