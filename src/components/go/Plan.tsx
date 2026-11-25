@@ -156,8 +156,10 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
   const narrow = useWindowDimensions().width < 340;
   const indent = (depth: number) => Math.min(depth, 6) * (narrow ? 8 : 24);
   const seen = useVisibleHeight();
-  // Almost no room (large text AND the keyboard up): the band stays; everything else scrolls.
-  const floor = !!seen && seen.height < 360;
+  // Almost no room (large text AND the keyboard up) — or a phone's keyboard up at all (P-93): the band
+  // stays; everything else scrolls, the notice and the filled button after the rows, so nothing sits
+  // between the field typed in and the keyboard.
+  const floor = (!!seen && seen.height < 360) || keyboardUp(seen);
 
   useKeys(
     focused && here && !menu,
@@ -173,6 +175,14 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
     },
     true,
   );
+
+  // Web (P-93): the field typed in, and the step just above it (the one just added), stay in view —
+  // after every add, as the keyboard comes up, and as the words grow.
+  const rowCount = v?.rows.length;
+  const typedAt = typing ? `${typing.mode}:${typing.path}:${typing.text.length}` : '';
+  useEffect(() => {
+    if (focused && here) keepTypingInView(scroller.current);
+  }, [focused, here, rowCount, typedAt, floor, seen?.height, addFocused, adding]);
 
   if (!v || !here) return <GoScreen testID="go-plan" settled={false}>{null}</GoScreen>;
 
@@ -502,7 +512,10 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
             );
           })}
 
-          <View ref={addBox} style={[styles.addRow, addFocused && RING]}>
+          <View ref={addBox} style={[styles.addRow, addFocused && RING]} {...{ dataSet: { typing: '' } }}>
+            <View style={styles.addMark}>
+              <Mark name="add" color={G.dim} />
+            </View>
             <Field
               ref={addField}
               bare
@@ -517,7 +530,7 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
               style={styles.addField}
               testID="go-plan-add"
             />
-            <Btn kind="plain" mark="return" spoken="Add this step" disabled={!adding.trim()} onPress={addIt} style={styles.sq} />
+            {!!adding.trim() && <Btn kind="plain" label="Add" spoken="Add this step" onPress={addIt} style={styles.addBtn} />}
           </View>
         </View>
         {floor && foot}
@@ -566,13 +579,51 @@ function Typed({ value, label, placeholder, onChange, onSubmit, onBlur }: { valu
     caretToEnd(el);
   }, []);
   return (
-    <View ref={box}>
+    <View ref={box} {...{ dataSet: { typing: '' } }}>
       <GrowField value={value} onChangeText={onChange} onSubmit={onSubmit} onBlur={() => !gone.current && onBlur()} accessibilityLabel={label} placeholder={placeholder} autoFocus={!WEB} testID="go-plan-typed" />
     </View>
   );
 }
 
 const typingIn = (el: Element | null) => !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.getClientRects().length > 0;
+
+/**
+ * A phone's on-screen keyboard is up (web): the visible part of the page is well short of the page
+ * (iOS keeps the page's height and shrinks the visual viewport). Not a pinch-zoom (that scales it).
+ */
+function keyboardUp(seen: { height: number } | undefined): boolean {
+  if (!WEB || !seen || typeof window === 'undefined') return false;
+  return window.innerHeight - seen.height * (window.visualViewport?.scale ?? 1) > 120;
+}
+
+/**
+ * Web: when a field in the list has the focus, scrolls the list (only as far as needed) so that field
+ * is whole in what can be seen of it, with the row just above it (the step just added) too when there
+ * is room. The field comes first.
+ */
+function keepTypingInView(scroller: unknown) {
+  if (!WEB || typeof document === 'undefined') return;
+  const box = (scroller as { getScrollableNode?: () => HTMLElement } | null)?.getScrollableNode?.();
+  const el = document.activeElement;
+  if (!box || !typingIn(el) || !box.contains(el)) return;
+  const field = el!.closest('[data-typing]') ?? el!;
+  const rows = Array.from(box.querySelectorAll('[data-testid="go-plan-row"]'));
+  const above = rows.filter((r) => r.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING).pop();
+  const b = box.getBoundingClientRect();
+  const vv = window.visualViewport;
+  const top = b.top + 4;
+  const bottom = Math.min(b.bottom, vv ? vv.offsetTop + vv.height : window.innerHeight) - 4;
+  const f = field.getBoundingClientRect();
+  const from = above ? Math.min(above.getBoundingClientRect().top, f.top) : f.top;
+  // The least scroll that shows [from, to] whole, if any does.
+  const least = (from: number, to: number) => {
+    const lo = to - bottom;
+    const hi = from - top;
+    return lo > hi ? undefined : lo > 0 ? lo : hi < 0 ? hi : 0;
+  };
+  const by = least(from, f.bottom) ?? least(f.top, f.bottom) ?? f.bottom - bottom;
+  if (Math.abs(by) >= 1) box.scrollTop += by;
+}
 
 /** On arriving: the heading has the focus (never taken from a field being typed in) and the HERE row is in view. */
 function arrive(title: { current: unknown }, here: { current: unknown }, tries = 30) {
@@ -627,8 +678,11 @@ const styles = StyleSheet.create({
   rail: { borderLeftWidth: 4, borderLeftColor: G.line, paddingLeft: SP.s2 },
   divider: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: SP.s2, borderTopWidth: 2, borderTopColor: G.dim, borderStyle: 'dashed', paddingTop: SP.s2 },
   dividerWords: { flexDirection: 'row', alignItems: 'center', gap: SP.s2, flexGrow: 1, flexShrink: 1, flexBasis: 120, minHeight: TARGET },
-  addRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderColor: G.line, backgroundColor: G.surf },
-  addField: { flex: 1, minWidth: 96, paddingHorizontal: SP.s3 - 4 },
+  addRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', borderWidth: 2, borderColor: G.line, backgroundColor: G.surf },
+  addMark: { width: 24, marginLeft: SP.s3 - 4, alignItems: 'center' },
+  // Too narrow for the words and Add on one line (large text): Add goes beneath, at the end.
+  addBtn: { minWidth: TARGET + SP.s3, justifyContent: 'center', marginLeft: 'auto' },
+  addField: { flex: 1, minWidth: 96, paddingHorizontal: SP.s2 },
   foot: { paddingHorizontal: SP.s3, paddingBottom: SP.s3, paddingTop: SP.s1 },
   forward: { minHeight: 56 },
 });

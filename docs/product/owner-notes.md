@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Plan on a phone: steps overflow, and the add icon
+(Screenshot from an iPhone: Plan for "clean the car", keyboard up; the Undo notice "Added “Car wash”"
+and Start sit over the list, so the step just added and the row being typed in are hidden.)
+"When writing steps there is eventual overflow, and when adding a new step, the icon isn't really
+intuitive. I expected a + or 'add new step' placeholder, or something equivalent"
+Interpretation: with the keyboard up, the notice and the filled button keep their place above the
+keyboard and squeeze the list, so after a few steps the step you just added and the field you are typing
+in fall out of view. The add row's ↵ (return) mark reads as "enter", not "add"; list apps mark the add
+row with + and a placeholder (Reminders "New Reminder", Todoist "Add task", Things "New To-Do").
+Led to: P-93
+
 ## 2026-11-25 — Build the Plan surface; and a concern: is it a session you push work onto?
 "Build the [Plan] surface now. We're going to iterate one at a time while we refine the other concerns
 that I have. … And another concern that I had, and maybe this is just a drift in how I understand what I
