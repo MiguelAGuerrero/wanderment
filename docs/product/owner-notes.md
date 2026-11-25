@@ -18,6 +18,25 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Build the Plan surface; and a concern: is it a session you push work onto?
+"Build the [Plan] surface now. We're going to iterate one at a time while we refine the other concerns
+that I have. … And another concern that I had, and maybe this is just a drift in how I understand what I
+want in this product, is that the app is ultimately a context manager, and that manager ultimately needs
+work queued into it. So the user loop may just be, well, you define ahead of time what … stacks you want
+to tackle in one concurrent context, and you execute upon that. So there's not really a start [a] stack.
+It's more so that you're starting a working session of your own stack, and you push work to your own
+stack, representative of what you want to work on at the moment. And over time, those routines can be
+defined and iterated upon. But ultimately, the runner itself isn't really the execution of a particular
+routine. It's the execution of one main thread … onto which we queue up the other routines, or push …
+other routines. Again … I think that's a drift, but the idea of starting a routine and searching doesn't
+offer that architecture where you can have multiple concurrent threads that you can [context] switch
+back and forth to, assuming they're loaded."
+*Interpretation:* decided — D-19: go on the Plan surface (B-12's `v1`, `v2`, `v4`, `v5`, `v8` with the
+re-audit's fixes), one step at a time. A concern, not a decision: the unit you open may be a **working
+session** — one main thread you push routines onto and run — rather than "start a routine found by
+search"; several such threads loaded at once, switched between. To be explored separately; the Plan
+surface should not make it harder.
+
 ## 2026-11-25 — Plan edits change the routine; routines must be declarable in context
 On B-12's open questions: "proceed with [your defaults] for your open questions. And yes, a change made
 in a plan mid-run alters the routine. That being said, it's not intuitive how routines are declared in

@@ -43,20 +43,28 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-90 Plan and run look different `[feature]` `[ux]` L
+### P-90 Plan and run look different: the Plan surface `[feature]` `[data]` `[ux]` `[a11y]` L
 *Status:* todo
-*Why:* the owner's first real use (owner-notes 2026-11-25): adding a next step and breaking a step down
-happen on the runner and look like running, so doing turned into drafting — "plan, execute, plan,
-execute is the type of context switching I had in mind, but the app blurs the two". "Done" meant both
-done drafting and done working. Coming back, you could not tell which you had been doing. Loops and
-inputs belong to composing and could not be reached mid-run; the Repeat divider could not be moved (no
-drag, no visible control); opening the app did not offer to create anything; there was no scaffolding
-for creating (the outcome or feeling wanted, the inputs, the steps between).
-*Done when:* to be written when the owner decides D-19 (brief:
-`docs/product/briefs/B-12-plan-and-run.md`) — two modes, each unmistakable at a glance and on return,
-alternating; Plan reachable from any point in a run and back; Done only ever meaning done with the
-work; a movable Repeat divider; creating offered on open. Nothing here is decided beyond the owner's
-concerns.
+*Why:* the owner's first real use (owner-notes 2026-11-25): planning happened on the runner and looked
+like running, so doing turned into drafting; "Done" meant two things; you could not tell on return
+which you had been doing; the Repeat divider could not be moved; structure could not be reached mid-run.
+D-19: build the Plan surface now, the rest of B-12 after another draft.
+*Done when:* (B-12 frames `v1`, `v2`, `v4`, `v5`, `v8` with the re-audit's fixes) the runner's middle
+button is **Plan** (Step in when the step is a routine); Plan is its own surface — a pinned light band
+with the word and Home in one fixed place, the routine's name as the heading, "planning · at <step>",
+the sequence as rows with the step you were on marked HERE — where steps are added, reworded, moved,
+removed and broken down, wait steps made, and "Repeat from here" moved with visible controls and set to
+until I'm done or a number; **a change made in Plan changes the routine** (the owner's decision), with
+an Undo that lasts until the next action; the one filled button is **Resume at <step>** (Start for
+something never run), returning exactly where you were; the runner no longer hosts planning — the
+break-down sheet and the blank "next small step" note are gone, and at the edge of a goal you are in
+Plan with the open row focused and Done in its own slot; Done exists only when running and at the edge;
+home tiles and reopening the app show which mode a run was left in ("planning · …" with Plan, or "at
+<step>" with Resume); a New tile on home; removing the HERE step is defined; See it all and the plain
+editor are folded into Plan; the engine's unit tests cover every changed rule and the run's mode
+survives reload, journal replay, hand-over, export and import; e2e for each journey; `verify.sh --full`.
+Not in this item: declaring a routine in context, shared-routine warnings beyond what exists, inputs
+("With"), the working-session idea.
 
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
@@ -279,8 +287,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
 - **D-17 B-10: fewer parts — a calm journal in a playful world** — superseded 2026-11-24 by B-11
   before a decision. Brief: `docs/product/briefs/B-10-refined-home.md`.
-- **D-19 B-12: plan and run look different** — waiting on the owner. Brief:
-  `docs/product/briefs/B-12-plan-and-run.md` (first-draft frames; UI audit running).
+- **D-19 B-12: plan and run look different** — **answered 2026-11-25 by the owner: go on the Plan
+  surface now** (a change made in Plan changes the routine; the other open questions take the brief's
+  defaults); declaring a routine in context, shared routines and inputs get another draft first → P-90.
+  Brief: `docs/product/briefs/B-12-plan-and-run.md`.
 - **D-18 B-11: your ways of doing things, run one step at a time** — **answered 2026-11-24 by the
   owner: go** (the first implementation: groundwork, then home, the runner and Break it down, alongside
   today's home) → P-85, P-86. Brief: `docs/product/briefs/B-11-context-stacks.md` with
