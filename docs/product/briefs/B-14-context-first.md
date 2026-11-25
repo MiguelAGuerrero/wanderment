@@ -93,6 +93,22 @@ the intent; an output exists only when something uses it.
 Not built, on purpose: types, schemas, validation, kinds of output (feeling / artifact / value are all just
 words), attachments, scales or ratings, any count.
 
+## Waiting, inferred (added after the owner's question)
+The owner has not used Wait steps; Pause with a reason did the same job, and the Wait step was hard to
+reach for. With values, waiting needs no construct of its own — it is **await on a value that hasn't come**:
+- **A value can come later.** On the note, a step that produces `{reply}` offers its field and **Later**.
+  Later moves on without the value; the value is now *expected*: "{reply} · expected since Tue".
+- **Waiting is inferred.** The thread carries on through steps that do not read `{reply}` (send the next
+  application, tidy the portfolio). It is *waiting* only when its next step reads an expected value: its
+  row reads "waiting for {reply} · since Tue", it is skipped by "next", and ↑ queue pushes nothing from it.
+- **The value arrives from anywhere.** Tap the waiting row (or the value in the tree) and type it; the
+  thread is ready again, at the step that needed it. Nothing notifies — you bring the news in.
+- **Pause asks nothing.** It is yield. The path, the values and "last:" are the context; the reason field
+  goes (its stored text is kept and still shown where it exists).
+- **Stored Wait steps keep working** as they are (shown "waiting for <words>"); Plan stops offering "Make
+  it a wait" and offers "→ a value that comes later" on a step instead. Nothing stored is converted.
+- This is B-11's "things set going", reached by values instead of a separate verb.
+
 ## What this keeps and drops
 - Keeps: the runner, Plan, routines, repeat loops (they become loop threads), waits, Undo, the P-93
   keyboard fixes, all stored data.
@@ -100,7 +116,8 @@ words), attachments, scales or ratings, any count.
 - Freezes until used: Jump to…, references of one thread in two places, history views.
 
 ## Slices (each a full batch; the owner's freeze holds until lifted)
-1. **The way back in + values**: `{blanks}` as parameters and as step outputs
+1. **The way back in + values**: `{blanks}` as parameters and as step outputs, values that come later
+   and waiting inferred from them, Pause without a reason
    ("→ {feature}"), values held by the run with where each came from; the path, `→` and "last:" lines on
    the note. Fixes friction 1 with today's data model plus a few fields.
 2. **Threads that hold threads**: a thread with one-offs, routine calls and threads;

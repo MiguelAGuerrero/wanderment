@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Waiting should be inferred from a value that hasn't come yet
+"In embracing the concurrency model, what implications are there in terms of quality of life adjustments
+we can make in this batch? For example, we have the [waiting] construct, which I haven't been using so
+far. And it seems like pause and reason seems to be doing the same thing. However, it's because [waiting]
+itself is unintuitive to use. So I'm wondering if we can instead … repackage it or if two steps, if one
+step depends on another and that step is waiting for a value, then that could be inferred rather than
+made explicit, right?"
+Interpretation (ours): the explicit Wait step goes; a step's value can be "not yet" (a future), and a
+thread is waiting only when it reaches a step that reads a value that hasn't come — async/await. Steps
+that don't need it go on. Pause stops being a second way to say "waiting".
+Led to: B-14 slice 1 amended (values that come later; waiting inferred).
+
 ## 2026-11-25 — An output needs a purpose
 "I'm not sure what came of it has to be explicitly mentioned, because the routine's function names should
 relatively encode what that is. Like practicing gesture drawings, there's nothing to come out of it
