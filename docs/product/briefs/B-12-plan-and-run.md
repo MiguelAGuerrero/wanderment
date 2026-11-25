@@ -91,7 +91,27 @@ borrowed running's shape. Give each mode its own shape and the rest follows.
    Next?
 
 ## UI audit
-To run on the frames before any build (owner's rule).
+`.polish/product/ui-audit-B-12.md` (17 findings, 13 undrawn states; reasoned from the CSS, nothing
+rendered). Verdict: **needs another draft — same concept.** The central claim holds, carried by shape
+(one note vs outlined rows under a band) and the word; the blue itself carries nothing (the two pages
+differ by 1.04 in contrast). To fix in the next draft:
+- **Words.** "Run" would be a third word for Start and Resume: leaving Plan is **Resume** (or Start for
+  something never run); drop ▶. Plan is not Pause: it reads "planning · at <step>" everywhere, never
+  "paused".
+- **One switch each way**: Plan in, Resume out; the way to home is the word Home, not an ambiguous ←.
+- **The edge**: no disabled filled button; the open row is the forward action and Done stays top right,
+  where it always is.
+- **Marks already taken in the built app** (✎ change the words, ≡ see it all, − the stepper, dashed =
+  unavailable) must not be reused with new meanings.
+- HERE and the resume label must name the same step; the label must not clip; what happens when the
+  HERE step is removed.
+- Sizes: every control ≥ 48 px, the HERE tag ≥ 16 px; the Repeat yellow must differ from a yellow
+  routine; "For" must sit with "I'm going to …".
+- **Owner's call (finding F-05):** Plan edits changing the routine by default reverses what is built and
+  can reach other routines and open runs — it needs Undo, the routine's name as the heading, and a named
+  reach when it is used elsewhere.
+- **Still to draw:** Undo after an edit, reordering, Plan with no run (from home), thirty steps with
+  HERE off-screen, the keyboard up, leaving with unsent typing, and Plan against Pause.
 
 ## Slices (draft, after go)
 1. Plan as a surface: the sequence with HERE, add / reword / reorder / remove, the movable divider; the
