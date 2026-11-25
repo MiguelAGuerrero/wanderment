@@ -71,6 +71,33 @@ borrowed running's shape. Give each mode its own shape and the rest follows.
 7. **Done means one thing**: done with the work, and it exists only in Run (and at the edge). Leaving
    Plan is either Run or the back arrow.
 
+## Second draft (after the audit and the owner's answers) — frames `v1`–`v8`, `sheet-2.png`
+**Decided by the owner:** a change made in Plan mid-run changes the routine. The other open questions
+take the defaults: the edge moves you into Plan; creating reads "I'm going to / With / Steps"; Plan is
+told apart by shape and words, not colour; the word is Plan going in and **Resume** coming out (Start for
+something never run). **New from the owner:** routines must be declarable in context — "you effectively
+push work on top … in plan mode and then execute sequentially. But there's no routine definition yet.
+There's no way right now to declare that until you're done with a current run."
+- `v1-run` — the runner: Pause · **Plan** · Next. No pencil.
+- `v2-plan` — Plan: a light band with the word, **Home** at its right; the routine's name as the heading
+  and "planning · at <step>" (never "paused"); rows with HERE (16 px); "Repeat from here" with visible
+  up / down (48 px); "Add a step"; an Undo notice after an edit; the one filled button **Resume at
+  <step>**.
+- `v3-declare` — **declaring a routine where you stand**: a group of steps becomes "A routine" with its
+  name typed in place and its own "Repeat: until I'm done"; it is in reference from that moment, and the
+  run carries on inside it. Reached from a step's menu, "Make a routine from here…".
+- `v4-menu` — a step's menu, in words: Break it down · Make a routine from here… · Make it a wait · Move
+  up · Move down · Only this time… · Remove this step.
+- `v5-edge` — the edge: Plan with the open row focused; **Done** at the top right beside Home; no
+  disabled button.
+- `v6-new` — creating: "I'm going to" (the name), "With" (inputs, as chips that can be put into steps),
+  "Steps"; the filled button is **Start**.
+- `v7-shared` — a routine used elsewhere: "Also in" names where, with "Change a copy instead".
+- `v8-home` — tiles: "❚❚ at <step>" with Resume; "planning · …" on the plan surface with **Plan**; a
+  **New** tile.
+Still to draw before building: reordering by drag, thirty steps with HERE off-screen, the keyboard up,
+leaving with unsent typing, Plan against Pause on the paused screen, a wait step in Plan.
+
 ## What this changes in B-11
 - The runner's middle button is **Plan** (was Break it down / Step in — Step in remains when the step is
   a routine). The break-down sheet and the "next small step" blank note on the runner go away.

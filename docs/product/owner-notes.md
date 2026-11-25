@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Plan edits change the routine; routines must be declarable in context
+On B-12's open questions: "proceed with [your defaults] for your open questions. And yes, a change made
+in a plan mid-run alters the routine. That being said, it's not intuitive how routines are declared in
+the context, because the model is that you have one main thread, the most foundational layer, and that
+you effectively push work on top of that in plan mode and then execute sequentially. But there's no
+routine definition yet. There's no way right now to declare that until you're done with a current run."
+*Interpretation:* decided — a change made in Plan mid-run changes the routine. The other open questions
+take the designer's defaults (the edge moves you into Plan; "I'm going to / With / Steps"; Plan told
+apart by shape and words; "Plan" in, "Resume" out). New concern — while planning mid-run you must be able
+to declare a routine right there: name a group of steps as a routine, and say it repeats, without ending
+the run first. Led to: B-12 second draft (frames v1–v8).
+
 ## 2026-11-25 — Start the draft, with your own insight from other apps
 "Start the draft and propose your own insight into the problem based on how other apps tackle this sort
 of blurred workflow."
