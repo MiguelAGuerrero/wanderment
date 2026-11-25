@@ -1,6 +1,6 @@
 # B-12 — Plan and run look different
 
-**Status:** building (the Plan surface) · **Decision:** D-19 → go on the Plan surface, 2026-11-25 · **Roadmap:** P-90 · **Date:** 2026-11-25
+**Status:** the Plan surface is built (P-90); the rest needs another draft · **Decision:** D-19 → go on the Plan surface, 2026-11-25 · **Roadmap:** P-90 · **Date:** 2026-11-25
 
 Mockups (local, first draft): `.polish/product/b12-shots/` — `sheet.png`: `1-run`, `2-plan`,
 `3-plan-break`, `4-edge`, `5-new`, `6-home`.

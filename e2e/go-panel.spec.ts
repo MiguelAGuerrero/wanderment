@@ -1,10 +1,11 @@
 /**
- * P-86 (B-11 slice 1): the pull-up panel (B-11 §3.2; J04-h, J38, J37-d). Opened by swiping up, by
- * tapping the note, by the handle and by a key; where you are in this run, then the actions. Esc and
- * Back close it and never pause or leave; the three buttons stay where they are and keep working.
+ * P-86 (B-11 slice 1), P-90: the pull-up panel (B-11 §3.2; J04-h, J38, J37-d). Opened by swiping up, by
+ * tapping the note, by the handle and by a key; where you are in this run, then Back to <step> and
+ * Jump to… (they move you; nothing here plans — P-90). Esc and Back close it and never pause or
+ * leave; the three buttons stay where they are and keep working.
  */
 import { expect, test } from './fixtures';
-import { drag, home, place, runner, settled, startGo } from './goFixture';
+import { drag, home, place, plan, runner, settled, startGo } from './goFixture';
 
 const IN_LOOP = [{ id: 'r3', routine: 'drawing', at: 1, inner: [{ routine: 'hands', at: 2, round: 2 }], status: 'running' as const }];
 
@@ -21,7 +22,7 @@ test('J04-h, J38-a: over a step in a loop — the round, then, and the actions, 
   await expect(where).toContainText('Round 2 of 3');
   await expect(where).toContainText('then: Add the shadows');
   await expect(where.getByText('Last step of the round')).toHaveCount(0);
-  await expect(r.panel.getByRole('button')).toHaveText(['Change the words', 'Back to Block in the big shapes', 'Jump to…', 'See it all']);
+  await expect(r.panel.getByRole('button')).toHaveText(['Back to Block in the big shapes', 'Jump to…']);
   // Read first on opening: where you are.
   await expect(where).toBeFocused();
   expect({ pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), handle: await place(r.handle) }).toEqual(fixed);
@@ -131,7 +132,7 @@ test('J38-c: Esc closes it (focus to the handle) and never pauses; Back closes i
   await expect(home(page).screen.locator('[data-testid="go-tile"][data-state="running"]')).toHaveCount(1);
 });
 
-test('J29-b, J18-c: Back to <step>, and Change the words (this run only) from the panel — each with Undo', async ({ page }) => {
+test('J29-b: Back to <step> from the panel, with Undo; the words are not changed here — the note is never a field (P-90)', async ({ page }) => {
   await startGo(page, IN_LOOP, 'runner');
   const r = runner(page);
   await r.handle.click();
@@ -141,43 +142,28 @@ test('J29-b, J18-c: Back to <step>, and Change the words (this run only) from th
   await expect(r.note).toBeFocused();
   await r.notice.getByRole('button', { name: 'Undo Back', exact: true }).click();
   await expect(r.words).toHaveText('Check your proportions');
-
   await r.handle.click();
-  await r.panel.getByRole('button', { name: 'Change the words', exact: true }).click();
-  await expect(r.field).toBeFocused();
-  await expect(r.field).toHaveValue('Check your proportions');
-  // Esc leaves the field and changes nothing.
-  await r.field.fill('Measure');
-  await page.keyboard.press('Escape');
-  await expect(r.words).toHaveText('Check your proportions');
-  await r.handle.click();
-  await r.panel.getByRole('button', { name: 'Change the words', exact: true }).click();
-  await r.field.fill('Check the proportions against the photo');
-  await r.field.press('Enter');
-  await expect(r.words).toHaveText('Check the proportions against the photo');
-  await expect(r.note).toBeFocused();
-  await r.handle.click();
-  await expect(r.panel.getByText('This run only', { exact: true })).toBeVisible();
-  await expect(r.panel.getByRole('button', { name: 'Keep in Hand studies of my left hand', exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
-  await r.notice.getByRole('button', { name: 'Undo Change the words', exact: true }).click();
-  await expect(r.words).toHaveText('Check your proportions');
+  await expect(r.panel.getByRole('button', { name: /Change the words|Keep|See it all/ })).toHaveCount(0);
+  await expect(r.panel.getByText('This run only')).toHaveCount(0);
+  await expect(r.screen.getByRole('textbox')).toHaveCount(0);
 });
 
-test('J38: Jump to… and See it all are reached from the panel, and come back to the runner', async ({ page }) => {
+test('J38: Jump to… is reached from the panel and comes back to the runner; the sequence is reached by Plan, in the middle slot', async ({ page }) => {
   await startGo(page, IN_LOOP, 'runner');
   const r = runner(page);
-  await r.handle.click();
-  await r.panel.getByRole('button', { name: 'See it all', exact: true }).click();
-  await expect(settled(page, 'all').getByRole('heading', { level: 1 })).toHaveText('This run of Practise drawing');
-  await page.goBack();
-  await expect(r.words).toHaveText('Check your proportions');
-  await expect(r.panel).toHaveCount(0);
   await r.handle.click();
   await r.panel.getByRole('button', { name: 'Jump to…', exact: true }).click();
   await expect(settled(page, 'jump').getByRole('heading', { level: 1 })).toHaveText('Jump to…');
   await settled(page, 'jump').getByRole('button', { name: 'Back', exact: true }).click();
   await expect(r.words).toHaveText('Check your proportions');
+  await expect(r.panel).toHaveCount(0);
+  // Plan with the panel open: the panel goes, Plan comes; Resume is back on the step.
+  await r.handle.click();
+  await r.middle.click();
+  await expect(plan(page).title).toHaveText('Practise drawing');
+  await plan(page).forward.click();
+  await expect(r.words).toHaveText('Check your proportions');
+  await expect(r.panel).toHaveCount(0);
 });
 
 test('keys: Return on the note is Next, Ctrl/⌘+Z is Undo, Esc only closes — and no letter is ever a shortcut (WCAG 2.1.4)', async ({ page }) => {
@@ -203,13 +189,23 @@ test('keys: Return on the note is Next, Ctrl/⌘+Z is Undo, Esc only closes — 
   await page.keyboard.press('Control+z');
   await expect(r.words).toHaveText('Read the job ad twice');
   await expect(r.note).toBeFocused();
-  // While typing, the letters are letters; Esc leaves the field and nothing else.
-  await r.handle.click();
-  await r.panel.getByRole('button', { name: 'Change the words', exact: true }).click();
-  await r.field.fill('');
+  // While typing (in Plan: the runner has no field), the letters are letters; Esc leaves the field and nothing else.
+  await r.middle.click();
+  const p = plan(page);
+  await p.more('Read the job ad twice').click();
+  await page.getByTestId('go-plan-menu').getByRole('button', { name: 'Change the words', exact: true }).click();
+  await p.typed.fill('');
   await page.keyboard.type('npm D pnm');
-  await expect(r.field).toHaveValue('npm D pnm');
+  await expect(p.typed).toHaveValue('npm D pnm');
   await page.keyboard.press('Escape');
-  await expect(r.words).toHaveText('Read the job ad twice');
-  await expect(page).toHaveURL(/\/go\/run\/r1$/);
+  await expect(p.typed).toHaveCount(0);
+  await expect(p.words.first()).toHaveText('Read the job ad twice');
+  await expect(page).toHaveURL(/\/go\/run\/r1\/plan$/);
+  // Undo from the keyboard there too.
+  await p.add.fill('One more');
+  await p.add.press('Enter');
+  await expect(p.rows).toHaveCount(6);
+  await p.title.focus();
+  await page.keyboard.press('Control+z');
+  await expect(p.rows).toHaveCount(5);
 });

@@ -154,7 +154,8 @@ describe('a database written by an earlier build', () => {
   it('using the app afterwards keeps every earlier record and all five settings (a save writes only what changed)', async () => {
     useDatabase('schema4.sqlite');
     let store = await load();
-    const made = store.getState().startNew('Water the plants');
+    // (P-90: "New" makes the routine only; no run until Start.)
+    const made = store.getState().createRoutine('Water the plants');
     expect(made.ok).toBe(true);
     await settle();
     store = await load();
@@ -165,10 +166,10 @@ describe('a database written by an earlier build', () => {
     expect(now.data.routines).toMatchObject(NEW.data.routines);
     expect(now.data.runs).toMatchObject(NEW.data.runs);
     expect(Object.keys(now.data.routines)).toHaveLength(4);
-    expect(Object.keys(now.data.runs)).toHaveLength(3);
+    expect(Object.keys(now.data.runs)).toHaveLength(2);
     // And Undo of a change leaves exactly what was there.
-    const run = Object.keys(now.data.runs).find((id) => !NEW.data.runs[id])!;
-    expect(store.getState().addEdgeStep(run, 'fill the can').ok).toBe(true);
+    const routine = Object.keys(now.data.routines).find((id) => !NEW.data.routines[id])!;
+    expect(store.getState().editRoutine(routine, { kind: 'addStep', text: 'fill the can' }).ok).toBe(true);
     await settle();
     expect(store.getState().undoLast()).toBe(true);
     await settle();
@@ -239,7 +240,7 @@ describe('the fallback blob (a browser that couldn’t run SQLite)', () => {
       let store = await load();
       expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
       expect(shown(store)).toEqual(expected);
-      expect(store.getState().startNew('Water the plants').ok).toBe(true);
+      expect(store.getState().createRoutine('Water the plants').ok).toBe(true);
       await settle();
       const blob = JSON.parse(env.ls.get('wanderment')!) as { state: Data & Record<string, unknown> & { data: Data }; version: number };
       expect(blob.version).toBe(1);
@@ -261,8 +262,8 @@ describe('an old-build tab beside this build (one browser, across the update)', 
   it('this build has the database and has been used; the old tab left its blob and a kept Return: everything of both is there, once, and nothing of this build’s is overwritten', async () => {
     useDatabase('schema4.sqlite');
     let store = await load();
-    // This build's own writes: a new routine and run, and an old line edited here.
-    expect(store.getState().startNew('Water the plants').ok).toBe(true);
+    // This build's own writes: a new routine, and an old line edited here.
+    expect(store.getState().createRoutine('Water the plants').ok).toBe(true);
     const { person } = await import('@/test/records');
     person(store).updateActivity('old-008', { note: 'edited in this build' });
     await settle();
@@ -513,7 +514,7 @@ describe('handing the data over to another tab and taking it back', () => {
     let open = () => {};
     writeGate = { promise: new Promise<void>((r) => (open = r)), open: () => open() };
     // A write in flight, and behind it a change that only the journal holds: the paused run's reason.
-    expect(store.getState().startNew('Water the plants').ok).toBe(true);
+    expect(store.getState().createRoutine('Water the plants').ok).toBe(true);
     await tick(0);
     expect(store.getState().setPauseReason('new-002', 'the doorbell').ok).toBe(true);
     await tick(0);

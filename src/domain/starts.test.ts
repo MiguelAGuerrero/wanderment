@@ -4,7 +4,7 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { Env, Item, runVerb, Verb } from './run';
+import { editRoutine, Env, Item, runVerb, Verb } from './run';
 import { searchStarts } from './starts';
 import { Data, emptyData, Routine } from './types';
 
@@ -98,15 +98,24 @@ describe('“I’m going to…”', () => {
     expect(rows(going, 'tidy')).toEqual(['tile:Tidy the shed', 'unnamed:tidy  the DESK', 'new:tidy']);
   });
 
-  it('an unnamed thing is not a row while it belongs to a run still going, once it is part of a routine (a kept breakdown), or when a routine has its name', () => {
+  it('an unnamed thing is not a row while it belongs to a run still going (as the build before P-90 stored a breakdown), once it is part of a routine (a step broken down in Plan), or when a routine has its name', () => {
     const base = world(seq('r', 'Report', 1, [step('a', 'Write the summary'), step('b', 'Send it')], { home: true }), seq('s', 'Sort the post', 2));
     const run = ok(base, { kind: 'start', routineId: 'r' });
-    const broken = ok(run.data, { kind: 'breakDown', runId: run.runId!, steps: ['outline'] }).data;
+    // The build before: Break it down made a sequence owned by the run, and a this-run change.
+    const u: Routine = { id: 'u', words: 'Write the summary', named: false, createdAt: made(8), ownerRunId: run.runId!, items: [step('u1', 'outline')] };
+    const broken: Data = {
+      ...run.data,
+      routines: { ...run.data.routines, u },
+      runs: { [run.runId!]: { ...run.data.runs[run.runId!], frames: [{ seq: 'r', at: 'a', round: 1 }, { seq: 'u', at: 'u1', round: 1, from: 'a' }], changes: [{ id: 'c1', kind: 'breakdown', seq: 'r', item: 'a', into: 'u' }] } },
+    };
     expect(rows(broken, 'summary')).toEqual(['new:summary']); // (the tile is at "outline" now)
-    const kept = ok(broken, { kind: 'keep', runId: run.runId!, change: 'all' }).data;
-    const ended = ok(kept, { kind: 'jump', runId: run.runId!, to: { level: 0 } }).data;
-    expect(rows(ok(ended, { kind: 'done', runId: run.runId! }).data, 'summary')).toEqual(['new:summary']); // kept: part of Report
-    // Not kept, and its run has ended: it is found by its words.
+    // Folded into the routine (Plan opened on the run), or broken down in Plan to begin with: part of Report, for good.
+    const folded = ok(broken, { kind: 'plan', runId: run.runId! }).data;
+    const ended = ok(ok(folded, { kind: 'jump', runId: run.runId!, to: { level: 0 } }).data, { kind: 'done', runId: run.runId! }).data;
+    expect(rows(ended, 'summary')).toEqual(['new:summary']);
+    const inPlan = editRoutine(base, 'r', { kind: 'breakDown', item: 'a', steps: ['outline'] }, env()).data;
+    expect(rows(inPlan, 'summary')).toEqual(['new:summary']);
+    // Never folded, and its run has ended: it is found by its words.
     const left = ok(ok(broken, { kind: 'jump', runId: run.runId!, to: { level: 0 } }).data, { kind: 'done', runId: run.runId! }).data;
     expect(rows(left, 'summary')).toEqual(['unnamed:Write the summary', 'new:summary']);
     // A routine has the same name: the routine is the one row.

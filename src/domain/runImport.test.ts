@@ -2,11 +2,13 @@
  * P-86: what an import checks about a routine's steps and a run's place (structure only: lists of
  * the right kind of thing, ids that can be told apart), and that saved data is never refused for it.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { fromBackup, toBackup } from './backup';
 import { migrateData } from './migrate';
-import { Env, place, readRoutine, readRun, runVerb, Verb } from './run';
+import { editRoutine, Env, place, readRoutine, readRun, runVerb, Verb } from './run';
 import { Data, emptyData } from './types';
 
 const at = '2026-11-24T10:00:00.000Z';
@@ -55,29 +57,39 @@ describe('import: the structure of steps, frames and changes', () => {
     expect(place(d, readRun(d, 'n2')!)!.frames).toEqual([{ seq: 'r2', at: 'a', round: 1 }]);
   });
 
-  it('everything the engine writes passes: a run with a nested level, this-run changes, a reason and waiting-since exports and imports back equal', () => {
+  it('everything the engine writes passes: a run with a nested level (a step broken down in Plan), left in Plan, with a reason and waiting-since, exports and imports back equal', () => {
     let n = 0;
     const env = (): Env => ({ now: at, id: () => `id${++n}` });
     let d: Data = { ...emptyData(), routines: { r1: routine({ items: [{ id: 'a', text: 'Write' }, { id: 'w', wait: 'a reply' }], repeatFrom: 0, repeat: 3, open: true, home: true }) } };
     const started = runVerb(d, { kind: 'start', routineId: 'r1' }, env());
     const id = started.runId!;
     d = started.data;
-    const verbs: Verb[] = [
-      { kind: 'breakDown', runId: id, steps: ['outline', 'draft'] },
-      { kind: 'words', runId: id, text: 'outline it' },
-      { kind: 'edit', runId: id, edit: { kind: 'addWait', seq: 'r1', after: 'a', wait: 'the kettle' } },
-      { kind: 'edit', runId: id, edit: { kind: 'remove', seq: 'r1', item: 'w' } },
-      { kind: 'edit', runId: id, edit: { kind: 'repeat', seq: 'r1', repeat: 5 } },
-      { kind: 'done', runId: id },
-      { kind: 'pause', runId: id, reason: 'lunch 🍜 “quoted”' },
+    const press = (verb: Verb) => runVerb(d, verb, env());
+    const edit = (e: Parameters<typeof editRoutine>[2]) => editRoutine(d, 'r1', e, env());
+    const steps = [
+      () => press({ kind: 'plan', runId: id }),
+      () => edit({ kind: 'breakDown', item: 'a', steps: ['outline', 'draft'] }),
+      () => edit({ kind: 'addWait', wait: 'the kettle', after: 'a' }),
+      () => edit({ kind: 'repeat', times: 5 }),
+      () => press({ kind: 'resume', runId: id }),
+      () => press({ kind: 'done', runId: id }),
+      () => press({ kind: 'pause', runId: id, reason: 'lunch 🍜 “quoted”' }),
+      () => press({ kind: 'plan', runId: id }),
     ];
-    for (const verb of verbs) {
-      const r = runVerb(d, verb, env());
-      expect(r.ok, verb.kind).toBe(true);
+    for (const [i, step] of steps.entries()) {
+      const r = step();
+      expect(r.ok, String(i)).toBe(true);
       d = r.data;
     }
-    expect(readRun(d, id)).toMatchObject({ status: 'paused', reason: 'lunch 🍜 “quoted”', waitingSince: at });
-    expect(readRun(d, id)!.changes).toHaveLength(5);
+    expect(readRun(d, id)).toMatchObject({ status: 'paused', mode: 'plan', reason: 'lunch 🍜 “quoted”', waitingSince: at });
+    expect(Object.keys(d.routines)).toHaveLength(2);
     expect(fromBackup(toBackup(d, new Date(at)))).toEqual(d);
+  });
+
+  it('a backup from the build before P-90 passes: runs with this-run changes of every kind, breakdowns owned by a run, a run at the edge — imported exactly as exported', () => {
+    const golden = join(__dirname, '../storage/fixtures/golden');
+    const before = JSON.parse(readFileSync(join(golden, 'p90-expected.json'), 'utf8')).data as Data;
+    expect(fromBackup(readFileSync(join(golden, 'p90-backup.json'), 'utf8'))).toEqual(before);
+    expect(readRun(before, 'p90-008')!.changes).toHaveLength(7);
   });
 });

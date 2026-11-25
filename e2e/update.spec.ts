@@ -3,7 +3,7 @@ import { Page } from '@playwright/test';
 import { execSync } from 'node:child_process';
 
 import { expect, test } from './fixtures';
-import { home, openAndStart, openGo, openSettings, runner, settled } from './goFixture';
+import { home, openAndStart, openGo, openSettings, plan, settled } from './goFixture';
 
 /**
  * P-30: a refresh shows the new version. A new version applies by itself right after a load or a
@@ -69,13 +69,13 @@ test('coming back to the app with a new version deployed updates by itself, keep
   await countLoads(page);
   await openAndStart(page, 'Write the report');
   await waitForServiceWorkerControl(page);
-  await runner(page).field.fill('half a thought');
+  await plan(page).add.fill('half a thought');
 
   await setVisibility(page, 'hidden');
   await request.post('/__e2e/bump-sw');
   await setVisibility(page, 'visible');
   await expect.poll(() => loads(page), { timeout: 10_000 }).toBe(2);
-  await expect(runner(page).field).toHaveValue('half a thought', { timeout: 15_000 });
+  await expect(plan(page).add).toHaveValue('half a thought', { timeout: 15_000 });
   expect(await onNewestVersion(page)).toBe(true);
   await expect(banner(page)).toHaveCount(0);
 });
@@ -84,18 +84,18 @@ test('once something is typed, a new version waits for “Update now”, which k
   await countLoads(page);
   await openAndStart(page, 'Write the report');
   await waitForServiceWorkerControl(page);
-  await runner(page).field.fill('mid-sentence');
+  await plan(page).add.fill('mid-sentence');
 
   await request.post('/__e2e/bump-sw');
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());
   await expect(banner(page)).toBeVisible();
   await page.waitForTimeout(3000);
   expect(await loads(page)).toBe(1);
-  await expect(runner(page).field).toHaveValue('mid-sentence');
+  await expect(plan(page).add).toHaveValue('mid-sentence');
 
   await updateNow(page).click();
   await expect.poll(() => loads(page), { timeout: 10_000 }).toBe(2);
-  await expect(runner(page).field).toHaveValue('mid-sentence', { timeout: 15_000 });
+  await expect(plan(page).add).toHaveValue('mid-sentence', { timeout: 15_000 });
   expect(await onNewestVersion(page)).toBe(true);
 });
 

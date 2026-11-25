@@ -1,7 +1,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { home, openAndStart, openGo, runner, saved, storedNames } from './goFixture';
+import { home, openAndRun, openGo, runner, saved, storedNames } from './goFixture';
 
 async function waitForServiceWorkerControl(page: Page) {
   await page.waitForFunction(async () => {
@@ -37,7 +37,7 @@ test('the manifest is linked, valid, and its icons load', async ({ page, request
 });
 
 test('works offline after the first visit, with data intact', async ({ page, context }) => {
-  await openAndStart(page, 'Read on the train');
+  await openAndRun(page, 'Read on the train');
   await waitForServiceWorkerControl(page);
   await saved(page);
 

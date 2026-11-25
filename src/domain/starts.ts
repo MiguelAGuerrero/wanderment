@@ -14,8 +14,12 @@ export interface StartRow {
   kind: 'tile' | 'routine' | 'unnamed' | 'new';
   /** Its name; for "new", the words typed, tidied. */
   words: string;
-  /** resume: `resumeRun(runId)`. start: `startRoutine(routineId)`. new: `startNew(words)`. */
-  action: 'resume' | 'start' | 'new';
+  /**
+   * resume: `resumeRun(runId)`. start: `startRoutine(routineId)` (refused `empty` for a routine with no
+   * steps yet: its Plan is where the first is added). plan: a run in Plan (`planRun(runId)`, then its
+   * Plan). new: `createRoutine(words)`, then that routine's Plan.
+   */
+  action: 'resume' | 'start' | 'plan' | 'new';
   routineId?: Id;
   runId?: Id;
   /** For a tile row: the tile, as on home. */

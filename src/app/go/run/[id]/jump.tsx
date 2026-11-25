@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { Jump } from '@/components/go/SeeAll';
+import { Jump } from '@/components/go/Jump';
 
 /** B-11 slice 1 (P-86): Jump to… for one run. */
 export default function GoJump() {

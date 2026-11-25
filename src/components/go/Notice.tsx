@@ -3,15 +3,14 @@
  * zone (so it can never cover the note, the buttons or the prompt), until the next action. What
  * happened, and Undo while the store's Undo is still that action's. It is a polite live region and is
  * never the only home of Undo (the panel's "Undo <thing>" row, Ctrl/⌘+Z). The quiet "reconnecting"
- * line shows here too. Also: the sheet that shows this run's changes once, each with Keep.
+ * line shows here too. (P-90: the Keep sheet that lived here is gone with the Keep offer.)
  */
 import { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { ChangeRow, describeChanges } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
-import { Btn, hard, Sheet, T, useVisibleHeight } from './ui';
+import { Btn, hard, T, useVisibleHeight } from './ui';
 import { G, SP } from './tokens';
 
 /** Undo, if the last run action can still be taken back: its label ("Next"), else undefined. */
@@ -60,61 +59,6 @@ export function Notice({ onUndone, reserve }: { onUndone?: () => void; reserve?:
         </View>
       )}
     </View>
-  );
-}
-
-/** One change of this run, in words: what it is now, and (dim) what kind of change it is. */
-export function changeWords(c: ChangeRow): { words: string; note: string } {
-  if (c.kind === 'reword') return { words: c.words, note: c.was ? `was: ${c.was}` : '' };
-  if (c.kind === 'breakdown') return { words: c.words, note: (c.steps ?? []).join(' · ') };
-  if (c.kind === 'add') return { words: c.words, note: 'added' };
-  if (c.kind === 'remove') return { words: c.words, note: 'removed' };
-  if (c.kind === 'move') return { words: c.words, note: 'moved' };
-  return { words: c.repeat === 'until' || c.repeat === undefined ? 'Repeat until I’m done' : `Repeat ${c.repeat} ${c.repeat === 1 ? 'time' : 'times'}`, note: '' };
-}
-
-/**
- * This run's changes, each with Keep, and Keep all (B-11 §9c). It never blocks: what was pressed has
- * already happened, and closing it keeps nothing. `ids`: the changes to show (the store's offer, or
- * the panel's "Keep in <routine>").
- */
-export function KeepSheet({ runId, ids, onClose }: { runId: string; ids: string[]; onClose: () => void }) {
-  const data = useStore((s) => s.data);
-  const keepChange = useStore((s) => s.keepChange);
-  const rows = describeChanges(data, runId, ids);
-  const gone = rows.length === 0;
-  useEffect(() => {
-    if (gone) onClose();
-  }, [gone, onClose]);
-  if (gone) return null;
-  const into = rows[0].in;
-  const same = rows.every((r) => r.in === into);
-  return (
-    <Sheet title={same && into ? `Keep in ${into}` : 'Keep'} onClose={onClose} testID="go-keep">
-      {rows.map((r) => {
-        const w = changeWords(r);
-        return (
-          <View key={r.id} style={styles.row} testID="go-keep-row">
-            <View style={styles.rowWords}>
-              <T bold>{w.words}</T>
-              {!!w.note && <T dim>{w.note}</T>}
-              {!same && !!r.in && <T dim>{`in ${r.in}`}</T>}
-            </View>
-            <Btn label="Keep" spoken={`Keep ${w.words}${r.in ? ` in ${r.in}` : ''}`} onPress={() => keepChange(runId, r.id)} />
-          </View>
-        );
-      })}
-      <Btn
-        kind="filled"
-        label="Keep all"
-        dataSet={{ first: 'true' }}
-        onPress={() => {
-          // The ones shown, in ONE Keep: one Undo takes all of it back.
-          keepChange(runId, rows.map((r) => r.id));
-          onClose();
-        }}
-      />
-    </Sheet>
   );
 }
 

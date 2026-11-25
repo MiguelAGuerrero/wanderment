@@ -7,7 +7,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { chooseBackup, openAndStart, openGo, openSettings, runner, setVisibility, settled } from './goFixture';
+import { chooseBackup, openAndRun, openGo, openSettings, runner, setVisibility, settled } from './goFixture';
 import { legacyBlob, seedScript } from './graphFixture';
 
 /** Fails on serious or critical axe violations, printing what and where. */
@@ -81,17 +81,16 @@ test('the waiting screen (another tab has the data) has no serious accessibility
 });
 
 test('the runner while the page doesn’t hold the data (the quiet “reconnecting” note after a press) has no serious accessibility violations (P-29)', async ({ page }) => {
-  await openAndStart(page, 'Read a novel');
+  await openAndRun(page, 'Read a novel', 'Find the book');
   const r = runner(page);
-  await r.field.fill('typed while away');
   // Hidden (emulated: headless pages stay visible), the page lets go of the data.
   await setVisibility(page, 'hidden');
-  await r.field.press('Enter');
-  // Refused, saying why, politely; the data and the typed words stay.
+  await r.next.click();
+  // Refused, saying why, politely; the data stays as it was.
   const note = r.screen.getByTestId('go-notice');
   await expect(note).toHaveText('Just a moment — reconnecting.');
   await expect(r.screen.getByRole('status').filter({ has: page.getByTestId('go-notice') })).toHaveCount(1);
-  await expect(r.field).toHaveValue('typed while away');
+  await expect(r.words).toHaveText('Find the book');
   await expectNoSeriousViolations(page);
 });
 

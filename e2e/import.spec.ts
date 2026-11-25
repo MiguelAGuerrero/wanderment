@@ -6,7 +6,7 @@ import { Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
 import { expect, test } from './fixtures';
-import { anotherTab, home, IMPORTED, openSettings as toSettings, saved, setVisibility, startThing, turn } from './goFixture';
+import { anotherTab, home, IMPORTED, openSettings as toSettings, saved, setVisibility, startRun, turn } from './goFixture';
 import { bigBlob, legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -166,7 +166,7 @@ test('a preview whose comparison changes under it (another tab changed what’s 
   await expect(anotherTab(b)).toBeVisible({ timeout: 20_000 });
   await turn(page, 'hidden');
   await expect(home(b).screen).toBeVisible({ timeout: 15_000 });
-  await startThing(b, 'made in the other tab');
+  await startRun(b, 'made in the other tab');
   await saved(b);
   await setVisibility(b, 'hidden');
   await turn(page, 'visible');

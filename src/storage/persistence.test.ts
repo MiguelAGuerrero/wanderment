@@ -1166,7 +1166,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     expect(log.slice(-3)).toEqual(['close', 'shutdown', 'lock released']);
     env.p29.writes = [];
     const { data } = store.getState();
-    expect(store.getState().startNew('while hidden')).toEqual({ ok: false, reason: 'reconnecting' });
+    expect(store.getState().createRoutine('while hidden')).toEqual({ ok: false, reason: 'reconnecting' });
     await tick(1000);
     expect(store.getState().data).toBe(data);
     expect(store.getState().toast).toEqual({ message: 'Just a moment — reconnecting.', notice: true });
@@ -1189,7 +1189,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     await tick(30);
     page.hide();
     await tick(30);
-    expect(store.getState().startNew('while hidden').ok).toBe(false);
+    expect(store.getState().createRoutine('while hidden').ok).toBe(false);
     await tick(30);
     // The page is gone (iOS dropped it); another one opens.
     page = fakePage();
@@ -1537,9 +1537,11 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       undoLast: { args: [], setup: (store) => person(store).removeActivity('a3') },
       replaceData: { args: [other()] },
       refreshData: { args: [other(), { showShading: false, recentSearches: [], leftAsIs: [] }, false] },
-      // P-86: routines and runs. (A start is refused while something runs, so those two start from a paused run.)
+      // P-86: routines and runs. (A start is refused while something runs, so it starts from a paused run.)
       startRoutine: { args: ['g2'], setup: going({ status: 'paused' }) },
-      startNew: { args: ['Learn Spanish'], setup: going({ status: 'paused' }) },
+      // P-90: creating makes the routine only; Plan (here it also folds the run's this-run change from the build before).
+      createRoutine: { args: ['Learn Spanish'], setup: going() },
+      planRun: { args: ['n1'], setup: going() },
       resumeRun: { args: ['n1'], setup: going({ status: 'paused' }) },
       pauseRun: { args: ['n1', 'lunch'], setup: going() },
       setPauseReason: { args: ['n1', 'need the ad'], setup: going({ status: 'paused' }) },
@@ -1547,14 +1549,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       nextStep: { args: ['n1'], setup: going() },
       doneLevel: { args: ['n1'], setup: going() },
       stepIn: { args: ['n1'], setup: going({ frames: [{ seq: 'g1', at: 'k', round: 1 }] }) },
-      breakDown: { args: ['n1', ['outline', 'draft']], setup: going() },
-      addEdgeStep: { args: ['n1', 'the next small step'], setup: going({ frames: [{ seq: 'g1', at: null, round: 1 }] }) },
-      changeWords: { args: ['n1', 'Sketch it'], setup: going() },
       jumpTo: { args: ['n1', { path: ['b'] }], setup: going() },
       backTo: { args: ['n1'], setup: going({ frames: [{ seq: 'g1', at: 'b', round: 1 }] }) },
-      keepChange: { args: ['n1', 'all'], setup: going() },
-      dropChange: { args: ['n1', 'c1'], setup: going() },
-      editRun: { args: ['n1', { kind: 'add', seq: 'g1', after: 'a', text: 'extra' }], setup: going() },
       editRoutine: { args: ['g1', { kind: 'addStep', text: 'File it' }], setup: going() },
     };
     /** What's only on screen this session: these never change the data. */
@@ -1563,9 +1559,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       // A Return the old app kept while reconnecting (it comes only from a reload across the update):
       // nothing to log here, and it does nothing until the page holds the data.
       logMarked: [],
-      // P-86: the Keep sheet and the notice put away (session only); and the press kept while
-      // reconnecting, which does nothing until the page holds the data again.
-      dismissRunOffer: [],
+      // P-86: the notice put away (session only); and the press kept while reconnecting, which does
+      // nothing until the page holds the data again.
       dismissRunNotice: [],
       verbMarked: [],
     };
@@ -1653,7 +1648,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       page.show();
       await tick(100);
       expect(store.getState().storage).toEqual(RECONNECTING);
-      expect(store.getState().startNew('made while reconnecting')).toEqual({ ok: false, reason: 'reconnecting' });
+      expect(store.getState().createRoutine('made while reconnecting')).toEqual({ ok: false, reason: 'reconnecting' });
       expect(env.ls.has('wanderment:journal')).toBe(false);
       // B writes; A is reloaded from its waiting screen.
       await writeElsewhere('from B');
@@ -1696,11 +1691,12 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       const store = await load();
       logText(store, 'before');
       const { runnerView } = await import('@/domain/runView');
-      const made = store.getState().startNew('Morning');
-      if (!made.ok || !made.runId) throw new Error('New: was refused');
-      const runId = made.runId;
-      store.getState().addEdgeStep(runId, 'Stretch');
-      store.getState().editRoutine(store.getState().data.runs[runId].routineId, { kind: 'addStep', text: 'Shower' });
+      const made = store.getState().createRoutine('Morning');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      for (const text of ['Stretch', 'Shower']) store.getState().editRoutine(made.routineId, { kind: 'addStep', text });
+      const started = store.getState().startRoutine(made.routineId);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      const runId = started.runId;
       const step = () => runnerView(store.getState().data, runId)!.step.words;
       await tick(30);
       page.hide();
@@ -2468,7 +2464,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
   });
 
   // ───────── P-86: a run as the actions make it ─────────
-  describe('P-86: a run with a nested level, this-run changes, a reason and waiting-since survives everything; a damaged one loads', () => {
+  describe('P-86: a run with a nested level, a reason and waiting-since survives everything; a damaged one loads (P-90: built as the app builds it now — the step is broken down in Plan; runs with this-run changes from the build before are in goldenP90.test.ts)', () => {
     const REASON = 'lunch 🍜 “back at two”';
     type Ids = { runId: string; routineId: string; seqId: string };
     type Body = { frames: { seq: string; at: string | null; round: number; from?: string }[]; changes: { id: string; kind: string }[] } & Record<string, unknown>;
@@ -2484,42 +2480,48 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       return store;
     }
     /**
-     * Through the store's actions, as a person would: "New: Apply to Acme" and its first small step; a
-     * wait, the divider and a number in the editor; Break it down; a wait added inside it for this run
-     * only; Next onto that wait; Pause with a reason.
+     * Through the store's actions, as a person would: "New: Apply to Acme" and, in its Plan, its first
+     * step, a wait, the divider and a number; Start; Plan; Break it down; a wait added inside it;
+     * Resume; Next onto that wait; Pause with a reason.
      */
     function build(store: Store): Ids {
       const g = () => store.getState();
-      const made = g().startNew('Apply to Acme');
-      if (!made.ok || !made.runId) throw new Error('New: was refused');
-      const runId = made.runId;
-      const routineId = g().data.runs[runId].routineId;
+      const made = g().createRoutine('Apply to Acme');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      const routineId = made.routineId;
       const all = [
-        g().addEdgeStep(runId, 'Tailor the CV'),
+        g().editRoutine(routineId, { kind: 'addStep', text: 'Tailor the CV' }),
         g().editRoutine(routineId, { kind: 'addWait', wait: 'a reply from Acme' }),
         g().editRoutine(routineId, { kind: 'divider', from: 0 }),
         g().editRoutine(routineId, { kind: 'repeat', times: 3 }),
-        g().breakDown(runId, ['Open the job ad', 'Rewrite the summary']),
       ];
+      const started = g().startRoutine(routineId);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      const runId = started.runId;
+      const first = body(store, runId).frames[0].at!;
+      all.push(g().planRun(runId), g().editRoutine(routineId, { kind: 'breakDown', item: first, steps: ['Open the job ad', 'Rewrite the summary'] }));
       const inner = body(store, runId).frames[1];
-      all.push(g().editRun(runId, { kind: 'addWait', seq: inner.seq, after: inner.at, wait: 'the printer' }), g().nextStep(runId), g().pauseRun(runId, REASON));
+      all.push(g().editRoutine(inner.seq, { kind: 'addWait', wait: 'the printer', after: inner.at }), g().resumeRun(runId), g().nextStep(runId), g().pauseRun(runId, REASON));
       expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
       return { runId, routineId, seqId: inner.seq };
     }
-    /** It is what the contract names: a nested level, this-run changes, a reason, waiting-since. */
+    /** It is what the contract names: a nested level, a reason, waiting-since (and, since P-90, no this-run change: the breakdown is the routine's). */
     async function isAsBuilt(data: Store extends { getState(): { data: infer D } } ? D : never, { runId, routineId, seqId }: Ids) {
       const { runnerView, panelView } = await import('@/domain/runView');
       const run = data.runs[runId] as unknown as Body;
       expect(run.frames).toHaveLength(2);
       expect(run.frames[0]).toMatchObject({ seq: routineId, round: 1 });
       expect(run.frames[1]).toMatchObject({ seq: seqId, round: 1, from: run.frames[0].at });
-      expect(run.changes.map((c) => c.kind)).toEqual(['breakdown', 'add']);
+      expect(run.changes).toEqual([]);
+      expect('mode' in run).toBe(false);
       expect(run).toMatchObject({ status: 'paused', reason: REASON });
       expect(typeof run.waitingSince).toBe('string');
       expect(data.routines[routineId]).toMatchObject({ words: 'Apply to Acme', named: true, open: true, home: true, repeatFrom: 0, repeat: 3 });
-      expect(data.routines[seqId]).toMatchObject({ words: 'Tailor the CV', named: false, ownerRunId: runId });
-      expect(runnerView(data, runId)).toMatchObject({ status: 'paused', level: 'Tailor the CV', parent: 'Apply to Acme', step: { kind: 'wait', words: 'the printer' }, next: 'itsHappened' });
-      expect(panelView(data, runId)).toMatchObject({ thisRunOnly: true, then: 'Rewrite the summary', wait: { words: 'the printer', since: run.waitingSince } });
+      expect(data.routines[seqId]).toMatchObject({ words: 'Tailor the CV', named: false });
+      expect('ownerRunId' in data.routines[seqId]).toBe(false);
+      expect((data.routines[routineId].items as { ref?: string }[])[0].ref).toBe(seqId);
+      expect(runnerView(data, runId)).toMatchObject({ status: 'paused', planning: false, level: 'Tailor the CV', parent: 'Apply to Acme', step: { kind: 'wait', words: 'the printer' }, next: 'itsHappened' });
+      expect(panelView(data, runId)).toMatchObject({ then: 'Rewrite the summary', wait: { words: 'the printer', since: run.waitingSince } });
     }
 
     it('reload: saved to SQLite as it is made, the same after a reload, and it carries on; a verb writes the run’s row and nothing else', async () => {
@@ -2580,16 +2582,22 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(store.getState().data.runs[ids.runId].reason).toBe('back at two, th');
       expect((await onDisk()).runs[ids.runId].reason).toBe('back at two, th');
 
-      // Dropping the breakdown removes its sequence: a delete only the journal holds lands too.
+      // A step broken down (a sequence made, saved), then Undo while no write commits: the delete of that
+      // sequence is only in the journal, and lands too.
+      const had = Object.keys(store.getState().data.routines);
+      const plain = (store.getState().data.routines[ids.seqId].items as { id: string; text?: string }[]).find((i) => i.text === 'Rewrite the summary')!;
+      expect(store.getState().editRoutine(ids.seqId, { kind: 'breakDown', item: plain.id, steps: ['Find the tab'] }).ok).toBe(true);
+      await tick(30);
+      const [deeper] = Object.keys(store.getState().data.routines).filter((id) => !had.includes(id));
+      expect((await onDisk()).routines[deeper]).toBeDefined();
       env.state.hangWrites = true;
-      expect(store.getState().dropChange(ids.runId, body(store, ids.runId).changes[0].id).ok).toBe(true);
+      expect(store.getState().undoLast()).toBe(true);
       await tick(30);
       env.state.hangWrites = false;
       store = await reload();
-      expect(store.getState().data.routines[ids.seqId]).toBeUndefined();
-      expect(body(store, ids.runId).frames).toHaveLength(1);
-      expect(body(store, ids.runId).changes).toEqual([]);
-      expect((await onDisk()).routines[ids.seqId]).toBeUndefined();
+      expect(store.getState().data.routines[deeper]).toBeUndefined();
+      expect(body(store, ids.runId).frames).toHaveLength(2);
+      expect((await onDisk()).routines[deeper]).toBeUndefined();
       expect(await onDisk()).toEqual(store.getState().data);
     });
 
@@ -2623,7 +2631,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       await tick(30);
       // This page: a change of its own left in the journal when the page is hidden.
       writeGate = deferred();
-      expect(store.getState().changeWords(ids.runId, 'the big printer').ok).toBe(true);
+      expect(store.getState().setPauseReason(ids.runId, 'back at three').ok).toBe(true);
       await tick(0);
       expect(store.getState().editRoutine(ids.routineId, { kind: 'addStep', text: 'Book the call' }).ok).toBe(true);
       await tick(0);
@@ -2665,18 +2673,20 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(next.getState().data).toEqual(store.getState().data);
     });
 
-    it('undo: Keep (the routine, the unnamed sequence and the run in one step) and Break it down (a record made) are taken back on screen and on disk', async () => {
+    it('undo: removing the step the run is inside (the routine and the run in one step) and Break it down (a record made) are taken back on screen and on disk', async () => {
       fakeLocks();
       let store = await load();
       const ids = build(store);
       await tick(30);
       const before = store.getState().data;
-      expect(store.getState().keepChange(ids.runId, 'all').ok).toBe(true);
+      const outer = body(store, ids.runId).frames[0].at!;
+      expect(store.getState().editRoutine(ids.routineId, { kind: 'remove', item: outer }).ok).toBe(true);
       await tick(30);
-      const kept = await onDisk();
-      expect('ownerRunId' in kept.routines[ids.seqId]).toBe(false);
-      expect((kept.routines[ids.routineId].items as { ref?: string }[])[0].ref).toBe(ids.seqId);
-      expect((kept.runs[ids.runId] as unknown as Body).changes).toEqual([]);
+      const removed = await onDisk();
+      expect((removed.routines[ids.routineId].items as { id: string }[]).map((i) => i.id)).not.toContain(outer);
+      // The run is out of the removed step, on the routine's next one (the wait), in the same write.
+      expect((removed.runs[ids.runId] as unknown as Body).frames).toHaveLength(1);
+      expect(removed).toEqual(store.getState().data);
 
       expect(store.getState().undoLast()).toBe(true);
       expect(store.getState().data).toEqual(before);
@@ -2687,9 +2697,11 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       await isAsBuilt(store.getState().data, ids);
 
       // Break it down again, one level deeper, then Undo: the new sequence is gone from the disk too.
-      expect(store.getState().backTo(ids.runId).ok).toBe(true);
       const start = store.getState().data;
-      expect(store.getState().breakDown(ids.runId, ['Find the tab']).ok).toBe(true);
+      const inner = body(store, ids.runId).frames[1];
+      expect(store.getState().editRoutine(inner.seq, { kind: 'breakDown', item: 'nope', steps: ['x'] }).ok).toBe(false);
+      const plain = (start.routines[inner.seq].items as { id: string; text?: string }[]).find((i) => i.text !== undefined)!;
+      expect(store.getState().editRoutine(inner.seq, { kind: 'breakDown', item: plain.id, steps: ['Find the tab'] }).ok).toBe(true);
       await tick(30);
       expect(Object.keys((await onDisk()).routines)).toHaveLength(3);
       store.getState().undoLast();
@@ -2754,16 +2766,17 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
 
       store = await reload();
       expect(store.getState().storage).toEqual(READY);
-      const { runnerView, panelView, pausedView, seeItAll, homeTiles, leftOff, unkeptChanges } = await import('@/domain/runView');
+      const { runnerView, panelView, pausedView, seeItAll, homeTiles, leftOff, planView, runRoute } = await import('@/domain/runView');
       const { searchStarts } = await import('@/domain/starts');
       const read = () => {
         const d = store.getState().data;
-        return [runnerView(d, ids.runId), panelView(d, ids.runId), pausedView(d, ids.runId), seeItAll(d, ids.runId), homeTiles(d), leftOff(d), unkeptChanges(d, ids.runId), searchStarts(d, 'apply')];
+        return [runnerView(d, ids.runId), panelView(d, ids.runId), pausedView(d, ids.runId), seeItAll(d, ids.runId), homeTiles(d), leftOff(d), planView(d, { runId: ids.runId }), planView(d, { routineId: ids.routineId }), runRoute(d, ids.runId), searchStarts(d, 'apply')];
       };
       expect(read).not.toThrow();
       expect(store.getState().data.runs[ids.runId].frames).toBeUndefined();
       // The columns survived (waiting-since is one), the place did not: the start of its routine.
-      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ status: 'left', level: 'Apply to Acme', depth: 1, step: { kind: 'step', words: 'Tailor the CV' } });
+      // (Its first step was broken down in Plan, so it reads as the routine that step became.)
+      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ status: 'left', level: 'Apply to Acme', depth: 1, step: { kind: 'routine', words: 'Tailor the CV' } });
       expect(homeTiles(store.getState().data)).toMatchObject([{ name: 'Apply to Acme', state: 'paused', at: 'Tailor the CV', action: 'resume' }]);
       expect(leftOff(store.getState().data)).toEqual({ kind: 'home' });
       for (const press of [() => store.getState().resumeRun(ids.runId), () => store.getState().nextStep(ids.runId), () => store.getState().nextStep(ids.runId)]) expect(press().ok).toBe(true);
@@ -2779,9 +2792,13 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       store = await reload();
       expect(store.getState().storage).toEqual(READY);
       expect(read).not.toThrow();
-      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ step: { kind: 'edge' }, next: 'edge' });
-      expect(store.getState().addEdgeStep(ids.runId, 'Start again from here').ok).toBe(true);
-      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ step: { kind: 'step', words: 'Start again from here' } });
+      // Nothing to stand on: that is Plan, where the next step is added.
+      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ step: { kind: 'edge' }, next: 'edge', planning: true });
+      expect(runRoute(store.getState().data, ids.runId)).toBe('plan');
+      expect(store.getState().editRoutine(ids.routineId, { kind: 'addStep', text: 'Start again from here' }).ok).toBe(true);
+      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ planning: true, step: { kind: 'step', words: 'Start again from here' } });
+      expect(store.getState().resumeRun(ids.runId).ok).toBe(true);
+      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ status: 'running', planning: false, step: { words: 'Start again from here' } });
     });
 
     describe('a press on the runner while reconnecting', () => {
@@ -2790,13 +2807,13 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         const locks = fakeLocks();
         const store = await load();
         const g = () => store.getState();
-        const made = g().startNew('Morning');
-        if (!made.ok || !made.runId) throw new Error('New: was refused');
-        const runId = made.runId;
-        const routineId = g().data.runs[runId].routineId;
-        g().addEdgeStep(runId, 'Stretch');
-        g().editRoutine(routineId, { kind: 'addStep', text: 'Shower' });
-        g().editRoutine(routineId, { kind: 'addStep', text: 'Coffee' });
+        const made = g().createRoutine('Morning');
+        if (!made.ok || !made.routineId) throw new Error('New: was refused');
+        const routineId = made.routineId;
+        for (const text of ['Stretch', 'Shower', 'Coffee']) g().editRoutine(routineId, { kind: 'addStep', text });
+        const started = g().startRoutine(routineId);
+        if (!started.ok || !started.runId) throw new Error('Start was refused');
+        const runId = started.runId;
         await tick(30);
         page.hide();
         await tick(30);
@@ -2861,28 +2878,27 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         expect(store.getState().data.runs[runId].status).toBe('paused');
       });
 
-      it('Done, Step in and Resume are kept the same way; anything that carries typed text is refused, so the screen keeps the text', async () => {
+      it('Done, Step in, Resume and Plan are kept the same way; anything that carries typed text is refused, so the screen keeps the text', async () => {
         const { store, runId, routineId, release, step } = await away();
         const g = () => store.getState();
-        for (const [verb, press] of [['done', () => g().doneLevel(runId)], ['stepIn', () => g().stepIn(runId)], ['resume', () => g().resumeRun(runId)]] as const) {
+        for (const [verb, press] of [['done', () => g().doneLevel(runId)], ['stepIn', () => g().stepIn(runId)], ['plan', () => g().planRun(runId)], ['resume', () => g().resumeRun(runId)]] as const) {
           expect(press()).toEqual({ ok: false, reason: 'reconnecting' });
           expect(g().toVerb).toMatchObject({ verb, runId });
         }
         store.setState({ toVerb: undefined });
         const before = g().data;
         for (const press of [
-          () => g().breakDown(runId, ['typed', 'steps']),
-          () => g().addEdgeStep(runId, 'typed'),
-          () => g().changeWords(runId, 'typed'),
           () => g().setPauseReason(runId, 'typed'),
-          () => g().editRun(runId, { kind: 'add', seq: routineId, after: null, text: 'typed' }),
+          // Every Plan edit carries typed text or a choice made on screen: refused, never queued.
           () => g().editRoutine(routineId, { kind: 'rename', words: 'typed' }),
-          () => g().startNew('typed'),
+          () => g().editRoutine(routineId, { kind: 'addStep', text: 'typed' }),
+          () => g().editRoutine(routineId, { kind: 'reword', item: 'x', text: 'typed' }),
+          () => g().editRoutine(routineId, { kind: 'breakDown', item: 'x', steps: ['typed', 'steps'] }),
+          () => g().editRoutine(routineId, { kind: 'remove', item: 'x' }),
+          () => g().createRoutine('typed'),
           () => g().startRoutine(routineId),
           () => g().jumpTo(runId, { level: 0 }),
           () => g().backTo(runId),
-          () => g().keepChange(runId, 'all'),
-          () => g().dropChange(runId, 'x'),
           () => g().leaveRun(runId),
         ]) {
           expect(press()).toEqual({ ok: false, reason: 'reconnecting' });
@@ -2893,6 +2909,376 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         await tick(30);
         expect(step()).toBe('Stretch');
         expect(g().data.runs[runId].status).toBe('running');
+      });
+    });
+  });
+
+  describe('P-90: the run’s mode (in Plan, or not) survives everything; a press kept while reconnecting never lands on a run that went into Plan', () => {
+    type Body = { frames: { seq: string; at: string | null; round: number; from?: string }[]; status?: string; mode?: string } & Record<string, unknown>;
+    const body = (store: Store, runId: string) => store.getState().data.runs[runId] as unknown as Body;
+    /** A new page load (the old page is gone). */
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * Through the store's actions: two routines made in Plan and started. "Morning" is run to its second
+     * step, then Plan (from the runner: paused, in Plan), with edits made there — a step added, the
+     * divider put in, HERE broken down. "Evening" was started first, paused, and planned from its tile
+     * (in Plan, without being the run the app is on).
+     */
+    function build(store: Store) {
+      const g = () => store.getState();
+      const all: { ok: boolean }[] = [];
+      const make = (name: string, steps: string[]) => {
+        const made = g().createRoutine(name);
+        if (!made.ok || !made.routineId) throw new Error('New: was refused');
+        for (const text of steps) all.push(g().editRoutine(made.routineId, { kind: 'addStep', text }));
+        return made.routineId;
+      };
+      const start = (routineId: string) => {
+        const did = g().startRoutine(routineId);
+        if (!did.ok || !did.runId) throw new Error('Start was refused');
+        return did.runId;
+      };
+      const evening = make('Evening', ['Tidy up', 'Read']);
+      const morning = make('Morning', ['Stretch', 'Shower', 'Coffee']);
+      const tile = start(evening);
+      all.push(g().pauseRun(tile));
+      const runId = start(morning);
+      all.push(g().nextStep(runId), g().planRun(runId));
+      const here = body(store, runId).frames[0].at!;
+      all.push(g().editRoutine(morning, { kind: 'addStep', text: 'Walk' }), g().editRoutine(morning, { kind: 'divider', from: 1 }), g().editRoutine(morning, { kind: 'breakDown', item: here, steps: ['Warm water', 'Cold water'] }), g().planRun(tile));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { runId, tile, morning, evening };
+    }
+    /** What "in Plan" is, as stored and as the screens read it. */
+    async function isInPlan(data: Store extends { getState(): { data: infer D } } ? D : never, { runId, tile, morning }: ReturnType<typeof build>) {
+      const { planView, leftOff, homeTiles, runRoute, pausedView } = await import('@/domain/runView');
+      // As stored: the mode is in the run's body; the run the app is on is paused, the other has no status.
+      expect(data.runs[runId]).toMatchObject({ status: 'paused', mode: 'plan' });
+      expect(data.runs[tile].mode).toBe('plan');
+      expect('status' in data.runs[tile]).toBe(false);
+      // As read.
+      expect(leftOff(data)).toEqual({ kind: 'plan', runId });
+      expect([runRoute(data, runId), runRoute(data, tile)]).toEqual(['plan', 'plan']);
+      expect(planView(data, { runId })).toMatchObject({ name: 'Morning', planning: true, line: 'planning · at Warm water', forward: { kind: 'resume', label: 'Resume at Warm water', runId } });
+      expect(planView(data, { runId })!.divider).toMatchObject({ seq: morning, from: 1 });
+      expect(planView(data, { runId: tile })).toMatchObject({ planning: true, line: 'planning · at Tidy up' });
+      // (Both routines were made in the same instant here, so their order is by id: compared by name.)
+      expect(homeTiles(data).map((x) => [x.name, x.state, x.action]).sort()).toEqual([['Evening', 'planning', 'plan'], ['Morning', 'planning', 'plan']]);
+      expect(pausedView(data, runId)).toMatchObject({ kind: 'planning', action: 'plan' });
+    }
+
+    it('reload: saved to SQLite as it is made (the mode in the run’s body), the same after a reload; Resume takes it out of Plan on disk too, exactly where it was', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      await isInPlan(shown, ids);
+      expect(await onDisk()).toEqual(shown);
+      // (The mode is not a column: it is in the body, with the frames.)
+      const { nodeDb } = await import('./nodeDb');
+      const db = nodeDb(env.state.dbPath);
+      const [row] = await db.all<{ body: string }>('SELECT body FROM runs WHERE id = ?', [ids.runId]);
+      db.close();
+      expect(JSON.parse(row.body)).toMatchObject({ mode: 'plan', status: 'paused' });
+
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(shown);
+      await isInPlan(store.getState().data, ids);
+
+      expect(store.getState().resumeRun(ids.runId).ok).toBe(true);
+      await tick(30);
+      expect('mode' in (await onDisk()).runs[ids.runId]).toBe(false);
+      expect((await onDisk()).runs[ids.runId]).toMatchObject({ status: 'running', frames: body(store, ids.runId).frames });
+      store = await reload();
+      const { runnerView, leftOff } = await import('@/domain/runView');
+      expect(leftOff(store.getState().data)).toEqual({ kind: 'runner', runId: ids.runId });
+      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ status: 'running', planning: false, step: { words: 'Warm water' } });
+      // The other run is still in Plan (left there from its tile).
+      expect(store.getState().data.runs[ids.tile].mode).toBe('plan');
+    });
+
+    it('after the audit (F1): a run the build before stored "running" at the edge is left as stored at load; a Start elsewhere is ONE write — that run in Plan and not running — on disk, after a reload, and from the journal alone', async () => {
+      fakeLocks();
+      let store = await load();
+      const at = '2026-11-01T00:00:00.000Z';
+      const base = store.getState().data;
+      const legacy = {
+        ...base,
+        routines: {
+          gym: { id: 'gym', words: 'Gym', named: true, createdAt: at, home: true, open: true, items: [{ id: 'a', text: 'Warm up' }] },
+          house: { id: 'house', words: 'House', named: true, createdAt: at, home: true, items: [{ id: 'h', text: 'Tidy the hall' }] },
+          desk: { id: 'desk', words: 'Desk', named: true, createdAt: at, home: true, items: [{ id: 'd', text: 'Clear it' }] },
+        },
+        runs: { edge: { id: 'edge', routineId: 'gym', startedAt: at, touchedAt: at, frames: [{ seq: 'gym', at: null, round: 1 }], changes: [], status: 'running' } },
+      } as unknown as typeof base;
+      expect(store.getState().replaceData(legacy)).toBe(true);
+      await tick(30);
+      // Nothing is rewritten at load: it is on disk as that build left it, and reads as planning.
+      store = await reload();
+      expect(body(store, 'edge')).toMatchObject({ status: 'running' });
+      expect('mode' in body(store, 'edge')).toBe(false);
+      const { leftOff } = await import('@/domain/runView');
+      expect(leftOff(store.getState().data)).toEqual({ kind: 'plan', runId: 'edge' });
+
+      // Start elsewhere: not refused; saved to SQLite in the one write.
+      const first = store.getState().startRoutine('house');
+      if (!first.ok || !first.runId) throw new Error(`Start was refused: ${JSON.stringify(first)}`);
+      await tick(30);
+      const running = (d: typeof base) => Object.values(d.runs).filter((r) => r.status === 'running').map((r) => r.id);
+      for (const d of [store.getState().data, await onDisk()]) {
+        expect(running(d)).toEqual([first.runId]);
+        expect(d.runs.edge.status).toBeUndefined();
+        expect(d.runs.edge.mode).toBe('plan');
+      }
+      expect(await onDisk()).toEqual(store.getState().data);
+      // Its Undo puts the edge run back exactly as it was stored.
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect((await onDisk()).runs).toEqual({ edge: legacy.runs.edge });
+
+      // The same when the tab dies before the write commits: all of it comes back from the journal.
+      env.state.hangWrites = true;
+      const second = store.getState().startRoutine('desk');
+      if (!second.ok || !second.runId) throw new Error('Start was refused');
+      await tick(30);
+      expect((await onDisk()).runs.edge.status).toBe('running');
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(running(store.getState().data)).toEqual([second.runId]);
+      expect(body(store, 'edge').status).toBeUndefined();
+      expect(body(store, 'edge').mode).toBe('plan');
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect(leftOff(store.getState().data)).toEqual({ kind: 'runner', runId: second.runId });
+    });
+
+    it('journal replay: Plan and its edits made while no write commits (the tab dies) are all there after a reload — the mode too; and so is leaving Plan', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {}, runs: {} });
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRuns.find((r: { id: string }) => r.id === ids.runId)).toMatchObject({ mode: 'plan', status: 'paused' });
+      const shown = store.getState().data;
+      env.state.hangWrites = false;
+
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().saveError).toBeUndefined();
+      expect(store.getState().data).toEqual(shown);
+      await isInPlan(store.getState().data, ids);
+      expect(await onDisk()).toEqual(shown);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+
+      // Leaving Plan (Resume) when the tab dies before the write commits: the run is running after the reload, not in Plan.
+      env.state.hangWrites = true;
+      expect(store.getState().resumeRun(ids.runId).ok).toBe(true);
+      await tick(30);
+      expect((await onDisk()).runs[ids.runId].mode).toBe('plan');
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data.runs[ids.runId]).toMatchObject({ status: 'running' });
+      expect('mode' in store.getState().data.runs[ids.runId]).toBe(false);
+      expect('mode' in (await onDisk()).runs[ids.runId]).toBe(false);
+    });
+
+    it('the localStorage fallback keeps the mode, and it moves into SQLite with the rest once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      expect(JSON.parse(env.ls.get('wanderment')!).state.data.runs[ids.runId]).toMatchObject({ mode: 'plan', status: 'paused' });
+      expect(JSON.parse(env.ls.get('wanderment')!).state.data.runs[ids.tile].mode).toBe('plan');
+
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      expect(store.getState().data).toEqual(shown);
+      await isInPlan(store.getState().data, ids);
+
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(shown);
+      expect(await onDisk()).toEqual(shown);
+      await isInPlan((await reload()).getState().data, ids);
+    });
+
+    it('hand-over (two tabs, Plan in one, the runner in the other): the other page resumed the run — this page takes that, and is no longer in Plan; then the other page put it in Plan — this page is in Plan', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const { runVerb } = await import('@/domain/run');
+      const { runRoute, leftOff } = await import('@/domain/runView');
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const elsewhere = async (kind: 'resume' | 'plan', now: string) => {
+        const moved = runVerb(await onDisk(), { kind, runId: ids.runId }, { now, id: () => 'other-page-id' });
+        expect(moved.ok).toBe(true);
+        const db = nodeDb(env.state.dbPath);
+        await saveChanges(db, { upsertRuns: [moved.data.runs[ids.runId]] } as never);
+        db.close();
+        return moved.data.runs[ids.runId];
+      };
+
+      page.hide();
+      await tick(30);
+      const resumed = await elsewhere('resume', '2026-11-01T12:00:00.000Z');
+      expect('mode' in resumed).toBe(false);
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.runs[ids.runId]).toEqual(resumed);
+      expect(runRoute(store.getState().data, ids.runId)).toBe('runner');
+      expect(leftOff(store.getState().data)).toEqual({ kind: 'runner', runId: ids.runId });
+      // What this page did in Plan before is all still there (the routine, its breakdown), and the other run's mode.
+      expect(Object.keys(store.getState().data.routines)).toHaveLength(3);
+      expect(store.getState().data.runs[ids.tile].mode).toBe('plan');
+
+      page.hide();
+      await tick(30);
+      const planned = await elsewhere('plan', '2026-11-01T12:05:00.000Z');
+      page.show();
+      await tick(100);
+      expect(store.getState().data.runs[ids.runId]).toEqual(planned);
+      expect(store.getState().data.runs[ids.runId]).toMatchObject({ status: 'paused', mode: 'plan' });
+      expect(runRoute(store.getState().data, ids.runId)).toBe('plan');
+      expect(await onDisk()).toEqual(store.getState().data);
+      const next = await reload();
+      expect(next.getState().data).toEqual(store.getState().data);
+    });
+
+    it('export → import: the backup carries the mode; the same file is identical; imported into an empty browser it is the same data, in Plan, after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      let { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      expect(JSON.parse(json).data.runs[ids.runId]).toMatchObject({ mode: 'plan', status: 'paused' });
+      expect(JSON.parse(json).data.runs[ids.tile].mode).toBe('plan');
+      expect(JSON.parse(json).data.version).toBe(2);
+      expect(previewImport(json).plan).toMatchObject({ identical: true, routines: { unchanged: 3 }, runs: { unchanged: 2 } });
+
+      // Another browser (nothing there).
+      (await import('./persistence')).stopPersistence();
+      env.ls.clear();
+      env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-')), 'db.sqlite');
+      page = fakePage();
+      fakeLocks();
+      store = await load();
+      await tick(30);
+      ({ previewImport, confirmImport } = await import('@/store/importBackup'));
+      const preview = previewImport(json);
+      expect(preview.incoming).toEqual(exported);
+      expect(confirmImport(preview).ok).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(exported);
+      store = await reload();
+      expect(store.getState().data).toEqual(exported);
+      await isInPlan(store.getState().data, ids);
+    });
+
+    describe('a press while reconnecting, and Plan', () => {
+      /** A running run on the first of three steps, saved; then the page is hidden and shown while another page holds the data. */
+      async function away() {
+        const locks = fakeLocks();
+        const store = await load();
+        const g = () => store.getState();
+        const made = g().createRoutine('Morning');
+        if (!made.ok || !made.routineId) throw new Error('New: was refused');
+        for (const text of ['Stretch', 'Shower', 'Coffee']) g().editRoutine(made.routineId, { kind: 'addStep', text });
+        const started = g().startRoutine(made.routineId);
+        if (!started.ok || !started.runId) throw new Error('Start was refused');
+        const runId = started.runId;
+        await tick(30);
+        page.hide();
+        await tick(30);
+        const release = locks.holdElsewhere();
+        page.show();
+        await tick(100);
+        expect(store.getState().storage).toEqual(RECONNECTING);
+        return { store, runId, routineId: made.routineId, release };
+      }
+      const elsewhere = async (runId: string, kind: 'plan' | 'next') => {
+        const { runVerb } = await import('@/domain/run');
+        const moved = runVerb(await onDisk(), { kind, runId }, { now: '2026-11-01T12:00:00.000Z', id: () => 'other-page-id' });
+        const { nodeDb } = await import('./nodeDb');
+        const { saveChanges } = await import('./repository');
+        const db = nodeDb(env.state.dbPath);
+        await saveChanges(db, { upsertRuns: [moved.data.runs[runId]] } as never);
+        db.close();
+        return moved.data.runs[runId];
+      };
+
+      it('Plan pressed (twice) is kept, with the quiet note, and applied exactly once when the data is back: paused, in Plan, saved', async () => {
+        const { store, runId, release } = await away();
+        const before = store.getState().data;
+        expect(store.getState().planRun(runId)).toEqual({ ok: false, reason: 'reconnecting' });
+        expect(store.getState().planRun(runId)).toEqual({ ok: false, reason: 'reconnecting' });
+        expect(store.getState().data).toBe(before);
+        expect(store.getState().toVerb).toMatchObject({ runId, verb: 'plan' });
+        expect(store.getState().toast).toEqual({ message: 'Just a moment — reconnecting.', notice: true });
+        release();
+        await tick(30);
+        expect(store.getState().storage).toEqual(READY);
+        expect(store.getState().data.runs[runId]).toMatchObject({ status: 'paused', mode: 'plan' });
+        expect(store.getState().toVerb).toBeUndefined();
+        expect(await onDisk()).toEqual(store.getState().data);
+      });
+
+      it('Next kept here, and the other page put the run in Plan meanwhile: the press is dropped — a queued Next never moves a run that went into Plan', async () => {
+        const { store, runId, release } = await away();
+        store.getState().nextStep(runId);
+        expect(store.getState().toVerb).toMatchObject({ verb: 'next' });
+        const planned = await elsewhere(runId, 'plan');
+        release();
+        await tick(30);
+        expect(store.getState().storage).toEqual(READY);
+        expect(store.getState().data.runs[runId]).toEqual(planned);
+        expect((store.getState().data.runs[runId] as unknown as Body).frames).toEqual((planned as unknown as Body).frames);
+        expect(store.getState().toVerb).toBeUndefined();
+        expect(store.getState().undo).toBeUndefined();
+        const { runnerView } = await import('@/domain/runView');
+        expect(runnerView(store.getState().data, runId)).toMatchObject({ planning: true, step: { words: 'Stretch' } });
+      });
+
+      it('Plan kept here, and the other page moved the run on meanwhile: the press is dropped — the run is where that page left it, running', async () => {
+        const { store, runId, release } = await away();
+        store.getState().planRun(runId);
+        const moved = await elsewhere(runId, 'next');
+        release();
+        await tick(30);
+        expect(store.getState().data.runs[runId]).toEqual(moved);
+        expect(store.getState().data.runs[runId].status).toBe('running');
+        expect(store.getState().toVerb).toBeUndefined();
+      });
+
+      it('a Plan edit while reconnecting is refused (never kept): nothing changes, and it works once the data is back', async () => {
+        const { store, runId, routineId, release } = await away();
+        const before = store.getState().data;
+        expect(store.getState().editRoutine(routineId, { kind: 'addStep', text: 'Walk' })).toEqual({ ok: false, reason: 'reconnecting' });
+        expect(store.getState().data).toBe(before);
+        expect(store.getState().toVerb).toBeUndefined();
+        release();
+        await tick(30);
+        expect(store.getState().editRoutine(routineId, { kind: 'addStep', text: 'Walk' }).ok).toBe(true);
+        expect((store.getState().data.routines[routineId].items as unknown[]).length).toBe(4);
+        expect(store.getState().data.runs[runId].status).toBe('running');
       });
     });
   });

@@ -28,8 +28,8 @@ routines in their own words — and runs them with the person, one small step at
   activities and must never look alike** (owner, first real use, 2026-11-25): "plan, execute, plan,
   execute is the type of context switching I had in mind, but the app blurs the two". Adding a step and
   breaking one down are planning; they are welcome mid-run, in a view that is unmistakably not the
-  runner, and coming back to the app must show at a glance which of the two you were doing. As built
-  today the runner hosts both; that is a known fault (roadmap P-90), not a rule to copy.
+  runner, and coming back to the app must show at a glance which of the two you were doing. *(Built,
+  P-90: planning has its own surface, **Plan**; the runner hosts none of it.)*
 
 ## Model
 - **Step** *(built)*: a line of the person's words.
@@ -42,11 +42,14 @@ routines in their own words — and runs them with the person, one small step at
   once through. A routine can't contain itself. Its end is either open (the edge, below) or "ends
   here".
 - **Run** *(built)*: a routine being carried out — where the person is at every level (including the
-  round), the changes made for this run only, a pause reason, and a definite end. **A run is a
-  working copy**: inside it you can add, remove or reword for this run only; "Keep in <routine>"
-  makes a change permanent.
-- **A breakdown** *(built)*: Break it down turns the current step into a sequence, for this run,
-  unnamed. Unnamed things are not listed, but typing their words finds them.
+  round), which of the two it was left doing (running, or planning), a pause reason, and a definite
+  end. **A change made in Plan changes the routine** (owner, B-12): nothing is "for this run only",
+  and there is no Keep. (Runs stored before P-90 may still carry this-run changes. They are read as
+  before; the first time Plan is opened on such a run they are kept in its routine, in one write,
+  with a notice saying so and an Undo. Never at load.)
+- **A breakdown** *(built)*: Break it down, on a step's menu in Plan, turns that step into a sequence
+  of its own, unnamed, in the routine. Unnamed things are not listed, but typing their words finds
+  them.
 - **One version per name.** A name always means one routine. To vary, copy *(copying: designed, not
   built yet)*.
 - **Designed, not built yet:** **blanks** (an optional input in a routine's name or steps, "Apply to
@@ -60,56 +63,87 @@ routines in their own words — and runs them with the person, one small step at
 - **Never shown as words:** frame, thread, stack, pointer, parameter, foundation, async, promise.
 
 ## The verbs
-**Start, Resume, Pause, Done, Next** (owner, §9b). They must read as one set; no word is chosen for
-how it sounds alone. A paused run is "paused".
-- **Start** begins a run. **Next** goes to the next step; on a wait step it reads **"It's
-  happened"**. **Break it down** goes deeper and reads **Step in** when the step is a routine (same
-  slot, same meaning).
+**Start, Resume, Pause, Done, Next** (owner, §9b) — and **Plan** (owner, B-12). They must read as one
+set; no word is chosen for how it sounds alone. A paused run is "paused"; a run in Plan is
+"planning", never "paused".
+- **Start** begins a run (it is not offered for a routine with no steps yet). **Next** goes to the
+  next step; on a wait step it reads **"It's happened"**.
+- **Plan** *(built)* goes to the Plan surface: the word going in is Plan, the word coming out is
+  **Resume at <step>** (Start for something never run). On the runner it is the middle button, and
+  reads **Step in** when the step is a routine (same slot). Entering Plan pauses the run in the same
+  moment: nothing runs while you plan.
 - **Done** leaves the level you are in, for whatever reason, and carries on with what comes next
-  above it; at the top it ends the run. It names what it ends.
+  above it; at the top it ends the run. It names what it ends. It exists on the runner and — in Plan
+  — only at the edge.
 - **Pause** says "I'm done with this for now" and may carry a reason. The paused screen shows the run
   with **Resume**, and beneath it whatever else can be resumed — siblings first, then up a level —
   each with its own Resume. There is no "Switch".
 - **Home** on the paused screen replaces "Stop". It asks first ("Stop <name>?"; the run stays where
   it is; Cancel is the filled button).
 - **One wording per meaning:** a paused run reads "at <step>"; a waiting one "waiting for <words> ·
-  since <day>"; a run with no blank reads "· since <day>".
+  since <day>"; a run with no blank reads "· since <day>"; a run in Plan reads "planning · at <step>"
+  ("planning · nothing next yet" at the edge), on its tile, in Plan and on the paused screen.
 
 ## Interaction
 - **One thing runs at a time.** At most one run is running. To take up another you pause first. The
-  app opens where you left off: the runner, the paused screen, or home.
+  app opens where you left off, in the mode you were in: the runner, Plan, the paused screen, or home.
 - **Home asks first, and home is tiles** *(built)*: everything you have open is a tile, coloured
-  like its note — the name, where it is, and Resume or Start. Tiles stay in a fixed order *(as built — a builder's ruling, not an owner decision)* (when each
+  like its note — the name, where it is and in which mode, and its buttons in words: "at <step>" with
+  Resume, or — for a run left in Plan, drawn dark like the Plan surface — "planning · …" with Plan;
+  Start for a routine with nothing going. Every tile not in Plan also has **Plan** (a routine with no
+  steps yet has Plan only). After the tiles comes a **New** tile. Tiles stay in a fixed order *(as built — a builder's ruling, not an owner decision)* (when each
   was first made); nothing is ranked. The prompt **"I'm going to…"** searches the tiles as you type,
-  then routines and unnamed things, with **"New: <your words>"** last. Home is titled "Running" when
-  a run is running and "Nothing running" otherwise.
+  then routines and unnamed things, with **"New: <your words>"** last. **New makes the routine only**
+  — no run until Start — and opens its Plan with the name filled and the open row focused; the New
+  tile does the same with the words in the prompt (with none, it takes you to the prompt). Home is
+  titled "Running" when a run is running and "Nothing running" otherwise.
 - **Nothing is created or started without a tap.** Typing starts nothing until a row is chosen
   (Return takes the first row, which is always visible and marked). The app never jumps by itself.
 - **The runner is the step and nothing else** *(built)*: a context line (the level and its parent,
-  in words; tapping it opens See it all) with Done; the step as a fixed, roughly square sticky note;
-  three buttons in fixed places — Pause, Break it down / Step in, Next (the one filled button,
-  lowest). Nothing about repeating is on the surface except one small mark on **the last step of a
-  round**. A repeating part comes round again silently; a counted loop ends by itself. There is no
-  "one more round".
+  in words — not a control) with Done; the step as a fixed, roughly square sticky note; three buttons
+  in fixed places — Pause, Plan / Step in, Next (the one filled button, lowest). Nothing is planned
+  or typed here. Nothing about repeating is on the surface except one small mark on **the last step
+  of a round**. A repeating part comes round again silently; a counted loop ends by itself. There is
+  no "one more round".
 - **The note always fits**, keyboard up included: the type steps down first, then the note shrinks
-  to the space. Words too long for it scroll inside it and Break it down carries a quiet mark.
+  to the space. Words too long for it scroll inside it and Plan carries a quiet mark (breaking a
+  step down is planning).
 - **The person's words are never clipped, counted or warned about.**
 - **The pull-up panel** *(built)*: swiping up on the runner or tapping the note. It holds where you
-  are in this run (the round, "Last step of the round", "then: <next step>", "This run only") and
-  the actions: Change the words, Back to <step>, Jump to…, See it all, Keep in <routine>.
+  are in this run (the round, "Last step of the round", "then: <next step>") and the two actions
+  that move you without planning: Back to <step> and Jump to….
 - **Jump to…** *(built)* sets the run to where the person really is: the start of any level they are
   in (round one), or a particular step (the round is kept). The app never suggests you are behind.
-- **The edge keeps extending** *(built; §9c)*: reaching the end of what has been worked out does not
-  finish the run. The runner asks for the next small step, and the step added is kept in the
-  routine. Done still ends the run. A routine set to "ends here" finishes on its last Next.
-- **A run leaves the routine better** *(built; §9c)*: leaving a level in which something was changed
-  for this run shows those changes once, each with Keep (and Keep all). It appears only when there
-  is something to keep and never blocks leaving.
-- **See it all is the run, not the routine** *(built — from a proposal, not an owner decision)*: titled "This run of <name>", it looks
-  different from the routine editor, and what you change there is for this run only.
-- **The routine editor** *(built, plain)*: a list of steps and wait steps, move up / down, the
-  Repeat divider, "ends here", rename, remove. Editing is live, with Undo — no Save. Blocks, Read
-  it, Walk through, rails and drag are designed, not built yet.
+- **Plan is the sequence, and looks nothing like the runner** *(built; B-12 frames v1, v2, v4, v5,
+  v8; P-90)*: a light band pinned at the top with the word PLAN and **Home** in one fixed place on
+  every Plan screen; the routine's name as the heading; "planning · at <step>"; the steps as outlined
+  rows, the one you were on marked **HERE** (the white outline means HERE and nothing else); "Repeat
+  from here" as a row of its own with visible Move up / Move down and its menu (until I'm done or a
+  number; remove it); an "Add a step" row. A step's menu is in words — Change the words, Add a step
+  after, Break it down, Make it a wait (Make it a step), Move up, Move down, Remove this step, Close —
+  and words are typed in place. One press moves one row: next to "Repeat from here" a step passes it
+  and nothing else moves. The routine's own menu holds its name, "Ends here", adding "Repeat from
+  here", and — with no run going — Remove. A routine used as a step is a row that opens; what is
+  changed inside it changes that routine. **Every change changes the routine**, is followed by a
+  notice naming it with an Undo that stays until the next action (one Undo, the last change's), and
+  repairs any run it touches: removing the HERE step puts HERE on the next step, else the one
+  before, else at the edge — a run is never ended by an edit. The ONE filled button is **Resume at
+  <step>**, which goes back exactly where you were (Start for a routine with no run, once it has a
+  step). Nothing in Plan says Next. Home from Plan changes nothing: the run stays in Plan and its
+  tile says so. A screen reader hears "Plan: <routine>" on arriving (focus on the heading) and
+  "Running: <step>" on returning (focus on the note).
+- **The edge is Plan's** *(built; §9c, B-12 v5)*: reaching the end of what has been worked out does
+  not finish the run and never shows a blank note. The run is in Plan — "planning · nothing next
+  yet", the open row focused, no filled button — and **Done** has its own slot in the band, beside
+  Home, never in Home's place. A step added there is the routine's and is where the run stands. Done
+  ends the run, with Undo. A routine set to "ends here" finishes on its last Next.
+- **See it all and the plain routine editor are gone** *(P-90)*: both are Plan now (their old
+  addresses land there). The break-down sheet, the runner's blank "next small step" note and the
+  Keep sheet are gone with them.
+- **Not built in Plan yet** (B-12, each needs its own item): declaring a routine where you stand
+  ("Make a routine from here…"), "Also in" for a routine used elsewhere, inputs ("With"), reordering
+  by drag, more than one Undo, adding "Repeat from here" to a routine nested as a step from its
+  parent's Plan.
 - **Designed, not built yet:** Your routines, Looking back ("a set, not a log": one line per ended
   run), the Map of a tile's contents, the leaving ask for things still waited on ("Still waiting" /
   "Let it go"), "Stop waiting for this". **Erase everything is not built and not decided** as an
@@ -160,8 +194,10 @@ action reaches beyond the screen.
 ## One copy at a time (web, P-29)
 - A page holds the data only while it's visible. A page that doesn't hold it (coming back to a tab,
   reconnecting, or waiting for another copy) **can't change it**: changes are refused with one quiet
-  notice. One pressed verb (Next, Done, Pause, Resume, Step in) is kept and applied once the data is
-  back, only if the run is unchanged. Typed text stays in its field and is never dropped.
+  notice. One pressed verb (Next, Done, Pause, Resume, Step in, Plan) is kept and applied once the
+  data is back, only if the run is unchanged. Typed text stays in its field and is never dropped.
+  A run's screens follow the data: Plan pressed in one tab puts the other tab's runner in Plan when
+  it takes the data back, and Resume the other way round.
 - The app's own states stay: opening, can't open the data (with a download of this browser's local
   copy), another tab took over, reconnecting, a new version is ready, saved by a newer version.
 - Known edge cases (accepted):

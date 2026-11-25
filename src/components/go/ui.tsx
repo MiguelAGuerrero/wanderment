@@ -7,6 +7,7 @@
 import { usePreventRemove } from 'expo-router';
 import { ComponentRef, ReactNode, Ref, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   Animated,
   KeyboardAvoidingView,
   Platform,
@@ -37,6 +38,8 @@ export type InputRef = ComponentRef<typeof TextInput>;
 
 /** The focus ring: its own colour, with a gap (web; native has the system's). */
 const RING = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: G.focus, outlineOffset: 3 } as object) : null;
+/** On paper or a routine's colour (an `ink` button): the lavender ring is under 3:1 there (1.85:1 on paper), ink is not. */
+const RING_INK = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: G.ink, outlineOffset: 3 } as object) : null;
 const NO_RING = WEB ? ({ outlineStyle: 'none' } as object) : null;
 /** A hard, unblurred shadow. */
 export const hard = (px: number, color: string) => ({ boxShadow: `${px}px ${px}px 0px ${color}` }) as ViewStyle;
@@ -207,6 +210,31 @@ export function HiddenH1({ children, ref }: { children: string; ref?: Ref<TextRe
   );
 }
 
+/**
+ * What a screen says once on arriving, for a screen reader (P-90: "Plan: <routine>" in Plan, "Running:
+ * <step>" on the runner — the two must never sound alike). It takes no room. Web: a polite live region
+ * filled a moment after it is there (one filled from the start is not read); native: announced.
+ */
+export function Said({ text }: { text: string }) {
+  const [first] = useState(text);
+  const [shown, setShown] = useState('');
+  useEffect(() => {
+    if (!first) return;
+    if (!WEB) {
+      AccessibilityInfo.announceForAccessibility(first);
+      return;
+    }
+    const timer = setTimeout(() => setShown(first), 150);
+    return () => clearTimeout(timer);
+  }, [first]);
+  return (
+    <Text role="status" aria-live="polite" accessibilityLiveRegion="polite" style={styles.hidden} testID="go-said">
+      {/* Once what it said is no longer so (the next step), it says nothing: never something stale. */}
+      {text === first ? shown : ''}
+    </Text>
+  );
+}
+
 export interface BtnProps {
   /** The visible word(s). Leave out for an icon-only button (then `spoken` is required). */
   label?: string;
@@ -218,7 +246,7 @@ export interface BtnProps {
   markAfter?: MarkName;
   /** Unavailable: dashed, lighter, and disabled. */
   disabled?: boolean;
-  /** Drawn on a routine's colour: ink outline and ink words. */
+  /** Drawn on a routine's colour or on paper: ink outline, ink words, and an ink focus ring. */
   ink?: boolean;
   /** For "cannot be undone" only. */
   danger?: boolean;
@@ -259,7 +287,7 @@ export function Btn({ label, spoken, kind = 'outline', mark, markAfter, disabled
         disabled && kind !== 'plain' && styles.dashed,
         !label && styles.square,
         state.pressed && !disabled && { opacity: 0.75 },
-        (state as { focused?: boolean }).focused ? RING : NO_RING,
+        (state as { focused?: boolean }).focused ? (ink ? RING_INK : RING) : NO_RING,
         style,
       ]}>
       {mark && <Mark name={mark} color={color} />}
@@ -307,6 +335,8 @@ export function Field({ style, ink, bare, size = BODY, onFocus, onBlur, ref, kee
  */
 export function GrowField({ onSubmit, style, ...rest }: FieldProps & { onSubmit?: () => void }) {
   const [tall, setTall] = useState(0);
+  // In its own box the 2-px outline is inside the height: without that room the last 4 px would scroll.
+  const edge = rest.bare ? 0 : 4;
   const own = useRef<InputRef>(null);
   return (
     <Field
@@ -324,7 +354,7 @@ export function GrowField({ onSubmit, style, ...rest }: FieldProps & { onSubmit?
         e.preventDefault();
         onSubmit?.();
       }}
-      style={[style, { height: Math.max(TARGET, tall) }]}
+      style={[style, { height: Math.max(TARGET, tall + edge) }]}
     />
   );
 }

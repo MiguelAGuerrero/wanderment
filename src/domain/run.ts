@@ -1,8 +1,15 @@
 /**
- * B-11 slice 1 (P-86): routines being run. One pure engine: `runVerb(data, verb, env)` returns the
- * data after the verb (or the very same data, refused), with what the screens show for it: what to
- * say (`said`) and which of this run's changes to offer to keep (`offer`). No clock and no ids of
+ * B-11 slice 1 (P-86), B-12 (P-90): routines being run and planned. One pure engine:
+ * `runVerb(data, verb, env)` returns the data after the verb (or the very same data, refused), with
+ * what the screens say for it (`said`, `folded`); `editRoutine` is every change to a routine — the
+ * Plan surface's edits — and keeps every open run standing in the same write. No clock and no ids of
  * its own: `env` brings both.
+ *
+ * P-90: a change made in Plan changes the ROUTINE. Nothing writes a "this run only" change any more.
+ * Runs stored by the build before still carry them (`changes`), and are read through them (`view`)
+ * exactly as before, until Plan is first opened on such a run: then they are folded into the routine
+ * in that one write (`plan`). A run is in Plan when its body says `mode: 'plan'` and it is not
+ * running, or when it has nothing to stand on (the edge): see `isPlanning`.
  *
  * P-85's tables keep everything here in a routine's or a run's JSON body, so there is no migration.
  * Storage does not check that body, and a damaged row loads with none of it: every read goes through
@@ -56,7 +63,11 @@ export interface Frame {
   from?: Id;
 }
 
-/** A change for THIS RUN ONLY, until kept. `offered`: it has been shown once on leaving its level. */
+/**
+ * A change for THIS RUN ONLY, as the build before P-90 stored them. Read (through `view`), never
+ * written any more; folded into the routine when Plan is first opened on the run. `offered` is that
+ * build's mark and means nothing now.
+ */
 export type Change = { id: Id; seq: Id; offered?: true } & (
   | { kind: 'reword'; item: Id; text: string }
   | { kind: 'breakdown'; item: Id; into: Id }
@@ -78,6 +89,11 @@ export interface RunState {
   changes: Change[];
   /** Only the one run the app is on has a status (see `setStatus`); an ended run never has. */
   status?: 'running' | 'paused';
+  /**
+   * It was left in Plan. Never on a run that is running or ended (a stored one there is ignored).
+   * Absent says nothing by itself: a run at the edge is planning too (`isPlanning`).
+   */
+  mode?: 'plan';
   /** Why it was paused, as typed. */
   reason?: string;
   /** When a verb last moved or touched it. */
@@ -98,22 +114,20 @@ export type JumpTo =
   /** A step: the item ids from the bottom level down to it. */
   | { path: Id[] };
 
-/** See it all: changes to this run only. */
-export type RunEdit =
-  | { kind: 'add'; seq: Id; after: Id | null; text: string }
-  | { kind: 'addWait'; seq: Id; after: Id | null; wait: string }
-  | { kind: 'reword'; seq: Id; item: Id; text: string }
-  | { kind: 'remove'; seq: Id; item: Id }
-  | { kind: 'repeat'; seq: Id; repeat?: number };
-
-/** The plain routine editor: changes to the routine itself. */
+/** Plan: changes to the routine itself (a sequence: a named routine, or the unnamed one a step was broken into). */
 export type RoutineEdit =
   /** `after`: absent = at the end; null = first; an item's id = right after it. */
   | { kind: 'addStep'; text: string; after?: Id | null }
   | { kind: 'addWait'; wait: string; after?: Id | null }
   | { kind: 'remove'; item: Id }
+  /** One row up or down. The Repeat divider is a row: next to it the step passes it and no other step moves. */
   | { kind: 'move'; item: Id; by: -1 | 1 }
   | { kind: 'reword'; item: Id; text: string }
+  /** Break it down: the plain step becomes an unnamed sequence of these steps (blank ones dropped), under the same item id. */
+  | { kind: 'breakDown'; item: Id; steps: string[] }
+  /** Make it a wait ("Wait for: <its words>"), and back to a step. Same item, same id. */
+  | { kind: 'toWait'; item: Id }
+  | { kind: 'toStep'; item: Id }
   /** The Repeat divider before items[from]; absent = no divider. */
   | { kind: 'divider'; from?: number }
   /** A number of rounds; absent = until I'm done. */
@@ -125,24 +139,20 @@ export type RoutineEdit =
 
 export type Verb =
   | { kind: 'start'; routineId: Id }
+  /** "New: <words>": makes the routine only (P-90): no run until Start. */
   | { kind: 'new'; words: string }
+  /** Resume, and Plan's "Resume at <step>": running, the mode gone, exactly where it was. */
   | { kind: 'resume'; runId: Id }
+  /** Plan: the run is in Plan (and paused, if it was the one running), in one write; this-run changes from the build before are folded into the routine in it. */
+  | { kind: 'plan'; runId: Id }
   | { kind: 'pause'; runId: Id; reason?: string }
   | { kind: 'reason'; runId: Id; text: string }
   | { kind: 'home'; runId: Id }
   | { kind: 'next'; runId: Id }
   | { kind: 'done'; runId: Id }
   | { kind: 'stepIn'; runId: Id }
-  /** `at`: the step the sheet was opened on. If the run is elsewhere by now, the sub-steps still go to that step and the run stays where it is. */
-  | { kind: 'breakDown'; runId: Id; steps: string[]; at?: { seq: Id; item: Id } }
-  | { kind: 'edgeStep'; runId: Id; text: string }
-  | { kind: 'words'; runId: Id; text: string }
   | { kind: 'back'; runId: Id }
-  | { kind: 'jump'; runId: Id; to: JumpTo }
-  /** One change, a list of them, or all: always one write (so one Undo). */
-  | { kind: 'keep'; runId: Id; change: Id | 'all' | Id[] }
-  | { kind: 'drop'; runId: Id; change: Id }
-  | { kind: 'edit'; runId: Id; edit: RunEdit };
+  | { kind: 'jump'; runId: Id; to: JumpTo };
 
 /** What a verb has to say. `finished`: the levels left by themselves or by Done, innermost first. */
 export type Said = { kind: 'finished'; names: string[] } | { kind: 'ended'; name: string } | { kind: 'edge' } | { kind: 'jumped'; from: string };
@@ -153,12 +163,13 @@ export type Refusal =
   | 'running'
   | 'has-run'
   | 'asking'
+  /** The run is in Plan: Next, Step in, Back — and Done, off the edge — wait for Resume. */
+  | 'planning'
   | 'empty'
   | 'not-a-routine'
   | 'not-a-step'
   | 'no-steps'
   | 'too-deep'
-  | 'not-at-edge'
   | 'cannot'
   | 'nothing-before'
   | 'no-such-level'
@@ -169,16 +180,16 @@ export interface Result {
   ok: boolean;
   /** The data after the verb; the very same object when refused or when nothing changed. */
   data: Data;
-  /** This run's changes to show once, each with Keep (already marked offered in `data`). */
-  offer: Change[];
   said?: Said;
   reason?: Refusal;
-  /** Start, New: the run now running. */
+  /** Start: the run now running. */
   runId?: Id;
+  /** New: the routine made (or, for a name there is, the routine that has it). */
+  routineId?: Id;
   /** Refused because something is running: what. */
   running?: { runId: Id; name: string };
-  /** Keep: the changes that went into the routine (others chosen had nothing left to change). */
-  kept?: Id[];
+  /** This write folded the run's this-run changes (from the build before) into its routine: the routine's name. */
+  folded?: string;
 }
 
 // ───────── reading ─────────
@@ -263,6 +274,7 @@ export function readRun(data: Data, id: Id): RunState | undefined {
     frames,
     changes: rawChanges(r).filter(isChange),
     ...(!ended && (r.status === 'running' || r.status === 'paused') && { status: r.status }),
+    ...(!ended && r.mode === 'plan' && r.status !== 'running' && { mode: 'plan' as const }),
     ...(text(r.reason) && r.reason.trim() && { reason: r.reason }),
     ...(text(r.touchedAt) && { touchedAt: r.touchedAt }),
     ...((r.endedBy === 'done' || r.endedBy === 'finished') && { endedBy: r.endedBy }),
@@ -368,6 +380,24 @@ export function place(data: Data, run: RunState): Place | undefined {
   return { frames, frame, seq, item: frame.at === null ? undefined : seq.items.find((i) => i.id === frame.at), repaired };
 }
 
+/**
+ * The run is in Plan: it was left there (`mode`), or it has nothing to stand on (the edge of a goal:
+ * nothing can run there, whatever is stored). Never a run that is running on a step, never an ended one.
+ */
+export function isPlanning(data: Data, run: RunState): boolean {
+  if (run.endedAt) return false;
+  if (run.mode === 'plan') return true;
+  const at = place(data, run);
+  return !!at && !at.item;
+}
+
+/**
+ * The run is running: THE one definition, for the engine, the store and the screens. Stored as running
+ * AND on a step — a run in Plan is never running, whatever is stored (the build before P-90 kept a run
+ * "running" at the edge of a goal: that one is planning, and blocks nothing).
+ */
+export const isRunning = (data: Data, run: RunState): boolean => run.status === 'running' && !isPlanning(data, run);
+
 const isOpen = (run: RunState | undefined): run is RunState => !!run && !run.endedAt;
 /** Every run that has not ended. */
 export const openRuns = (data: Data): RunState[] =>
@@ -449,8 +479,8 @@ export function previous(data: Data, run: RunState): { at: Id; round: number } |
 
 // ───────── writing ─────────
 
-const refuse = (data: Data, reason: Refusal, extra: Partial<Result> = {}): Result => ({ ok: false, data, offer: [], reason, ...extra });
-const done = (data: Data, extra: Partial<Result> = {}): Result => ({ ok: true, data, offer: [], ...extra });
+const refuse = (data: Data, reason: Refusal, extra: Partial<Result> = {}): Result => ({ ok: false, data, reason, ...extra });
+const done = (data: Data, extra: Partial<Result> = {}): Result => ({ ok: true, data, ...extra });
 const putRun = (data: Data, run: Run): Data => ({ ...data, runs: { ...data.runs, [run.id]: run } });
 const putRoutine = (data: Data, routine: Routine): Data => ({ ...data, routines: { ...data.routines, [routine.id]: routine } });
 
@@ -465,7 +495,11 @@ function setStatus(data: Data, id: Id | undefined, status?: 'running' | 'paused'
     const mine = r.id === id;
     if (mine ? r.status === status : r.status === undefined || (id !== undefined && !status)) continue;
     if (runs === data.runs) runs = { ...data.runs };
-    runs[r.id] = patched(r, { status: mine ? status : undefined });
+    // A running run has no mode: one stored there (an old tab's Resume) goes when it stops running, so it can't come back as planning.
+    // But one stored running with nothing to stand on (the edge, as the build before left it) was in Plan all along: now it is stored so.
+    const read = r.status === 'running' ? readRun(data, r.id) : undefined;
+    const edge = !!read && isPlanning(data, read);
+    runs[r.id] = patched(r, { status: mine ? status : undefined, ...(edge ? { mode: 'plan' } : r.status === 'running' && 'mode' in r && { mode: undefined }) });
   }
   return runs === data.runs ? data : { ...data, runs };
 }
@@ -480,22 +514,13 @@ function settleWait(data: Data, runId: Id, was: Place | undefined, env: Env): Da
   return since === raw.waitingSince ? data : putRun(data, patched(raw, { waitingSince: since }));
 }
 
-/** The changes to show on leaving `left` (all of them at the end): a level's own, and the breakdown that made it. */
-const toOffer = (run: RunState, left: Frame[], all: boolean): Change[] => {
-  const gone = new Set(left.map((f) => f.seq));
-  return run.changes.filter((c) => !c.offered && (all || (c.kind === 'breakdown' ? gone.has(c.into) : gone.has(c.seq))));
-};
-const withOffered = (raw: Run, offer: Change[]): unknown[] | undefined => {
-  if (!offer.length) return undefined;
-  const ids = new Set(offer.map((c) => c.id));
-  return rawChanges(raw).map((c) => (isChange(c) && ids.has(c.id) ? { ...c, offered: true } : c));
-};
-
 interface Loaded {
   raw: Run;
   run: RunState;
   at: Place;
 }
+/** In Plan: left there, or at the edge. */
+const inPlan = (l: Loaded) => l.run.mode === 'plan' || !l.at.item;
 /** An open run and where it is, or why not. */
 function load(data: Data, runId: Id): Loaded | Refusal {
   const raw = own(data.runs, runId);
@@ -506,32 +531,48 @@ function load(data: Data, runId: Id): Loaded | Refusal {
   return at ? { raw, run, at } : 'gone';
 }
 
-/** The run is somewhere else now: the frames, the reason gone, waiting-since settled, what is said and offered. */
-function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; asking?: true }, env: Env, said?: Said, extra: Record<string, unknown> = {}): Result {
-  const popped = to.popped ?? [];
-  const offer = toOffer(l.run, popped, false);
-  const changes = withOffered(l.raw, offer);
-  let next = putRun(data, patched(l.raw, { ...extra, frames: to.frames, touchedAt: env.now, reason: undefined, ...(changes && { changes }) }));
-  next = settleWait(next, l.run.id, l.at, env);
-  const names = popped.map((f) => view(data, l.run, f.seq)?.words ?? '');
-  return done(next, { offer: offer.map((c) => ({ ...c, offered: true as const })), said: said ?? (popped.length ? { kind: 'finished', names } : to.asking ? { kind: 'edge' } : undefined) });
+/** In Plan as stored: the mode, and not running (the one the app is on is paused; any other run keeps no status). */
+function markPlan(data: Data, runId: Id): Data {
+  const next = own(data.runs, runId)?.status === 'running' ? setStatus(data, runId, 'paused') : data;
+  const raw = own(next.runs, runId)!;
+  return raw.mode === 'plan' ? next : putRun(next, patched(raw, { mode: 'plan' }));
 }
 
-/** The run ends: by Done at the top, or by itself. Its place stays as it was; everything not yet offered is. */
+/**
+ * Plan is opened on a run: this-run changes it still carries from the build before are folded into
+ * the routine (ruling 3), and it is in Plan — one piece of data, so one write and one Undo.
+ */
+function enterPlan(data: Data, runId: Id, env: Env): { data: Data; folded?: string } {
+  const run = readRun(data, runId)!;
+  if (!run.changes.length) return { data: markPlan(data, runId) };
+  return { data: markPlan(resettle(data, fold(data, runId), env), runId), folded: readRoutine(data, run.routineId)?.words ?? '' };
+}
+
+/** The run is somewhere else now: the frames, the reason gone, waiting-since settled, what is said. Nothing to stand on there: it is in Plan. */
+function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; asking?: true }, env: Env, said?: Said): Result {
+  const popped = to.popped ?? [];
+  let next = putRun(data, patched(l.raw, { frames: to.frames, touchedAt: env.now, reason: undefined, ...(l.raw.status === 'running' && 'mode' in l.raw && { mode: undefined }) }));
+  next = settleWait(next, l.run.id, l.at, env);
+  const names = popped.map((f) => view(data, l.run, f.seq)?.words ?? '');
+  let folded: string | undefined;
+  // The edge: nothing can run there, so the run is in Plan (and its old this-run changes are folded) in this same write.
+  if (!place(next, readRun(next, l.run.id)!)?.item) ({ data: next, folded } = enterPlan(next, l.run.id, env));
+  return done(next, { said: said ?? (popped.length ? { kind: 'finished', names } : to.asking ? { kind: 'edge' } : undefined), ...(folded !== undefined && { folded }) });
+}
+
+/** The run ends: by Done at the top, or by itself. Its place stays as it was. */
 function end(data: Data, l: Loaded, by: 'done' | 'finished', env: Env): Result {
-  const offer = toOffer(l.run, [], true);
-  const changes = withOffered(l.raw, offer);
   const record = patched(l.raw, {
     ...(l.at.repaired && { frames: l.at.frames }),
-    ...(changes && { changes }),
     endedAt: env.now,
     endedBy: by,
     touchedAt: env.now,
     waitingSince: undefined,
     reason: undefined,
+    mode: undefined,
   });
   const next = setStatus(putRun(data, record), l.run.id, undefined);
-  return done(next, { offer: offer.map((c) => ({ ...c, offered: true as const })), said: { kind: 'ended', name: readRoutine(data, l.run.routineId)?.words ?? '' } });
+  return done(next, { said: { kind: 'ended', name: readRoutine(data, l.run.routineId)?.words ?? '' } });
 }
 
 function start(data: Data, routineId: Id, env: Env): Result {
@@ -540,15 +581,17 @@ function start(data: Data, routineId: Id, env: Env): Result {
   // Its tile reads Resume (or it was a double tap): one run of a routine at a time in this slice.
   const had = openRuns(data).find((r) => r.routineId === routineId);
   if (had) return { ...resume(data, had.id, env), runId: had.id };
+  // Nothing to run yet (P-90): its Plan is where the first step is added; no run is made at the edge.
+  const first = s.items[0];
+  if (!first) return refuse(data, 'empty');
   const busy = runningElsewhere(data);
   if (busy) return refuse(data, 'running', { running: busy });
-  const first = s.items[0];
   const run: Run = {
     id: env.id(),
     routineId,
     startedAt: env.now,
     ...(isWait(first) && { waitingSince: env.now }),
-    frames: [{ seq: routineId, at: first?.id ?? null, round: 1 }],
+    frames: [{ seq: routineId, at: first.id, round: 1 }],
     changes: [],
     touchedAt: env.now,
   };
@@ -558,7 +601,7 @@ function start(data: Data, routineId: Id, env: Env): Result {
 /** One thing runs at a time: what is running, for a start that is refused because of it. */
 function runningElsewhere(data: Data, but?: Id): { runId: Id; name: string } | undefined {
   const cur = currentRun(data);
-  return cur && cur.status === 'running' && cur.id !== but ? { runId: cur.id, name: readRoutine(data, cur.routineId)?.words ?? '' } : undefined;
+  return cur && isRunning(data, cur) && cur.id !== but ? { runId: cur.id, name: readRoutine(data, cur.routineId)?.words ?? '' } : undefined;
 }
 
 /** A named routine in the lists with this name (one version per name). */
@@ -571,22 +614,34 @@ export const routineNamed = (data: Data, words: string, but?: Id): Seq | undefin
   return undefined;
 };
 
-/** "New: <words>": a first layer with an open edge, on home, and a run that asks for its first small step. */
-function startNew(data: Data, typed: string, env: Env): Result {
+/**
+ * "New: <words>" (P-90, ruling 5): a first layer with an open edge, on home — the routine ONLY. No run
+ * until Start is pressed in its Plan. A name there is (one version per name): that routine, nothing written.
+ */
+function create(data: Data, typed: string, env: Env): Result {
   const words = tidy(typed);
   if (!words) return refuse(data, 'empty');
   const same = routineNamed(data, words);
-  if (same) return start(data, same.id, env);
-  const busy = runningElsewhere(data);
-  if (busy) return refuse(data, 'running', { running: busy });
+  if (same) return done(data, { routineId: same.id });
   const routine: Routine = { id: env.id(), words, named: true, createdAt: env.now, items: [], open: true, home: true };
-  return start(putRoutine(data, routine), routine.id, env);
+  return done(putRoutine(data, routine), { routineId: routine.id });
 }
 
+/** Resume, and Plan's "Resume at <step>": running where it was, the mode gone. At the edge there is nothing to resume at. */
 function resume(data: Data, runId: Id, env: Env): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
-  return done(setStatus(putRun(data, patched(l.raw, { touchedAt: env.now })), runId, 'running'));
+  if (!l.at.item) return refuse(data, 'asking');
+  return done(setStatus(putRun(data, patched(l.raw, { touchedAt: env.now, mode: undefined })), runId, 'running'));
+}
+
+/** Plan (the runner's button, the paused screen's, a tile's). Already there with nothing to fold: nothing is written. */
+function plan(data: Data, runId: Id, env: Env): Result {
+  const l = load(data, runId);
+  if (typeof l === 'string') return refuse(data, l);
+  if (l.raw.mode === 'plan' && l.raw.status !== 'running' && !l.run.changes.length) return done(data);
+  const { data: next, folded } = enterPlan(data, runId, env);
+  return done(putRun(next, patched(own(next.runs, runId)!, { touchedAt: env.now })), { ...(folded !== undefined && { folded }) });
 }
 
 function pause(data: Data, runId: Id, why: string | undefined, env: Env): Result {
@@ -612,6 +667,7 @@ function home(data: Data, runId: Id): Result {
 function next(data: Data, runId: Id, env: Env): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
+  if (l.at.item && l.run.mode === 'plan') return refuse(data, 'planning');
   // What is stored is not a place any more: the start of that level, and no further.
   if (l.at.repaired) return moved(data, l, { frames: l.at.frames }, env);
   if (l.at.frame.at === null) return refuse(data, 'asking');
@@ -622,6 +678,8 @@ function next(data: Data, runId: Id, env: Env): Result {
 function doneWith(data: Data, runId: Id, env: Env): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
+  // Done exists only when running, and at the edge.
+  if (l.at.item && l.run.mode === 'plan') return refuse(data, 'planning');
   if (l.at.frames.length === 1) return end(data, l, 'done', env);
   // The level is left, for whatever reason; the one below goes on from the item this was entered from.
   const below = l.at.frames.slice(0, -1);
@@ -635,6 +693,7 @@ function doneWith(data: Data, runId: Id, env: Env): Result {
 function stepIn(data: Data, runId: Id, env: Env): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
+  if (inPlan(l)) return refuse(data, 'planning');
   const item = l.at.item;
   if (!isRef(item)) return refuse(data, 'not-a-routine');
   const target = view(data, l.run, item.ref);
@@ -643,66 +702,10 @@ function stepIn(data: Data, runId: Id, env: Env): Result {
   return moved(data, l, { frames: [...l.at.frames, { seq: target.id, at: target.items[0].id, round: 1, from: item.id }] }, env);
 }
 
-/** Break it down: the plain step becomes a sequence of this run's own, and the run steps into it. */
-function breakDown(data: Data, runId: Id, steps: string[], env: Env, target?: { seq: Id; item: Id }): Result {
-  const l = load(data, runId);
-  if (typeof l === 'string') return refuse(data, l);
-  const lines = (Array.isArray(steps) ? steps : []).map(tidy).filter(Boolean);
-  // The step it was opened on is not where the run is any more (another copy moved it, a kept Next
-  // came in): the sub-steps belong to THAT step. The run is not moved and nothing else is touched.
-  if (target && (target.seq !== l.at.seq.id || target.item !== l.at.item?.id)) {
-    const there = view(data, l.run, target.seq)?.items.find((i) => i.id === target.item);
-    if (!there) return refuse(data, 'no-such-step');
-    if (!isStep(there)) return refuse(data, 'not-a-step');
-    if (!lines.length) return refuse(data, 'no-steps');
-    const made: Routine = { id: env.id(), words: there.text, named: false, createdAt: env.now, ownerRunId: runId, items: lines.map((line) => ({ id: env.id(), text: line })) };
-    const mine: Change = { id: env.id(), kind: 'breakdown', seq: target.seq, item: there.id, into: made.id };
-    return done(putRun(putRoutine(data, made), patched(l.raw, { changes: [...rawChanges(l.raw), mine], touchedAt: env.now })));
-  }
-  const item = l.at.item;
-  if (!isStep(item)) return refuse(data, 'not-a-step');
-  if (!lines.length) return refuse(data, 'no-steps');
-  if (l.at.frames.length >= MAX_DEPTH) return refuse(data, 'too-deep');
-  const into: Routine = { id: env.id(), words: item.text, named: false, createdAt: env.now, ownerRunId: runId, items: lines.map((line) => ({ id: env.id(), text: line })) };
-  const change: Change = { id: env.id(), kind: 'breakdown', seq: l.at.seq.id, item: item.id, into: into.id };
-  const frames = [...l.at.frames, { seq: into.id, at: (into.items as Item[])[0].id, round: 1, from: item.id }];
-  return moved(putRoutine(data, into), l, { frames }, env, undefined, { changes: [...rawChanges(l.raw), change] });
-}
-
-/** The edge of a goal: the next small step is kept in the routine and is where the run goes. */
-function edgeStep(data: Data, runId: Id, typed: string, env: Env): Result {
-  const l = load(data, runId);
-  if (typeof l === 'string') return refuse(data, l);
-  const routine = own(data.routines, l.run.routineId);
-  if (l.at.frames.length !== 1 || l.at.frame.at !== null || !routine) return refuse(data, 'not-at-edge');
-  const words = tidy(typed);
-  if (!words) return refuse(data, 'empty');
-  const item: Item = { id: env.id(), text: words };
-  return moved(putRoutine(data, patched(routine, { items: [...rawItems(routine), item] })), l, { frames: [{ ...l.at.frame, at: item.id }] }, env);
-}
-
-/** A step's or a wait's words, for this run only. Back to the routine's own words: the change goes. */
-function reword(data: Data, l: Loaded, seqId: Id, itemId: Id, typed: string, env: Env): Result {
-  const item = view(data, l.run, seqId)?.items.find((i) => i.id === itemId);
-  if (!item || isRef(item)) return refuse(data, item ? 'cannot' : 'no-such-step');
-  const words = tidy(typed);
-  if (!words) return refuse(data, 'empty');
-  const raw = rawChanges(l.raw);
-  const added = l.run.changes.find((c) => c.kind === 'add' && c.seq === seqId && c.item.id === itemId);
-  const had = l.run.changes.find((c) => c.kind === 'reword' && c.seq === seqId && c.item === itemId);
-  const own_ = readRoutine(data, seqId)?.items.find((i) => i.id === itemId);
-  let changes: unknown[];
-  // A step added in this run has no other words to go back to: the addition itself is reworded.
-  if (added?.kind === 'add') changes = raw.map((c) => (isChange(c) && c.id === added.id ? { ...c, item: reworded(added.item, words) } : c));
-  else if (own_ && !isRef(own_) && (isWait(own_) ? own_.wait : own_.text) === words) changes = raw.filter((c) => !(isChange(c) && c.id === had?.id));
-  else if (had) changes = raw.map((c) => (isChange(c) && c.id === had.id ? { id: had.id, kind: 'reword', seq: seqId, item: itemId, text: words } : c));
-  else changes = [...raw, { id: env.id(), kind: 'reword', seq: seqId, item: itemId, text: words }];
-  return done(putRun(data, patched(l.raw, { changes, touchedAt: env.now })));
-}
-
 function back(data: Data, runId: Id, env: Env): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
+  if (inPlan(l)) return refuse(data, 'planning');
   const p = previous(data, l.run);
   if (!p) return refuse(data, 'nothing-before');
   return moved(data, l, { frames: [...l.at.frames.slice(0, -1), { ...l.at.frame, at: p.at, round: p.round }] }, env);
@@ -732,11 +735,12 @@ function jump(data: Data, runId: Id, to: JumpTo, env: Env): Result {
       seqId = isRef(item) ? item.ref : undefined;
     }
   }
-  // The levels the jump leaves (innermost first): their changes are offered once, as when left by Done (B-11 §9c).
-  const popped = was.filter((f, i) => frames[i]?.seq !== f.seq).reverse();
-  const out = moved(data, l, { frames, popped }, env, { kind: 'jumped', from: wordsOf(data, l.run, l.at.item) });
-  // From the paused screen too: the runner opens at the new place.
-  return { ...out, data: setStatus(out.data, runId, 'running') };
+  const out = moved(data, l, { frames }, env, { kind: 'jumped', from: wordsOf(data, l.run, l.at.item) });
+  // Onto nothing (the start of a routine with no steps): that is the edge, and `moved` left it in Plan.
+  if (!place(out.data, readRun(out.data, runId)!)?.item) return out;
+  // From the paused screen, and from Plan, too: the runner opens at the new place (a running run has no mode).
+  const raw = own(out.data.runs, runId)!;
+  return { ...out, data: setStatus('mode' in raw ? putRun(out.data, patched(raw, { mode: undefined })) : out.data, runId, 'running') };
 }
 
 /** The items of a routine with one of them changed, added or taken out; what could not be read stays where it was. */
@@ -766,136 +770,65 @@ function editItems(routine: Routine, s: Seq, edit: { set?: [Id, unknown]; remove
   return patched(routine, { items: raw, repeatFrom: from });
 }
 
-const sameIds = (a: Id[], b: Id[]) => a.length === b.length && a.every((x, i) => x === b[i]);
-
-/** Keep: this run's change becomes the routine's. The run reads exactly what it read before. */
-function keep(data: Data, runId: Id, which: Id | 'all' | Id[], env: Env): Result {
-  const raw = own(data.runs, runId);
-  const run = readRun(data, runId);
-  if (!raw || !run) return refuse(data, 'gone');
-  const wanted = Array.isArray(which) ? new Set(which) : undefined;
-  const chosen = run.changes.filter((c) => which === 'all' || (wanted ? wanted.has(c.id) : c.id === which));
-  // What the run reads before: Keep must leave exactly this (only where a change lives is different).
-  const reads = (d: Data, r: RunState, seqId: Id) => (view(d, r, seqId)?.items ?? []).map((i) => i.id);
-  const before = new Map(chosen.map((c) => [c.seq, reads(data, run, c.seq)]));
-  if (!chosen.length) return refuse(data, 'gone');
+/**
+ * The fold (P-90, ruling 3): every this-run change a run still carries from the build before becomes
+ * the routine's — each sequence it changed is written as the run READS it (its steps, their order and
+ * words, where the divider stands, the number), so the run reads exactly what it read before. A change
+ * whose step is no longer there changed nothing in that reading and just goes; one this version cannot
+ * read stays in the run, untouched; so does whatever the routine holds that cannot be read. A sequence
+ * a step was broken into stops being the run's own. The caller resettles.
+ */
+function fold(data: Data, runId: Id): Data {
+  const raw = own(data.runs, runId)!;
+  const run = readRun(data, runId)!;
   let next = data;
-  const kept: Id[] = [];
-  for (const c of chosen) {
-    const routine = own(next.routines, c.seq);
-    const s = readRoutine(next, c.seq);
-    if (!routine || !s) continue;
-    const item = 'item' in c && text(c.item) ? s.items.find((i) => i.id === c.item) : undefined;
-    let after: Routine | undefined;
-    if (c.kind === 'reword') after = item && !isRef(item) ? editItems(routine, s, { set: [item.id, reworded(item, c.text)] }) : undefined;
-    else if (c.kind === 'breakdown') {
-      const into = own(next.routines, c.into);
-      after = item && into ? editItems(routine, s, { set: [item.id, { id: item.id, ref: c.into }] }) : undefined;
-      // Part of the routine now, no longer this run's own.
-      if (after && into) next = putRoutine(next, patched(into, { ownerRunId: undefined }));
-    } else if (c.kind === 'add') {
-      // Where the run reads it: right after the nearest step before it that the routine has (its own
-      // anchor may be another step of this run that is not kept).
-      const order = before.get(c.seq) ?? [];
-      const anchor = order.slice(0, Math.max(0, order.indexOf(c.item.id))).reverse().find((id) => s.items.some((i) => i.id === id));
-      after = s.items.some((i) => i.id === c.item.id) ? undefined : editItems(routine, s, { insert: [c.item, order.includes(c.item.id) ? (anchor ?? null) : c.after] });
-    }
-    else if (c.kind === 'remove') after = item ? editItems(routine, s, { remove: item.id }) : undefined;
-    else if (c.kind === 'move') {
-      const without = item && editItems(routine, s, { remove: item.id });
-      after = without && item && editItems(without, readRoutine(putRoutine(next, without), c.seq)!, { insert: [item, c.after] });
-    } else after = patched(routine, { repeat: countOf(c.repeat) });
-    // A change whose step is no longer in the routine has nothing to change: it just goes.
-    if (!after) continue;
-    next = putRoutine(next, after);
-    kept.push(c.id);
-  }
-  const gone = new Set(chosen.map((c) => c.id));
-  let left = rawChanges(raw).filter((c) => !(isChange(c) && gone.has(c.id)));
-  next = putRun(next, patched(raw, { changes: left }));
-  // The steps still this run's own stand where they stood: each is anchored on the step right before
-  // it in what the run read, and they are applied in that order (an anchor may be one of them).
-  for (const [seqId, order] of before) {
-    if (sameIds(reads(next, readRun(next, runId)!, seqId), order)) continue;
-    const adds = left.filter((c): c is Extract<Change, { kind: 'add' }> => isChange(c) && c.kind === 'add' && c.seq === seqId && order.includes(c.item.id));
-    const inOrder = [...adds].sort((a, b) => order.indexOf(a.item.id) - order.indexOf(b.item.id)).map((c) => ({ ...c, after: order[order.indexOf(c.item.id) - 1] ?? null }));
-    let k = 0;
-    const tried = left.map((c) => (adds.includes(c as Extract<Change, { kind: 'add' }>) ? inOrder[k++] : c));
-    const again = putRun(next, patched(raw, { changes: tried }));
-    // Only if that is what makes it read the same (it is, but for moves made in this run too).
-    if (sameIds(reads(again, readRun(again, runId)!, seqId), order)) {
-      left = tried;
-      next = again;
-    }
-  }
-  return done(resettle(data, next, env), { kept });
-}
-
-/** A this-run change taken back. A breakdown takes its sequence (and what was changed inside it) with it. */
-function drop(data: Data, runId: Id, changeId: Id, env: Env): Result {
-  const raw = own(data.runs, runId);
-  const run = readRun(data, runId);
-  const first = run?.changes.find((c) => c.id === changeId);
-  if (!raw || !run || !first) return refuse(data, 'gone');
-  const changes = new Set<Id>([first.id]);
-  const sequences = new Set<Id>();
-  // (Its own to take away only while nothing else stands on it: a run started from it later keeps it.)
-  const owned = (id: Id) => own(data.routines, id)?.ownerRunId === runId && !Object.values(data.runs).some((r) => r.routineId === id);
-  for (let grew = true; grew; ) {
-    grew = false;
-    for (const c of run.changes) {
-      // A breakdown going takes its sequence; a sequence going takes the changes made inside it.
-      if (changes.has(c.id) ? c.kind === 'breakdown' && owned(c.into) && !sequences.has(c.into) : sequences.has(c.seq)) {
-        changes.add(c.id);
-        if (c.kind === 'breakdown' && owned(c.into)) sequences.add(c.into);
-        grew = true;
+  for (const seqId of new Set(run.changes.map((c) => c.seq))) {
+    const routine = own(data.routines, seqId);
+    const base = readRoutine(data, seqId);
+    const seen = view(data, run, seqId);
+    if (!routine || !base || !seen || seen === base) continue;
+    const patch: Record<string, unknown> = {};
+    if (seen.items.length !== base.items.length || seen.items.some((item, i) => item !== base.items[i])) {
+      // What could not be read keeps its place: right after the step it followed (at the end if that step is gone).
+      const read = new Set<unknown>(base.items);
+      const strays = new Map<Id | null, unknown[]>();
+      let last: Id | null = null;
+      for (const entry of rawItems(routine)) {
+        if (read.has(entry)) last = (entry as Item).id;
+        else strays.set(last, [...(strays.get(last) ?? []), entry]);
       }
+      const items: unknown[] = [...(strays.get(null) ?? [])];
+      strays.delete(null);
+      // A breakdown whose sequence is not there (damage): the step keeps its own words rather than point at nothing.
+      const lost = new Set(run.changes.filter((c) => c.kind === 'breakdown' && c.seq === seqId && !own(data.routines, c.into)).map((c) => (c as { item: Id }).item));
+      for (const item of seen.items) {
+        items.push((lost.has(item.id) && base.items.find((i) => i.id === item.id)) || item, ...(strays.get(item.id) ?? []));
+        strays.delete(item.id);
+      }
+      for (const left of strays.values()) items.push(...left);
+      patch.items = items;
     }
+    if (seen.repeatFrom !== base.repeatFrom) patch.repeatFrom = seen.repeatFrom;
+    if (seen.repeat !== base.repeat) patch.repeat = seen.repeat;
+    if (Object.keys(patch).length) next = putRoutine(next, patched(routine, patch));
   }
-  const routines = { ...data.routines };
-  for (const id of sequences) delete routines[id];
-  const cut = run.frames.findIndex((f) => sequences.has(f.seq));
-  const record = patched(raw, {
-    changes: rawChanges(raw).filter((c) => !(isChange(c) && changes.has(c.id))),
-    ...(cut >= 0 && { frames: run.frames.slice(0, cut) }),
-    ...(!run.endedAt && { touchedAt: env.now }),
-  });
-  return done(resettle(data, putRun(sequences.size ? { ...data, routines } : data, record), env));
-}
-
-/** See it all: a change to this run only. */
-function editRun(data: Data, runId: Id, edit: RunEdit, env: Env): Result {
-  const l = load(data, runId);
-  if (typeof l === 'string') return refuse(data, l);
-  const s = view(data, l.run, edit.seq);
-  if (!s) return refuse(data, 'no-such-step');
-  if (edit.kind === 'reword') return reword(data, l, edit.seq, edit.item, edit.text, env);
-  const raw = rawChanges(l.raw);
-  let changes: unknown[];
-  if (edit.kind === 'add' || edit.kind === 'addWait') {
-    if (edit.after !== null && !s.items.some((i) => i.id === edit.after)) return refuse(data, 'no-such-step');
-    const words = tidy(edit.kind === 'add' ? edit.text : edit.wait);
-    if (!words) return refuse(data, 'empty');
-    const item: Item = edit.kind === 'add' ? { id: env.id(), text: words } : { id: env.id(), wait: words };
-    changes = [...raw, { id: env.id(), kind: 'add', seq: edit.seq, after: edit.after, item }];
-  } else if (edit.kind === 'remove') {
-    if (!s.items.some((i) => i.id === edit.item)) return refuse(data, 'no-such-step');
-    // A step added in this run: the addition is taken back.
-    const added = l.run.changes.find((c) => c.kind === 'add' && c.seq === edit.seq && c.item.id === edit.item);
-    changes = added ? raw.filter((c) => !(isChange(c) && c.id === added.id)) : [...raw, { id: env.id(), kind: 'remove', seq: edit.seq, item: edit.item }];
-  } else {
-    if (edit.repeat !== undefined && countOf(edit.repeat) === undefined) return refuse(data, 'cannot');
-    const rest = raw.filter((c) => !(isChange(c) && c.kind === 'repeat' && c.seq === edit.seq));
-    changes = readRoutine(data, edit.seq)?.repeat === edit.repeat ? rest : [...rest, { id: env.id(), kind: 'repeat', seq: edit.seq, ...(edit.repeat !== undefined && { repeat: edit.repeat }) }];
+  for (const c of run.changes) {
+    if (c.kind !== 'breakdown') continue;
+    const item = view(data, run, c.seq)?.items.find((i) => i.id === c.item);
+    const into = own(next.routines, c.into);
+    // Part of the routine now, no longer this run's own.
+    if (into && 'ownerRunId' in into && isRef(item) && item.ref === c.into) next = putRoutine(next, patched(into, { ownerRunId: undefined }));
   }
-  return done(resettle(data, putRun(data, patched(l.raw, { changes, touchedAt: env.now })), env));
+  return putRun(next, patched(raw, { changes: rawChanges(raw).filter((c) => !isChange(c)) }));
 }
 
 /**
- * After an edit (to a routine, or to a run's own changes): every open run still stands on something.
- * A run on a step that is gone moves to the next surviving step, else the previous, else it asks; it
- * is never ended and never starts a round. A run asking at the edge moves to a step appended there.
- * Waiting-since follows the new place. Runs the edit did not strand are left as the same objects.
+ * After an edit to a routine (or the fold): every open run still stands on something. A run on a step
+ * that is gone moves to the next surviving step, else the previous, else it asks; it is never ended
+ * and never starts a round; whatever it was inside of that step goes with the step. A run asking at
+ * the edge moves to a step appended there. Waiting-since follows the new place. A run the edit took
+ * to the edge, or off it, is in Plan as stored (never running there; off it, Resume is a tap of its
+ * own). Runs the edit did not strand are left as the same objects.
  */
 function resettle(before: Data, after: Data, env: Env): Data {
   let data = after;
@@ -926,18 +859,28 @@ function resettle(before: Data, after: Data, env: Env): Data {
         // An inner level with nothing left in it is left: the run is on the step it was entered from.
         if (at === null && i > 0) break;
         kept.push(at === f.at ? f : { ...f, at });
+        // The step this level stood on is gone, and with it whatever was entered from it: the run
+        // stands on the step it was moved to, never inside the removed one (P-90, ruling 6).
+        if (at !== f.at) break;
       }
       if (moved_ || kept.length !== run.frames.length) frames = kept;
     }
     if (frames) data = putRun(data, patched(own(data.runs, id)!, { frames }));
-    const now = place(data, readRun(data, id)!);
-    if (now?.repaired) data = putRun(data, patched(own(data.runs, id)!, { frames: now.frames }));
+    let now = place(data, readRun(data, id)!);
+    if (now?.repaired) {
+      data = putRun(data, patched(own(data.runs, id)!, { frames: now.frames }));
+      now = place(data, readRun(data, id)!);
+    }
+    if (wasAt && now && !wasAt.item !== !now.item) data = markPlan(data, id);
     data = settleWait(data, id, wasAt, env);
   }
   return data;
 }
 
-/** The plain routine editor. Open runs of the routine are kept standing in the same write, so one Undo covers both. */
+/**
+ * Plan's edits (P-90): each changes the routine, and every open run is kept standing in the same
+ * write, so one Undo covers the routine and the runs together.
+ */
 export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: Env): Result {
   const routine = own(data.routines, routineId);
   const s = readRoutine(data, routineId);
@@ -963,12 +906,35 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     const at = s.items.findIndex((i) => i.id === edit.item);
     const to = at + (edit.by === 1 ? 1 : -1);
     if (at < 0) return refuse(data, 'no-such-step');
-    if (to < 0 || to >= s.items.length) return refuse(data, 'cannot');
-    // The two swap places; the divider stays where it is in the list.
-    const raw = [...rawItems(routine)];
-    const [a, b] = [raw.indexOf(s.items[at]), raw.indexOf(s.items[to])];
-    [raw[a], raw[b]] = [raw[b], raw[a]];
-    after = patched(routine, { items: raw, repeatFrom: s.repeatFrom });
+    // One press moves one row, and in the list the divider is a row (the orchestrator's ruling on
+    // ruling 7). Next to the divider the step passes it and NOTHING else moves: it changes side, no
+    // step changes place. With nothing left to repeat there is no divider.
+    const from = s.repeatFrom;
+    if (from !== undefined && (edit.by === 1 ? from === at + 1 : from === at)) {
+      const moved = edit.by === 1 ? from - 1 : from + 1;
+      after = patched(routine, { repeatFrom: moved < s.items.length ? moved : undefined });
+    } else {
+      if (to < 0 || to >= s.items.length) return refuse(data, 'cannot');
+      const raw = [...rawItems(routine)];
+      const [a, b] = [raw.indexOf(s.items[at]), raw.indexOf(s.items[to])];
+      [raw[a], raw[b]] = [raw[b], raw[a]];
+      after = patched(routine, { items: raw });
+    }
+  } else if (edit.kind === 'toWait' || edit.kind === 'toStep') {
+    const item = s.items.find((i) => i.id === edit.item);
+    if (!item) return refuse(data, 'no-such-step');
+    // The same item under the same id (fields this version does not know stay on it): only what it is changes.
+    if (edit.kind === 'toWait') {
+      if (!isStep(item)) return refuse(data, 'not-a-step');
+      const { text: words, ...rest } = item;
+      after = editItems(routine, s, { set: [item.id, { ...rest, wait: words }] });
+    } else {
+      if (!isWait(item)) return refuse(data, 'cannot');
+      const { wait: words, ...rest } = item;
+      after = editItems(routine, s, { set: [item.id, { ...rest, text: words }] });
+    }
+  } else if (edit.kind === 'breakDown') {
+    return breakDown(data, routine, s, edit.item, edit.steps, env);
   } else if (edit.kind === 'divider') {
     if (edit.from !== undefined && dividerAt(edit.from, s.items.length) === undefined) return refuse(data, 'cannot');
     after = patched(routine, { repeatFrom: edit.from });
@@ -990,15 +956,44 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
   return done(resettle(data, putRoutine(data, after), env));
 }
 
+/**
+ * Break it down, in Plan: the plain step becomes an unnamed sequence named by its words — the kind of
+ * record a kept breakdown always was (not owned by any run) — under the SAME item id, so every place
+ * stays valid. A run standing exactly on that step stands on the first small step, in the same write;
+ * a run anywhere else is not moved.
+ */
+function breakDown(data: Data, routine: Routine, s: Seq, itemId: Id, steps: string[], env: Env): Result {
+  const item = s.items.find((i) => i.id === itemId);
+  if (!item) return refuse(data, 'no-such-step');
+  if (!isStep(item)) return refuse(data, 'not-a-step');
+  const lines = (Array.isArray(steps) ? steps : []).map(tidy).filter(Boolean);
+  if (!lines.length) return refuse(data, 'no-steps');
+  const into: Routine = { id: env.id(), words: item.text, named: false, createdAt: env.now, items: lines.map((line) => ({ id: env.id(), text: line })) };
+  const { text: _words, ...rest } = item;
+  const after = editItems(routine, s, { set: [item.id, { ...rest, ref: into.id }] });
+  if (!after) return refuse(data, 'cannot');
+  let next = resettle(data, putRoutine(putRoutine(data, into), after), env);
+  for (const id of Object.keys(next.runs)) {
+    const run = readRun(next, id);
+    const at = isOpen(run) ? place(next, run) : undefined;
+    if (!at || at.frame.seq !== s.id || !isRef(at.item) || at.item.id !== item.id || at.item.ref !== into.id || at.frames.length >= MAX_DEPTH) continue;
+    const frames = [...at.frames, { seq: into.id, at: (into.items as Item[])[0].id, round: 1, from: item.id }];
+    next = settleWait(putRun(next, patched(own(next.runs, id)!, { frames })), id, at, env);
+  }
+  return done(next);
+}
+
 /** The engine: the data after a verb. Pure; never throws on damaged data (it refuses instead). */
 export function runVerb(data: Data, verb: Verb, env: Env): Result {
   switch (verb.kind) {
     case 'start':
       return start(data, verb.routineId, env);
     case 'new':
-      return startNew(data, verb.words, env);
+      return create(data, verb.words, env);
     case 'resume':
       return resume(data, verb.runId, env);
+    case 'plan':
+      return plan(data, verb.runId, env);
     case 'pause':
       return pause(data, verb.runId, verb.reason, env);
     case 'reason':
@@ -1011,25 +1006,10 @@ export function runVerb(data: Data, verb: Verb, env: Env): Result {
       return doneWith(data, verb.runId, env);
     case 'stepIn':
       return stepIn(data, verb.runId, env);
-    case 'breakDown':
-      return breakDown(data, verb.runId, verb.steps, env, verb.at);
-    case 'edgeStep':
-      return edgeStep(data, verb.runId, verb.text, env);
-    case 'words': {
-      const l = load(data, verb.runId);
-      if (typeof l === 'string') return refuse(data, l);
-      return l.at.item ? reword(data, l, l.at.seq.id, l.at.item.id, verb.text, env) : refuse(data, 'cannot');
-    }
     case 'back':
       return back(data, verb.runId, env);
     case 'jump':
       return jump(data, verb.runId, verb.to, env);
-    case 'keep':
-      return keep(data, verb.runId, verb.change, env);
-    case 'drop':
-      return drop(data, verb.runId, verb.change, env);
-    case 'edit':
-      return editRun(data, verb.runId, verb.edit, env);
     default:
       return refuse(data, 'cannot');
   }

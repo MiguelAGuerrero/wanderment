@@ -46,7 +46,7 @@ describe('the old app is retired (P-89)', () => {
 
   it('the only routes are the new app’s, and the three that only redirect into it', () => {
     expect(files.filter((f) => f.startsWith('app/')).sort()).toEqual(
-      ['app/[...rest].tsx', 'app/_layout.tsx', 'app/go/_layout.tsx', 'app/go/index.tsx', 'app/go/routine/[id].tsx', 'app/go/run/[id]/all.tsx', 'app/go/run/[id]/index.tsx', 'app/go/run/[id]/jump.tsx', 'app/go/run/[id]/paused.tsx', 'app/go/settings.tsx', 'app/index.tsx', 'app/settings.tsx'].sort(),
+      ['app/[...rest].tsx', 'app/_layout.tsx', 'app/go/_layout.tsx', 'app/go/index.tsx', 'app/go/routine/[id].tsx', 'app/go/run/[id]/all.tsx', 'app/go/run/[id]/index.tsx', 'app/go/run/[id]/jump.tsx', 'app/go/run/[id]/paused.tsx', 'app/go/run/[id]/plan.tsx', 'app/go/settings.tsx', 'app/index.tsx', 'app/settings.tsx'].sort(),
     );
     for (const [route, to] of [
       ['app/index.tsx', '/go'],
@@ -55,6 +55,9 @@ describe('the old app is retired (P-89)', () => {
     ]) {
       expect(readFileSync(join(SRC, route), 'utf8'), route).toContain(`<Redirect href="${to}" />`);
     }
+    // P-90: See it all is folded into Plan — its old address only redirects to the run's Plan.
+    expect(readFileSync(join(SRC, 'app/go/run/[id]/all.tsx'), 'utf8')).toContain('<Redirect href={`/go/run/${String(id)}/plan`} />');
+    for (const gone of ['components/go/SeeAll.tsx', 'components/go/Editor.tsx']) expect(existsSync(join(SRC, gone)), gone).toBe(false);
   });
 
   it('nothing in the app says “Back to Wanderment” or points at the old home', () => {

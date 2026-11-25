@@ -1,31 +1,33 @@
 /**
  * P-86 (B-11 slice 1): what the audit found (.polish/current/audit.md), each as the test that would
- * have caught it. B1 typing at the edge · B3 the buttons never move · D1 Keep all is one Undo · D2
- * Break it down goes to the step it was opened on · B6 a Jump offers what it leaves · A1 the note
- * never vanishes · A2 focus never falls to nothing · U1 typed text survives a reload · U3 a long step
- * is shown whole where steps are written.
+ * have caught it — as they read after P-90, where planning has its own surface. B1 typing at the edge
+ * (now Plan's open row) · B3 the runner's buttons never move · A1 the note never vanishes, and Plan's
+ * open row is in reach · A2 focus never falls to nothing · U1 typed text survives a reload · U3 a long
+ * step is shown whole where steps are written (now Plan).
+ * Gone with their rules (P-90: nothing is "this run only", so there is no Keep): D1 Keep all is one
+ * Undo · B6 a Jump offers what it leaves. D2 (Break it down goes to the step it was opened on) is now
+ * true by construction — a Plan row is its step — and is proven in e2e/go-plan.spec.ts.
  */
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, focused, home, paused, place, RoutineSpec, runner, setVisibility, settled, startGo, tile } from './goFixture';
+import { arrived, expectSteps, focused, home, paused, place, plan, planMenu, planType, RoutineSpec, runner, startGo, tile } from './goFixture';
 
-const smaller = (page: Page) => page.getByRole('textbox', { name: 'A smaller step', exact: true });
 /** Focus is somewhere: never on nothing. */
 const somewhere = async (page: Page) => expect.poll(() => page.evaluate(() => document.activeElement !== null && document.activeElement !== document.body)).toBe(true);
 
-test.describe('B1: at the edge of a goal the next-small-step field has the focus, however you got there, and typing only types', () => {
+test.describe('B1: at the edge of a goal Plan’s open row has the focus, however you got there, and typing only types', () => {
   const SENTENCE = 'pick a recipe, Do the shopping, make a plan now';
 
   async function typesThere(page: Page) {
-    const r = runner(page);
-    await expect(r.field).toBeFocused();
+    const p = plan(page);
+    await expect(p.add).toBeFocused();
     // Every letter that used to be a shortcut is in there: p paused, D ended the run, n and m moved it.
     await page.keyboard.type(SENTENCE);
-    await expect(r.field).toHaveValue(SENTENCE);
-    await expect(r.screen).toBeVisible();
-    await expect(r.panel).toHaveCount(0);
-    await expect(page).toHaveURL(/\/go\/run\/[^/]+$/);
+    await expect(p.add).toHaveValue(SENTENCE);
+    await expect(p.screen).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(page).toHaveURL(/\/go\/(run\/[^/]+\/plan|routine\/[^/]+)$/);
   }
 
   test('by "New: …" (J01)', async ({ page }) => {
@@ -34,40 +36,45 @@ test.describe('B1: at the edge of a goal the next-small-step field has the focus
     await home(page).prompt.press('Enter');
     await typesThere(page);
     await page.keyboard.press('Enter');
-    await expect(runner(page).words).toHaveText(SENTENCE);
-    // Still running, nothing ended, nothing paused.
-    await page.goBack();
-    await expect(tile(page, 'Plan dinner')).toHaveAttribute('data-state', 'running');
+    await expectSteps(page, [SENTENCE]);
+    // Nothing started, nothing ended: a routine with one step, and Start.
+    await expect(plan(page).forward).toHaveText('Start');
+    await plan(page).home.click();
+    await expect(tile(page, 'Plan dinner')).toHaveAttribute('data-state', 'idle');
   });
 
   test('by a cold open of /go, and by a reload', async ({ page }) => {
-    await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'runner');
+    await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'plan');
     await typesThere(page);
     await page.reload();
-    const r = runner(page);
+    const p = plan(page);
     // The words come back, and so does the focus.
-    await expect(r.field).toHaveValue(SENTENCE);
-    await expect(r.field).toBeFocused();
+    await expect(p.add).toHaveValue(SENTENCE);
+    await expect(p.add).toBeFocused();
     await page.keyboard.type(' D');
-    await expect(r.field).toHaveValue(`${SENTENCE} D`);
+    await expect(p.add).toHaveValue(`${SENTENCE} D`);
   });
 
-  test('by Resume (from Paused and from a tile), and by Next', async ({ page }) => {
-    await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'paused' }], 'paused');
-    await paused(page).resume.click();
+  test('by Plan (from the paused screen and from a tile), and by Next', async ({ page }) => {
+    await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'paused' }], 'plan');
+    await page.goto('./go/run/r4/paused');
+    await expect(paused(page).title).toHaveText('Planning');
+    await paused(page).screen.getByRole('button', { name: 'Plan Feel at home in Spanish', exact: true }).click();
     await typesThere(page);
-    await runner(page).field.fill('');
-    await page.goBack();
-    await home(page).screen.getByRole('button', { name: 'Resume Feel at home in Spanish', exact: true }).click();
+    await plan(page).add.fill('');
+    await plan(page).home.click();
+    await home(page).screen.getByRole('button', { name: 'Plan Feel at home in Spanish', exact: true }).click();
     await typesThere(page);
     await page.keyboard.press('Enter');
+    await expectSteps(page, [SENTENCE]);
+    await plan(page).forward.click();
     await expect(runner(page).words).toHaveText(SENTENCE);
     await runner(page).next.click();
     await typesThere(page);
   });
 });
 
-test('B3: Pause, the middle button, Next, the handle and Done do not move by a pixel between a plain step, a routine, a wait, the edge (empty and typed) and with a notice; nor does the note', async ({ page }) => {
+test('B3: Pause, the middle button, Next, the handle and Done do not move by a pixel between a plain step, a routine, a level down, a wait, with a notice and with the panel open; nor does the note', async ({ page }) => {
   const routines: RoutineSpec[] = [
     { id: 'all', name: 'Every kind of step', steps: ['Stretch', 'Read the job ad twice', { routine: 'inner' }, { wait: 'a reply' }] },
     { id: 'inner', name: 'Proofread out loud', home: false, open: false, steps: ['Read it aloud once'] },
@@ -99,117 +106,10 @@ test('B3: Pause, the middle button, Next, the handle and Done do not move by a p
   await expect(r.next).toHaveText('It’s happened');
   expect(await boxes(), 'a wait').toEqual(plain);
   expect(await place(r.note), 'the note, a wait').toEqual(note);
-  // The edge, nothing typed: Next is unavailable — and exactly where it was.
-  await r.next.click();
-  await expect(r.field).toBeVisible();
-  await expect(r.next).toBeDisabled();
-  expect(await boxes(), 'the edge, empty').toEqual(plain);
-  expect(await place(r.note), 'the note, the edge').toEqual(note);
-  // The edge, typed: Next is available.
-  await r.field.fill('Send it');
-  await expect(r.next).toBeEnabled();
-  expect(await boxes(), 'the edge, typed').toEqual(plain);
-  // The panel open.
-  await r.field.press('Enter');
+  // The panel open. (The edge is not the runner's: a run with nothing next is in Plan.)
   await r.handle.click();
   await expect(r.panel).toBeVisible();
   expect(await boxes(), 'the panel open').toEqual(plain);
-});
-
-test('D1: Keep all on the leaving sheet is ONE action — its Undo leaves nothing kept (with another change elsewhere in the run)', async ({ page }) => {
-  await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-  const r = runner(page);
-  // A change at the top level, which the leaving sheet will NOT show…
-  await r.handle.click();
-  await r.panel.getByRole('button', { name: 'Change the words', exact: true }).click();
-  await r.field.fill('Tailor the CV to the ad');
-  await r.field.press('Enter');
-  await expect(r.words).toHaveText('Tailor the CV to the ad');
-  // …then a breakdown, and both of its steps reworded.
-  await r.middle.click();
-  await arrived(page, 'go-break');
-  for (const s of ['one', 'two']) {
-    await smaller(page).fill(s);
-    await smaller(page).press('Enter');
-  }
-  await page.getByTestId('go-break-in').click();
-  for (const words of ['ONE', 'TWO']) {
-    await r.handle.click();
-    await r.panel.getByRole('button', { name: 'Change the words', exact: true }).click();
-    await r.field.fill(words);
-    await r.field.press('Enter');
-    await expect(r.words).toHaveText(words);
-    if (words === 'ONE') await r.next.click();
-  }
-  await r.done.click();
-  const keep = await arrived(page, 'go-keep');
-  // What that level leaves: the breakdown that made it and the two rewordings in it — three changes, one Keep.
-  await expect(keep.getByTestId('go-keep-row')).toHaveCount(3);
-  await keep.getByRole('button', { name: 'Keep all', exact: true }).click();
-  await expect(page.getByTestId('go-keep')).toHaveCount(0);
-  await r.notice.getByRole('button', { name: 'Undo Keep', exact: true }).click();
-  // Nothing is kept: every one of them is this run's own again.
-  await r.context.click();
-  const all = settled(page, 'all');
-  await expect(all.locator('[data-testid="go-all-row"][data-mine="true"]')).toHaveCount(3);
-  // (Before the fix, only "TWO" came back: the breakdown and "ONE" stayed written into the routine.)
-  await expect(all.locator('[data-testid="go-all-row"][data-mine="true"]').filter({ hasText: 'Tailor the CV to the ad' })).toHaveCount(1);
-  await expect(all.locator('[data-testid="go-all-row"][data-mine="true"]').filter({ hasText: 'ONE' })).toHaveCount(1);
-  await expect(all.locator('[data-testid="go-all-row"][data-mine="true"]').filter({ hasText: 'TWO' })).toHaveCount(1);
-});
-
-test('D2: Break it down goes to the step it was opened on — a Next kept while reconnecting comes in under the open sheet, and the sub-steps still land on that step', async ({ page }) => {
-  await startGo(page, [{ id: 'r1', routine: 'apply', at: 0, status: 'running' }], 'runner');
-  const r = runner(page);
-  await setVisibility(page, 'hidden');
-  await r.next.click(); // kept
-  await r.middle.click();
-  const sheet = await arrived(page, 'go-break');
-  await expect(sheet.getByRole('heading', { level: 2 })).toHaveText('Read the job ad twice');
-  await smaller(page).fill('Read it once');
-  await smaller(page).press('Enter');
-  await smaller(page).fill('Read it again');
-  await smaller(page).press('Enter');
-  await setVisibility(page, 'visible');
-  // The kept Next is applied: the run is on the next step. The sheet is still the first step's.
-  await expect(r.words).toHaveText('Tailor the CV');
-  await expect(sheet.getByRole('heading', { level: 2 })).toHaveText('Read the job ad twice');
-  await expect(sheet.getByTestId('go-break-step')).toHaveText(['Read it once', 'Read it again']);
-  await expect(async () => {
-    await sheet.getByRole('button', { name: 'Step in', exact: true }).click({ timeout: 1000 });
-    await expect(page.getByTestId('go-break')).toHaveCount(0, { timeout: 1000 });
-  }).toPass();
-  // The run stays where it is; "Tailor the CV" is untouched; the first step holds the sub-steps.
-  await expect(r.words).toHaveText('Tailor the CV');
-  await expect(r.context).toHaveAccessibleName('Apply to Initech See it all');
-  await expect(r.notice).toContainText('Broke down “Read the job ad twice”');
-  await r.context.click();
-  const all = settled(page, 'all');
-  await expect(all.getByTestId('go-all-row')).toHaveText([/^Read the job ad twice/, /^Read it once/, /^Read it again/, /^Tailor the CV$/, /^Write the cover letter/, /^Proofread out loud/, /^Read it aloud once/, /^Fix what you stumble on/, /^Send the application/]);
-  await expect(all.locator('[data-testid="go-all-row"][data-here="true"]')).toHaveText(/^Tailor the CV$/);
-});
-
-test('B6: jumping out of a level offers that level’s changes, once, like leaving it by Done — and blocks nothing', async ({ page }) => {
-  await startGo(page, [{ id: 'r3', routine: 'drawing', at: 1, inner: [{ routine: 'hands', at: 2, round: 2 }], status: 'running' }], 'runner');
-  const r = runner(page);
-  await r.handle.click();
-  await r.panel.getByRole('button', { name: 'Change the words', exact: true }).click();
-  await r.field.fill('Measure against the photo');
-  await r.field.press('Enter');
-  await r.handle.click();
-  await r.panel.getByRole('button', { name: 'Jump to…', exact: true }).click();
-  const j = settled(page, 'jump');
-  await j.getByRole('radio', { name: 'Gesture drawing', exact: true }).click();
-  await j.getByTestId('go-jump-here').click();
-  // The jump has happened; the ask is over it.
-  const keep = await arrived(page, 'go-keep');
-  await expect(r.words).toHaveText('Gesture drawing');
-  await expect(keep.getByRole('heading', { level: 2 })).toHaveText('Keep in Hand studies of my left hand');
-  await expect(keep.getByTestId('go-keep-row')).toContainText('Measure against the photo');
-  await page.keyboard.press('Escape');
-  await expect(r.notice).toContainText('Jumped from Measure against the photo');
-  await r.notice.getByRole('button', { name: 'Undo Jump', exact: true }).click();
-  await expect(r.words).toHaveText('Measure against the photo');
 });
 
 for (const size of [
@@ -236,18 +136,26 @@ for (const size of [
     await expect(r.words).toHaveText('Write the cover letter');
   });
 
-  test(`A1: at ${size.width}×${size.height} the edge's field is there, focused, and can be typed in`, async ({ page }) => {
-    await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'runner');
+  test(`A1: at ${size.width}×${size.height} Plan at the edge: the band is still at the top with Home, the open row is focused, in view and can be typed in`, async ({ page }) => {
+    await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'plan');
     await page.setViewportSize(size);
-    const r = runner(page);
-    await expect(r.field).toBeFocused();
+    const p = plan(page);
+    await expect(p.add).toBeFocused();
     await page.keyboard.type('Order a coffee');
-    await expect(r.field).toHaveValue('Order a coffee');
-    await r.field.scrollIntoViewIfNeeded();
-    await expect(r.field).toBeInViewport();
-    expect((await r.note.boundingBox())!.width).toBeGreaterThanOrEqual(96);
+    await expect(p.add).toHaveValue('Order a coffee');
+    await p.add.scrollIntoViewIfNeeded();
+    await expect(p.add).toBeInViewport();
+    expect((await p.band.boundingBox())!.y).toBe(0);
+    await expect(p.home).toBeInViewport({ ratio: 1 });
+    await expect(p.done).toBeInViewport({ ratio: 1 });
     await page.keyboard.press('Enter');
-    await expect(r.words).toHaveText('Order a coffee');
+    await expectSteps(page, ['Order a coffee']);
+    // The filled button can be brought into view, and works.
+    await p.forward.scrollIntoViewIfNeeded();
+    await expect(p.forward).toBeInViewport();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await p.forward.click();
+    await expect(runner(page).words).toHaveText('Order a coffee');
   });
 }
 
@@ -280,131 +188,116 @@ test.describe('A2: focus never falls to nothing', () => {
     await expect(paused(page).screen.getByRole('button', { name: 'It’s happened: a reply from Acme', exact: true })).toBeFocused();
   });
 
-  test('Break it down: after Return the field still has the focus; the editor’s add field too', async ({ page }) => {
+  test('Plan: after Return the field still has the focus — smaller steps under a step, and the open row', async ({ page }) => {
     await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
     await runner(page).middle.click();
-    await arrived(page, 'go-break');
+    const p = plan(page);
+    await planMenu(page, 'Tailor the CV', 'Break it down');
     for (const s of ['one', 'two', 'three']) {
+      await expect(p.typed).toBeFocused();
       await page.keyboard.type(s);
       await page.keyboard.press('Enter');
-      await expect(smaller(page)).toBeFocused();
+      await expect(p.typed).toBeFocused();
+      await expect(p.typed).toHaveValue('');
     }
-    await expect(page.getByTestId('go-break-step')).toHaveText(['one', 'two', 'three']);
+    await expectSteps(page, ['Read the job ad twice', 'Tailor the CV', 'one', 'two', 'three', 'Write the cover letter', 'Proofread out loud', 'Send the application']);
     await page.keyboard.press('Escape');
-    await page.goBack();
-    await home(page).screen.getByRole('button', { name: 'More for Practise drawing', exact: true }).click();
-    const e = settled(page, 'editor');
-    const add = e.getByTestId('go-edit-add');
-    await add.click();
+    await p.add.click();
     for (const s of ['Sharpen the pencils', 'Tape the paper down']) {
       await page.keyboard.type(s);
       await page.keyboard.press('Enter');
-      await expect(add).toBeFocused();
-      await expect(add).toHaveValue('');
+      await expect(p.add).toBeFocused();
+      await expect(p.add).toHaveValue('');
     }
-    await expect(e.getByRole('textbox', { name: 'Step: Tape the paper down', exact: true })).toBeVisible();
+    await expect(p.row('Tape the paper down')).toHaveCount(1);
   });
 
-  test('See it all: a menu’s field takes the focus as it appears; closing the menu gives it back to the row it came from', async ({ page }) => {
-    await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-    await runner(page).context.click();
-    const all = settled(page, 'all');
-    const more = all.getByRole('button', { name: 'More for Write the cover letter', exact: true });
-    for (const [action, field] of [
-      ['Add a step after', 'Add a step after'],
-      ['Add a wait after', 'Add a wait after'],
-      ['Change the words', 'Change the words'],
-    ]) {
-      await more.click();
-      const menu = await arrived(page, 'go-all-menu');
-      await menu.getByRole('button', { name: action, exact: true }).click();
-      await expect(page.getByRole('textbox', { name: field, exact: true })).toBeFocused();
+  test('Plan: a field opened from a step’s menu takes the focus as it appears; Esc gives it back to the row it came from', async ({ page }) => {
+    await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused', mode: 'plan' }], 'plan');
+    const p = plan(page);
+    const more = p.more('Write the cover letter');
+    for (const action of ['Add a step after', 'Change the words', 'Break it down']) {
+      await planMenu(page, 'Write the cover letter', action);
+      await expect(p.typed).toBeFocused();
       await page.keyboard.press('Escape');
-      await expect(page.getByTestId('go-all-menu')).toHaveCount(0);
+      await expect(p.typed).toHaveCount(0);
       await expect(more).toBeFocused();
     }
-    // After a change made there, too: focus is on a control, not on nothing.
+    // A menu closed with nothing chosen: back to the row it came from.
     await more.click();
-    const menu = await arrived(page, 'go-all-menu');
-    await menu.getByRole('button', { name: 'Add a step after', exact: true }).click();
-    await page.keyboard.type('Sleep on it');
-    await page.keyboard.press('Enter');
-    await expect(page.getByTestId('go-all-menu')).toHaveCount(0);
+    await arrived(page, 'go-plan-menu');
+    await page.keyboard.press('Escape');
+    await expect(more).toBeFocused();
+    // After a change made there, too: focus is on a control, not on nothing.
+    await planMenu(page, 'Write the cover letter', 'Add a step after');
+    await planType(page, 'Sleep on it');
     await somewhere(page);
     expect(await focused(page)).not.toBe('BODY');
+    await planMenu(page, 'Sleep on it', 'Remove this step');
+    await somewhere(page);
+    await planMenu(page, 'Write the cover letter', 'Move up');
+    await expect(more).toBeFocused();
+    await p.undo.click();
+    await expect(p.title).toBeFocused();
   });
 });
 
 test.describe('U1: typed text survives a reload', () => {
-  test('Change the words on the runner', async ({ page }) => {
-    await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-    const r = runner(page);
-    await r.handle.click();
-    await r.panel.getByRole('button', { name: 'Change the words', exact: true }).click();
-    await r.field.fill('Tailor the CV to the');
+  test('Plan: a step being added after a row, and a smaller step being typed (the open row and Change the words: e2e/go-plan.spec.ts)', async ({ page }) => {
+    await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused', mode: 'plan' }], 'plan');
+    const p = plan(page);
+    await planMenu(page, 'Write the cover letter', 'Add a step after');
+    await p.typed.fill('Sleep on');
     await page.reload();
-    await expect(runner(page).field).toHaveValue('Tailor the CV to the');
-    await expect(runner(page).field).toBeFocused();
-    await runner(page).field.press('Enter');
-    await expect(runner(page).words).toHaveText('Tailor the CV to the');
-    // Kept: a second reload does not start rewording again.
+    await expect(p.typed).toHaveValue('Sleep on');
+    await expect(p.typed).toHaveAccessibleName('Add a step after Write the cover letter');
+    await expect(p.typed).toBeFocused();
+    await p.typed.press('End');
+    await p.typed.pressSequentially(' it');
+    await p.typed.press('Enter');
+    await expect(p.row('Sleep on it')).toHaveCount(1);
+    await page.keyboard.press('Escape');
+    // Done with: a reload does not open the field again.
     await page.reload();
-    await expect(runner(page).words).toHaveText('Tailor the CV to the');
-    await expect(runner(page).field).toHaveCount(0);
-  });
+    await expect(p.row('Sleep on it')).toHaveCount(1);
+    await expect(p.typed).toHaveCount(0);
 
-  test('See it all: a step being added or reworded', async ({ page }) => {
-    await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-    await runner(page).context.click();
-    const all = settled(page, 'all');
-    await all.getByRole('button', { name: 'More for Write the cover letter', exact: true }).click();
-    const menu = await arrived(page, 'go-all-menu');
-    await menu.getByRole('button', { name: 'Add a step after', exact: true }).click();
-    await page.getByRole('textbox', { name: 'Add a step after', exact: true }).fill('Sleep on');
+    await planMenu(page, 'Sleep on it', 'Break it down');
+    await p.typed.fill('Close the laptop');
     await page.reload();
-    const field = page.getByRole('textbox', { name: 'Add a step after', exact: true });
-    await expect(field).toHaveValue('Sleep on');
-    await expect((await arrived(page, 'go-all-menu')).getByRole('heading', { level: 2 })).toHaveText('Write the cover letter');
-    await field.fill('Sleep on it');
-    await field.press('Enter');
-    await expect(settled(page, 'all').locator('[data-testid="go-all-row"][data-mine="true"]')).toHaveText(/^Sleep on it/);
-    // Done with: a reload does not open the menu again.
-    await page.reload();
-    await expect(settled(page, 'all')).toBeVisible();
-    await expect(page.getByTestId('go-all-menu')).toHaveCount(0);
-  });
-
-  test('the editor’s add field (a step, or a wait)', async ({ page }) => {
-    await startGo(page, []);
-    await home(page).screen.getByRole('button', { name: 'More for Practise drawing', exact: true }).click();
-    let e = settled(page, 'editor');
-    await e.getByRole('button', { name: 'Add it as a wait', exact: true }).click();
-    await e.getByTestId('go-edit-add').fill('the fixative to');
-    await page.reload();
-    e = settled(page, 'editor');
-    await expect(e.getByTestId('go-edit-add')).toHaveValue('the fixative to');
-    await expect(e.getByRole('button', { name: 'Add it as a wait', exact: true })).toHaveAttribute('aria-pressed', 'true');
-    await e.getByTestId('go-edit-add').fill('the fixative to dry');
-    await e.getByTestId('go-edit-add').press('Enter');
-    await expect(e.getByRole('textbox', { name: 'Wait for: the fixative to dry', exact: true })).toBeVisible();
+    await expect(p.typed).toHaveValue('Close the laptop');
+    await expect(p.typed).toHaveAccessibleName('A smaller step of Sleep on it');
+    // Not kept until Return: the step is still a plain step.
+    await expect(p.row('Sleep on it')).toHaveAttribute('data-kind', 'step');
+    await p.typed.press('Enter');
+    await expect(p.row('Sleep on it')).toHaveAttribute('data-kind', 'routine');
+    await expect(p.row('Close the laptop')).toHaveAttribute('data-depth', '1');
   });
 });
 
-test('U3: the editor shows a long step whole — it wraps and its row grows; the words are never cut', async ({ page }) => {
+test('U3: Plan shows a long step whole — it wraps and its row grows, and so does the field its words are changed in; the words are never cut', async ({ page }) => {
   const LONG = 'Open the job ad beside the CV and mark what they ask for in yellow, then note the answer in the tracker';
   await startGo(page, [], 'home', [{ id: 'long', name: 'A long one', steps: [LONG, 'Stretch'] }]);
-  await home(page).screen.getByRole('button', { name: 'More for A long one', exact: true }).click();
-  const e = settled(page, 'editor');
-  const field = e.getByRole('textbox', { name: `Step: ${LONG}`, exact: true });
-  await expect(field).toHaveValue(LONG);
-  // All of it is on show: nothing to scroll inside the field, in either direction.
-  await expect.poll(() => field.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
-  expect(await field.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
-  const long = (await field.boundingBox())!;
-  const short = (await e.getByRole('textbox', { name: 'Step: Stretch', exact: true }).boundingBox())!;
+  await home(page).screen.getByRole('button', { name: 'Plan A long one', exact: true }).click();
+  const p = plan(page);
+  const words = p.words.first();
+  await expect(words).toHaveText(LONG);
+  // All of it is on show: nothing to scroll inside the row, in either direction.
+  expect(await words.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+  expect(await words.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  const long = (await p.row(LONG).boundingBox())!;
+  const short = (await p.row('Stretch').boundingBox())!;
   expect(long.height).toBeGreaterThan(short.height * 1.5);
+  // Being reworded: the field holds all of it too.
+  await planMenu(page, LONG, 'Change the words');
+  await expect(p.typed).toHaveValue(LONG);
+  await expect.poll(() => p.typed.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+  expect(await p.typed.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
   // At 200 % too.
   await page.setViewportSize({ width: 195, height: 422 });
-  await expect.poll(() => field.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
+  await expect.poll(() => p.typed.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(words).toHaveText(LONG);
+  expect(await words.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
 });

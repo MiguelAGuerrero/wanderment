@@ -1,0 +1,208 @@
+/**
+ * P-90 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE the Plan surface (ba739fa: schema 4, data
+ * format 2, the eight-key journal; "this run only" changes, Keep, Break it down on the runner). Run once,
+ * in that commit, with P90_OUT set; never part of the suite. It drives store actions that no longer exist.
+ */
+import { copyFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const OUT = process.env.P90_OUT!;
+
+const env = vi.hoisted(() => {
+  const ls = new Map<string, string>();
+  const state = { dbPath: '', openError: undefined as Error | undefined, hangWrites: false };
+  const localStorage = {
+    get length() {
+      return ls.size;
+    },
+    key: (i: number) => [...ls.keys()][i] ?? null,
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => void ls.set(k, String(v)),
+    removeItem: (k: string) => void ls.delete(k),
+  };
+  (globalThis as { localStorage?: unknown }).localStorage = localStorage;
+  return { ls, state, localStorage };
+});
+
+vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => env.localStorage.getItem(k),
+    setItem: async (k: string, v: string) => env.localStorage.setItem(k, v),
+    removeItem: async (k: string) => env.localStorage.removeItem(k),
+  },
+}));
+vi.mock('./expoDb', async () => {
+  const { nodeDb } = await import('./nodeDb');
+  return {
+    openExpoDb: async () => {
+      if (env.state.openError) throw env.state.openError;
+      const db = nodeDb(env.state.dbPath);
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+    },
+  };
+});
+vi.mock('./nativeBackup', () => ({ scheduleBackup: () => {} }));
+
+const settle = () => new Promise((r) => setTimeout(r, 40));
+
+async function load() {
+  vi.resetModules();
+  const { startPersistence } = await import('./persistence');
+  const { useStore } = await import('@/store/useStore');
+  await startPersistence();
+  return useStore;
+}
+type Store = Awaited<ReturnType<typeof load>>;
+
+/** Ids are a counter and the clock is fixed and stepped, so every session makes the same records. */
+let n = 0;
+let clock = 0;
+const T0 = Date.parse('2026-11-25T08:00:00.000Z');
+const tick = (minutes = 3) => vi.setSystemTime(new Date((clock += minutes * 60000)));
+
+beforeEach(() => {
+  env.ls.clear();
+  env.state.openError = undefined;
+  env.state.hangWrites = false;
+  env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-freeze-')), 'db.sqlite');
+  n = 0;
+  clock = T0;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(T0));
+  vi.stubGlobal('crypto', { randomUUID: () => `p90-${String(++n).padStart(3, '0')}` });
+});
+afterEach(async () => {
+  (await import('./persistence')).stopPersistence();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+type Body = { frames: { seq: string; at: string | null; round: number }[]; changes: { id: string; kind: string }[]; routineId: string };
+
+/** What a person did with the build before the Plan surface, through its own actions. */
+async function drive(store: Store) {
+  const s = () => store.getState();
+  const ok = (d: { ok: boolean; runId?: string }) => {
+    expect(d.ok).toBe(true);
+    s().dismissRunNotice();
+    s().dismissRunOffer();
+    tick();
+    return d.runId!;
+  };
+  const run = (id: string) => s().data.runs[id] as unknown as Body;
+  const items = (routineId: string) => s().data.routines[routineId].items as { id: string; text?: string; wait?: string }[];
+  const item = (routineId: string, words: string) => items(routineId).find((i) => (i.text ?? i.wait) === words)!.id;
+
+  // 1. A run that ended with a this-run reword never kept (it was offered at the end).
+  const desk = ok(s().startNew('Tidy the desk'));
+  ok(s().addEdgeStep(desk, 'Clear the cups'));
+  ok(s().changeWords(desk, 'Clear the cups and the plates'));
+  ok(s().doneLevel(desk));
+
+  // 2. Something new, left at its edge: the run asks for its first small step (at: null).
+  const spanish = ok(s().startNew('Learn Spanish'));
+  ok(s().pauseRun(spanish));
+
+  // 3. A routine with a counted loop, run into its second round, with every kind of this-run change.
+  const jobs = ok(s().startNew('Apply for jobs'));
+  const G = run(jobs).routineId;
+  ok(s().addEdgeStep(jobs, 'Open the tracker'));
+  ok(s().editRoutine(G, { kind: 'addStep', text: 'Find a posting' }));
+  ok(s().editRoutine(G, { kind: 'addStep', text: 'Tailor the CV' }));
+  ok(s().editRoutine(G, { kind: 'addWait', wait: 'a reply' }));
+  ok(s().editRoutine(G, { kind: 'addStep', text: 'Log it' }));
+  ok(s().editRoutine(G, { kind: 'divider', from: 1 }));
+  ok(s().editRoutine(G, { kind: 'repeat', times: 3 }));
+  // Round 1: find, tailor, the wait, log; round 2: find, tailor.
+  for (let i = 0; i < 6; i++) ok(s().nextStep(jobs));
+  expect(run(jobs).frames).toEqual([{ seq: G, at: item(G, 'Tailor the CV'), round: 2 }]);
+  // For this run only: a step added, a step reworded, a step removed, the number.
+  ok(s().editRun(jobs, { kind: 'add', seq: G, after: item(G, 'Tailor the CV'), text: 'Ask Sam to proofread' }));
+  ok(s().editRun(jobs, { kind: 'reword', seq: G, item: item(G, 'Log it'), text: 'Log it in the sheet' }));
+  ok(s().editRun(jobs, { kind: 'remove', seq: G, item: item(G, 'Find a posting') }));
+  ok(s().editRun(jobs, { kind: 'repeat', seq: G, repeat: 5 }));
+  // A breakdown, and a breakdown inside it; a reword inside the inner one.
+  ok(s().breakDown(jobs, ['Open the job ad', 'Rewrite the summary']));
+  ok(s().breakDown(jobs, ['Find the tab', 'Copy the requirements']));
+  ok(s().changeWords(jobs, 'Find the right tab'));
+  expect(run(jobs).frames).toHaveLength(3);
+  expect(run(jobs).changes.map((c) => c.kind)).toEqual(['add', 'reword', 'remove', 'repeat', 'breakdown', 'breakdown', 'reword']);
+  ok(s().pauseRun(jobs, 'lunch'));
+  // Home, after "Stop Apply for jobs?": the run stays where it is and is no longer the one the app is on.
+  ok(s().leaveRun(jobs));
+  await settle();
+
+  // 4. A second, paused run of the same routine. The app never makes one (Start resumes the run there
+  // is); Import's Replace is the only way in, so that is how it gets here: this build's own export,
+  // with one run added, read back by this build's own import.
+  const { toBackup } = await import('@/domain/backup');
+  const { previewImport, confirmImport } = await import('@/store/importBackup');
+  const backup = JSON.parse(toBackup(s().data, new Date(clock)));
+  backup.data.runs['p90-run-b'] = {
+    id: 'p90-run-b',
+    routineId: G,
+    startedAt: '2026-11-24T17:00:00.000Z',
+    waitingSince: '2026-11-24T17:20:00.000Z',
+    frames: [{ seq: G, at: item(G, 'a reply'), round: 2 }],
+    changes: [],
+    status: 'paused',
+    touchedAt: '2026-11-24T17:20:00.000Z',
+  };
+  expect(confirmImport(previewImport(JSON.stringify(backup))).ok).toBe(true);
+  tick();
+  // …and the app is used again afterwards: a reason typed on that paused run.
+  ok(s().setPauseReason('p90-run-b', 'chased the recruiter'));
+  await settle();
+  return { desk, spanish, jobs, G };
+}
+
+const settingsOf = (store: Store) => {
+  const s = store.getState();
+  return { showShading: s.showShading, recentSearches: s.recentSearches, leftAsIs: s.leftAsIs, whyOfferOff: s.whyOfferOff, firstRunDone: s.firstRunDone };
+};
+const snapshot = (store: Store) => JSON.parse(JSON.stringify({ data: store.getState().data, settings: settingsOf(store) }));
+let expected: { data: import('@/domain/types').Data; settings: ReturnType<typeof settingsOf> };
+
+it('1. the database (schema 4), the backup and what the store held', async () => {
+  let store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+  await drive(store);
+  await settle();
+  expected = snapshot(store);
+  expect(env.ls.has('wanderment:journal')).toBe(false);
+  store = await load();
+  expect(snapshot(store)).toEqual(expected);
+  const { nodeDb } = await import('./nodeDb');
+  const db = nodeDb(env.state.dbPath);
+  expect(await db.all('PRAGMA user_version')).toEqual([{ user_version: 4 }]);
+  await db.exec('VACUUM');
+  db.close();
+  copyFileSync(env.state.dbPath, join(OUT, 'p90-schema4.sqlite'));
+  writeFileSync(join(OUT, 'p90-expected.json'), JSON.stringify(expected, null, 2) + '\n');
+  const { toBackup } = await import('@/domain/backup');
+  writeFileSync(join(OUT, 'p90-backup.json'), toBackup(store.getState().data, new Date('2026-11-25T09:30:00.000Z')));
+});
+
+it('2. the pending journal (eight keys): everything, never committed', async () => {
+  const store = await load();
+  env.state.hangWrites = true;
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store)).toEqual(expected);
+  const raw = env.ls.get('wanderment:journal')!;
+  expect(Object.keys(JSON.parse(raw).changes).sort()).toEqual(['deleteActivities', 'deleteRoutines', 'deleteRuns', 'deleteThreads', 'upsertActivities', 'upsertRoutines', 'upsertRuns', 'upsertThreads']);
+  writeFileSync(join(OUT, 'p90-journal.json'), raw);
+});
+
+it('3. the fallback blob (a browser that can’t run SQLite)', async () => {
+  env.state.openError = new Error('no OPFS');
+  const store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store)).toEqual(expected);
+  writeFileSync(join(OUT, 'p90-fallback.json'), env.ls.get('wanderment')!);
+});

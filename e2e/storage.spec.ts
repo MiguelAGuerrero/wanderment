@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { expect, test } from './fixtures';
-import { exported, home, openAndStart, openGo, runner, saved, settled, storedNames } from './goFixture';
+import { exported, home, openAndRun, openAndStart, openGo, runner, saved, settled, storedNames } from './goFixture';
 
 const legacy = readFileSync(join(__dirname, '../src/storage/fixtures/legacy-v1.json'), 'utf8');
 
@@ -51,7 +51,7 @@ test('falls back to localStorage where SQLite can’t run, and still keeps data'
     // As in a browser without workers: there is no Worker at all.
     Object.defineProperty(window, 'Worker', { value: undefined });
   });
-  await openAndStart(page, 'offline-ish note');
+  await openAndRun(page, 'offline-ish note');
   await page.reload();
   // It opens where it was left: the run just started.
   await expect(runner(page).screen).toBeVisible();
@@ -60,7 +60,7 @@ test('falls back to localStorage where SQLite can’t run, and still keeps data'
 });
 
 test('a second tab waits instead of showing stale data', async ({ page, context }) => {
-  await openAndStart(page, 'first tab');
+  await openAndRun(page, 'first tab');
   await saved(page);
 
   const second = await context.newPage();
@@ -92,7 +92,7 @@ test('in the localStorage fallback a second tab is blocked too (no last-writer-w
 test('a page whose files another copy holds without the tab lock (a suspended WebKit page) waits, then opens by itself (P-29)', async ({ page, context }) => {
   // The holder has no Web Locks, as a suspended or cached WebKit page that dropped its lock but kept the files.
   await page.addInitScript(() => Object.defineProperty(navigator, 'locks', { value: undefined }));
-  await openAndStart(page, 'from the holder');
+  await openAndRun(page, 'from the holder');
   await saved(page);
 
   const second = await context.newPage();

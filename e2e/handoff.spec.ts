@@ -2,18 +2,19 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { addStep, anotherTab, exported, home, paused, runner, saved, setVisibility, settled, startGo, turn } from './goFixture';
+import { addStep, anotherTab, arrived, exported, home, paused, plan, runner, saved, setVisibility, settled, startGo, turn } from './goFixture';
 
 /**
  * P-29 part B: a page holds the data only while it's visible. Headless Chromium keeps every page
  * visible, so hiding is emulated (`setVisibility`): the page's document reports the state, and the
  * event fires. With one page in play `setVisibility` waits until it has let go; with two, `turn`
  * (the other page takes the lock at once), and the wait is on what a page then shows.
- * P-89: driven through the app there is now — a run, its next small step, a pause's
- * reason (a field that saves as you type) and a routine's name.
+ * P-89, P-90: driven through the app there is now — a run at the edge of its goal (it is in Plan: the
+ * next step is typed in Plan's open row), a pause's reason (a field that saves as you type) and a
+ * routine's name (changed in place in its Plan).
  */
 
-/** A run at the edge of its goal (the runner asks for the next small step): words can be typed there. */
+/** A run at the edge of its goal (it opens in Plan, on the open row): words can be typed there. */
 const AT_EDGE = [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' as const }];
 const PAUSED = [{ id: 'r1', routine: 'apply', at: 1, status: 'paused' as const }];
 const NOTE = 'Just a moment — reconnecting.';
@@ -48,16 +49,18 @@ const takeFiles = (page: Page) =>
 /** The steps of the seeded "Feel at home in Spanish" as stored now. */
 const spanishSteps = async (page: Page) => ((await exported(page)).routines['spanish-es'].items ?? []).map((i) => i.text);
 
-/** Opens a routine's editor from its tile on the home, and gives its Name field. */
-async function editorOf(page: Page, name: string) {
-  await home(page).screen.getByRole('button', { name: `More for ${name}`, exact: true }).click();
-  const field = settled(page, 'editor').getByTestId('go-edit-name');
+/** Opens a routine's Plan from its tile on the home, and "Change the name": gives the field its name is typed in, in place. */
+async function nameOf(page: Page, name: string) {
+  await home(page).screen.getByRole('button', { name: `Plan ${name}`, exact: true }).click();
+  await plan(page).more(name).click();
+  await (await arrived(page, 'go-plan-routine')).getByRole('button', { name: 'Change the name', exact: true }).click();
+  const field = plan(page).typed;
   await expect(field).toHaveValue(name);
   return field;
 }
 
 test('a hidden page lets a waiting one open by itself; shown again, it takes the data back with the other page’s changes and the words typed before (P-29)', async ({ page, context }) => {
-  await startGo(page, AT_EDGE, 'runner');
+  await startGo(page, AT_EDGE, 'plan');
 
   const b = await context.newPage();
   await b.goto('./go');
@@ -67,19 +70,19 @@ test('a hidden page lets a waiting one open by itself; shown again, it takes the
   await b.evaluate(() => ((window as unknown as { stillHere: boolean }).stillHere = true));
 
   // Words typed in A, not entered, come through the hand-off.
-  await runner(page).field.fill('half-typed in A');
+  await plan(page).add.fill('half-typed in A');
   await turn(page, 'hidden');
-  // B opens by itself, where A left off: the run.
-  await expect(runner(b).field).toBeVisible({ timeout: 15_000 });
+  // B opens by itself, where A left off: the run, in Plan.
+  await expect(plan(b).add).toBeVisible({ timeout: 15_000 });
   expect(await b.evaluate(() => (window as unknown as { stillHere?: boolean }).stillHere)).toBe(true);
   // A doesn't hold the data now: what it shows stays, and a press is refused, saying why.
-  await runner(page).field.press('Enter');
-  await expect(runner(page).screen.getByTestId('go-notice')).toHaveText(NOTE);
-  await expect(runner(page).field).toHaveValue('half-typed in A');
+  await plan(page).add.press('Enter');
+  await expect(plan(page).notice).toHaveText(NOTE);
+  await expect(plan(page).add).toHaveValue('half-typed in A');
 
   // B changes something else: another routine's name.
   await b.goBack();
-  const name = await editorOf(b, 'Practise drawing');
+  const name = await nameOf(b, 'Practise drawing');
   await name.fill('Practise drawing daily');
   await name.press('Enter');
   await saved(b);
@@ -87,11 +90,11 @@ test('a hidden page lets a waiting one open by itself; shown again, it takes the
   // Hand-back: B goes to the background, A comes forward.
   await setVisibility(b, 'hidden');
   await turn(page, 'visible');
-  await expect(runner(page).field).toHaveValue('half-typed in A');
+  await expect(plan(page).add).toHaveValue('half-typed in A');
   // Once the data is back (a moment after the page is shown), Return enters it.
   await expect(async () => {
-    await runner(page).field.press('Enter', { timeout: 1000 });
-    await expect(runner(page).words).toHaveText('half-typed in A', { timeout: 1000 });
+    await plan(page).add.press('Enter', { timeout: 1000 });
+    await expect(plan(page).row('half-typed in A')).toHaveCount(1, { timeout: 1000 });
   }).toPass({ timeout: 15_000 });
   await saved(page);
 
@@ -99,15 +102,14 @@ test('a hidden page lets a waiting one open by itself; shown again, it takes the
   // A never lets go because B wants it.
   await turn(b, 'visible');
   await expect(anotherTab(b)).toBeVisible({ timeout: 10_000 });
-  await runner(page).next.click();
-  await expect(runner(page).field).toBeVisible();
+  await addStep(page, 'and one more');
   await saved(page);
   // And A shows what B changed.
   await page.goBack();
   await expect(home(page).tiles.filter({ hasText: 'Practise drawing daily' })).toHaveCount(1);
   // (B to the background first: opening Settings by its address loads the page, and a visible, waiting B would take the data.)
   await turn(b, 'hidden');
-  expect(await spanishSteps(page)).toEqual(['half-typed in A']);
+  expect(await spanishSteps(page)).toEqual(['half-typed in A', 'and one more']);
 });
 
 test('canary: hiding the page really frees the database files (the expo-sqlite worker shutdown), and showing it takes them back (P-29)', async ({ page, context }) => {
@@ -115,7 +117,7 @@ test('canary: hiding the page really frees the database files (the expo-sqlite w
   page.on('console', (m) => {
     if (m.type() === 'warning') warnings.push(m.text());
   });
-  await startGo(page, AT_EDGE, 'runner');
+  await startGo(page, AT_EDGE, 'plan');
   await addStep(page, 'kept');
   await saved(page);
 
@@ -130,7 +132,7 @@ test('canary: hiding the page really frees the database files (the expo-sqlite w
 
   await setVisibility(page, 'visible');
   await expect.poll(() => takeFiles(probe), { timeout: 15_000 }).toEqual({ ok: false, name: 'NoModificationAllowedError' });
-  await expect(runner(page).words).toHaveText('kept');
+  await expect(plan(page).row('kept')).toHaveCount(1);
   // If Expo changes how it sets up its worker, the app says so (and the poll above times out).
   expect(warnings.filter((w) => /database worker/.test(w))).toEqual([]);
 });
@@ -142,7 +144,7 @@ test('update reloads with another page in the background never lock the page out
       if (/open in another tab|still open somewhere else/.test(document.body?.innerText ?? '')) sessionStorage.setItem('sawWaiting', '1');
     }).observe(document, { subtree: true, childList: true, characterData: true });
   });
-  await startGo(page, AT_EDGE, 'runner');
+  await startGo(page, AT_EDGE, 'plan');
   await page.waitForFunction(async () => !!(await navigator.serviceWorker.ready).active && !!navigator.serviceWorker.controller);
 
   // A second copy, sent to the background (an old tab).
@@ -160,14 +162,12 @@ test('update reloads with another page in the background never lock the page out
 
   for (let i = 1; i <= 3; i++) {
     await addStep(page, `before update ${i}`);
-    await runner(page).next.click();
-    await expect(runner(page).field).toBeVisible();
     await saved(page);
     await request.post('/__e2e/bump-sw');
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());
     await expect(page.getByText('A new version is ready')).toBeVisible();
     await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: /^Update now/ }).click()]);
-    await expect(runner(page).field).toBeVisible({ timeout: 15_000 });
+    await expect(plan(page).add).toBeVisible({ timeout: 15_000 });
   }
   expect(await page.evaluate(() => sessionStorage.getItem('sawWaiting'))).toBeNull();
   // Each update reload let go of the data first (and waited for it), rather than racing its own files.
@@ -178,7 +178,7 @@ test('update reloads with another page in the background never lock the page out
 // ───────── Rework after the audit: a page that doesn't hold the data can't change it ─────────
 
 /** Two pages: A (`page`) holds the data, B waits; A goes to the background, so B takes it and opens where A left off. */
-async function handTo(page: Page, b: Page, lands: 'home' | 'runner' | 'paused') {
+async function handTo(page: Page, b: Page, lands: 'home' | 'runner' | 'paused' | 'plan') {
   await b.goto('./go');
   await expect(anotherTab(b)).toBeVisible({ timeout: 20_000 });
   await turn(page, 'hidden');
@@ -186,16 +186,16 @@ async function handTo(page: Page, b: Page, lands: 'home' | 'runner' | 'paused') 
 }
 
 test('the audit’s F1 with two real pages: the page that doesn’t hold the data refuses changes, so nothing is lost when the other writes and it reloads (P-29)', async ({ page, context }) => {
-  await startGo(page, AT_EDGE, 'runner');
+  await startGo(page, AT_EDGE, 'plan');
   const b = await context.newPage();
-  await handTo(page, b, 'runner');
+  await handTo(page, b, 'plan');
 
   // A doesn't hold the data now (as while it is "reconnecting" after coming back, which only lasts a
   // few seconds before the waiting screen covers it): its change is refused, with one quiet note.
-  await runner(page).field.fill('refused in A');
-  await runner(page).field.press('Enter');
-  await expect(runner(page).screen.getByTestId('go-notice')).toHaveText(NOTE);
-  await expect(runner(page).field).toHaveValue('refused in A');
+  await plan(page).add.fill('refused in A');
+  await plan(page).add.press('Enter');
+  await expect(plan(page).notice).toHaveText(NOTE);
+  await expect(plan(page).add).toHaveValue('refused in A');
   // Nothing was written for B to overwrite.
   expect(await page.evaluate(() => localStorage.getItem('wanderment:journal'))).toBeNull();
 
@@ -207,7 +207,7 @@ test('the audit’s F1 with two real pages: the page that doesn’t hold the dat
   await page.getByRole('button', { name: 'Reload', exact: true }).click();
   await expect(anotherTab(page)).toBeVisible({ timeout: 20_000 });
   await turn(b, 'hidden');
-  await expect(runner(page).words).toHaveText('beta', { timeout: 15_000 });
+  await expect(plan(page).row('beta')).toHaveCount(1, { timeout: 15_000 });
   expect(await spanishSteps(page)).toEqual(['beta']);
 });
 
@@ -223,11 +223,9 @@ test('a save that keeps failing, then a tab switch and back: nothing vanishes, a
       return (post as (...a: unknown[]) => void).call(this, message, ...rest);
     } as Worker['postMessage'];
   });
-  await startGo(page, AT_EDGE, 'runner');
-  const r = runner(page);
+  await startGo(page, AT_EDGE, 'plan');
+  const p = plan(page);
   await addStep(page, 'alpha');
-  await r.next.click();
-  await expect(r.field).toBeVisible();
   await saved(page);
   await page.evaluate(() => ((window as unknown as { failWrites: boolean }).failWrites = true));
   await addStep(page, 'unsaved');
@@ -238,18 +236,19 @@ test('a save that keeps failing, then a tab switch and back: nothing vanishes, a
   await setVisibility(page, 'visible');
   // Still on screen, and still saying it isn't saved.
   await expect(page.getByText(/couldn’t be (saved|restored)/)).toBeVisible();
-  await expect(r.words).toHaveText('unsaved');
+  await expect(p.row('unsaved')).toHaveCount(1);
 
   // Saving works again: the next change carries it, and it survives a reload.
   await page.evaluate(() => ((window as unknown as { failWrites: boolean }).failWrites = false));
   await expect(async () => {
-    await r.next.click({ timeout: 1000 });
-    await expect(r.field).toBeVisible({ timeout: 1000 });
+    await p.add.fill('saved again');
+    await p.add.press('Enter', { timeout: 1000 });
+    await expect(p.row('saved again')).toHaveCount(1, { timeout: 1000 });
   }).toPass({ timeout: 15_000 });
   await expect(page.getByText(/couldn’t be (saved|restored)/)).toHaveCount(0);
   await page.reload();
-  await expect(runner(page).field).toBeVisible({ timeout: 15_000 });
-  expect(await spanishSteps(page)).toEqual(['alpha', 'unsaved']);
+  await expect(plan(page).add).toBeVisible({ timeout: 15_000 });
+  expect(await spanishSteps(page)).toEqual(['alpha', 'unsaved', 'saved again']);
 });
 
 test('a field that saves as you type (a pause’s reason) shows what another page changed once it takes the data back, and typing adds to that (audit 2 F2, P-29)', async ({ page, context }) => {
@@ -308,41 +307,43 @@ test('a reason ending in a space (as phone keyboards leave it) still shows anoth
 
 test('a name emptied in one page doesn’t put back its old text over another page’s edit when it’s left (audit 3 D3, P-29)', async ({ page, context }) => {
   await startGo(page, []);
-  const name = await editorOf(page, 'Practise drawing');
+  const name = await nameOf(page, 'Practise drawing');
   await name.fill('');
   const b = await context.newPage();
   await handTo(page, b, 'home');
-  const there = await editorOf(b, 'Practise drawing');
+  const there = await nameOf(b, 'Practise drawing');
   await there.fill('Practise drawing, edited in B');
   await there.press('Enter');
+  await expect(plan(b).title).toHaveText('Practise drawing, edited in B');
   await saved(b);
 
   await setVisibility(b, 'hidden');
   await turn(page, 'visible');
-  // The data is back (the screen's title is the routine's name as saved now); the emptied field is still empty.
-  await expect(settled(page, 'editor').getByRole('heading', { level: 1 })).toHaveText('Practise drawing, edited in B', { timeout: 15_000 });
+  // The emptied field is still empty, and still the one being typed in.
   await expect(name).toHaveValue('');
-  // Leaving the emptied name puts back what's saved now: B's edit.
-  await settled(page, 'editor').getByTestId('go-edit-add').click();
-  await expect(name).toHaveValue('Practise drawing, edited in B');
+  // Leaving the emptied name changes nothing: the name is what's saved now — B's edit — once the data is back.
+  await plan(page).add.click();
+  await expect(name).toHaveCount(0);
+  await expect(plan(page).title).toHaveText('Practise drawing, edited in B', { timeout: 15_000 });
   await saved(page);
   await setVisibility(page, 'hidden');
   await turn(b, 'visible');
-  await expect(there).toHaveValue('Practise drawing, edited in B');
+  await expect(plan(b).title).toHaveText('Practise drawing, edited in B');
   expect(Object.values((await exported(b)).routines).map((r) => r.words)).toContain('Practise drawing, edited in B');
 });
 
 test('a name emptied key by key and left goes back to what it said before (P-29 D3 keeps this)', async ({ page }) => {
   await startGo(page, []);
-  const name = await editorOf(page, 'Apply to Acme');
+  const name = await nameOf(page, 'Apply to Acme');
   await name.focus();
   await name.press('End');
   for (let i = 0; i < 'Apply to Acme'.length; i++) await name.press('Backspace');
   await expect(name).toHaveValue('');
-  await settled(page, 'editor').getByTestId('go-edit-add').click();
-  await expect(name).toHaveValue('Apply to Acme');
+  await plan(page).add.click();
+  await expect(plan(page).title).toHaveText('Apply to Acme');
   await page.reload();
-  await expect(settled(page, 'editor').getByTestId('go-edit-name')).toHaveValue('Apply to Acme', { timeout: 15_000 });
+  await expect(plan(page).title).toHaveText('Apply to Acme', { timeout: 15_000 });
+  expect(Object.values((await exported(page)).routines).map((r) => r.words)).toContain('Apply to Acme');
 });
 
 test.describe('without the service worker (the wasm comes from the network)', () => {
@@ -396,9 +397,9 @@ test.describe('without the service worker (the wasm comes from the network)', ()
   });
 
   test('a transient failure taking the data back (the wasm out of reach for a try) recovers by itself, with the data shown and typed words kept (P-29)', async ({ page }) => {
-    await startGo(page, AT_EDGE, 'runner');
-    const r = runner(page);
-    await r.field.fill('a draft');
+    await startGo(page, AT_EDGE, 'plan');
+    const p = plan(page);
+    await p.add.fill('a draft');
     await setVisibility(page, 'hidden');
     // The worker shut down, so taking the data back loads the wasm again: make that fail for now.
     // (expo-sqlite retries the fetch itself, so a single failed request isn't enough.)
@@ -407,14 +408,14 @@ test.describe('without the service worker (the wasm comes from the network)', ()
     await setVisibility(page, 'visible');
     await failed;
     // The data and the typed words stay on screen meanwhile.
-    await expect(r.screen).toBeVisible();
-    await expect(r.field).toHaveValue('a draft');
+    await expect(p.screen).toBeVisible();
+    await expect(p.add).toHaveValue('a draft');
     restore();
-    await expect(r.field).toHaveValue('a draft');
+    await expect(p.add).toHaveValue('a draft');
     // Once the data is back, Return enters it.
     await expect(async () => {
-      await r.field.press('Enter', { timeout: 1000 });
-      await expect(r.words).toHaveText('a draft', { timeout: 1000 });
+      await p.add.press('Enter', { timeout: 1000 });
+      await expect(p.row('a draft')).toHaveCount(1, { timeout: 1000 });
     }).toPass({ timeout: 15_000 });
   });
 });
@@ -444,27 +445,27 @@ test('the waiting screen is drawn over the app: the screen beneath, the route an
 });
 
 test('an update reload while a second window is visible and waiting hands the data to that window; the reloaded one waits, saying so, and keeps the words typed (documented edge case, P-29)', async ({ page, context, request }) => {
-  await startGo(page, AT_EDGE, 'runner');
+  await startGo(page, AT_EDGE, 'plan');
   await page.waitForFunction(async () => !!(await navigator.serviceWorker.ready).active && !!navigator.serviceWorker.controller);
   const second = await context.newPage();
   await second.goto('./go');
   await expect(anotherTab(second)).toBeVisible({ timeout: 20_000 });
 
-  await runner(page).field.fill('typed before the update');
+  await plan(page).add.fill('typed before the update');
   await request.post('/__e2e/bump-sw');
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());
   await expect(page.getByText('A new version is ready')).toBeVisible();
   await Promise.all([page.waitForEvent('load'), page.getByRole('button', { name: /^Update now/ }).click()]);
   // The waiting window was next in line, so it has the data now; the updated one says why it waits.
-  await expect(runner(second).field).toBeVisible({ timeout: 15_000 });
+  await expect(plan(second).add).toBeVisible({ timeout: 15_000 });
   await expect(anotherTab(page)).toBeVisible({ timeout: 15_000 });
   // Never a dead end: once that window is in the background, this one opens by itself.
   await turn(second, 'hidden');
-  await expect(runner(page).field).toHaveValue('typed before the update', { timeout: 15_000 });
+  await expect(plan(page).add).toHaveValue('typed before the update', { timeout: 15_000 });
 });
 
 test('another worker that also gets a “configure” message isn’t taken for expo-sqlite’s: hiding still frees the files (audit F15, P-29)', async ({ page, context }) => {
-  await startGo(page, AT_EDGE, 'runner');
+  await startGo(page, AT_EDGE, 'plan');
   await page.evaluate(() => new Worker(URL.createObjectURL(new Blob(['onmessage = () => {}'], { type: 'text/javascript' }))).postMessage({ type: 'configure' }));
   // Once more around, so the next open would pick up a wrongly captured worker.
   const probe = await context.newPage();

@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 
 import { expect, test } from './fixtures';
-import { chooseBackup, expectInside, goBackup, home, IMPORTED, MAYA, openGo, openSettings, seedGo, settled, startThing } from './goFixture';
+import { chooseBackup, expectInside, goBackup, home, IMPORTED, MAYA, openGo, openSettings, seedGo, settled, startRun, startThing } from './goFixture';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const EARLIER = 'Your earlier wanders and lines are kept, and are in every export.';
@@ -54,7 +54,7 @@ test('opened by its address with nothing beneath it, Back goes to the home', asy
 
 test('with a run going, Settings is still one step from the home, and leaves the run as it was', async ({ page }) => {
   await openGo(page);
-  await startThing(page, 'Bake bread');
+  await startRun(page, 'Bake bread');
   await page.goBack();
   await expect(home(page).title).toHaveText('Running');
   await home(page).screen.getByRole('button', { name: 'Settings', exact: true }).click();
@@ -118,7 +118,7 @@ test('Export downloads everything as a dated .json backup, and says so', async (
 /** With the old data seeded: starts one thing in the new app, then opens Settings. */
 async function seedGoKeeping(page: import('@playwright/test').Page) {
   await openGo(page);
-  await startThing(page, 'Bake bread');
+  await startRun(page, 'Bake bread');
   await openSettings(page);
 }
 

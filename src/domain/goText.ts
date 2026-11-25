@@ -60,22 +60,25 @@ export function noteType(words: string, side: number, scale = 1): NoteType {
 export interface TileLine {
   /** The one mark before its line: ‖ paused, ⧖ a wait. */
   mark?: 'paused' | 'wait';
-  /** "at <step>", or "waiting for <words> · since <day>"; '' when there is nothing to say. */
+  /** "at <step>", "waiting for <words> · since <day>", or in Plan "planning · at <step>" ("planning · nothing next yet" at the edge); '' when there is nothing to say. */
   line: string;
   /** Why it was paused. */
   reason?: string;
-  button: 'Resume' | 'Start';
+  button: 'Resume' | 'Start' | 'Plan';
   /** The button's spoken name: "Resume Apply to Acme". */
   spoken: string;
   /** The tile as a screen reader says it. */
   says: string;
 }
 
-/** How a tile reads (B-11 §9b): the name, where it is, and Resume or Start. Never a count. */
+/** How a tile reads (B-11 §9b, B-12 v8): the name, where it is — and in which mode — and Resume, Start or Plan. Never a count. */
 export function tileLine(tile: Tile, now = new Date()): TileLine {
-  const button = tile.action === 'resume' ? 'Resume' : 'Start';
+  const button = tile.action === 'resume' ? 'Resume' : tile.action === 'plan' ? 'Plan' : 'Start';
   const spoken = `${button} ${tile.name}`;
   if (tile.state === 'idle') return { line: '', button, spoken, says: tile.name };
+  // Left in Plan: it says planning, never paused or waiting, and has no mark of theirs.
+  // At the edge it reads as Plan and the paused screen do (one wording per meaning): "planning · nothing next yet".
+  if (tile.state === 'planning') return { line: `planning · ${tile.at ? `at ${tile.at}` : 'nothing next yet'}`, button, spoken, says: [tile.name, 'planning', tile.at ? `at ${tile.at}` : 'nothing next yet'].join(', ') };
   if (tile.state === 'waiting') {
     // A date that is not one is left out (never "since undefined").
     const since = tile.since ? sinceWords(tile.since, now) : '';

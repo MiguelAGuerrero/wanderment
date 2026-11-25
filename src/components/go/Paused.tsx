@@ -1,12 +1,14 @@
 /**
- * B-11 slice 1 (P-86): the paused screen (B-11 §3.3, §9b). The run, where it is, a reason edited in
- * place (stored as typed), Resume — the one filled button — and beneath it whatever else can be
- * resumed, each with its own Resume. Home asks first ("Stop <name>?", Cancel filled); the run stays
- * where it is. A run resting on a wait is titled "Waiting" and carries "It's happened".
+ * B-11 slice 1 (P-86), B-12 (P-90): the paused screen (B-11 §3.3, §9b). The run, where it is, a reason
+ * edited in place (stored as typed), Resume — the one filled button — and beneath it whatever else can
+ * be resumed, each with its own Resume (or Plan, for one left in Plan). Home asks first ("Stop
+ * <name>?", Cancel filled); the run stays where it is. A run resting on a wait is titled "Waiting" and
+ * carries "It's happened". A run left in Plan is never "paused" here: it is titled "Planning", reads
+ * "planning · at <step>", and its one filled button is Plan.
  */
 import { router, useIsFocused } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, TextInputProps, View } from 'react-native';
 
 import { tileLine } from '@/domain/goText';
 import { leftOff, pausedView, routineHue, runnerView, sinceWords } from '@/domain/runView';
@@ -19,6 +21,8 @@ import { goHome } from './Runner';
 import { G, hueOf, SP, TARGET } from './tokens';
 import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, H1, hard, T, TextRef, ViewRef } from './ui';
 
+const WEB = Platform.OS === 'web';
+
 export function Paused({ runId }: { runId: string }) {
   const data = useStore((s) => s.data);
   const act = useStore.getState;
@@ -30,6 +34,9 @@ export function Paused({ runId }: { runId: string }) {
   const title = useRef<TextRef>(null);
   const forward = useRef<ViewRef>(null);
   const [tall, setTall] = useState(0);
+  // The same function on every render, by hand: the field measures itself again whenever this changes
+  // (with a new function each time that never ends: React error #185).
+  const sized = useCallback<NonNullable<TextInputProps['onContentSizeChange']>>((e) => setTall(Math.ceil(e.nativeEvent.contentSize.height)), []);
 
   // The route follows the run: resumed → its runner; another resumed → that one; left or gone → home.
   useEffect(() => {
@@ -44,31 +51,60 @@ export function Paused({ runId }: { runId: string }) {
   }, [focused]);
 
   const reason = useSavedField(p?.reason ?? '');
+  /** A run's Plan, in this screen's place (Home from there is home). The run is put in Plan first: one write. */
+  const toPlan = (id: string) => {
+    if (act().planRun(id).ok) router.replace(`/go/run/${id}/plan`);
+  };
   if (!p || !paused) return <GoScreen testID="go-paused" settled={false}>{null}</GoScreen>;
 
   const hue = hueOf(routineHue(data, runnerView(data, runId)?.routineId ?? ''));
+  const planning = p.kind === 'planning';
+  // (Left in Plan on a wait step: it is planning, not waiting.)
+  const waiting = planning ? undefined : p.waiting;
   const type = (text: string) => {
     // Refused (reconnecting): the words stay in the field.
     reason.setValue(text);
     act().setPauseReason(runId, text);
+    // Emptied (the Clear button too, which is no typing): one line again.
+    if (!text) setTall(0);
+  };
+  /**
+   * Web: what is measured is `scrollHeight`, which has the padding in it (so only the 4 px of outline
+   * are added — adding the padding again grew the field 16 px with every key) and is never less than
+   * the field is tall (so it could not get shorter): after each change the words are measured with the
+   * height out of the way. Native measures the words alone: the padding and the outline are added.
+   */
+  const measure: NonNullable<TextInputProps['onChange']> = (e) => {
+    const el = e.target as unknown as { scrollHeight?: number; style?: { height: string } } | null;
+    if (!WEB || !el?.style || typeof el.scrollHeight !== 'number') return;
+    const was = el.style.height;
+    el.style.height = '0px';
+    const need = el.scrollHeight;
+    el.style.height = was;
+    setTall(need);
   };
   return (
     <GoScreen testID="go-paused" layer={asking ? <Confirm title={`Stop ${p.name}?`} action="Home" onCancel={() => setAsking(false)} onAct={() => act().leaveRun(runId)} testID="go-stop" /> : null}>
       <View style={styles.bar}>
-        <H1 ref={title}>{p.kind === 'waiting' ? 'Waiting' : 'Paused'}</H1>
+        <H1 ref={title}>{planning ? 'Planning' : waiting ? 'Waiting' : 'Paused'}</H1>
       </View>
       <ScrollView style={styles.flex} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <View style={[styles.card, { borderColor: hue.c }, hard(6, hue.d)]} testID="go-paused-run">
           <T bold size={18}>
             {p.name}
           </T>
-          {p.waiting ? (
+          {planning ? (
+            <T style={styles.shrink} testID="go-paused-line">
+              <T dim>{p.asking ? 'planning · nothing next yet' : 'planning · at '}</T>
+              {p.asking ? '' : p.at}
+            </T>
+          ) : waiting ? (
             <View style={styles.line}>
               <Mark name="wait" size={20} color={G.dim} />
               <T style={styles.shrink} testID="go-paused-line">
                 <T dim>waiting for </T>
-                {p.waiting.words}
-                {p.waiting.since ? <T dim>{` · since ${sinceWords(p.waiting.since)}`}</T> : null}
+                {waiting.words}
+                {waiting.since ? <T dim>{` · since ${sinceWords(waiting.since)}`}</T> : null}
               </T>
             </View>
           ) : (
@@ -82,13 +118,13 @@ export function Paused({ runId }: { runId: string }) {
               )}
             </View>
           )}
-          {p.waiting && (
+          {waiting && (
             <Btn
               // On a wait this is the forward choice: the screen's one filled button (Resume is outlined here).
               kind="filled"
               ref={forward}
               label="It’s happened"
-              spoken={`It’s happened: ${p.waiting.words}`}
+              spoken={`It’s happened: ${waiting.words}`}
               style={styles.happened}
               onPress={() => {
                 // Resume, then Next: the Undo left is the Next's.
@@ -98,6 +134,7 @@ export function Paused({ runId }: { runId: string }) {
           )}
         </View>
 
+        {!planning && (
         <View style={styles.reason}>
           <T dim nativeID="go-reason-label">
             Reason
@@ -110,7 +147,8 @@ export function Paused({ runId }: { runId: string }) {
               onBlur={reason.onBlur}
               accessibilityLabel="Reason"
               multiline
-              onContentSizeChange={(e) => setTall(Math.ceil(e.nativeEvent.contentSize.height))}
+              onContentSizeChange={sized}
+              onChange={measure}
               onKeyPress={(e) => {
                 // Return keeps it (it is saved as typed already): no new line in a reason.
                 // Focus goes on to the screen's forward button (never to nothing).
@@ -119,15 +157,16 @@ export function Paused({ runId }: { runId: string }) {
                   focusOn(forward);
                 }
               }}
-              style={[styles.reasonField, { height: Math.max(TARGET, tall + 20) }]}
+              style={[styles.reasonField, { height: Math.max(TARGET, tall + (WEB ? 4 : 20)) }]}
               testID="go-reason"
             />
             {!!reason.value && <Btn mark="close" spoken="Clear the reason" onPress={() => type('')} />}
           </View>
         </View>
+        )}
 
         <Btn kind="plain" mark="jump" label="Jump to…" onPress={() => router.push(`/go/run/${runId}/jump`)} />
-        <Btn kind="plain" mark="lines" label="See it all" onPress={() => router.push(`/go/run/${runId}/all`)} />
+        {!planning && <Btn kind="plain" mark="lines" label="Plan" onPress={() => toPlan(runId)} testID="go-paused-plan" />}
 
         {p.others.length > 0 && (
           <View style={styles.others} testID="go-others">
@@ -149,7 +188,7 @@ export function Paused({ runId }: { runId: string }) {
                     )}
                     {!!l.reason && <T>{l.reason}</T>}
                   </View>
-                  <Btn label="Resume" spoken={`Resume ${t.name}`} onPress={() => t.runId && act().resumeRun(t.runId)} />
+                  <Btn label={l.button} spoken={l.spoken} onPress={() => t.runId && (t.action === 'plan' ? toPlan(t.runId) : act().resumeRun(t.runId))} />
                 </View>
               );
             })}
@@ -159,7 +198,11 @@ export function Paused({ runId }: { runId: string }) {
       <Notice />
       <View style={styles.foot}>
         <Btn label="Home" onPress={() => setAsking(true)} testID="go-home-btn" />
-        <Btn kind={p.waiting ? 'outline' : 'filled'} ref={p.waiting ? undefined : forward} label="Resume" spoken={`Resume ${p.name}`} onPress={() => act().resumeRun(runId)} style={styles.grow} size={18} testID="go-resume" />
+        {planning ? (
+          <Btn kind="filled" ref={forward} label="Plan" spoken={`Plan ${p.name}`} onPress={() => toPlan(runId)} style={styles.grow} size={18} testID="go-paused-plan" />
+        ) : (
+          <Btn kind={waiting ? 'outline' : 'filled'} ref={waiting ? undefined : forward} label="Resume" spoken={`Resume ${p.name}`} onPress={() => act().resumeRun(runId)} style={styles.grow} size={18} testID="go-resume" />
+        )}
       </View>
     </GoScreen>
   );

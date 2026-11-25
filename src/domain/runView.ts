@@ -1,9 +1,10 @@
 /**
- * B-11 slice 1 (P-86): what the screens read about routines and runs. Pure selectors over the same
- * engine as the verbs (run.ts): nothing here writes, and nothing throws on damaged data — a run or
- * routine that can't be shown reads as undefined, and the screen goes home.
+ * B-11 slice 1 (P-86), B-12 (P-90): what the screens read about routines and runs — the runner, Plan,
+ * home, the paused screen. Pure selectors over the same engine as the verbs (run.ts): nothing here
+ * writes, and nothing throws on damaged data — a run or routine that can't be shown reads as
+ * undefined, and the screen goes home.
  */
-import { advance, Change, currentRun, isRef, isStep, isWait, Item, MAX_DEPTH, openRuns, place, Place, previous, readRoutine, readRun, RoutineEdit, RunState, Said, Seq, Verb, view, wordsOf } from './run';
+import { advance, currentRun, isPlanning, isRef, isRunning, isWait, Item, MAX_DEPTH, openRuns, place, Place, previous, readRoutine, readRun, RoutineEdit, RunState, Said, Seq, Verb, view, wordsOf } from './run';
 import { hash } from './hash';
 import { Data, Id } from './types';
 
@@ -44,9 +45,10 @@ export interface Tile {
   /**
    * running: the one run running. waiting: its run rests on a wait step (running or not). paused: its
    * run is anywhere else and not running (paused, or left by Home, Back or another start): it reads
-   * "at <step>" with its reason. idle: nothing going.
+   * "at <step>" with its reason. planning (P-90): its run was left in Plan, or is at the edge: it reads
+   * "planning · at <step>" ("planning" alone at the edge), whatever step that is. idle: nothing going.
    */
-  state: 'running' | 'paused' | 'waiting' | 'idle';
+  state: 'running' | 'paused' | 'waiting' | 'planning' | 'idle';
   /** The step its run is at, in this run's words. Absent when idle or when it is asking for a step. */
   at?: string;
   /** Its run is at the edge, asking for the next small step. */
@@ -60,8 +62,10 @@ export interface Tile {
   startedAt?: string;
   /** The running run, or with none running the run left last: marked, never moved. */
   current: boolean;
-  /** What its button does: Resume its run, or Start one. */
-  action: 'resume' | 'start';
+  /** What its one button does: Resume its run; Start one; or, for a run in Plan, Plan (`planRun(runId)`, then its Plan). */
+  action: 'resume' | 'start' | 'plan';
+  /** Nothing going and no steps yet: there is nothing to start (Start is refused `empty`); its Plan is where the first step is added. */
+  empty?: true;
   /** Its colour, its own for good: the palette in the order routines were made, so neighbours differ. */
   hue: number;
 }
@@ -92,18 +96,19 @@ function hueRanks(data: Data): Map<Id, number> {
 function tileOf(data: Data, s: Seq, run: RunState | undefined, current: Id | undefined): Tile {
   const base = { routineId: s.id, name: s.words, hue: routineHue(data, s.id) };
   const at = run && place(data, run);
-  if (!run || !at) return { ...base, state: 'idle', current: false, action: 'start' };
+  if (!run || !at) return { ...base, state: 'idle', current: false, action: 'start', ...(!s.items.length && { empty: true as const }) };
   const reason = tidy(run.reason);
+  const planning = isPlanning(data, run);
   return {
     ...base,
     runId: run.id,
-    state: isWait(at.item) ? 'waiting' : run.status === 'running' ? 'running' : 'paused',
+    state: planning ? 'planning' : isWait(at.item) ? 'waiting' : isRunning(data, run) ? 'running' : 'paused',
     ...(at.item ? { at: wordsOf(data, run, at.item) } : { asking: true as const }),
     ...(reason && { reason }),
     ...(isWait(at.item) && { waitingFor: at.item.wait, ...(dated(run.waitingSince) && { since: run.waitingSince }) }),
     startedAt: run.startedAt,
     current: run.id === current,
-    action: 'resume',
+    action: planning ? 'plan' : 'resume',
   };
 }
 
@@ -128,11 +133,25 @@ export function homeTiles(data: Data): Tile[] {
     .map((s) => tileOf(data, s, open.get(s.id), current));
 }
 
-/** Where the app opens: the runner while a run is running, the paused screen while the run it is on is paused, else home. */
-export function leftOff(data: Data): { kind: 'runner' | 'paused' | 'home'; runId?: Id } {
+/**
+ * Where the app opens — the mode you were in: Plan while the run the app is on is in Plan, the runner
+ * while it is running, the paused screen while it is paused, else home.
+ */
+export function leftOff(data: Data): { kind: 'runner' | 'paused' | 'plan' | 'home'; runId?: Id } {
   const cur = currentRun(data);
   if (!cur || !place(data, cur)) return { kind: 'home' };
-  return { kind: cur.status === 'running' ? 'runner' : 'paused', runId: cur.id };
+  return { kind: isPlanning(data, cur) ? 'plan' : isRunning(data, cur) ? 'runner' : 'paused', runId: cur.id };
+}
+
+/**
+ * Which screen a run's routes show, by the data alone (a route never writes): Plan for a run in Plan
+ * or at the edge; the paused screen for the run the app is on, paused; the runner for a run that is
+ * running, or open and left on a step; home for an ended run or none.
+ */
+export function runRoute(data: Data, runId: Id): 'plan' | 'runner' | 'paused' | 'home' {
+  const run = readRun(data, runId);
+  if (!run || run.endedAt || !place(data, run)) return 'home';
+  return isPlanning(data, run) ? 'plan' : run.status === 'paused' ? 'paused' : 'runner';
 }
 
 /** The runner's screen for a run. */
@@ -149,28 +168,24 @@ export interface RunnerView {
   parent?: string;
   /** 1 on the first layer. */
   depth: number;
-  /** The note. edge: nothing to stand on; the note is a field for the next small step. */
+  /** In Plan (left there, or at the edge): the runner does not show it — its route goes to Plan (`runRoute`). */
+  planning: boolean;
+  /** The note. edge: nothing to stand on (the run is in Plan; the runner never shows this). */
   step: { kind: 'step' | 'routine' | 'wait' | 'edge'; words: string; seq: Id; itemId?: Id };
   /** The corner mark: the last step of a round (spoken "Last step of this round"). */
   lastOfRound: boolean;
   /** There is a step before this one in this level (Back to <step>). */
   canBack: boolean;
-  /** The middle button: Break it down, Step in, or dimmed (a wait, the edge, a routine with nothing in it, the deepest level). */
-  middle: 'break' | 'stepIn' | 'disabled';
-  /** The filled button: Next, "It's happened" (a wait), or at the edge the field's own (Add the step). */
+  /** The middle button: Plan — or Step in when the step is a routine with steps in it (and there is room to go deeper). Never dimmed. */
+  middle: 'plan' | 'stepIn';
+  /** The filled button: Next, or "It's happened" (a wait). edge: there is none (the run is in Plan). */
   next: 'next' | 'itsHappened' | 'edge';
   /** On a wait step: what for, and since when (ISO). */
   waiting?: { words: string; since?: string };
-  /** This step is this run's own: reworded, broken down or added in this run, and not kept yet. */
-  thisRunOnly: boolean;
 }
 
 const lastOfRound = (at: Place) => !!at.item && at.seq.repeatFrom !== undefined && at.seq.items[at.seq.items.length - 1]?.id === at.item.id;
 const waitingOf = (run: RunState, at: Place) => (isWait(at.item) ? { words: at.item.wait, ...(dated(run.waitingSince) && { since: run.waitingSince }) } : undefined);
-/** The newest unkept change of this run that made this item what it reads now. */
-const changeFor = (run: RunState, seq: Id, item: Id): Change | undefined =>
-  [...run.changes].reverse().find((c) => c.seq === seq && ((c.kind === 'add' && c.item.id === item) || ((c.kind === 'reword' || c.kind === 'breakdown') && c.item === item)));
-
 export function runnerView(data: Data, runId: Id): RunnerView | undefined {
   const run = readRun(data, runId);
   const at = run && place(data, run);
@@ -187,57 +202,14 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
     level: seq.words,
     ...(below && { parent: below.words }),
     depth: frames.length,
+    planning: isPlanning(data, run),
     step: item ? { kind: kindOf(item), words: wordsOf(data, run, item), seq: seq.id, itemId: item.id } : { kind: 'edge', words: '', seq: seq.id },
     lastOfRound: lastOfRound(at),
     canBack: !!previous(data, run),
-    middle: frames.length >= MAX_DEPTH ? 'disabled' : isStep(item) ? 'break' : target?.items.length ? 'stepIn' : 'disabled',
+    middle: target?.items.length && frames.length < MAX_DEPTH ? 'stepIn' : 'plan',
     next: !item ? 'edge' : isWait(item) ? 'itsHappened' : 'next',
     ...(waiting && { waiting }),
-    thisRunOnly: !!item && !!changeFor(run, seq.id, item.id),
   };
-}
-
-/** One of this run's changes, for a Keep row. */
-export interface ChangeRow {
-  id: Id;
-  kind: Change['kind'];
-  seq: Id;
-  /** The name of the sequence it would be kept in. */
-  in: string;
-  /** reword: the new words. breakdown: the step broken down. add, remove, move: the step. repeat: ''. */
-  words: string;
-  /** reword: the routine's own words. */
-  was?: string;
-  /** breakdown: the steps it was broken into, as this run reads them. */
-  steps?: string[];
-  /** repeat: the number for this run, or 'until' (until I'm done). */
-  repeat?: number | 'until';
-  /** Already shown once on leaving its level. */
-  offered: boolean;
-}
-
-function changeRow(data: Data, run: RunState, c: Change): ChangeRow {
-  const own = readRoutine(data, c.seq);
-  const base = { id: c.id, kind: c.kind, seq: c.seq, in: own?.words ?? '', offered: !!c.offered };
-  const plain: RunState = { ...run, changes: [] };
-  const ownWords = (id: Id) => wordsOf(data, plain, own?.items.find((i) => i.id === id));
-  if (c.kind === 'reword') return { ...base, words: c.text, was: ownWords(c.item) };
-  if (c.kind === 'breakdown') return { ...base, words: readRoutine(data, c.into)?.words ?? '', steps: (view(data, run, c.into)?.items ?? []).map((i) => wordsOf(data, run, i)) };
-  if (c.kind === 'add') return { ...base, words: wordsOf(data, run, c.item) };
-  if (c.kind === 'repeat') return { ...base, words: '', repeat: c.repeat ?? 'until' };
-  return { ...base, words: ownWords(c.item) };
-}
-
-/** This run's changes that are not kept yet, oldest first (an ended run's too: Keep still works there). */
-export function unkeptChanges(data: Data, runId: Id): ChangeRow[] {
-  const run = readRun(data, runId);
-  return run ? run.changes.map((c) => changeRow(data, run, c)) : [];
-}
-
-/** The changes a verb offered (`Result.offer`, or their ids), as Keep rows; the ones kept or dropped since are left out. */
-export function describeChanges(data: Data, runId: Id, changes: (Change | Id)[]): ChangeRow[] {
-  const ids = new Set(changes.map((c) => (typeof c === 'string' ? c : c.id)));
-  return unkeptChanges(data, runId).filter((c) => ids.has(c.id));
 }
 
 /** The pull-up panel for a run. */
@@ -248,16 +220,10 @@ export interface PanelView {
   lastOfRound: boolean;
   /** "then: <words>": what Next goes to. Absent when Next ends the run or asks at the edge. */
   then?: string;
-  /** "This run only": a level it is in has an unkept change. */
-  thisRunOnly: boolean;
   /** "Back to <words>": the step before, when there is one. */
   backTo?: string;
   /** On a wait step: what for, since when (ISO). */
   wait?: { words: string; since?: string };
-  /** "Keep in <name>": the unkept changes of the levels it is in. */
-  keepIn?: { name: string; changes: ChangeRow[] };
-  /** Change the words is for a step or a wait (not a routine's name, not the edge). */
-  canChangeWords: boolean;
   /** Why it was paused, tidied: readable here until the first Next after Resume drops it (P-86 part 2). */
   reason?: string;
 }
@@ -272,29 +238,27 @@ export function panelView(data: Data, runId: Id): PanelView | undefined {
   const next = item && !run.endedAt ? advance(data, run, frames) : undefined;
   const to = next && !next.ended && !next.asking ? place(data, { ...run, frames: next.frames }) : undefined;
   const back = previous(data, run);
-  const inStack = new Set(frames.map((f) => f.seq));
-  const mine = run.changes.filter((c) => inStack.has(c.seq));
-  // Kept in the nearest named routine it is in (a breakdown has no name of its own).
-  const named = [...frames].reverse().map((f) => view(data, run, f.seq)).find((s) => s?.named) ?? view(data, run, run.routineId);
   const wait = waitingOf(run, at);
   return {
     ...(looping && { round: { n: frame.round, ...(seq.repeat !== undefined && frame.round <= seq.repeat && { of: seq.repeat }) } }),
     lastOfRound: lastOfRound(at),
     ...(to?.item && { then: wordsOf(data, run, to.item) }),
-    thisRunOnly: mine.length > 0,
     ...(back && { backTo: wordsOf(data, run, seq.items.find((i) => i.id === back.at)) }),
     ...(wait && { wait }),
-    ...(mine.length && { keepIn: { name: named?.words ?? '', changes: mine.map((c) => changeRow(data, run, c)) } }),
-    canChangeWords: !!item && !isRef(item) && !run.endedAt,
     ...(tidy(run.reason) && { reason: tidy(run.reason) }),
   };
 }
 
-/** The paused screen for a run (titled "Waiting" when it rests on a wait step). */
+/**
+ * The paused screen for a run (titled "Waiting" when it rests on a wait step). A run left in Plan
+ * (P-90) is shown as planning, never as paused, with Plan as its action.
+ */
 export interface PausedView {
   runId: Id;
   name: string;
-  kind: 'paused' | 'waiting';
+  kind: 'paused' | 'waiting' | 'planning';
+  /** Its one action: Resume, or — in Plan — Plan (`planRun(runId)`, then its Plan). */
+  action: 'resume' | 'plan';
   /** The step it is at ('' when it is asking for one). */
   at: string;
   asking: boolean;
@@ -318,7 +282,8 @@ export function pausedView(data: Data, runId: Id): PausedView | undefined {
   return {
     runId,
     name: readRoutine(data, run.routineId)?.words ?? '',
-    kind: waiting ? 'waiting' : 'paused',
+    kind: isPlanning(data, run) ? 'planning' : waiting ? 'waiting' : 'paused',
+    action: isPlanning(data, run) ? 'plan' : 'resume',
     at: wordsOf(data, run, at.item),
     asking: !at.item,
     reason: run.reason ?? '',
@@ -327,7 +292,7 @@ export function pausedView(data: Data, runId: Id): PausedView | undefined {
   };
 }
 
-/** One line of See it all / Jump to…. */
+/** One line of Jump to… (the whole run as it reads; Plan has its own rows: `planView`). */
 export interface SeeRow {
   /** The item ids from the first layer down to this one: what Jump here takes (`{ path }`). */
   path: Id[];
@@ -341,16 +306,13 @@ export interface SeeRow {
   here: boolean;
   /** A routine the run is inside (on the way to "here"). */
   within: boolean;
-  /** This run's own (reworded, broken down or added in this run, not kept), and the change that made it so. */
-  thisRunOnly: boolean;
-  changeId?: Id;
   /** The Repeat divider stands before this line: `repeat` rounds, or until I'm done when absent. */
   divider?: { repeat?: number };
 }
 
 export interface SeeItAll {
   runId: Id;
-  /** "This run of <name>". */
+  /** The run's routine. */
   name: string;
   /** The levels the run is in, bottom first, for "start again" (`{ level }`); the last is where it is. */
   levels: { level: number; words: string; here: boolean }[];
@@ -374,7 +336,6 @@ export function seeItAll(data: Data, runId: Id): SeeItAll | undefined {
     const frame = onWay ? frames[depth] : undefined;
     s.items.forEach((item, i) => {
       if (rows.length >= MAX_ROWS) return;
-      const mine = changeFor(run, s.id, item.id);
       const on = frame?.at === item.id;
       // Inside it only if the next level is this routine (an edit can leave a level whose step moved on).
       const within = on && isRef(item) && frames[depth + 1]?.seq === item.ref;
@@ -387,8 +348,6 @@ export function seeItAll(data: Data, runId: Id): SeeItAll | undefined {
         words: wordsOf(data, run, item),
         here: on && depth === frames.length - 1,
         within,
-        thisRunOnly: !!mine,
-        ...(mine && { changeId: mine.id }),
         ...(s.repeatFrom === i && { divider: { ...(s.repeat !== undefined && { repeat: s.repeat }) } }),
       });
       if (isRef(item) && !open.includes(item.ref) && depth + 1 < MAX_DEPTH) walk(item.ref, [...path, item.id], [...open, item.ref], within);
@@ -400,6 +359,149 @@ export function seeItAll(data: Data, runId: Id): SeeItAll | undefined {
     name: readRoutine(data, run.routineId)?.words ?? '',
     levels: frames.map((f, level) => ({ level, words: view(data, run, f.seq)?.words ?? '', here: level === frames.length - 1 })),
     rows,
+  };
+}
+
+/** The Repeat divider of one sequence in Plan: "Repeat from here", standing before items[from]. */
+export interface PlanDivider {
+  /** The sequence it belongs to: `editRoutine(seq, { kind: 'divider', from: from ± 1 })` moves it (only it: no step changes place); `{ kind: 'divider' }` takes it out; `{ kind: 'repeat', times? }` sets the count. */
+  seq: Id;
+  from: number;
+  /** A number of rounds; absent: until I'm done. */
+  repeat?: number;
+  /** It can move up (from - 1) / down (from + 1). */
+  canUp: boolean;
+  canDown: boolean;
+}
+
+/** One row of Plan: a step, a wait or a routine of the sequence, routines opened in place beneath their row. */
+export interface PlanRow {
+  /** The item ids from the first layer down to this one (unique per row: a key). */
+  path: Id[];
+  /** 0 on the first layer. */
+  depth: number;
+  /** The sequence this row is an item of: every edit of the row is `editRoutine(seq, { …, item: itemId })`. */
+  seq: Id;
+  itemId: Id;
+  /** step: reword, break down, make a wait. wait: reword, make a step. routine: its rows follow, one deeper (editing them edits that routine). */
+  kind: 'step' | 'wait' | 'routine';
+  words: string;
+  /** A routine row: the sequence it is (its rows have this as their `seq`). */
+  ref?: Id;
+  /**
+   * A routine row that is a step broken down — the unnamed sequence is this step's own. Its words are
+   * changed with `editRoutine(ref, { kind: 'rename', words })`, and Remove takes its smaller steps with it.
+   */
+  broken?: true;
+  /** HERE: the step the run is on (the one "Resume at <step>" names). At most one row. */
+  here: boolean;
+  /** A routine the run is inside (on the way to HERE). */
+  within: boolean;
+  /** Move up / Move down within its own sequence (`{ kind: 'move', item, by: -1 | 1 }`): one row, the divider being a row. */
+  canUp: boolean;
+  canDown: boolean;
+  /** The Repeat divider stands before this row. */
+  divider?: PlanDivider;
+}
+
+/** The Plan surface, for a run or for a routine with no run. */
+export interface PlanView {
+  routineId: Id;
+  /** Its open run, if it has one: then this is that run's Plan, whichever way it was asked for. */
+  runId?: Id;
+  /** The heading: the routine's name. */
+  name: string;
+  named: boolean;
+  /** The run is in Plan. False for a routine with no run — and for a run the data says is NOT in Plan (the route then goes where `runRoute` says). */
+  planning: boolean;
+  /** Beneath the heading: "planning · at <step>", "planning · nothing next yet" at the edge, '' with no run (or a run not in Plan). */
+  line: string;
+  /** The HERE step's words, and what it is. */
+  at?: string;
+  hereKind?: 'step' | 'wait' | 'routine';
+  /** The edge: the run has nothing next. The open row is the forward action; there is no filled button. */
+  edge: boolean;
+  /** Done has its own slot: only at the edge (`doneLevel(runId)` ends the run). */
+  canDone: boolean;
+  rows: PlanRow[];
+  /** The first layer's divider (also on its row). */
+  divider?: PlanDivider;
+  /** The first layer's edge is open (false: "ends here"). */
+  open: boolean;
+  /**
+   * The ONE filled button. resume: "Resume at <step>" → `resumeRun(runId)`, back exactly where it was.
+   * start: "Start" → `startRoutine(routineId)`; not `ready` while there is no step. Absent at the edge.
+   */
+  forward?: { kind: 'resume'; label: string; runId: Id } | { kind: 'start'; label: 'Start'; routineId: Id; ready: boolean };
+  /** The run still carries this-run changes from the build before: `planRun(runId)` folds them into the routine (once, with its notice and Undo). */
+  unfolded: boolean;
+}
+
+/**
+ * Plan (P-90). `{ runId }`: that run's Plan (undefined once it has ended or is gone). `{ routineId }`:
+ * the routine's — which is its open run's Plan when it has one (one surface per run). Reads only.
+ */
+export function planView(data: Data, of: { runId: Id } | { routineId: Id }): PlanView | undefined {
+  const run = 'runId' in of ? readRun(data, of.runId) : openRuns(data).filter((r) => r.routineId === of.routineId && !!place(data, r)).sort(lastTouched)[0];
+  if ('runId' in of && (!run || run.endedAt)) return undefined;
+  const at = run && place(data, run);
+  if (run && !at) return undefined;
+  const root = readRoutine(data, run ? run.routineId : (of as { routineId: Id }).routineId);
+  if (!root || (!run && root.removedAt)) return undefined;
+  const read = (seqId: Id) => (run ? view(data, run, seqId) : readRoutine(data, seqId));
+  const words = (item: Item) => (run ? wordsOf(data, run, item) : isRef(item) ? (readRoutine(data, item.ref)?.words ?? '') : isWait(item) ? item.wait : item.text);
+  const frames = at?.frames ?? [];
+  const rows: PlanRow[] = [];
+  const dividerOf = (s: Seq): PlanDivider | undefined =>
+    s.repeatFrom === undefined ? undefined : { seq: s.id, from: s.repeatFrom, ...(s.repeat !== undefined && { repeat: s.repeat }), canUp: s.repeatFrom > 0, canDown: s.repeatFrom < s.items.length - 1 };
+  const walk = (seqId: Id, path: Id[], open: Id[], onWay: boolean) => {
+    const s = read(seqId);
+    if (!s) return;
+    const depth = path.length;
+    const frame = onWay ? frames[depth] : undefined;
+    const divider = dividerOf(s);
+    s.items.forEach((item, i) => {
+      if (rows.length >= MAX_ROWS) return;
+      const on = frame?.at === item.id;
+      // Inside it only if the next level is this routine.
+      const within = on && isRef(item) && frames[depth + 1]?.seq === item.ref;
+      rows.push({
+        path: [...path, item.id],
+        depth,
+        seq: s.id,
+        itemId: item.id,
+        kind: kindOf(item),
+        words: words(item),
+        ...(isRef(item) && { ref: item.ref, ...(read(item.ref)?.named === false && { broken: true as const }) }),
+        here: on && depth === frames.length - 1,
+        within,
+        // (The divider is a row: the first step under a divider at the very top can still move up, past it.)
+        canUp: i > 0 || divider?.from === 0,
+        canDown: i < s.items.length - 1,
+        ...(divider && divider.from === i && { divider }),
+      });
+      if (isRef(item) && !open.includes(item.ref) && depth + 1 < MAX_DEPTH) walk(item.ref, [...path, item.id], [...open, item.ref], within);
+    });
+  };
+  walk(root.id, [], [root.id], true);
+  const first = read(root.id) ?? root;
+  const divider = dividerOf(first);
+  const base = { routineId: root.id, name: root.words, named: root.named, rows, ...(divider && { divider }), open: first.open };
+  if (!run || !at) {
+    return { ...base, planning: false, line: '', edge: false, canDone: false, forward: { kind: 'start', label: 'Start', routineId: root.id, ready: root.items.length > 0 }, unfolded: false };
+  }
+  const planning = isPlanning(data, run);
+  const here = at.item ? wordsOf(data, run, at.item) : undefined;
+  return {
+    ...base,
+    runId: run.id,
+    planning,
+    line: !planning ? '' : here === undefined ? 'planning · nothing next yet' : `planning · at ${here}`,
+    ...(at.item && { at: here, hereKind: kindOf(at.item) }),
+    edge: !at.item,
+    canDone: !at.item,
+    ...(at.item && { forward: { kind: 'resume' as const, label: `Resume at ${here}`, runId: run.id } }),
+    unfolded: run.changes.length > 0,
   };
 }
 
@@ -440,22 +542,17 @@ export type Acted = Verb['kind'] | 'editRoutine';
 
 const LABELS: Record<Acted, string> = {
   start: 'Start',
-  new: 'Start',
+  new: 'New',
   resume: 'Resume',
+  plan: 'Plan',
   pause: 'Pause',
   reason: 'Reason',
   home: 'Home',
   next: 'Next',
   done: 'Done',
   stepIn: 'Step in',
-  breakDown: 'Break it down',
-  edgeStep: 'Add a step',
-  words: 'Change the words',
   back: 'Back',
   jump: 'Jump',
-  keep: 'Keep',
-  drop: 'Drop',
-  edit: 'Change',
   editRoutine: 'Change',
 };
 
@@ -463,14 +560,24 @@ const LABELS: Record<Acted, string> = {
  * The notice after an action. `text`: what it says, '' when the action speaks for itself (the step
  * simply changed) — "Finished <name>" for what finished by itself (the outermost level left), "Done
  * with <name>" for what Done left, "Jumped from <step>". `label`: what its Undo takes back ("Undo
- * Next"); on a wait step Next is "It's happened".
+ * Next"); on a wait step Next is "It's happened". `folded` (P-90): the write also folded the run's
+ * this-run changes from the build before into its routine (`Result.folded`, the routine's name): the
+ * notice names that too — "Kept this run's changes in <routine>" — and its Undo takes it back.
  */
-export function noticeFor(verb: Acted, said: Said | undefined, onWait = false): { text: string; label: string } {
+export function noticeFor(verb: Acted, said: Said | undefined, onWait = false, folded?: string): { text: string; label: string } {
   const label = verb === 'next' && onWait ? 'It’s happened' : LABELS[verb];
-  if (said?.kind === 'ended') return { text: `${verb === 'done' ? 'Done with' : 'Finished'} ${said.name}`, label };
-  if (said?.kind === 'finished') return { text: verb === 'done' ? `Done with ${said.names[0]}` : `Finished ${said.names[said.names.length - 1]}`, label };
-  if (said?.kind === 'jumped') return { text: `Jumped from ${said.from}`, label };
-  return { text: '', label };
+  const kept = folded === undefined ? '' : `Kept this run’s changes in ${folded}`;
+  const text =
+    said?.kind === 'ended'
+      ? `${verb === 'done' ? 'Done with' : 'Finished'} ${said.name}`
+      : said?.kind === 'finished'
+        ? verb === 'done'
+          ? `Done with ${said.names[0]}`
+          : `Finished ${said.names[said.names.length - 1]}`
+        : said?.kind === 'jumped'
+          ? `Jumped from ${said.from}`
+          : '';
+  return { text: [text, kept].filter(Boolean).join(' · '), label };
 }
 
 const quoted = (words: string) => `“${tidy(words)}”`;
@@ -488,40 +595,31 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
       const i = s?.items.find((x) => x.id === id);
       return quoted(!i ? '' : isRef(i) ? (readRoutine(data, i.ref)?.words ?? '') : isWait(i) ? i.wait : i.text);
     };
+    const index = (id: Id) => (s ? s.items.findIndex((x) => x.id === id) : -1);
+    const from = s?.repeatFrom;
+    // The last step left in the repeating part: with it gone (or moved out) there is nothing to repeat, so the divider goes too.
+    const lastRepeating = (id: Id) => from !== undefined && !!s && from === s.items.length - 1 && index(id) === from;
+    const WENT = ' — Repeat from here went with it';
     if (e.kind === 'addStep') return `Added ${quoted(e.text)}`;
     if (e.kind === 'addWait') return `Added a wait for ${quoted(e.wait)}`;
-    if (e.kind === 'remove') return `Removed ${item(e.item)}`;
-    if (e.kind === 'move') return `Moved ${item(e.item)}`;
+    if (e.kind === 'remove') {
+      // Its reach: a step broken down takes its smaller steps (the unnamed sequence is this step's own; a named routine is not).
+      const i = s?.items.find((x) => x.id === e.item);
+      const own = isRef(i) && readRoutine(data, i.ref)?.named === false;
+      return `Removed ${item(e.item)}${own ? ' and its smaller steps' : ''}${lastRepeating(e.item) ? WENT : ''}`;
+    }
+    if (e.kind === 'move') return `Moved ${item(e.item)}${e.by === -1 && lastRepeating(e.item) ? WENT : ''}`;
     if (e.kind === 'reword') return `Changed ${item(e.item)}`;
-    if (e.kind === 'rename') return `Renamed ${quoted(s?.words ?? '')}`;
+    if (e.kind === 'breakDown') return `Broke down ${item(e.item)}`;
+    if (e.kind === 'toWait') return `Made ${item(e.item)} a wait`;
+    if (e.kind === 'toStep') return `Made ${item(e.item)} a step`;
+    if (e.kind === 'divider' && e.from !== undefined && s?.items[e.from]) return `Repeat from here ${from === undefined ? 'added' : 'moved'} above ${item(s.items[e.from].id)}`;
+    // (An unnamed sequence is a step that was broken down: its words are that step's, and they were changed.)
+    if (e.kind === 'rename') return `${s && !s.named ? 'Changed' : 'Renamed'} ${quoted(s?.words ?? '')}`;
     if (e.kind === 'removeRoutine') return `Removed ${quoted(s?.words ?? '')}`;
     if (e.kind === 'open') return 'Changed Ends here';
     return 'Changed Repeat from here';
   }
-  if (!('runId' in verb)) return '';
-  const run = readRun(data, verb.runId);
-  if (!run) return '';
-  const at = place(data, run);
-  const words = (seqId: Id, id: Id) => quoted(wordsOf(data, run, view(data, run, seqId)?.items.find((x) => x.id === id)));
-  if (verb.kind === 'words') return at?.item ? `Changed ${quoted(wordsOf(data, run, at.item))}` : '';
-  if (verb.kind === 'edgeStep') return `Added ${quoted(verb.text)}`;
-  if (verb.kind === 'breakDown') return verb.at ? `Broke down ${words(verb.at.seq, verb.at.item)}` : at?.item ? `Broke down ${quoted(wordsOf(data, run, at.item))}` : '';
-  if (verb.kind === 'keep' || verb.kind === 'drop') {
-    const which = verb.change;
-    const rows = unkeptChanges(data, verb.runId).filter((c) => which === 'all' || (Array.isArray(which) ? which.includes(c.id) : c.id === which));
-    if (!rows.length) return '';
-    const name = (c: ChangeRow) => (c.kind === 'repeat' ? 'Repeat from here' : quoted(c.words));
-    if (verb.kind === 'drop') return `Dropped ${name(rows[0])}`;
-    const into = rows.every((c) => c.in === rows[0].in) && rows[0].in ? ` in ${rows[0].in}` : '';
-    return rows.length === 1 ? `Kept ${name(rows[0])}${into}` : `Kept${into}`;
-  }
-  if (verb.kind === 'edit') {
-    const e = verb.edit;
-    if (e.kind === 'add') return `Added ${quoted(e.text)}`;
-    if (e.kind === 'addWait') return `Added a wait for ${quoted(e.wait)}`;
-    if (e.kind === 'remove') return `Removed ${words(e.seq, e.item)}`;
-    if (e.kind === 'reword') return `Changed ${words(e.seq, e.item)}`;
-    return 'Changed Repeat from here';
-  }
+  if (verb.kind === 'new') return `Made ${quoted(verb.words)}`;
   return '';
 }

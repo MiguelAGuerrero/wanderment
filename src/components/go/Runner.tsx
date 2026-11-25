@@ -1,12 +1,13 @@
 /**
- * B-11 slice 1 (P-86): the runner — the step and nothing else (B-11 §3.1, §9b, §9c).
+ * B-11 slice 1 (P-86), B-12 (P-90): the runner — the step and nothing else (B-11 §3.1, §9b; B-12 v1).
  *
  * A column exactly as tall as what is visible: the context line (the level, its parent, Done) · the
  * note, centred in whatever room is left and never larger than it · the notice · the handle · Pause,
- * Break it down / Step in, and Next. Nothing is positioned over anything else but the pull-up panel
- * (over the note only) and a sheet (over everything). The three buttons never move.
+ * Plan / Step in, and Next. Nothing is positioned over anything else but the pull-up panel (over the
+ * note only). The three buttons never move. Nothing is planned here: Plan is its own surface, and a
+ * run with nothing next is there, not here.
  *
- * The route follows the run: paused → the paused screen; ended, left or gone → home.
+ * The route follows the run: in Plan → its Plan; paused → the paused screen; ended, left or gone → home.
  */
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -17,10 +18,10 @@ import { panelView, routineHue, runnerView, RunnerView, sinceWords } from '@/dom
 import { useStore } from '@/store/useStore';
 
 import { Mark } from './marks';
-import { KeepSheet, Notice, useRunUndo } from './Notice';
-import { decideWhere, readDraft, writeDraft } from './session';
+import { Notice, useRunUndo } from './Notice';
+import { decideWhere } from './session';
 import { face, G, hueOf, SP, TARGET } from './tokens';
-import { Btn, caretToEnd, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, InputRef, Sheet, T, useBackCloses, useKeys, useVisibleHeight, ViewRef } from './ui';
+import { Btn, focusOn, focusSoon, GoScreen, hard, HiddenH1, Said, T, useBackCloses, useKeys, useVisibleHeight, ViewRef } from './ui';
 
 const WEB = Platform.OS === 'web';
 const SHADOW = 10;
@@ -39,73 +40,48 @@ export function goHome() {
 
 export function Runner({ runId }: { runId: string }) {
   const data = useStore((s) => s.data);
-  const offer = useStore((s) => s.runOffer);
   const act = useStore.getState;
   const v = runnerView(data, runId);
   const running = v?.status === 'running';
   const focused = useIsFocused();
 
   const [panel, setPanel] = useState(false);
-  // Break it down is opened ON a step, and stays that step's whatever the run does meanwhile.
-  const [sheet, setSheet] = useState<{ break: BreakTarget } | { keep: string[] } | null>(null);
-  const stepKey = v ? `${v.step.seq}:${v.step.itemId ?? ''}` : '';
-  const wordsKey = `words:${runId}:${stepKey}`;
-  // Rewording that a reload interrupted is taken up again, with its words.
-  const [editing, setEditing] = useState(() => !!readDraft(wordsKey));
   const note = useRef<ViewRef>(null);
   const handle = useRef<ViewRef>(null);
-  const keepOffer = focused && offer && offer.runId === runId ? offer.changeIds : undefined;
-  const covered = !!sheet || !!keepOffer;
 
   // The route follows the run. Whatever is open is put away first (it would hold the screen).
   const status = v?.status;
+  const planning = !!v?.planning;
   useEffect(() => {
     // Only the screen in front moves (one beneath another would move that one instead).
-    if (running || !focused) return;
-    if (status === 'paused') router.replace(`/go/run/${runId}/paused`);
+    if ((running && !planning) || !focused) return;
+    // In Plan (the Plan button, the edge of a goal, another tab): its Plan, in this screen's place.
+    if (planning && status !== 'ended') router.replace(`/go/run/${runId}/plan`);
+    else if (status === 'paused') router.replace(`/go/run/${runId}/paused`);
     else goHome();
-  }, [running, focused, status, runId]);
+  }, [running, planning, focused, status, runId]);
 
   const closePanel = () => {
     setPanel(false);
     focusOn(handle);
   };
   // Open things hold the screen only while the run is running here (else the route is about to follow it).
-  useBackCloses(focused && running && panel && !covered, closePanel);
+  useBackCloses(focused && running && panel, closePanel);
 
   const toNote = () => later(note);
-  // On arrival (a start, Resume, a Jump, Undo from home, back from See it all, a reload): the note —
-  // or, when the note is a field (the edge of a goal, rewording), that field.
-  const atEdge = v?.step.kind === 'edge';
+  // On arrival (a start, Resume from Plan or the paused screen, a Jump, Undo from home, a reload): the note.
   useEffect(() => {
     if (focused) later(note);
-  }, [focused, atEdge]);
-
-  // A new step: nothing is being reworded any more.
-  const [seenStep, setSeenStep] = useState(stepKey);
-  if (seenStep !== stepKey) {
-    setSeenStep(stepKey);
-    setEditing(false);
-  }
-
-  const [edge, setEdge] = useState(() => readDraft(`edge:${runId}`));
-  const typeEdge = (text: string) => {
-    setEdge(text);
-    writeDraft(`edge:${runId}`, text);
-  };
+  }, [focused]);
 
   const next = () => {
     if (!v) return;
-    if (v.next === 'edge') {
-      if (!edge.trim()) return;
-      // Refused while reconnecting: the words stay in the field.
-      if (act().addEdgeStep(runId, edge).ok) {
-        typeEdge('');
-        toNote();
-      }
-      return;
-    }
     act().nextStep(runId);
+  };
+  const plan = () => {
+    setPanel(false);
+    // One write: the run is paused and in Plan. The route then follows it (above).
+    act().planRun(runId);
   };
   const done = () => {
     setPanel(false);
@@ -128,56 +104,37 @@ export function Runner({ runId }: { runId: string }) {
   };
 
   useKeys(
-    focused && running && !covered,
+    focused && running,
     {
       // Return while the note has the focus is Next. No letter is a shortcut (see `useKeys`).
       Enter: next,
       'mod+z': undo,
       Escape: () => {
-        if (editing) {
-          writeDraft(wordsKey, '');
-          setEditing(false);
-          toNote();
-        } else if (panel) closePanel();
+        if (panel) closePanel();
       },
     },
     true,
   );
 
-  if (!v || !running) return <GoScreen testID="go-runner" settled={false}>{null}</GoScreen>;
+  if (!v || !running || planning) return <GoScreen testID="go-runner" settled={false}>{null}</GoScreen>;
 
   const hue = hueOf(routineHue(data, v.routineId));
-  const layer =
-    sheet && 'break' in sheet ? (
-      <BreakSheet runId={runId} target={sheet.break} hue={hue} onClose={() => setSheet(null)} onDone={toNote} />
-    ) : sheet ? (
-      <KeepSheet runId={runId} ids={sheet.keep} onClose={() => setSheet(null)} />
-    ) : keepOffer ? (
-      <KeepSheet runId={runId} ids={keepOffer} onClose={act().dismissRunOffer} />
-    ) : null;
 
   return (
-    <GoScreen testID="go-runner" layer={layer}>
+    <GoScreen testID="go-runner">
       <HiddenH1>{v.level}</HiddenH1>
+      {/* Said once on arriving (from Plan, a start, a reload): running, and the step. */}
+      {focused && <Said text={`Running: ${v.step.kind === 'wait' ? `Wait for: ${v.step.words}` : v.step.words}`} />}
       {/* With almost no room (large text AND the keyboard up) the column scrolls before anything goes: the note keeps a least size. */}
       <ScrollView style={styles.column} contentContainerStyle={styles.columnBody} keyboardShouldPersistTaps="handled" testID="go-column">
       <View style={styles.context}>
-        <Pressable
-          onPress={() => {
-            setPanel(false);
-            router.push(`/go/run/${runId}/all`);
-          }}
-          accessibilityRole="button"
-          // Web: its name is its own words (the parent, the level) and then what it does, said but not shown.
-          {...(!WEB && { accessibilityLabel: `${v.parent ? `${v.parent}, ` : ''}${v.level}. See it all` })}
-          testID="go-context"
-          style={(state) => [styles.contextWords, (state as { focused?: boolean }).focused && RING]}>
+        {/* The level and its parent, in words. Not a control: the runner is the step and nothing else (the sequence is Plan's). */}
+        <View style={styles.contextWords} testID="go-context">
           {!!v.parent && <T dim numberOfLines={1}>{v.parent}</T>}
           <T bold size={18} numberOfLines={tight || v.parent ? 1 : 2}>
             {v.level}
           </T>
-          {WEB && <Text style={styles.said}>See it all</Text>}
-        </Pressable>
+        </View>
         <Btn label="Done" spoken={`Done with ${v.level}`} onPress={done} style={styles.done} testID="go-done" />
       </View>
 
@@ -185,18 +142,6 @@ export function Runner({ runId }: { runId: string }) {
         view={v}
         hue={hue}
         noteRef={note}
-        edge={edge}
-        onEdge={typeEdge}
-        onNext={next}
-        editing={editing}
-        draftKey={wordsKey}
-        onEdited={(text) => {
-          if (text === undefined || act().changeWords(runId, text).ok) {
-            writeDraft(wordsKey, '');
-            setEditing(false);
-            toNote();
-          }
-        }}
         panelOpen={panel}
         onPanel={(open) => (open ? setPanel(true) : closePanel())}
         panel={
@@ -205,15 +150,6 @@ export function Runner({ runId }: { runId: string }) {
               runId={runId}
               onClose={closePanel}
               onUndo={undo}
-              onEdit={() => {
-                setPanel(false);
-                setEditing(true);
-              }}
-              onKeep={(ids) => {
-                setPanel(false);
-                if (ids.length === 1) act().keepChange(runId, ids[0]);
-                else setSheet({ keep: ids });
-              }}
               onMoved={() => {
                 setPanel(false);
                 toNote();
@@ -242,22 +178,18 @@ export function Runner({ runId }: { runId: string }) {
                   />
                 ) : (
                   <Btn
-                    label="Break it down"
-                    spoken={full && v.middle === 'break' ? 'Break it down. This step is long' : undefined}
-                    // The quiet mark for a long step. In a narrow window it sits in the button's corner
-                    // (below), so the words keep to two lines and the buttons stay in view.
-                    mark={full && v.middle === 'break' && !narrow ? 'split' : undefined}
-                    disabled={v.middle !== 'break'}
+                    label="Plan"
+                    spoken={full ? 'Plan. This step is long' : undefined}
+                    // The quiet mark for a long step (breaking it down is planning: the same door). In a
+                    // narrow window it sits in the button's corner, so the buttons stay in view.
+                    mark={full && !narrow ? 'split' : undefined}
                     style={styles.grow}
                     testID="go-middle"
-                    dataSet={{ marked: full && v.middle === 'break' ? 'true' : 'false' }}
-                    onPress={() => {
-                      setPanel(false);
-                      if (v.step.itemId) setSheet({ break: { seq: v.step.seq, item: v.step.itemId, words: v.step.words } });
-                    }}
+                    dataSet={{ marked: full ? 'true' : 'false' }}
+                    onPress={plan}
                   />
                 )}
-                {narrow && full && v.middle === 'break' && (
+                {narrow && full && v.middle === 'plan' && (
                   <View style={styles.cornerMark} pointerEvents="none">
                     <Mark name="split" size={16} color={G.text} />
                   </View>
@@ -268,7 +200,6 @@ export function Runner({ runId }: { runId: string }) {
                 label={v.next === 'itsHappened' ? 'It’s happened' : 'Next'}
                 spoken={v.next === 'itsHappened' ? `It’s happened: ${v.step.words}` : undefined}
                 markAfter={v.next === 'itsHappened' ? undefined : 'forward'}
-                disabled={v.next === 'edge' && !edge.trim()}
                 onPress={next}
                 size={18}
                 style={styles.next}
@@ -281,13 +212,6 @@ export function Runner({ runId }: { runId: string }) {
       </ScrollView>
     </GoScreen>
   );
-}
-
-/** The step Break it down was opened on. */
-interface BreakTarget {
-  seq: string;
-  item: string;
-  words: string;
 }
 
 /** After this render: focus (what it goes to may only just be there). */
@@ -361,14 +285,6 @@ interface NoteAreaProps {
   view: RunnerView;
   hue: { c: string; d: string };
   noteRef: React.RefObject<ViewRef | null>;
-  edge: string;
-  onEdge: (text: string) => void;
-  onNext: () => void;
-  editing: boolean;
-  /** Where the words being retyped are kept across a reload. */
-  draftKey: string;
-  /** The reworded step, or undefined when rewording was left. */
-  onEdited: (text?: string) => void;
   panelOpen: boolean;
   onPanel: (open: boolean) => void;
   panel: React.ReactNode;
@@ -382,21 +298,12 @@ interface NoteAreaProps {
  * The note in the room it has. It is a square, as large as the room allows up to its own size, with
  * a margin; the type steps down with the words (`noteType`), and if what is drawn is still taller
  * than the note the type steps down again, to "full": edge to edge, scrolling inside, never clipped.
+ * It is never a field: words are typed in Plan.
  */
-function NoteArea({ view: v, hue, noteRef, edge, onEdge, onNext, editing, draftKey, onEdited, panelOpen, onPanel, panel, notice, tray }: NoteAreaProps) {
+function NoteArea({ view: v, hue, noteRef, panelOpen, onPanel, panel, notice, tray }: NoteAreaProps) {
   const { fontScale } = useWindowDimensions();
   const [room, setRoom] = useState<{ w: number; h: number } | undefined>();
-  const [draft, setDraftText] = useState(() => readDraft(draftKey) || v.step.words);
-  const setDraft = (text: string) => {
-    setDraftText(text);
-    writeDraft(draftKey, text);
-  };
-  const field = useRef<InputRef>(null);
-  const atEdge = v.step.kind === 'edge';
-  const typed = atEdge ? edge : editing ? draft : undefined;
-  // As on first run: "A first small step"; after that, the next one.
-  const ask = v.canBack ? 'The next small step' : 'A first small step';
-  const words = typed !== undefined ? typed || ask : v.step.words;
+  const words = v.step.words;
 
   // A margin above and below, as much as the room affords (the keyboard up, large text: less, never none).
   const margin = !room || room.h >= 300 ? SP.s4 : room.h >= 180 ? SP.s3 - 4 : SP.s1;
@@ -416,60 +323,16 @@ function NoteArea({ view: v, hue, noteRef, edge, onEdge, onNext, editing, draftK
 
   const seen = useVisibleHeight();
   const floor = !!seen && seen.height < 400;
-  const swipe = useSwipe(!full && typed === undefined, (up) => onPanel(up));
+  const swipe = useSwipe(!full, (up) => onPanel(up));
   const tap = (e?: { nativeEvent?: { pageX?: number; pageY?: number } }) => {
-    if (typed !== undefined || swipe.justDragged() || swipe.wasDrag(e)) return;
+    if (swipe.justDragged() || swipe.wasDrag(e)) return;
     onPanel(!panelOpen);
   };
-
-  // The edge asks at once: the field has the focus (and, on a phone, the keyboard).
-  // (The field is only drawn once the note's room is known: the focus waits for that.)
-  const ready = !!room && side > 0;
-  useEffect(() => {
-    if (!(atEdge || editing) || !ready) return;
-    setTimeout(() => {
-      const el = field.current as unknown as HTMLElement | null;
-      // Already there (and maybe being typed in): the caret is left where the person has it.
-      if (!el || (WEB && document.activeElement === el)) return;
-      field.current?.focus();
-      caretToEnd(el);
-    }, 0);
-  }, [atEdge, editing, ready]);
-  const [wasEditing, setWasEditing] = useState(editing);
-  if (wasEditing !== editing) {
-    setWasEditing(editing);
-    if (editing) setDraftText(readDraft(draftKey) || v.step.words);
-  }
 
   const color = wait ? G.text : G.ink;
   const text = { fontSize: size * 1, lineHeight: Math.round(size * 1.25), color, fontFamily: face.words };
   const body =
-    typed !== undefined ? (
-      <Field
-        ref={field}
-        bare
-        ink={!wait}
-        multiline
-        size={size}
-        value={typed}
-        onChangeText={atEdge ? onEdge : setDraft}
-        placeholder={ask}
-        accessibilityLabel={atEdge ? ask : 'Change the words'}
-        submitBehavior="submit"
-        onSubmitEditing={() => (atEdge ? onNext() : onEdited(draft))}
-        onKeyPress={(e) => {
-          // Return adds or keeps (never a new line in a step).
-          if (e.nativeEvent.key === 'Enter') {
-            e.preventDefault();
-            if (atEdge) onNext();
-            else onEdited(draft);
-          }
-        }}
-        onBlur={() => !atEdge && editing && draft.trim() && draft.trim() !== v.step.words && onEdited(draft)}
-        testID="go-note-field"
-        style={[styles.noteField, { height: Math.max(TARGET, inner - head) }]}
-      />
-    ) : full ? (
+    full ? (
       // It scrolls, so it can be reached and scrolled from the keyboard; Return there is still Next.
       <ScrollView style={{ maxHeight: inner - head }} testID="go-note-scroll" {...(WEB && ({ tabIndex: 0, dataSet: { return: 'true' } } as object))}>
         <NoteWords style={text} selectable>
@@ -492,7 +355,7 @@ function NoteArea({ view: v, hue, noteRef, edge, onEdge, onNext, editing, draftK
       ref={noteRef}
       testID="go-note"
       role="group"
-      aria-label={wait ? `Wait for: ${v.step.words}` : atEdge ? ask : v.step.words}
+      aria-label={wait ? `Wait for: ${v.step.words}` : v.step.words}
       {...(WEB && ({ tabIndex: 0, onClick: tap } as object))}
       {...{ dataSet: { size: String(size), full: full ? 'true' : 'false', kind: v.step.kind, moving: 'false', return: 'true' } }}
       style={[
@@ -540,7 +403,7 @@ function NoteArea({ view: v, hue, noteRef, edge, onEdge, onNext, editing, draftK
           </>
         )}
       </View>
-      {tray(full && typed === undefined)}
+      {tray(full)}
     </>
   );
 }
@@ -558,18 +421,16 @@ interface PanelProps {
   runId: string;
   onClose: () => void;
   onUndo: () => void;
-  onEdit: () => void;
-  onKeep: (ids: string[]) => void;
   /** The run moved (Back to): the panel goes, the note has the focus. */
   onMoved: () => void;
 }
 
 /**
- * The pull-up panel (B-11 §3.2): where you are in this run (the round, last step of the round, then,
- * this run only), then the actions. Over the note only; the three buttons stay where they are and
+ * The pull-up panel (B-11 §3.2): where you are in this run (the round, last step of the round, then),
+ * then Back to <step> and Jump to… (they move you; they do not plan). Over the note only; the three buttons stay where they are and
  * keep working. The round is said here and nowhere else.
  */
-function Panel({ runId, onClose, onUndo, onEdit, onKeep, onMoved }: PanelProps) {
+function Panel({ runId, onClose, onUndo, onMoved }: PanelProps) {
   const data = useStore((s) => s.data);
   const p = panelView(data, runId);
   // The notice (and its Undo) is under the panel while it is open: the same Undo is a row here.
@@ -580,7 +441,7 @@ function Panel({ runId, onClose, onUndo, onEdit, onKeep, onMoved }: PanelProps) 
   }, []);
   if (!p) return null;
   const round = p.round ? `Round ${p.round.n}${p.round.of ? ` of ${p.round.of}` : ''}` : undefined;
-  const where = [round, p.lastOfRound && 'Last step of the round', p.then && `then: ${p.then}`, p.thisRunOnly && 'This run only'].filter(Boolean);
+  const where = [round, p.lastOfRound && 'Last step of the round', p.then && `then: ${p.then}`].filter(Boolean);
   return (
     <View style={styles.panel} role="region" aria-label="More about this step" testID="go-panel" {...{ dataSet: { moving: 'false' } }}>
       <ScrollView contentContainerStyle={styles.panelBody} keyboardShouldPersistTaps="handled">
@@ -622,12 +483,9 @@ function Panel({ runId, onClose, onUndo, onEdit, onKeep, onMoved }: PanelProps) 
               </T>
             </View>
           )}
-          {p.thisRunOnly && <T style={styles.only}>This run only</T>}
           {where.length === 0 && !p.wait && <View style={styles.rule} />}
         </View>
-        {p.keepIn && <Btn label={`Keep in ${p.keepIn.name}`} onPress={() => onKeep(p.keepIn!.changes.map((c) => c.id))} testID="go-keep-in" />}
         {can && <Btn kind="plain" mark="undo" label={`Undo ${can.label}`} onPress={onUndo} />}
-        {p.canChangeWords && <Btn kind="plain" mark="pencil" label="Change the words" onPress={onEdit} />}
         {p.backTo !== undefined && (
           <Btn
             kind="plain"
@@ -648,92 +506,8 @@ function Panel({ runId, onClose, onUndo, onEdit, onKeep, onMoved }: PanelProps) 
             router.push(`/go/run/${runId}/jump`);
           }}
         />
-        <Btn
-          kind="plain"
-          mark="lines"
-          label="See it all"
-          onPress={() => {
-            onClose();
-            router.push(`/go/run/${runId}/all`);
-          }}
-        />
       </ScrollView>
     </View>
-  );
-}
-
-/**
- * Break it down (B-11 §3.1, J05): a sheet over an untouched runner. Each line typed is a smaller
- * step; Return adds it; Step in makes them this run's own sequence and runs the first. What is typed
- * stays if the sheet is closed, or the tab reloaded.
- */
-function BreakSheet({ runId, target, hue, onClose, onDone }: { runId: string; target: BreakTarget; hue: { c: string; d: string }; onClose: () => void; onDone: () => void }) {
-  const key = `break:${runId}:${target.item}`;
-  const [steps, setSteps] = useState<string[]>(() => {
-    try {
-      const had: unknown = JSON.parse(readDraft(key) || '[]');
-      return Array.isArray(had) ? had.filter((x): x is string => typeof x === 'string') : [];
-    } catch {
-      return [];
-    }
-  });
-  const [text, setText] = useState(() => readDraft(`${key}:typing`));
-  const field = useRef<InputRef>(null);
-  const keep = (list: string[], typing: string) => {
-    setSteps(list);
-    setText(typing);
-    writeDraft(key, list.length ? JSON.stringify(list) : '');
-    writeDraft(`${key}:typing`, typing);
-  };
-  const add = () => {
-    const words = text.trim().replace(/\s+/g, ' ');
-    if (words) keep([...steps, words], '');
-    field.current?.focus();
-  };
-  const all = [...steps, text].map((x) => x.trim()).filter(Boolean);
-  return (
-    <Sheet title={target.words} onClose={onClose} testID="go-break">
-      {steps.map((words, i) => (
-        <View key={`${i}:${words}`} style={[styles.block, { backgroundColor: hue.c }, hard(4, hue.d)]} testID="go-break-step">
-          <T ink bold style={styles.blockWords}>
-            {words}
-          </T>
-          <Btn kind="plain" ink mark="close" spoken={`Remove ${words}`} onPress={() => keep(steps.filter((_, j) => j !== i), text)} />
-        </View>
-      ))}
-      <View style={styles.addRow}>
-        <View style={styles.addMark}>
-          <Mark name="add" color={G.dim} />
-        </View>
-        <Field
-          ref={field}
-          bare
-          value={text}
-          onChangeText={(t) => keep(steps, t)}
-          placeholder="A smaller step"
-          accessibilityLabel="A smaller step"
-          keepFocus
-          onSubmitEditing={add}
-          returnKeyType="next"
-          style={styles.addField}
-          {...{ dataSet: { first: 'true' } }}
-        />
-        <Btn kind="plain" mark="return" spoken="Add this step" disabled={!text.trim()} onPress={add} />
-      </View>
-      <Btn
-        kind="filled"
-        label="Step in"
-        disabled={!all.length}
-        testID="go-break-in"
-        onPress={() => {
-          // To the step it was opened on, wherever the run is by now. Refused (reconnecting): the sheet and what is typed stay.
-          if (!useStore.getState().breakDown(runId, all, { seq: target.seq, item: target.item }).ok) return;
-          keep([], '');
-          onClose();
-          onDone();
-        }}
-      />
-    </Sheet>
   );
 }
 
@@ -755,7 +529,6 @@ const styles = StyleSheet.create({
   noteHead: { flexDirection: 'row', alignItems: 'center', gap: SP.s2, height: 28 },
   noteBody: { flex: 1, minHeight: 0, justifyContent: 'center' },
   noteWords: { alignSelf: 'stretch' },
-  noteField: { alignSelf: 'stretch', paddingVertical: 0, minHeight: 0, textAlignVertical: 'center', fontWeight: '600' },
   words: { fontWeight: '600' },
   corner: { position: 'absolute', right: 0, bottom: 0, width: 22, height: 22 },
   dim: { backgroundColor: 'rgba(0,0,0,0.55)' },
@@ -764,18 +537,11 @@ const styles = StyleSheet.create({
   tray: { backgroundColor: G.surf, paddingHorizontal: GUTTER, paddingBottom: SP.s3, gap: SP.s2 },
   trayTight: { paddingBottom: SP.s2 },
   cornerMark: { position: 'absolute', right: 4, top: 4 },
-  said: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, fontSize: 16 },
   trayRow: { flexDirection: 'row', gap: SP.s2 },
   next: { minHeight: 56 },
   panel: { position: 'absolute', left: 0, right: 0, bottom: 0, maxHeight: '100%', backgroundColor: G.surf, borderTopWidth: 2, borderTopColor: G.text },
   panelBody: { paddingHorizontal: GUTTER, paddingTop: SP.s3, paddingBottom: SP.s2, gap: SP.s1 },
   where: { gap: SP.s1, paddingBottom: SP.s2, ...(WEB && ({ outlineStyle: 'none' } as object)) },
   line: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.s2, minHeight: 28 },
-  only: { paddingLeft: 32 },
   rule: { height: 0 },
-  block: { flexDirection: 'row', alignItems: 'center', minHeight: TARGET, paddingLeft: SP.s3, marginRight: 4, marginBottom: 4 },
-  blockWords: { flex: 1, minWidth: 0, paddingVertical: SP.s2 },
-  addRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderColor: G.line, backgroundColor: G.bg },
-  addMark: { width: TARGET, height: TARGET, alignItems: 'center', justifyContent: 'center', borderRightWidth: 2, borderRightColor: G.line },
-  addField: { flex: 1, minWidth: 0, paddingHorizontal: SP.s3 },
 });

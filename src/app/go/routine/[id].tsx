@@ -1,9 +1,9 @@
 import { useLocalSearchParams } from 'expo-router';
 
-import { Editor } from '@/components/go/Editor';
+import { Plan } from '@/components/go/Plan';
 
-/** B-11 slice 1 (P-86): the plain editor of one routine. */
+/** B-12 (P-90): Plan for a routine with no run (the plain editor's old address). With a run, it is that run's Plan. */
 export default function GoRoutine() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <Editor routineId={String(id)} key={String(id)} />;
+  return <Plan routineId={String(id)} key={String(id)} />;
 }

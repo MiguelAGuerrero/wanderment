@@ -1,8 +1,10 @@
 /**
- * P-86 (B-11 slice 1): the `/go` screens against B-11 §6 — no serious axe violations on any screen or
- * layer; targets ≥ 48 px; text ≥ 16 px; a level-1 heading on every screen and level 2 on every layer;
- * one filled button per screen or layer; spoken names for icon-only and repeated buttons; Reduce
- * Motion (nothing animates); and reflow with the keyboard up and at 200 % text.
+ * P-86 (B-11 slice 1), P-90: the `/go` screens — Plan among them — against B-11 §6 and DESIGN.md §6: no
+ * serious axe violations on any screen or layer; targets ≥ 48 px; text ≥ 16 px; a level-1 heading on
+ * every screen and level 2 on every layer; one filled button per screen or layer; spoken names for
+ * icon-only and repeated buttons; Reduce Motion (nothing animates); and reflow with the keyboard up
+ * and at 200 % text. Plan against Run without colour: what each says on arriving, where focus lands,
+ * the band pinned.
  *
  * "Keyboard up" and "200 %" are layout stand-ins: a 390×510 window (what a phone keyboard leaves) and
  * a 195×422 window (what 200 % zoom gives a 390×844 phone). They prove the layout, not a real
@@ -12,7 +14,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, home, paused, runner, settled, startGo } from './goFixture';
+import { addStep, arrived, home, paused, plan, planMenu, RoutineSpec, runner, settled, startGo } from './goFixture';
 
 const PAPER = 'rgb(244, 241, 232)';
 const RUNS = [
@@ -81,7 +83,7 @@ test('home: axe, targets, text, heading, names — empty, with tiles, and while 
   expect(order[order.length - 1]).toBe('go-prompt');
 });
 
-test('the runner, its panel, Break it down, the Keep ask: axe and the rules on each; reading order context → note → notice → handle → buttons', async ({ page }) => {
+test('the runner and its panel: axe and the rules on each; reading order context → note → notice → handle → buttons; it says "Running" and the step on arriving', async ({ page }) => {
   await startGo(page, RUNS, 'runner');
   const r = runner(page);
   await expect(r.words).toHaveText('Add the shadows');
@@ -117,25 +119,128 @@ test('the runner, its panel, Break it down, the Keep ask: axe and the rules on e
   await expectRules(page, r.screen, 1, 1);
   await page.keyboard.press('Escape');
 
-  await r.middle.click();
-  const sheet = await arrived(page, 'go-break');
-  await expect(sheet).toHaveRole('dialog');
-  await expectNoSeriousViolations(page);
-  await page.getByRole('textbox', { name: 'A smaller step', exact: true }).fill('Squint at it');
-  await expectRules(page, sheet, 2, 1);
-  await sheet.getByRole('button', { name: 'Step in', exact: true }).click();
-  await r.done.click();
-  const keep = await arrived(page, 'go-keep');
-  await expectNoSeriousViolations(page);
-  await expectRules(page, keep, 2, 1);
+  // Unmistakably the runner, without colour: said once on arriving, and the note has the focus.
+  await page.reload();
+  await expect(r.said).toHaveText('Running: Block in the big shapes');
+  await expect(r.said).toHaveAttribute('aria-live', 'polite');
+  await expect(r.note).toBeFocused();
+  await expect(r.middle).toHaveAccessibleName('Plan');
 });
 
-test('the edge, a wait, Paused, Waiting, the confirm, See it all and its menus, Jump to…, the editor: axe and the rules on each', async ({ page }) => {
-  await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'runner');
-  await expect(runner(page).field).toBeFocused();
-  await expectNoSeriousViolations(page);
-  await expectRules(page, runner(page).screen, 1, 0);
+const TEST: RoutineSpec = { id: 'test', name: 'Test out the app', steps: ['Select a feature to test', 'Vibe check', { wait: 'the build to finish' }, 'Write down concerns', { routine: 'proof' }], repeatFrom: 1, repeat: 3 };
 
+test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, while typing in place, at the edge, and for a routine with no run', async ({ page }) => {
+  await startGo(page, [{ id: 'r1', routine: 'test', at: 1, round: 2, status: 'running' }], 'runner', [TEST, { id: 'proof', name: 'Proofread out loud', home: false, open: false, steps: ['Read it aloud once'] }]);
+  await runner(page).middle.click();
+  const p = plan(page);
+  await expect(p.forward).toHaveText('Resume at Vibe check');
+  await expectNoSeriousViolations(page);
+  // One filled button: Resume at <step>.
+  await expectRules(page, p.screen, 1, 1);
+  // Spoken names: the heading says Plan and the routine; HERE is in words; every row's menu names its step.
+  await expect(p.title).toHaveAccessibleName('Plan: Test out the app');
+  await expect(p.here).toHaveAccessibleName('Here, Vibe check');
+  await expect(p.more('Vibe check')).toHaveText('');
+  await expect(p.dividerUp).toHaveText('');
+  await expect(p.divider).toHaveAccessibleName('Repeat from here');
+  await expect(p.screen.getByRole('button', { name: 'Open Proofread out loud', exact: true })).toHaveAttribute('aria-expanded', 'false');
+  // HERE is 16 px or more, and its white outline is HERE's alone.
+  expect(await p.here.getByTestId('go-plan-here').evaluate((e) => parseFloat(getComputedStyle(e.firstElementChild!).fontSize))).toBeGreaterThanOrEqual(16);
+  const outlines = await p.rows.evaluateAll((els) => els.map((e) => getComputedStyle(e).borderTopColor));
+  expect(outlines.filter((c) => c === 'rgb(244, 241, 232)')).toHaveLength(1);
+  // Reading order: the band (the word, Home), the heading, where you are, the rows, the open row, the notice, the filled button.
+  const order = await p.screen.evaluate((root) =>
+    [...root.querySelectorAll('[data-testid="go-plan-word"], [data-testid="go-plan-home"], [role="heading"], [data-testid="go-plan-line"], [data-testid="go-plan-row"], [data-testid="go-plan-add"], [data-testid="go-notice-slot"], [data-testid="go-plan-forward"]')].map(
+      (e) => (e as HTMLElement).dataset.testid ?? 'heading',
+    ),
+  );
+  expect(order).toEqual(['go-plan-word', 'go-plan-home', 'heading', 'go-plan-line', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-add', 'go-notice-slot', 'go-plan-forward']);
+
+  // A step's menu: a dialog with its step as the heading; no filled button (nothing in it is "the" forward choice).
+  await p.more('Vibe check').click();
+  const menu = await arrived(page, 'go-plan-menu');
+  await expect(menu).toHaveRole('dialog');
+  await expectNoSeriousViolations(page);
+  await expectRules(page, menu, 2, 0);
+  await menu.getByRole('button', { name: 'Change the words', exact: true }).click();
+  // Typing in place, with a name that says what is being changed.
+  await expect(p.typed).toHaveAccessibleName('Step: Vibe check');
+  await expectNoSeriousViolations(page);
+  await expectRules(page, p.screen, 1, 1);
+  await p.typed.fill('Check the vibe');
+  await p.typed.press('Enter');
+  // With the notice and its Undo.
+  await expect(p.notice).toContainText('Changed “Vibe check”');
+  await expect(p.undo).toHaveAccessibleName('Undo Change');
+  await expectNoSeriousViolations(page);
+  await expectRules(page, p.screen, 1, 1);
+  // The notice is in the flow, above the filled button: it covers nothing.
+  const n = (await p.notice.boundingBox())!;
+  const f = (await p.forward.boundingBox())!;
+  const l = (await p.list.boundingBox())!;
+  expect(n.y).toBeGreaterThanOrEqual(l.y + l.height - 1);
+  expect(n.y + n.height).toBeLessThanOrEqual(f.y + 1);
+
+  // Repeat from here: its sheet.
+  await p.dividerMore.click();
+  const repeat = await arrived(page, 'go-plan-repeat');
+  await expectNoSeriousViolations(page);
+  await expectRules(page, repeat, 2, 0);
+  await page.keyboard.press('Escape');
+  // The routine's own menu.
+  await p.more('Test out the app').click();
+  const own = await arrived(page, 'go-plan-routine');
+  await expectNoSeriousViolations(page);
+  await expectRules(page, own, 2, 0);
+  await page.keyboard.press('Escape');
+  // A wait, and a routine opened in place.
+  await p.screen.getByRole('button', { name: 'Open Proofread out loud', exact: true }).click();
+  await expect(p.rows).toHaveCount(6);
+  await expectNoSeriousViolations(page);
+  await expectRules(page, p.screen, 1, 1);
+
+  // The edge: no filled button at all; Done has its slot.
+  await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'plan');
+  await expect(p.add).toBeFocused();
+  await expect(p.done).toHaveAccessibleName('Done with Feel at home in Spanish');
+  await expectNoSeriousViolations(page);
+  await expectRules(page, p.screen, 1, 0);
+  // No run, with steps: Start is the one filled button.
+  await page.goto('./go/routine/drawing');
+  await expect(p.forward).toHaveText('Start');
+  await expectNoSeriousViolations(page);
+  await expectRules(page, p.screen, 1, 1);
+});
+
+test('Plan against Run without colour: arriving in Plan says "Plan" and the routine with focus on the heading; coming back says "Running" and the step with focus on the note', async ({ page }) => {
+  await startGo(page, [{ id: 'r1', routine: 'test', at: 1, round: 2, status: 'running' }], 'runner', [TEST, { id: 'proof', name: 'Proofread out loud', home: false, open: false, steps: ['Read it aloud once'] }]);
+  const r = runner(page);
+  const p = plan(page);
+  await r.middle.click();
+  await expect(p.title).toBeFocused();
+  await expect(p.title).toHaveAccessibleName('Plan: Test out the app');
+  // The word is text, in the band, and the band is light whatever the routine's colour.
+  await expect(p.word).toHaveText('PLAN');
+  expect(await p.band.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(PAPER);
+  // The shapes differ: Plan has no note, the runner has no rows.
+  await expect(p.screen.getByTestId('go-note')).toHaveCount(0);
+  await p.forward.click();
+  await expect(r.note).toBeFocused();
+  await expect(r.said).toHaveText('Running: Vibe check');
+  await expect(r.screen.getByTestId('go-plan-row')).toHaveCount(0);
+  await expect(r.screen.getByText('PLAN', { exact: true })).toHaveCount(0);
+  // At the edge focus is on the open row, so "Plan" and the routine are said (politely) instead.
+  await r.next.click();
+  await r.next.click();
+  await expect(r.words).toHaveText('Write down concerns');
+  await startGo(page, [{ id: 'r3', routine: 'drawing', at: 2, status: 'running' }], 'runner');
+  await runner(page).next.click();
+  await expect(p.add).toBeFocused();
+  await expect(p.said).toHaveText('Plan: Practise drawing');
+  await expect(p.said).toHaveAttribute('aria-live', 'polite');
+});
+
+test('a wait, Paused, Waiting, the confirm, Planning on the paused screen and Jump to…: axe and the rules on each', async ({ page }) => {
   await startGo(page, [{ id: 'r2', routine: 'apply-acme', at: 1, waitingDaysAgo: 9, status: 'running' }, RUNS[1]], 'runner');
   const r = runner(page);
   await expectNoSeriousViolations(page);
@@ -153,20 +258,6 @@ test('the edge, a wait, Paused, Waiting, the confirm, See it all and its menus, 
   await expectRules(page, ask, 2, 1);
   await page.keyboard.press('Escape');
 
-  await p.screen.getByRole('button', { name: 'See it all', exact: true }).click();
-  const all = settled(page, 'all');
-  await expectNoSeriousViolations(page);
-  await expectRules(page, all, 1, 0);
-  await all.getByRole('button', { name: 'More for Send the application', exact: true }).click();
-  const menu = await arrived(page, 'go-all-menu');
-  await expectNoSeriousViolations(page);
-  await expectRules(page, menu, 2, 1);
-  await menu.getByRole('button', { name: 'Change the words', exact: true }).click();
-  await expectNoSeriousViolations(page);
-  await expectRules(page, menu, 2, 1);
-  await page.keyboard.press('Escape');
-  await page.goBack();
-
   await paused(page).screen.getByRole('button', { name: 'Jump to…', exact: true }).click();
   const j = settled(page, 'jump');
   await expectNoSeriousViolations(page);
@@ -175,14 +266,13 @@ test('the edge, a wait, Paused, Waiting, the confirm, See it all and its menus, 
   await expectNoSeriousViolations(page);
   await expectRules(page, j, 1, 1);
   await page.goBack();
-  await page.goBack();
 
-  await home(page).screen.getByRole('button', { name: 'More for Practise drawing', exact: true }).click();
-  const e = settled(page, 'editor');
-  await e.getByRole('button', { name: 'Add Repeat from here', exact: true }).click();
-  await e.getByRole('radio', { name: 'A number', exact: true }).click();
+  // A run left in Plan, on the paused screen: "Planning", one filled button (Plan).
+  await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused', mode: 'plan' }, RUNS[2]], 'plan');
+  await page.goto('./go/run/r1/paused');
+  await expect(paused(page).title).toHaveText('Planning');
   await expectNoSeriousViolations(page);
-  await expectRules(page, e, 1, 0);
+  await expectRules(page, paused(page).screen, 1, 1);
 });
 
 test('focus has its own ring; sheets take focus and give it back; focus is never lost to nothing', async ({ page }) => {
@@ -191,32 +281,77 @@ test('focus has its own ring; sheets take focus and give it back; focus is never
   await r.next.focus();
   const ring = await r.next.evaluate((e) => ({ style: getComputedStyle(e).outlineStyle, colour: getComputedStyle(e).outlineColor, offset: getComputedStyle(e).outlineOffset }));
   expect(ring).toEqual({ style: 'solid', colour: 'rgb(185, 167, 255)', offset: '3px' });
-  // Tab order on the runner: the context line, Done, the note, the handle, Pause, the middle, Next.
-  await r.context.focus();
+  // Tab order on the runner: Done, the note, the handle, Pause, the middle, Next (the context line is words, not a control).
+  await r.done.focus();
   const seen: string[] = [];
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 5; i++) {
     await page.keyboard.press('Tab');
     seen.push(await page.evaluate(() => (document.activeElement as HTMLElement).dataset.testid ?? ''));
   }
-  expect(seen).toEqual(['go-done', 'go-note', 'go-handle', 'go-pause', 'go-middle', 'go-next']);
-  // A sheet: focus in, and back to what opened it.
+  expect(seen).toEqual(['go-note', 'go-handle', 'go-pause', 'go-middle', 'go-next']);
+  // Plan: the ring is focus's own (HERE's outline is white, and is not it).
   await r.middle.click();
-  await arrived(page, 'go-break');
-  await expect(page.getByRole('textbox', { name: 'A smaller step', exact: true })).toBeFocused();
+  const p = plan(page);
+  // Arriving in Plan moves focus to the heading; wait for that before moving focus ourselves.
+  await expect(p.title).toBeFocused();
+  await p.forward.focus();
+  expect(await p.forward.evaluate((e) => ({ style: getComputedStyle(e).outlineStyle, colour: getComputedStyle(e).outlineColor, offset: getComputedStyle(e).outlineOffset }))).toEqual(ring);
+  expect(await p.here.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe('none');
+  // Tab order in Plan starts in the band: Home, then the heading's menu, then the rows.
+  await p.home.focus();
+  await page.keyboard.press('Tab');
+  await expect(p.more('Practise drawing')).toBeFocused();
+  // A sheet: focus in (its heading), and back to what opened it.
+  const more = p.more('Add the shadows');
+  await more.click();
+  const menu = await arrived(page, 'go-plan-menu');
+  await expect(menu.getByRole('heading', { level: 2 })).toBeFocused();
   await page.keyboard.press('Escape');
-  await expect(r.middle).toBeFocused();
+  await expect(more).toBeFocused();
 });
 
-test('Reduce Motion: sheets, the confirm and the panel are just there — nothing animates', async ({ page }) => {
+// After the audit (F4): WCAG 1.4.11 — a focus indicator needs 3:1 against what it is drawn on. The
+// band is light (paper), so the app's lavender ring (1.85:1 there) is not enough for Home and Done.
+test('the focus ring on the Plan band’s Home and Done is at least 3:1 against the band', async ({ page }) => {
+  await startGo(page, [{ id: 'r3', routine: 'drawing', at: 2, status: 'running' }], 'runner');
+  await runner(page).next.click();
+  const p = plan(page);
+  await expect(p.done).toBeVisible();
+  const band = await p.band.evaluate((e) => getComputedStyle(e).backgroundColor);
+  expect(band).toBe(PAPER);
+  const luminance = (rgb: string) => {
+    const [r, g, b] = rgb.match(/[\d.]+/g)!.slice(0, 3).map((v) => {
+      const c = Number(v) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const contrast = (a: string, b: string) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
+  for (const control of [p.home, p.done]) {
+    await control.focus();
+    const ring = await control.evaluate((e) => ({ style: getComputedStyle(e).outlineStyle, width: getComputedStyle(e).outlineWidth, colour: getComputedStyle(e).outlineColor }));
+    expect(ring.style).toBe('solid');
+    expect(parseFloat(ring.width)).toBeGreaterThanOrEqual(2);
+    expect(contrast(ring.colour, band), `${ring.colour} on ${band}`).toBeGreaterThanOrEqual(3);
+  }
+});
+
+test('Reduce Motion: sheets, the confirm, the panel and the change between Plan and the runner are just there — nothing animates', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await startGo(page, RUNS, 'runner');
   const r = runner(page);
   await r.middle.click();
+  const p = plan(page);
+  await expect(p.here).toBeInViewport();
+  expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+  await p.more('Add the shadows').click();
   // No waiting for it to arrive: it never moves.
-  await expect(page.getByTestId('go-break')).toHaveAttribute('data-moving', 'false');
-  expect(await page.getByTestId('go-break').evaluate((e) => ({ opacity: getComputedStyle(e).opacity, transform: getComputedStyle(e).transform }))).toEqual({ opacity: '1', transform: 'matrix(1, 0, 0, 1, 0, 0)' });
+  await expect(page.getByTestId('go-plan-menu')).toHaveAttribute('data-moving', 'false');
+  expect(await page.getByTestId('go-plan-menu').evaluate((e) => ({ opacity: getComputedStyle(e).opacity, transform: getComputedStyle(e).transform }))).toEqual({ opacity: '1', transform: 'matrix(1, 0, 0, 1, 0, 0)' });
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
   await page.keyboard.press('Escape');
+  await p.forward.click();
+  expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
   await r.handle.click();
   await expect(r.panel).toHaveAttribute('data-moving', 'false');
   await r.next.click();
@@ -230,11 +365,14 @@ test('Reduce Motion: sheets, the confirm and the panel are just there — nothin
 
 test('without Reduce Motion nothing takes long and nothing moves a control: a sheet has arrived within its 160 ms slide', async ({ page }) => {
   await startGo(page, RUNS, 'runner');
-  const r = runner(page);
-  const next = await r.next.boundingBox();
-  await r.middle.click();
-  await arrived(page, 'go-break');
-  expect(await r.next.boundingBox()).toEqual(next);
+  await runner(page).middle.click();
+  const p = plan(page);
+  const forward = await p.forward.boundingBox();
+  const home = await p.home.boundingBox();
+  await p.more('Add the shadows').click();
+  await arrived(page, 'go-plan-menu');
+  expect(await p.forward.boundingBox()).toEqual(forward);
+  expect(await p.home.boundingBox()).toEqual(home);
 });
 
 for (const [label, size] of [
@@ -282,29 +420,78 @@ for (const [label, size] of [
     await expect(r.panel).toBeVisible();
     await expect(r.next).toBeInViewport();
     await page.keyboard.press('Escape');
-    // The edge: the field is in the note, in view.
-    await r.done.click();
-    await page.keyboard.press('Escape');
-    await r.next.click();
-    await expect(r.field).toBeVisible();
     await fits();
-    await expect(r.field).toBeInViewport();
     await expectNoSeriousViolations(page);
   });
 
-  test(`${label}: home, Paused, Break it down and the confirm reflow — every control in reach`, async ({ page }) => {
+  test(`${label}: Plan — the band stays pinned with Home in it, HERE is in view on arriving, the filled button and the open row are in reach, nothing scrolls sideways`, async ({ page }) => {
+    await startGo(page, RUNS, 'runner');
+    await page.setViewportSize(size);
+    await runner(page).middle.click();
+    const p = plan(page);
+    const pinned = async () => {
+      const band = (await p.band.boundingBox())!;
+      expect(band.y).toBe(0);
+      expect(band.x).toBe(0);
+      expect(band.width).toBe(size.width);
+      await expect(p.word).toBeInViewport({ ratio: 1 });
+      await expect(p.home).toBeInViewport({ ratio: 1 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    };
+    await pinned();
+    await expect(p.here).toHaveAccessibleName('Here, Add the shadows');
+    await expect(p.here).toBeInViewport();
+    await expect(p.forward).toBeInViewport({ ratio: 1 });
+    // The words wrap; none is cut.
+    for (const w of await p.words.all()) expect(await w.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
+    await expectRules(page, p.screen, 1, 1);
+    await expectNoSeriousViolations(page);
+    // The list scrolls under the band; the band and the filled button do not move.
+    const forward = await p.forward.boundingBox();
+    await p.list.evaluate((e) => e.scrollTo(0, 99999));
+    await pinned();
+    expect(await p.forward.boundingBox()).toEqual(forward);
+    await p.add.scrollIntoViewIfNeeded();
+    await expect(p.add).toBeInViewport();
+    // Typing in the open row (the keyboard is up): still pinned; the step added is in the list.
+    await p.add.click();
+    await pinned();
+    await addStep(page, 'Sign it');
+    await expect(p.notice).toContainText('Added “Sign it”');
+    await pinned();
+    await expect(p.forward).toBeInViewport({ ratio: 1 });
+    // A step's menu and Repeat from here's sheet: every control can be reached.
+    await p.more('Add the shadows').scrollIntoViewIfNeeded();
+    await p.more('Add the shadows').click();
+    const menu = await arrived(page, 'go-plan-menu');
+    for (const name of ['Change the words', 'Remove this step']) {
+      const b = menu.getByRole('button', { name, exact: true });
+      await b.scrollIntoViewIfNeeded();
+      await expect(b).toBeInViewport();
+    }
+    await expectRules(page, menu, 2, 0);
+    await page.keyboard.press('Escape');
+    await p.dividerMore.scrollIntoViewIfNeeded();
+    await p.dividerMore.click();
+    const sheet = await arrived(page, 'go-plan-repeat');
+    await sheet.getByRole('button', { name: 'More times', exact: true }).scrollIntoViewIfNeeded();
+    await expect(sheet.getByRole('button', { name: 'More times', exact: true })).toBeInViewport();
+    await expectRules(page, sheet, 2, 0);
+    await page.keyboard.press('Escape');
+    // The edge at this size: Done beside Home, both whole, in the band.
+    await planMenu(page, 'Sign it', 'Remove this step');
+    await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'plan');
+    await pinned();
+    await expect(p.done).toBeInViewport({ ratio: 1 });
+    await expect(p.add).toBeFocused();
+    await expect(p.add).toBeInViewport();
+    await expectRules(page, p.screen, 1, 0);
+  });
+
+  test(`${label}: home, Paused and the confirm reflow — every control in reach`, async ({ page }) => {
     await startGo(page, RUNS, 'runner');
     await page.setViewportSize(size);
     const r = runner(page);
-    await r.middle.click();
-    const sheet = await arrived(page, 'go-break');
-    const field = page.getByRole('textbox', { name: 'A smaller step', exact: true });
-    await field.fill('Squint at it');
-    await field.press('Enter');
-    await expect(field).toBeInViewport();
-    await expect(sheet.getByRole('button', { name: 'Step in', exact: true })).toBeInViewport();
-    await expectRules(page, sheet, 2, 1);
-    await page.keyboard.press('Escape');
 
     await r.pause.click();
     const p = paused(page);

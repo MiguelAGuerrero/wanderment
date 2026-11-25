@@ -21,3 +21,19 @@ real person's browser holds.
 
 `freeze-old-build.ts.txt` and `freeze-current-build.ts.txt` are the scripts that wrote them (vitest
 files, run once in a copy of each commit; they drive store actions that no longer exist).
+
+## P-90 (frozen 2026-11-25, before the Plan surface)
+
+Written the same way by the build before P-90 (`ba739fa`), whose runs carried "this run only" changes
+and whose Break it down made unnamed sequences owned by the run. P-90 stops writing both; these files
+are what a person's browser still holds, and must stay readable for good.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p90-schema4.sqlite` | that build, ordinary saves, and its own Import (Replace) | 5 routines (three named with an open edge — one empty, one with a counted loop `[tracker \| find, tailor, wait, log] × 3` — and two unnamed breakdowns, one inside the other, each owned by a run) and 4 runs: one ended with a this-run reword never kept; one left at the edge of the empty routine (`at: null`); one left three levels deep in round 2 of the counted loop with seven this-run changes (a step added, a step reworded, a step removed, the number, a breakdown, a nested breakdown, a reword inside it) and a reason; and a second, paused run of the same routine, waiting, round 2 (only an import can make one) |
+| `p90-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p90-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p90-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p90-expected.json` | that build's store | what those four must read as |
+
+`freeze-p90.ts.txt` is the script that wrote them.

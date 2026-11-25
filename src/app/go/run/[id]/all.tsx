@@ -1,9 +1,10 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect, useLocalSearchParams } from 'expo-router';
 
-import { SeeAll } from '@/components/go/SeeAll';
-
-/** B-11 slice 1 (P-86): See it all — "This run of <name>". */
+/**
+ * P-90: See it all is folded into Plan. Its old address lands on the run's Plan, in its place (Back
+ * never loops) — which, like every Plan address, shows Plan when the data says the run is in Plan.
+ */
 export default function GoAll() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <SeeAll runId={String(id)} key={String(id)} />;
+  return <Redirect href={`/go/run/${String(id)}/plan`} />;
 }

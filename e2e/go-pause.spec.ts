@@ -195,3 +195,34 @@ test('must-handle (two tabs): a reason typed while reconnecting stays in its fie
   await setVisibility(page, 'visible');
   await expect(runner(page).words).toHaveText('Tailor the CV');
 });
+
+// After the P-90 audit (F5): the field is as tall as its words — one line while they fit on one line
+// (it grew 16 px with every keystroke: 64 px to 336 px after 17 characters), taller only when they wrap.
+test('the reason field does not grow as you type on one line; it grows when the words wrap, and never cuts them off', async ({ page }) => {
+  await startGo(page, RUNS, 'runner');
+  await runner(page).pause.click();
+  const p = paused(page);
+  const height = async () => Math.round((await p.reason.boundingBox())!.height);
+  const empty = await height();
+  expect(empty).toBeGreaterThanOrEqual(48);
+  await p.reason.click();
+  const seen: number[] = [];
+  for (const key of 'waiting on a call') {
+    await page.keyboard.type(key);
+    seen.push(await height());
+  }
+  await expect(p.reason).toHaveValue('waiting on a call');
+  // One line of 16-px words: the same height after every key, and no taller than empty.
+  expect(new Set(seen).size, seen.join(' ')).toBe(1);
+  expect(seen[0]).toBe(empty);
+  // Words that wrap: it grows to hold them, whole.
+  await p.reason.fill('waiting on a call from the agency about the second interview, and for the reference from my old manager to arrive');
+  await expect.poll(height).toBeGreaterThan(empty);
+  const tall = await height();
+  expect(await p.reason.evaluate((e) => e.scrollHeight <= e.clientHeight + 1)).toBe(true);
+  // …and settles: the same a moment later, and back to one line when cleared.
+  await page.waitForTimeout(300);
+  expect(await height()).toBe(tall);
+  await p.reason.fill('');
+  await expect.poll(height).toBe(empty);
+});

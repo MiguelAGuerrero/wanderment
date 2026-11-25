@@ -14,27 +14,30 @@ const NOTICE = 'Just a moment — reconnecting.';
 const settings = () => ({ showShading: st().showShading, recentSearches: st().recentSearches, leftAsIs: st().leftAsIs, ...(st().whyOfferOff && { whyOfferOff: true as const }), ...(st().firstRunDone && { firstRunDone: true as const }) });
 /** A run on its first step with a second to go to; the last action (adding that step) left an Undo. */
 function going() {
-  const made = st().startNew('Morning');
-  if (!made.ok || !made.runId) throw new Error('New: was refused');
-  st().addEdgeStep(made.runId, 'Stretch');
-  st().editRoutine(st().data.runs[made.runId].routineId, { kind: 'addStep', text: 'Shower' });
-  return made.runId;
+  // (P-90: "New" makes the routine only; its first step is added in Plan, then Start.)
+  const made = st().createRoutine('Morning');
+  if (!made.ok || !made.routineId) throw new Error('New: was refused');
+  st().editRoutine(made.routineId, { kind: 'addStep', text: 'Stretch' });
+  const started = st().startRoutine(made.routineId);
+  if (!started.ok || !started.runId) throw new Error('Start was refused');
+  st().editRoutine(made.routineId, { kind: 'addStep', text: 'Shower' });
+  return started.runId;
 }
 
 beforeEach(() => {
-  useStore.setState({ data: emptyData(), undo: undefined, toast: undefined, runNotice: undefined, runOffer: undefined, toVerb: undefined, toLog: undefined, draft: { text: '', toIds: [] }, storage: { state: 'ready', kind: 'sqlite' } });
+  useStore.setState({ data: emptyData(), undo: undefined, toast: undefined, runNotice: undefined, toVerb: undefined, toLog: undefined, draft: { text: '', toIds: [] }, storage: { state: 'ready', kind: 'sqlite' } });
 });
 afterEach(() => useStore.setState({ storage: { state: 'loading' } }));
 
 describe('replacing the data (import)', () => {
-  it('takes Undo, the notice, the Keep offer and a kept press away: nothing is left pointing at what’s gone (P-04 audit F13)', () => {
+  it('takes Undo, the notice and a kept press away: nothing is left pointing at what’s gone (P-04 audit F13)', () => {
     const runId = going();
     expect(st().undo).toBeDefined();
     expect(st().runNotice).toBeDefined();
-    useStore.setState({ toast: { message: NOTICE, notice: true }, runOffer: { runId, changeIds: [] }, toVerb: { runId, verb: 'next', base: st().data.runs[runId] } });
+    useStore.setState({ toast: { message: NOTICE, notice: true }, toVerb: { runId, verb: 'next', base: st().data.runs[runId] } });
     expect(st().replaceData(emptyData())).toBe(true);
     expect(st().data).toEqual(emptyData());
-    expect(st()).toMatchObject({ undo: undefined, toast: undefined, runNotice: undefined, runOffer: undefined, toVerb: undefined });
+    expect(st()).toMatchObject({ undo: undefined, toast: undefined, runNotice: undefined, toVerb: undefined });
   });
 
   it('leaves the five saved settings as they are (a backup holds no settings)', () => {
@@ -58,11 +61,11 @@ describe('taking the data back (refreshData)', () => {
     useStore.setState({ showShading: true, recentSearches: [], leftAsIs: [], whyOfferOff: false, firstRunDone: false });
   });
 
-  it('when the data changed underneath, Undo, its notice, the Keep offer and a quiet note go', () => {
-    const runId = going();
-    useStore.setState({ toast: { message: NOTICE, notice: true }, runOffer: { runId, changeIds: [] } });
+  it('when the data changed underneath, Undo, its notice and a quiet note go', () => {
+    going();
+    useStore.setState({ toast: { message: NOTICE, notice: true } });
     st().refreshData(emptyData(), settings(), false);
-    expect(st()).toMatchObject({ undo: undefined, toast: undefined, runNotice: undefined, runOffer: undefined });
+    expect(st()).toMatchObject({ undo: undefined, toast: undefined, runNotice: undefined });
   });
 });
 
@@ -112,17 +115,17 @@ describe('while the page doesn’t hold the data (audit 2 F3, F4)', () => {
 
   it('refused again, the note is the same one (not set again: a screen reader hears it once)', () => {
     reconnect();
-    expect(st().startNew('x')).toEqual({ ok: false, reason: 'reconnecting' });
+    expect(st().createRoutine('x')).toEqual({ ok: false, reason: 'reconnecting' });
     const note = st().toast;
     expect(note).toEqual({ message: NOTICE, notice: true });
-    expect(st().startNew('y').ok).toBe(false);
+    expect(st().createRoutine('y').ok).toBe(false);
     expect(st().toast).toBe(note);
   });
 
   it('blocked (another copy holds the data): refused the same way', () => {
     useStore.setState({ storage: { state: 'blocked', waiting: true, message: 'elsewhere' } });
     const before = st().data;
-    expect(st().startNew('x')).toEqual({ ok: false, reason: 'reconnecting' });
+    expect(st().createRoutine('x')).toEqual({ ok: false, reason: 'reconnecting' });
     expect(st().replaceData(emptyData())).toBe(false);
     expect(st().data).toBe(before);
   });

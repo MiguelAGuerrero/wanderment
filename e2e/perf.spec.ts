@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { exported, home, runner, settled } from './goFixture';
+import { exported, home, plan, settled } from './goFixture';
 import { bigBlob, seedScript } from './graphFixture';
 
 /**
@@ -26,18 +26,18 @@ test('with a 4,000-line history from the old app: the home opens, a start stays 
   await expect(settled(page, 'home')).toBeVisible({ timeout: 20_000 });
   const load = Date.now() - t1;
 
-  // Return on "New: …" to the runner asking for a first step.
+  // Return on "New: …" to Plan on the new routine, asking for its first step.
   await home(page).prompt.fill('Water the plants');
   await expect(home(page).screen.getByTestId('go-row-new')).toBeVisible();
   const t2 = Date.now();
   await home(page).prompt.press('Enter');
-  await expect(runner(page).field).toBeVisible();
+  await expect(plan(page).add).toBeVisible();
   const start = Date.now() - t2;
 
   const t3 = Date.now();
   const data = await exported(page);
   const exportMs = Date.now() - t3;
-  console.log(`4,000 lines: first load ${firstLoad} ms, load ${load} ms, start → runner ${start} ms, settings + export ${exportMs} ms`);
+  console.log(`4,000 lines: first load ${firstLoad} ms, load ${load} ms, start → Plan ${start} ms, settings + export ${exportMs} ms`);
   expect(Object.keys(data.activities)).toHaveLength(4000);
   expect(Object.keys(data.threads)).toHaveLength(220);
   expect(Object.values(data.routines).map((r) => r.words)).toEqual(['Water the plants']);

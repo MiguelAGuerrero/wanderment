@@ -1,12 +1,14 @@
 /**
- * P-86: what the screens read (tiles, the runner, the panel, paused, See it all, this run's changes).
+ * P-86: what the screens read (tiles, the runner, the panel, paused, Jump to…, the routine).
  * Expected values are the scout's panel table and B-11 (3.1–3.3, 9b), not the code's output.
+ * P-90: Plan's own view, the mode on tiles and the notices for Plan's edits are in planView.test.ts;
+ * the tests here that read "this run only" and Keep are gone (accounted for in the P-90 build report).
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { editRoutine, Env, Item, readRun, runVerb, Verb } from './run';
-import { describeChanges, homeTiles, leftOff, noticeFor, panelView, pausedView, routineHue, routineView, runnerView, seeItAll, sinceWords, unkeptChanges, whatChanged } from './runView';
-import { Data, emptyData, Id, Routine } from './types';
+import { editRoutine, Env, Item, runVerb, Verb } from './run';
+import { homeTiles, leftOff, noticeFor, panelView, pausedView, routineHue, routineView, runnerView, seeItAll, sinceWords, whatChanged } from './runView';
+import { Data, emptyData, Id, Routine, Run } from './types';
 
 const T0 = Date.UTC(2026, 10, 24, 10, 0, 0);
 let n = 0;
@@ -68,18 +70,18 @@ describe('home: tiles', () => {
     expect(homeTiles(left)[2]).toMatchObject({ state: 'paused', at: 'Tailor the CV', reason: 'need the ad', action: 'resume' });
   });
 
-  it('a run resting on a wait reads as waiting: for what (its words in this run) and since when', () => {
+  it('a run resting on a wait reads as waiting: for what (its words now) and since when', () => {
     const { d, id } = start(home(), 'acme');
     let on = walk(d, id, 'next');
     expect(homeTiles(on)[2]).toMatchObject({ state: 'waiting', waitingFor: 'a reply from Acme', since: new Date(T0 + 1000).toISOString(), action: 'resume' });
-    on = ok(on, { kind: 'words', runId: id, text: 'their answer' }).data;
+    on = editRoutine(on, 'acme', { kind: 'reword', item: 'w', text: 'their answer' }, env()).data;
     on = ok(on, { kind: 'pause', runId: id, reason: 'chased on Monday' }).data;
     expect(homeTiles(on)[2]).toMatchObject({ state: 'waiting', waitingFor: 'their answer', reason: 'chased on Monday' });
   });
 
-  it('a run asking at the edge of a goal: no step to be at, and it says so', () => {
-    const { d } = start(home(), 'spanish');
-    expect(homeTiles(d)[1]).toMatchObject({ state: 'running', asking: true, action: 'resume' });
+  it('a run at the edge of a goal: no step to be at, and it says so; it is in Plan (P-90), whatever is stored', () => {
+    const d: Data = { ...home(), runs: { n1: { id: 'n1', routineId: 'spanish', startedAt: 'x', status: 'running', frames: [{ seq: 'spanish', at: null, round: 1 }], changes: [] } as Run } };
+    expect(homeTiles(d)[1]).toMatchObject({ state: 'planning', asking: true, action: 'plan' });
     expect(homeTiles(d)[1].at).toBeUndefined();
   });
 
@@ -142,7 +144,7 @@ describe('the runner', () => {
       seq('E', 'Empty', []),
     );
 
-  it('a plain step: the context line is the level (no parent at the first layer), Break it down in the middle, Next', () => {
+  it('a plain step: the context line is the level (no parent at the first layer), Plan in the middle (P-90), Next', () => {
     const { d, id } = start(w(), 'P');
     expect(runnerView(d, id)).toMatchObject({
       runId: id,
@@ -153,9 +155,8 @@ describe('the runner', () => {
       step: { kind: 'step', words: 'Find a posting', itemId: 'x', seq: 'P' },
       lastOfRound: false,
       canBack: false,
-      middle: 'break',
+      middle: 'plan',
       next: 'next',
-      thisRunOnly: false,
     });
     expect(runnerView(d, id)!.parent).toBeUndefined();
     expect(runnerView(d, id)!.waiting).toBeUndefined();
@@ -181,29 +182,28 @@ describe('the runner', () => {
     expect(runnerView(single.d, single.id)!.lastOfRound).toBe(true); // a one-step loop: every step
   });
 
-  it('a wait step: Next reads "It’s happened", the middle is dimmed, and it says what it waits for and since when', () => {
+  it('a wait step: Next reads "It’s happened", the middle is Plan (P-90: never dimmed), and it says what it waits for and since when', () => {
     let { d, id } = start(w(), 'P');
     d = walk(d, id, 'next', 'next');
-    expect(runnerView(d, id)).toMatchObject({ step: { kind: 'wait', words: 'a reply' }, middle: 'disabled', next: 'itsHappened', waiting: { words: 'a reply', since: new Date(T0 + 2000).toISOString() } });
+    expect(runnerView(d, id)).toMatchObject({ step: { kind: 'wait', words: 'a reply' }, middle: 'plan', next: 'itsHappened', waiting: { words: 'a reply', since: new Date(T0 + 2000).toISOString() } });
   });
 
-  it('a routine with nothing in it behaves as a plain step with nothing to break down: the middle is dimmed', () => {
+  it('a routine with nothing in it behaves as a plain step with nothing to step into: the middle is Plan', () => {
     let { d, id } = start(w(), 'P');
     d = walk(d, id, 'next', 'next', 'next');
-    expect(runnerView(d, id)).toMatchObject({ step: { kind: 'routine', words: 'Empty' }, middle: 'disabled', next: 'next', lastOfRound: true });
+    expect(runnerView(d, id)).toMatchObject({ step: { kind: 'routine', words: 'Empty' }, middle: 'plan', next: 'next', lastOfRound: true });
   });
 
-  it('the edge of a goal: no step, a field instead; the middle dimmed; Done still names the level', () => {
-    const g = start(world(seq('G', 'Learn Spanish', [], { open: true })), 'G');
-    expect(runnerView(g.d, g.id)).toMatchObject({ level: 'Learn Spanish', step: { kind: 'edge', words: '' }, middle: 'disabled', next: 'edge', lastOfRound: false, canBack: false });
+  it('the edge of a goal: no step; it is in Plan (the runner does not show it); the level is still named', () => {
+    const g = start(world(seq('G', 'Learn Spanish', [step('a')], { open: true })), 'G');
+    const edge = walk(g.d, g.id, 'next');
+    expect(runnerView(edge, g.id)).toMatchObject({ level: 'Learn Spanish', planning: true, status: 'paused', step: { kind: 'edge', words: '' }, middle: 'plan', next: 'edge', lastOfRound: false, canBack: true });
   });
 
-  it('a step this run changed says so; paused, left and ended runs say what they are; a run or routine that is gone has no view', () => {
+  it('inside a step broken down in Plan the context line names it and its parent; paused, left and ended runs say what they are; a run or routine that is gone has no view', () => {
     let { d, id } = start(w(), 'P');
-    d = ok(d, { kind: 'words', runId: id, text: 'Find two postings' }).data;
-    expect(runnerView(d, id)).toMatchObject({ step: { words: 'Find two postings' }, thisRunOnly: true });
-    d = ok(d, { kind: 'breakDown', runId: id, steps: ['open the site'] }).data;
-    expect(runnerView(d, id)).toMatchObject({ level: 'Find two postings', parent: 'Job hunt', step: { words: 'open the site' } });
+    d = editRoutine(d, 'P', { kind: 'breakDown', item: 'x', steps: ['open the site'] }, env()).data;
+    expect(runnerView(d, id)).toMatchObject({ level: 'Find a posting', parent: 'Job hunt', step: { words: 'open the site' }, planning: false });
     d = ok(d, { kind: 'pause', runId: id }).data;
     expect(runnerView(d, id)!.status).toBe('paused');
     d = ok(d, { kind: 'home', runId: id }).data;
@@ -268,29 +268,13 @@ describe('the pull-up panel', () => {
     }
   });
 
-  it('"This run only" and Keep in <routine>: while a level in the stack has an unkept change, naming the routine it would go into', () => {
-    let { d, id } = inL();
-    expect(panelView(d, id)).toMatchObject({ thisRunOnly: false });
-    expect(panelView(d, id)!.keepIn).toBeUndefined();
-    d = ok(d, { kind: 'breakDown', runId: id, steps: ['half', 'other half'] }).data;
-    const p = panelView(d, id)!;
-    expect(p.thisRunOnly).toBe(true);
-    expect(p.keepIn).toMatchObject({ name: 'Loop' });
-    expect(p.keepIn!.changes).toMatchObject([{ kind: 'breakdown', words: 'a', steps: ['half', 'other half'] }]);
-    // Left for the parent level and beyond: the change is still in the stack only while its level is.
-    d = walk(d, id, 'done', 'done');
-    expect(panelView(d, id)).toMatchObject({ thisRunOnly: false });
-    expect(panelView(ok(d, { kind: 'keep', runId: id, change: 'all' }).data, id)!.thisRunOnly).toBe(false);
-  });
-
-  it('Back to <step>: the words of the step before, or nothing; Change the words only on a step or a wait', () => {
+  it('Back to <step>: the words of the step before, or nothing', () => {
     let { d, id } = inL();
     expect(panelView(d, id)!.backTo).toBeUndefined();
-    expect(panelView(d, id)!.canChangeWords).toBe(true);
     d = walk(d, id, 'next');
     expect(panelView(d, id)!.backTo).toBe('a');
     const fresh = start(w(), 'P');
-    expect(panelView(walk(fresh.d, fresh.id, 'next'), fresh.id)).toMatchObject({ backTo: 'x', canChangeWords: false });
+    expect(panelView(walk(fresh.d, fresh.id, 'next'), fresh.id)).toMatchObject({ backTo: 'x' });
   });
 
   it('on a wait: what it waits for and since when', () => {
@@ -331,7 +315,7 @@ describe('paused', () => {
   });
 });
 
-describe('See it all (this run) and Jump to…', () => {
+describe('Jump to… (the whole run, every step with its path)', () => {
   const w = () =>
     world(
       seq('P', 'Job hunt', [step('x', 'Find a posting'), ref('lp', 'L'), step('y', 'Log it')], { repeatFrom: 1, repeat: 2 }),
@@ -358,39 +342,14 @@ describe('See it all (this run) and Jump to…', () => {
     expect(seeItAll(jumped, id)!.rows.filter((r) => r.here).map((r) => r.words)).toEqual(['Log it']);
   });
 
-  it('what this run changed is marked "this run only", with the change to keep or drop: a reword, a breakdown, an addition', () => {
-    let { d, id } = start(w(), 'P');
-    d = ok(d, { kind: 'words', runId: id, text: 'Find two postings' }).data;
-    d = ok(d, { kind: 'edit', runId: id, edit: { kind: 'add', seq: 'P', after: 'y', text: 'Tell Ana' } }).data;
-    d = ok(d, { kind: 'edit', runId: id, edit: { kind: 'remove', seq: 'L', item: 'w' } }).data;
-    d = ok(d, { kind: 'breakDown', runId: id, steps: ['open the site'] }).data;
-    const changes = readRun(d, id)!.changes;
-    const rows = seeItAll(d, id)!.rows;
-    expect(rows.map((r) => [r.depth, r.words, r.thisRunOnly])).toEqual([
-      [0, 'Find two postings', true],
-      [1, 'open the site', false],
-      [0, 'Apply', false],
-      [1, 'Tailor the CV', false],
-      [0, 'Log it', false],
-      [0, 'Tell Ana', true],
-    ]);
-    expect(rows[0].changeId).toBe(changes.find((c) => c.kind === 'breakdown')!.id);
-    expect(rows[5].changeId).toBe(changes.find((c) => c.kind === 'add')!.id);
-    // What was taken out has no row: it is listed with the other changes.
-    expect(unkeptChanges(d, id).map((c) => [c.kind, c.words, c.in])).toEqual([
-      ['reword', 'Find two postings', 'Job hunt'],
-      ['add', 'Tell Ana', 'Job hunt'],
-      ['remove', 'a reply', 'Apply'],
-      ['breakdown', 'Find two postings', 'Job hunt'],
-    ]);
-    expect(unkeptChanges(d, id)[0]).toMatchObject({ was: 'Find a posting' });
-  });
-
   it('a thirty-step routine, a frame ten deep and a routine that holds itself: listed, bounded, never endless', () => {
     const big = start(world(seq('B', 'Big', Array.from({ length: 30 }, (_, i) => step(`s${i}`)))), 'B');
     expect(seeItAll(big.d, big.id)!.rows).toHaveLength(30);
     let { d, id } = start(world(seq('R', 'R', [step('a')])), 'R');
-    for (let i = 0; i < 9; i++) d = ok(d, { kind: 'breakDown', runId: id, steps: ['deeper'] }).data;
+    for (let i = 0; i < 9; i++) {
+      const on = seeItAll(d, id)!.rows.find((r) => r.here)!;
+      d = editRoutine(d, on.seq, { kind: 'breakDown', item: on.itemId, steps: ['deeper'] }, env()).data;
+    }
     const deep = seeItAll(d, id)!;
     expect(deep.levels).toHaveLength(10);
     expect(deep.rows).toHaveLength(10);
@@ -399,26 +358,6 @@ describe('See it all (this run) and Jump to…', () => {
     const self = start(world(seq('S', 'Self', [step('a'), ref('s', 'S')])), 'S');
     const rows = seeItAll(self.d, self.id)!.rows;
     expect(rows.map((r) => r.words)).toEqual(['a', 'Self']); // it is not opened inside itself
-  });
-});
-
-describe('this run’s unkept changes', () => {
-  it('each with what it says, what it was and where it would be kept; the ones a verb offers are described the same way; kept ones are gone', () => {
-    let { d, id } = start(world(seq('R', 'Report', [step('a', 'Write report'), step('b', 'Send it')], { repeatFrom: 0, repeat: 2 })), 'R');
-    expect(unkeptChanges(d, id)).toEqual([]);
-    d = ok(d, { kind: 'edit', runId: id, edit: { kind: 'repeat', seq: 'R', repeat: 5 } }).data;
-    d = ok(d, { kind: 'breakDown', runId: id, steps: ['outline', 'draft'] }).data;
-    d = ok(d, { kind: 'words', runId: id, text: 'outline it' }).data;
-    expect(unkeptChanges(d, id).map((c) => ({ kind: c.kind, words: c.words, was: c.was, steps: c.steps, repeat: c.repeat, in: c.in, offered: c.offered }))).toEqual([
-      { kind: 'repeat', words: '', was: undefined, steps: undefined, repeat: 5, in: 'Report', offered: false },
-      { kind: 'breakdown', words: 'Write report', was: undefined, steps: ['outline it', 'draft'], repeat: undefined, in: 'Report', offered: false },
-      { kind: 'reword', words: 'outline it', was: 'outline', steps: undefined, repeat: undefined, in: 'Write report', offered: false },
-    ]);
-    const left = ok(d, { kind: 'done', runId: id });
-    expect(describeChanges(left.data, id, left.offer.map((c) => c.id)).map((c) => c.kind)).toEqual(['breakdown', 'reword']);
-    expect(unkeptChanges(left.data, id).map((c) => c.offered)).toEqual([false, true, true]);
-    const kept = ok(left.data, { kind: 'keep', runId: id, change: 'all' }).data;
-    expect(unkeptChanges(kept, id)).toEqual([]);
   });
 });
 
@@ -452,7 +391,7 @@ describe('the notice after an action', () => {
     expect(noticeFor('next', undefined)).toEqual({ text: '', label: 'Next' });
     expect(noticeFor('next', { kind: 'edge' })).toEqual({ text: '', label: 'Next' });
     expect(noticeFor('next', undefined, true)).toEqual({ text: '', label: 'It’s happened' });
-    expect(noticeFor('breakDown', undefined).label).toBe('Break it down');
+    expect(noticeFor('plan', undefined).label).toBe('Plan');
   });
 });
 
@@ -566,31 +505,9 @@ describe('after the audit: the notice names what was done (U5)', () => {
     expect(says({ kind: 'repeat', times: 3 })).toBe('Changed Repeat from here');
     expect(says({ kind: 'open', open: false })).toBe('Changed Ends here');
   });
-  it('a run: its own changes name the step, and say they are this run’s', () => {
-    const s = start(R(), 'r');
-    expect(whatChanged(s.d, { kind: 'words', runId: s.id, text: 'x' })).toBe('Changed “Read the ad”');
-    expect(whatChanged(s.d, { kind: 'breakDown', runId: s.id, steps: ['x'] })).toBe('Broke down “Read the ad”');
-    expect(whatChanged(s.d, { kind: 'breakDown', runId: s.id, steps: ['x'], at: { seq: 'r', item: 'b' } })).toBe('Broke down “Tailor the CV”');
-    expect(whatChanged(s.d, { kind: 'edgeStep', runId: s.id, text: ' Send it ' })).toBe('Added “Send it”');
-    expect(whatChanged(s.d, { kind: 'edit', runId: s.id, edit: { kind: 'remove', seq: 'r', item: 'b' } })).toBe('Removed “Tailor the CV”');
-    expect(whatChanged(s.d, { kind: 'edit', runId: s.id, edit: { kind: 'add', seq: 'r', after: 'a', text: 'Sleep on it' } })).toBe('Added “Sleep on it”');
-    expect(whatChanged(s.d, { kind: 'edit', runId: s.id, edit: { kind: 'addWait', seq: 'r', after: 'a', wait: 'Sam' } })).toBe('Added a wait for “Sam”');
-    expect(whatChanged(s.d, { kind: 'edit', runId: s.id, edit: { kind: 'reword', seq: 'r', item: 'w', text: 'x' } })).toBe('Changed “a reply”');
-    expect(whatChanged(s.d, { kind: 'edit', runId: s.id, edit: { kind: 'repeat', seq: 'r', repeat: 2 } })).toBe('Changed Repeat from here');
-  });
-  it('Keep and Drop name what was kept or dropped', () => {
-    const s = start(R(), 'r');
-    const d = ok(s.d, { kind: 'words', runId: s.id, text: 'Read the ad twice' }).data;
-    const c = unkeptChanges(d, s.id)[0].id;
-    expect(whatChanged(d, { kind: 'keep', runId: s.id, change: c })).toBe('Kept “Read the ad twice” in Apply to Acme');
-    expect(whatChanged(d, { kind: 'keep', runId: s.id, change: 'all' })).toBe('Kept “Read the ad twice” in Apply to Acme');
-    expect(whatChanged(d, { kind: 'drop', runId: s.id, change: c })).toBe('Dropped “Read the ad twice”');
-    const two = ok(d, { kind: 'edit', runId: s.id, edit: { kind: 'reword', seq: 'r', item: 'b', text: 'Fix the CV' } }).data;
-    expect(whatChanged(two, { kind: 'keep', runId: s.id, change: 'all' })).toBe('Kept in Apply to Acme');
-  });
   it('what speaks for itself says nothing more (the step simply changed)', () => {
     const s = start(R(), 'r');
-    for (const kind of ['next', 'done', 'pause', 'resume', 'back', 'stepIn', 'home'] as const) expect(whatChanged(s.d, { kind, runId: s.id })).toBe('');
+    for (const kind of ['next', 'done', 'pause', 'resume', 'back', 'stepIn', 'home', 'plan'] as const) expect(whatChanged(s.d, { kind, runId: s.id })).toBe('');
     expect(whatChanged(s.d, { kind: 'start', routineId: 'r' })).toBe('');
   });
 });

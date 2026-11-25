@@ -43,29 +43,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-90 Plan and run look different: the Plan surface `[feature]` `[data]` `[ux]` `[a11y]` L
-*Status:* todo
-*Why:* the owner's first real use (owner-notes 2026-11-25): planning happened on the runner and looked
-like running, so doing turned into drafting; "Done" meant two things; you could not tell on return
-which you had been doing; the Repeat divider could not be moved; structure could not be reached mid-run.
-D-19: build the Plan surface now, the rest of B-12 after another draft.
-*Done when:* (B-12 frames `v1`, `v2`, `v4`, `v5`, `v8` with the re-audit's fixes) the runner's middle
-button is **Plan** (Step in when the step is a routine); Plan is its own surface — a pinned light band
-with the word and Home in one fixed place, the routine's name as the heading, "planning · at <step>",
-the sequence as rows with the step you were on marked HERE — where steps are added, reworded, moved,
-removed and broken down, wait steps made, and "Repeat from here" moved with visible controls and set to
-until I'm done or a number; **a change made in Plan changes the routine** (the owner's decision), with
-an Undo that lasts until the next action; the one filled button is **Resume at <step>** (Start for
-something never run), returning exactly where you were; the runner no longer hosts planning — the
-break-down sheet and the blank "next small step" note are gone, and at the edge of a goal you are in
-Plan with the open row focused and Done in its own slot; Done exists only when running and at the edge;
-home tiles and reopening the app show which mode a run was left in ("planning · …" with Plan, or "at
-<step>" with Resume); a New tile on home; removing the HERE step is defined; See it all and the plain
-editor are folded into Plan; the engine's unit tests cover every changed rule and the run's mode
-survives reload, journal replay, hand-over, export and import; e2e for each journey; `verify.sh --full`.
-Not in this item: declaring a routine in context, shared-routine warnings beyond what exists, inputs
-("With"), the working-session idea.
-
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
 *Why:* B-11 lists Erase in Settings, but it has never existed; split out of P-89 as a new destructive
@@ -323,6 +300,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-25 · P-90 — the Plan surface: planning and running are two surfaces. The runner's middle button is Plan (Step in on a routine); Plan is a light pinned band with PLAN and Home, the routine's name, "planning · at <step>", rows with HERE, a movable "Repeat from here" (one press, one row), Add a step, a step menu in words, Undo after every edit, and one filled button Resume at <step> / Start; the edge of a goal is Plan with Done; a change made in Plan changes the routine and repairs every open run in the same write; home tiles show the mode and a New tile; creating makes a routine and no run; See it all, the plain editor, the break-down sheet, Keep and this-run-only edits are gone; runs from the previous build with this-run changes are folded into the routine on first opening Plan, with Undo; an engine bug that could leave a run inside a removed step fixed; no migration, backup format unchanged. evidence: golden fixture written by the previous build, 674 unit tests (mode table, repair table, fold, fuzz), 76 mutation checks, `e2e/go-plan.spec.ts` and the rewritten go-* specs, the auditor's byte-equal check of the retired app's data, `verify.sh --full`. audit: 10 reported · 5 reproduced · 7 fixed · 3 deferred.
 - 2026-11-25 · P-89 — the old app is retired: 112 files deleted (14 routes, 27 components, 22 domain modules, 29 unit test files, 20 specs); every old address lands on the new home; Settings moved into the new app (dark) with Export, Import and its preview, where the data lives and the version, and a line saying earlier data is kept when there is any; the import confirm now has Cancel filled and first; no stored data deleted or converted — wanders, activities and the five settings stay in the database, the journal, the fallback, export and import; DESIGN.md, STRATEGY.md, the README, CLAUDE.md, the skills and agents rewritten for the app that is here now; 18 roadmap items that only concerned the old app closed as superseded. evidence: golden fixtures written by the two previous builds (`src/storage/golden.test.ts`, 21 tests, green through every step), a guarantee table mapping each removed storage test to the one that now proves it, 568 unit tests, the whole e2e suite (200 passed), the auditor's own base-build data loading deep-equal and a real old-build tab beside a new one, load with 4,000 lines unchanged, `verify.sh --full`. audit: 9 reported · 4 reproduced · 6 fixed · 3 deferred.
 - 2026-11-25 · P-88 — the new app opens by default: `/` (and the installed icon) lands on the new home, opening where you left off when a run is in progress; the old home moved to `/old` with everything in it working as before, and its own home links (sheet close, Back fallbacks, the history mark) stay inside it; the new home keeps its "Back to Wanderment" button, now pointing at `/old`. evidence: new spec `e2e/go-default.spec.ts` (20 tests, failing before the change), 13 old spec files repointed (start address and old-home URL only, nothing removed), the whole e2e suite twice (364 passed), 1007 unit tests, `verify.sh --full`. Light tier (routing): no separate audit. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred.
 - 2026-11-24 · P-86 (B-11 slice 1) — the first usable slice of the new app, on its own route `/go` beside today's home (one added row in today's sheet, "Run a routine"): home as tiles with "I'm going to…" searching them and "New: …"; a pure engine (run + verb → run) with a tolerant reader; routines with steps, wait steps and the Repeat divider (until I'm done / a number); the runner — context line with Done, the sticky note, Pause · Break it down / Step in · Next, the last-step mark, notices with Undo; the pull-up panel (round, then, Back to, Jump to…, Change the words, See it all, Keep in); Break it down for this run with Keep; the edge of a goal asking for the next small step; leaving a level offering this run's changes; Pause with a reason, the paused screen, Home asking first; "waiting for … · since"; See it all, Jump to…, a plain routine editor; one pressed verb queued while a tab reconnects. evidence: 1006 unit tests (228 new; every row of the execution table, a random-walk fuzz, persistence round trips), new e2e specs `e2e/go-*.spec.ts` for J01–J05, J10, J29, J34–J39 and an accessibility pass, the builder's screenshots in `.polish/archive`, `verify.sh --full`. Not verified: native, a real phone keyboard and real text scaling (web only, by window size); single-letter shortcuts were removed pending a settings switch. audit: 23 reported · 18 reproduced · 19 fixed · 4 deferred.
