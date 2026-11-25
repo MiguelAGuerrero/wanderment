@@ -18,6 +18,22 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Not named concepts: a main thread scheduling concurrent tasks that call functions
+"These aren't supposed to be actual name[d] concepts, but just a description of what I'm trying to aim
+for. In theory, you can model all of this as just one function that I run always and continuously, but
+the way in which I access different parts of the function as async concepts is what I'm struggling with
+… Humongous applications have a main thread … a main function … the context for everything else. In
+much the same way, the main function here is a way of managing all these different sub-functions or
+sub-threads in a way that feels intuitive. Hence the word queue … they don't necessarily have to be named
+concepts and have a specific entity … but there's a way of leveraging functional thinking … that makes
+the model easy to reason about. So I'm trying to go off the model of concurrency, where you can context
+switch between independent tasks. Each of those tasks have their own context, their own state, and they
+often reference functions, which are repeatable instructions that can be reused anywhere."
+Interpretation (ours): the known domain is structured concurrency — a main thread with a run queue,
+tasks that each keep their own stack and values and may own child tasks, and functions (routines) any
+task can call. "Pursuit", "stack", "queue" are descriptions, not nouns for the screen.
+Led to: the model restated in those terms in conversation.
+
 ## 2026-11-25 — A routine is a function; a pursuit holds the goal; the work queue runs across pursuits
 "I have a stack of work towards the pursuit of becoming a better drawer, right? And in that stack, I
 might have a practice drawing loop in one thread. In another thread, I might do a study color theory
