@@ -18,6 +18,27 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — A routine holds no state; a stack does
+"So I think I'm trying to make concrete how to manage context and stacks … A routine is an execution, but
+it holds no state. Well, a stack inherently holds state. So if I wanted to hold a stack for how to
+navigate my desire to be a better drawer, that will ultimately change in how it's formed … one day I'll
+want to practice hands, another day I'll want to practice full body, learn color theory … a routine can't
+necessarily capture that, because that's constant. A routine doesn't change. It's something to be
+executed over and over again. But … practicing hands might be its own routine, but I can [queue] that
+work into the [drawing] stack whenever I want to. And then I can use that whole stack as one component of
+a greater thread to represent one meaningful chunk of my day. So I can context switch back and forth
+while not having to worry about keeping track of everything … every time I resume control of the practice
+drawing stack … I know where I'm at located and what it means in the greater scheme of things, because
+the stack itself represents the state of that. It offloads holding that in my head. So what entities and
+constructs we need is … really what I'm trying to get at … reference other stacks as I need to, slot them
+in where I want to define a routine that might reference them, or just be a part of the main thread as
+just staples that I execute in sequence … run through a traditional user journey in a to-do app or any
+other goal-making app and write the analog in this app and see where the strengths and weaknesses are. In
+the UI and UX."
+Interpretation (ours): two entities — a routine (a stateless recipe) and a stack (a stateful place that
+evolves); stacks nest and hold routines, one-offs and other stacks; home is the main stack.
+Led to: brief B-13 (draft, D-21)
+
 ## 2026-11-25 — The queue is recursive: every item is its own main thread
 "So there has to be some recursiveness to it, right? Everything in the queue can operate its own main
 thread in a sense, where you can queue up stuff into it, run routines, reset at that level. So the work
