@@ -52,10 +52,11 @@ done drafting and done working. Coming back, you could not tell which you had be
 inputs belong to composing and could not be reached mid-run; the Repeat divider could not be moved (no
 drag, no visible control); opening the app did not offer to create anything; there was no scaffolding
 for creating (the outcome or feeling wanted, the inputs, the steps between).
-*Done when:* to be written from a design pass with the owner (mockups, a UI audit) — two modes, each
-unmistakable at a glance and on return, alternating; the composer reachable from any point in a run and
-back; Done only ever meaning done with the work; a movable Repeat divider; creating offered on open.
-Not started; nothing here is decided beyond the owner's concerns.
+*Done when:* to be written when the owner decides D-19 (brief:
+`docs/product/briefs/B-12-plan-and-run.md`) — two modes, each unmistakable at a glance and on return,
+alternating; Plan reachable from any point in a run and back; Done only ever meaning done with the
+work; a movable Repeat divider; creating offered on open. Nothing here is decided beyond the owner's
+concerns.
 
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
@@ -278,6 +279,8 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
 - **D-17 B-10: fewer parts — a calm journal in a playful world** — superseded 2026-11-24 by B-11
   before a decision. Brief: `docs/product/briefs/B-10-refined-home.md`.
+- **D-19 B-12: plan and run look different** — waiting on the owner. Brief:
+  `docs/product/briefs/B-12-plan-and-run.md` (first-draft frames; UI audit running).
 - **D-18 B-11: your ways of doing things, run one step at a time** — **answered 2026-11-24 by the
   owner: go** (the first implementation: groundwork, then home, the runner and Break it down, alongside
   today's home) → P-85, P-86. Brief: `docs/product/briefs/B-11-context-stacks.md` with

@@ -18,6 +18,12 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Start the draft, with your own insight from other apps
+"Start the draft and propose your own insight into the problem based on how other apps tackle this sort
+of blurred workflow."
+Led to: `docs/product/briefs/B-12-plan-and-run.md` (D-19, proposed) and first-draft frames in
+`.polish/product/b12-shots/`; a UI audit of the frames.
+
 ## 2026-11-25 — Plan, execute, plan, execute — and the two must look different
 "there is definitely room to add steps mid-session, but there has to be a clear delineation between
 composing and running to make that seamless. Right now, when you create a next step, it looks exactly
