@@ -18,6 +18,24 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Friction 2: no way to line up work across routines (a work queue)
+"If I want to queue up work and target specific … frames from different stacks, like plan my day sort of
+thing, there's no intuitive way to do that. I have to just run the routine, progress, close it, pick
+something else … Whereas if I had something like a queue, a work queue, I can just load up … each stack
+in order, run through them until I feel done, and then move on to the next in the order that I kind of
+planned to. The offloading here is remembering the ways in which I wanted to go about doing something
+rather than trying to … vibe it out. I believe this harkens back to the idea like a session thread, where
+home is like the main thread. But if I had a work queue, I can choose how much I want to progress in any
+of them, predefined, and just execute when I'm ready. And also, this allows me the ability to [en]queue
+different things I want to do, … one-off tasks that don't really have a place as a routine. In a way, it
+would be able to pop routines off the stack in any order that I wish and offload the execution order of
+that for later so it's a way of … organizing myself."
+Interpretation (ours): the flat queue of P-94 (halted for the recursive redesign), wanted as a
+quality-of-life fix, not a new model: line up routines and one-offs, run each until you feel done, move
+to the next; an entry may point at a specific part of a routine. Our earlier remark that "a queue is
+wrong for you" was mistaken.
+Led to: friction batch (with friction 1, blanks); P-94 to be reopened as the flat queue.
+
 ## 2026-11-25 — Freeze on major features; friction 1: resuming gave back a place with no context
 (Screenshot: Plan for "test out wonderment" — Select a feature to test · Vibe check [Feel UI · Answer if
 the user goal felt intuitive] · Write down concerns.)
