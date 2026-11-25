@@ -18,6 +18,36 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — The pain point: structure over creative impulses, without losing my place
+"Ultimately, I'm trying to pursue structure over my creative impulses in a way that makes sense. I always
+struggled with trying to give myself a plan while also giving myself space for creative diverge[nce]. And
+a lot of the time, I'm always hopping back and forth between my pursuits, and I kind of lose my place and
+sense of where I am. And I just thought maybe functional style thinking could help bridge the gap between
+structure and creativity. For example, I have interest in learning theory, and a lot of the concepts I
+always wanted to encode is as a process that I could always run through and apply in other places. Hence
+why the idea of routines. Like if I wanted to apply a learning theory concept to my ability to practice a
+gesture drawing, I could always reference it in the app, apply it in the context in which I'm practicing a
+drawing, say like a reflection routine that I could pull in … I have creative pursuits in music
+production. I want to create a game. I want to make apparel. And while it's true that typically good
+results come from focusing on one thing at a time, I just never feel like I could do that without over
+compromising on my energy and mood. And the ability to externalize my thoughts and how I do things in a
+way that I can follow that matches my intuition. Makes my intuition concrete is a feeling I'm chasing. And
+making sure that I'm always keeping myself accountable for where I am in all of these different avenues …
+not necessarily for a greater goal, but out of interest for the thing and maybe some greater aspiration.
+Hence why the step-by-step process allows me to always keep myself in check of where I am, but always have
+the greater context of why I'm working in picture and allow that picture to always change underneath me
+as I see fit without having to necessarily feel like I overcommitted … I don't know if it's a frustration
+with the UI or UX or my lack of clarity on the pain point I'm trying to absolve. Because I just feel like
+I [want to] feel like I'm progressing and … make it easier to keep track of myself."
+Interpretation (ours): the person hops between several creative pursuits by mood and loses their place;
+they want (1) their place and the why held for every pursuit, with hopping treated as normal, (2) plans
+that can change without feeling like broken commitments, and (3) portable methods — thinking processes
+(e.g. a reflection method from learning theory) written once and pulled into any pursuit. Routines are
+methods, not chore recipes. The real pursuits named: drawing, music production, a game, apparel,
+learning theory.
+Led to: nothing built; a pause on new briefs proposed (the adversarial assessment,
+`.polish/product/assessment-adversarial-2026-11-25.md`), pending the owner.
+
 ## 2026-11-25 — Long-term goals, reps versus recipes, and leaning into the unknown
 "I'm not getting a strong impression how long-term goals are cleanly represented … routines would define
 a way in which a particular task can be done and represented as prompts, but that doesn't cleanly
