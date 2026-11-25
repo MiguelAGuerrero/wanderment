@@ -18,6 +18,20 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — "Implement" the standing queue
+Asked "What do you propose?", then answered the proposal with: "Implement".
+The proposal accepted: Home is one standing queue (owner, 2026-11-25: "I'm going to queue up work and run it"; proposal
+accepted with "Implement"). One queue, always there, no session start or end, nothing expires. The top
+row is what is running or next, with the one filled button (Resume / Start <name>); below, up next in
+order; a wait keeps its place and reads "waiting for …". "+ Add to the queue" at the bottom searches
+routines or makes a new one and adds it at the bottom. Done on the top item brings up the next; nothing
+starts by itself. Pause keeps the item where it is; tapping another row brings it to the top and the one
+you left sits directly under it. Taking an item off asks first and has Undo; the routine stays. No name
+on the queue. The tile grid becomes "Your routines", reached from the add row. Plan is unchanged; a
+queued routine not yet started has Plan on its menu. Move up / Move down on a row's menu (no drag).
+Existing paused runs enter the queue, most recent first; the retired app's data is untouched.
+Led to: D-20 go → P-94
+
 ## 2026-11-25 — Home doesn't say what's going on; it should be "queue up work and run it"
 (Voice-typed; transcribed as said.) "The user loop needs to be refined because it's not really obvious
 what's going on [on the] home screen[;] it just start[s] a whole bunch of things[.] that's because the

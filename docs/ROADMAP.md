@@ -43,6 +43,27 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-94 Home is one standing queue: line up work and run it `[feature]` `[data]` `[ux]` `[a11y]` L
+*Status:* in-progress
+*Why:* owner (owner-notes 2026-11-25): home "just start[s] a whole bunch of things … It's just a search
+box … I'm going to queue up work and run it." D-20 go.
+*Design:* Home is one standing queue (owner, 2026-11-25: "I'm going to queue up work and run it"; proposal
+accepted with "Implement"). One queue, always there, no session start or end, nothing expires. The top
+row is what is running or next, with the one filled button (Resume / Start <name>); below, up next in
+order; a wait keeps its place and reads "waiting for …". "+ Add to the queue" at the bottom searches
+routines or makes a new one and adds it at the bottom. Done on the top item brings up the next; nothing
+starts by itself. Pause keeps the item where it is; tapping another row brings it to the top and the one
+you left sits directly under it. Taking an item off asks first and has Undo; the routine stays. No name
+on the queue. The tile grid becomes "Your routines", reached from the add row. Plan is unchanged; a
+queued routine not yet started has Plan on its menu. Move up / Move down on a row's menu (no drag).
+Existing paused runs enter the queue, most recent first; the retired app's data is untouched.
+*Done when:* the queue's order is stored (Full tier: survives reload, journal replay, the fallback,
+hand-over, export and import; data from the previous build loads, its paused runs queued most recent
+first, nothing lost or converted); home shows the queue as above with one filled button; add, take off
+(with Undo), move up / down, switch (the left one directly under), Done → next shown not started; Your
+routines lists every routine with Start / Plan / Add to the queue; the e2e go-* specs cover each; DESIGN.md
+§6 met; DESIGN.md and README describe what is built.
+
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
 *Why:* B-11 lists Erase in Settings, but it has never existed; split out of P-89 as a new destructive
@@ -264,6 +285,8 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
 - **D-17 B-10: fewer parts — a calm journal in a playful world** — superseded 2026-11-24 by B-11
   before a decision. Brief: `docs/product/briefs/B-10-refined-home.md`.
+- **D-20 Home is one standing queue** — **answered 2026-11-25 by the owner: go** ("Implement", on the
+  proposal recorded in owner-notes) → P-94. No separate brief; the item carries the design.
 - **D-19 B-12: plan and run look different** — **answered 2026-11-25 by the owner: go on the Plan
   surface now** (a change made in Plan changes the routine; the other open questions take the brief's
   defaults); declaring a routine in context, shared routines and inputs get another draft first → P-90.
