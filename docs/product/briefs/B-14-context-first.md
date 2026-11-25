@@ -72,6 +72,28 @@ where each stands, "+ Add" (words, a routine call, a thread), and ↑ queue on e
 
 **4. Plan**: unchanged — for routines (functions) only.
 
+## Making context explicit: outputs and where values come from (added after the owner's question)
+The owner: "every function has an input and output … Should functions by definition have a clear output
+so that we understand why we're doing the things we're doing to produce what? Whether that be a feeling,
+an artifact, or a result that other steps can reference … with the whole input-output chain to
+contextualize the meaning of that value … without over-engineering."
+
+One mechanism, three rules:
+1. **Every routine and every thread states what it is for**: one line, `→ …`, in words ("→ loose,
+   confident lines", "→ a sketch of the HUD", "→ which feature to fix first"). A routine must have one
+   (it is reused, so its why has to travel with it); a thread is asked once, when made, and may be left
+   empty. The line shows on its row, on its calls, and on the note's context line.
+2. **A step can produce a named value**: "Select a feature to test → {feature}". The note asks for it;
+   later steps use it as `{feature}`. That is the same mechanism as parameters — a parameter is a value
+   given from outside, an output is a value made inside. **Every value knows where it came from**: tapping
+   it shows the step, the thread and the day that produced it — the input-output chain, on demand.
+3. **Done may carry a result**: when a call or a thread returns, the note offers one line, "What came
+   of it?", skippable. The result is the thread's last word ("hands still stiff at the wrist") — shown as
+   "last:" on the way back in and on its row in the tree.
+
+Not built, on purpose: types, schemas, validation, kinds of output (feeling / artifact / value are all just
+words), attachments, scales or ratings, any count.
+
 ## What this keeps and drops
 - Keeps: the runner, Plan, routines, repeat loops (they become loop threads), waits, Undo, the P-93
   keyboard fixes, all stored data.
@@ -79,10 +101,11 @@ where each stands, "+ Add" (words, a routine call, a thread), and ↑ queue on e
 - Freezes until used: Jump to…, references of one thread in two places, history views.
 
 ## Slices (each a full batch; the owner's freeze holds until lifted)
-1. **The way back in + parameters**: `{blanks}` in routine steps, values held by the run and shown on the
-   note, the path and "last:" lines on the runner. Fixes friction 1 with today's data model plus one field.
-2. **Threads that hold threads**: a thread with one-offs, routine calls and threads; depth-first next;
-   Done returns; Home's tree. Existing runs read as threads under main at load; nothing converted.
+1. **The way back in + values**: the `→` line on routines; `{blanks}` as parameters and as step outputs
+   ("→ {feature}"), values held by the run with where each came from; the path, `→` and "last:" lines on
+   the note. Fixes friction 1 with today's data model plus a few fields.
+2. **Threads that hold threads**: a thread with one-offs, routine calls and threads, its own `→`;
+   depth-first next; Done returns, with "What came of it?"; Home's tree. Existing runs read as threads under main at load; nothing converted.
 3. **The run queue**: ↑ queue, Up next on Home, finishing a queued item returns it in the tree. Fixes
    friction 2.
 
@@ -91,8 +114,9 @@ where each stands, "+ Add" (words, a routine call, a thread), and ↑ queue on e
    (it stays queued until you finish it)?
 2. **When a queued item returns, does the thread's new next item join the queue by itself?** Proposed: no;
    you push again (the queue is your plan, not the tree's).
-3. **Show "last:" (the last step done)** on the way back in — yes? It is the only trace of the past the
-   app would show.
+3. **Show "last:"** on the way back in — the result of the last return, else the last step done — yes?
+4. **A routine must have a `→` line; a thread may leave it empty** — or must threads have one too?
+5. **"What came of it?" on returning calls and threads only** (proposed), or on every step's Done?
 
 ## Decision requested
 **D-22:** Go on B-14, slice 1 first? **Go** / **Go, but change …** / **Not now (keep the freeze)**.
