@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Friction list (the owner's MyStack page, published in Notion)
+1. "When I opened the app, I was resumed from where I left off. I was confused because I don't remember
+   the context …" (recorded above; with a screenshot of Plan for "test out wonderment").
+2. "Creating a new stack is ambiguous because it shares the same entry as 'I am going to'."
+3. "The undo is very noisy. Why would I want to undo an execution of a stack"
+4. "Reorder should not be hidden in the (…)"
+5. "No way to unpause when you click 'home'"
+Interpretation (ours): 2–5 are interface fixes (Light tier) that the freeze allows because they block a
+fair trial; 1 is B-14 slice 1 (values, Full tier).
+Led to: a friction batch proposed (P-95).
+
 ## 2026-11-25 — Waiting should be inferred from a value that hasn't come yet
 "In embracing the concurrency model, what implications are there in terms of quality of life adjustments
 we can make in this batch? For example, we have the [waiting] construct, which I haven't been using so
