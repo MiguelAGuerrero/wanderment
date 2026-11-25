@@ -18,6 +18,21 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Context first, not routine first; the UI may be a tree
+"Yes, so I think the idea of context is the important thing here. And so we're not routine first, we're
+context first, hence context management. So the ability to manage state has to feel seamless, intuitive,
+and instrumented enough for me to always be able to resume where I picked off and quickly start myself
+back up with minimal effort or friction in trying to remember where I was. So effectively, the UI might
+have to look like a tree, or it might have to resemble a tree. Because if we have one main thread, and
+there's a lot of sub-threads, or goals, effectively, and each of the goals have their own sub-threads, and
+those sub-threads might have their own sub-threads, it needs to make intuitive sense, the ability to
+[en]queue tasks from these threads, and finding the depth-first item to push up, without losing the
+context of that item either."
+Interpretation (ours): the structured-concurrency model is confirmed. The product is context first;
+routines are a tool. The screen is a tree of threads; enqueuing a thread pushes its depth-first next
+item, and that item always carries its path and values.
+Led to: brief B-14 (context first), replacing B-13.
+
 ## 2026-11-25 — Not named concepts: a main thread scheduling concurrent tasks that call functions
 "These aren't supposed to be actual name[d] concepts, but just a description of what I'm trying to aim
 for. In theory, you can model all of this as just one function that I run always and continuously, but

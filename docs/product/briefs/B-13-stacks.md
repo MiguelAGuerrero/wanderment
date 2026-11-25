@@ -1,6 +1,6 @@
 # B-13 — Tasks that hold tasks: the app keeps your place at every level
 
-**Status:** second draft for the owner · **Date:** 2026-11-25 · **Decision:** D-21 · **Replaces:** P-94's flat queue (halted)
+**Status:** superseded by B-14 (2026-11-25) · **Date:** 2026-11-25 · **Decision:** D-21 · **Replaces:** P-94's flat queue (halted)
 
 The owner's words are in `owner-notes.md` (2026-11-25: "A routine holds no state; a stack does" and
 "Everything in a stack is a task; we strive to push things off"). The first draft had two entities, the

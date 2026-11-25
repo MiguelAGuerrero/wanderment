@@ -288,6 +288,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
 - **D-17 B-10: fewer parts — a calm journal in a playful world** — superseded 2026-11-24 by B-11
   before a decision. Brief: `docs/product/briefs/B-10-refined-home.md`.
+- **D-22 B-14: context first** — a tree of threads under one main thread, a run queue that holds each
+  thread's depth-first next item with its path, routines as functions with parameters, and a way back in
+  (path, values, last step on the note). Supersedes D-21 / B-13. Brief:
+  `docs/product/briefs/B-14-context-first.md`. Recommended: **go**, slice 1 first.
 - **D-21 B-13: tasks that hold tasks** — one entity, the task; a task that holds tasks keeps its order
   and its place (the owner's "stack"); a routine is a template that stamps out a task; Done takes a task
   off; home is the root. Brief (second draft): `docs/product/briefs/B-13-stacks.md` — the model, 16
