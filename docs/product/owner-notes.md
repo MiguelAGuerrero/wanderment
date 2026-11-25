@@ -18,6 +18,29 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Long-term goals, reps versus recipes, and leaning into the unknown
+"I'm not getting a strong impression how long-term goals are cleanly represented … routines would define
+a way in which a particular task can be done and represented as prompts, but that doesn't cleanly
+translate into a routine in the sense that something you just do over and over again to build reps. And
+how is that represented in a stack versus the active session? … work that has to be done over and over
+again, not necessarily work that has to be done in a specific way and that's templated — that's the
+distinction that I'm not really grabbing … how do we afford the user the ability to say, hey, I don't
+want this to be a part of my stack anymore in … whatever context I'm in … and I pop it off and I can no
+longer reference it … the idea is that I can pick up the app, resume from where I left off, and continue
+my work as it's synced to what I'm currently doing … not everything needs to be synced to this app. So
+scoping or making the app more favorable for certain types of work … might be the move … there might
+just be several product designs going on at the same time … the context management was informed by an
+intuition for deliberate practice, but applied in a lifestyle sense … you usually don't do that for very
+menial tasks like doing laundry or cooking, since it would be very inconvenient to use an app. But for
+more creative and intellectual work or pursuits that are beyond just scope of your usual routines, I see
+the strength in that. Because you don't know how to go about it, and the whole point of [planning] the
+next step is to make it easy and attainable for you. So leaning into the unknown versus actual routines
+that you already know how to do is something I want to lean into."
+Interpretation (ours): three products were tangled — a runbook for known procedures, a context manager,
+and deliberate practice. The owner leans to pursuits whose path is unknown; "again and again" (reps) and
+"in a specific way" (a recipe) are two separate properties; known chores are out of scope.
+Led to: a reframing proposed in conversation; B-13 to be redrafted after the owner answers.
+
 ## 2026-11-25 — Everything in a stack is a task; we strive to push things off
 "Each stack holds its own state, that state is mutable and reflects your current goals at the time. Each
 stack can reference routines or just have their own one-off tasks. All routines are tasks. They're just
