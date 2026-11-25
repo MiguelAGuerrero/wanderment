@@ -56,7 +56,10 @@ starts by itself. Pause keeps the item where it is; tapping another row brings i
 you left sits directly under it. Taking an item off asks first and has Undo; the routine stays. No name
 on the queue. The tile grid becomes "Your routines", reached from the add row. Plan is unchanged; a
 queued routine not yet started has Plan on its menu. Move up / Move down on a row's menu (no drag).
-Existing paused runs enter the queue, most recent first; the retired app's data is untouched.
+Existing paused runs enter the queue, most recent first; the retired app's data is untouched. **One-off
+tasks** (owner, same day): words that match no routine offer first "Add: <words>" — one unnamed step,
+queued at the bottom, Return's default — then "New routine: <words>"; a one-off leaves the queue when
+done and never shows in Your routines; Plan on it can add steps; naming it keeps it as a routine.
 *Done when:* the queue's order is stored (Full tier: survives reload, journal replay, the fallback,
 hand-over, export and import; data from the previous build loads, its paused runs queued most recent
 first, nothing lost or converted); home shows the queue as above with one filled button; add, take off

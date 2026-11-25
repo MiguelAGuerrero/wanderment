@@ -18,6 +18,14 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — One-off tasks in the queue
+"Also allow for one-off tasks. So I can just push things that aren't named ro[u]tines"
+Interpretation (ours): "+ Add to the queue" with words that match no routine offers first "Add: <words>"
+(a one-off: one unnamed step, queued at the bottom; Return's default) and then "New routine: <words>".
+A one-off runs as a one-step item, leaves the queue when done, never shows in Your routines; Plan on it
+can add steps; naming it there keeps it as a routine.
+Led to: P-94 (scope added)
+
 ## 2026-11-25 — "Implement" the standing queue
 Asked "What do you propose?", then answered the proposal with: "Implement".
 The proposal accepted: Home is one standing queue (owner, 2026-11-25: "I'm going to queue up work and run it"; proposal
