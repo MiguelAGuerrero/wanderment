@@ -18,6 +18,24 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — A routine is a function; a pursuit holds the goal; the work queue runs across pursuits
+"I have a stack of work towards the pursuit of becoming a better drawer, right? And in that stack, I
+might have a practice drawing loop in one thread. In another thread, I might do a study color theory
+loop. In the work queue, I can choose to push any work from those independent threads onto the work
+queue, and it counts as popping them off the stack when they're done. So this way, the work queue … allows
+me to work asynchronously across different pursuits without having to manage them directly through the
+stack interface or the routine interface … Right now, everything's routine, and there's no sense of
+completion or progress because routines are never done … Because nothing really in the app represents a
+pursuit or goal right now … there's no externalization of where my goal is or what I'm pursuing. Because
+that depends on me always planning out and revising the routine itself. But the routine, it should be
+relatively static in terms of the goal of the outcome it tries to achieve, right? It's a function. Input,
+output are what we care about, and the implementation doesn't really matter. But if the output is always
+changing underneath, then the routine is serving two different functions towards that user journey."
+Interpretation (ours): three things — the routine (a static function: inputs → outcome), the pursuit (the
+goal and its open work, which changes; items pop off when done — that is progress), and the work queue
+(the order you run things in, across pursuits; finishing a queued item pops it from its pursuit).
+Led to: model confirmed in conversation; build order proposed (blanks → pursuits → work queue).
+
 ## 2026-11-25 — Friction 2: no way to line up work across routines (a work queue)
 "If I want to queue up work and target specific … frames from different stacks, like plan my day sort of
 thing, there's no intuitive way to do that. I have to just run the routine, progress, close it, pick
