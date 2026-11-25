@@ -98,6 +98,20 @@ There's no way right now to declare that until you're done with a current run."
 Still to draw before building: reordering by drag, thirty steps with HERE off-screen, the keyboard up,
 leaving with unsent typing, Plan against Pause on the paused screen, a wait step in Plan.
 
+**Re-audit of the second draft** (`.polish/product/ui-audit-B-12-2.md`): *ready with named fixes for
+the Plan surface* (`v1`, `v2`, `v4`, `v5`, `v8`); *one more draft* for declaring a routine (`v3`), a
+shared routine (`v7`) and "With" (`v6`). Plan against Run passes without colour, provided the band stays
+pinned; no contrast, text-size or target failures bar one chip. Fixes for the Plan surface: Home keeps
+one fixed place in the band on every Plan screen and Done never takes it (it gets its own slot and an
+Undo); the Undo notice lasts until the next action and the "HERE step was removed" state is defined;
+the step menu gains Change the words, Add a step after and Close, and "Only this time…" is renamed for
+what it does; the white outline means one thing (HERE), not also focus and group; **one way to say
+"repeats" — the divider — not a second control inside a group**. For the next draft of declaring: an
+Undo and a menu on the group, what an empty or already-used name does, and what happens to the parent's
+own divider; for a shared routine: the "Also in" line stays in view, covers open runs, and Remove names
+its reach. Still undrawn and likely to change the design: a routine as a step in Plan, the keyboard up,
+HERE removed or off-screen.
+
 ## What this changes in B-11
 - The runner's middle button is **Plan** (was Break it down / Step in — Step in remains when the step is
   a routine). The break-down sheet and the "next small step" blank note on the runner go away.
