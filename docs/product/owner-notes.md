@@ -18,6 +18,21 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Freeze on major features; friction 1: resuming gave back a place with no context
+(Screenshot: Plan for "test out wonderment" — Select a feature to test · Vibe check [Feel UI · Answer if
+the user goal felt intuitive] · Write down concerns.)
+"I will freeze on major features, but there is friction I've encounter[ed] that make[s] it hard to give a
+faithful assessment on the product capability. Here's 1: When I opened the app, I was resumed from where
+I left off. I was confused because I don't remember the context. The context is the specific feature I
+was looking at. There was no[thing to] tell what it was, and I didn't note it, so resuming back to where
+I was didn't succeed in offloading context because it was never loaded to begin with. This was in line
+with parameters defining inputs so that it makes sense what's going on."
+Interpretation (ours): a step like "Select a feature to test" produces an answer that the later steps
+depend on; the app keeps the place but not the answer, so the place means nothing on return. The owner
+accepts the pause on major features; friction fixes that block a fair trial are wanted. More to come
+("Here's 1").
+Led to: friction list being collected; a fix proposed (an answer kept on a step, shown on return).
+
 ## 2026-11-25 — The pain point: structure over creative impulses, without losing my place
 "Ultimately, I'm trying to pursue structure over my creative impulses in a way that makes sense. I always
 struggled with trying to give myself a plan while also giving myself space for creative diverge[nce]. And
