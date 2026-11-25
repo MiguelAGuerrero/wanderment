@@ -288,9 +288,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
 - **D-17 B-10: fewer parts — a calm journal in a playful world** — superseded 2026-11-24 by B-11
   before a decision. Brief: `docs/product/briefs/B-10-refined-home.md`.
-- **D-21 B-13: stacks, the things that hold your place** — a stack (stateful, evolving, nests) beside the
-  routine (a stateless recipe); home is the main stack. Brief: `docs/product/briefs/B-13-stacks.md`
-  (entities, a to-do-app journey and its analog, slices, four questions). Recommended: **go**, slice 1 first.
+- **D-21 B-13: tasks that hold tasks** — one entity, the task; a task that holds tasks keeps its order
+  and its place (the owner's "stack"); a routine is a template that stamps out a task; Done takes a task
+  off; home is the root. Brief (second draft): `docs/product/briefs/B-13-stacks.md` — the model, 16
+  to-do-app journeys replicated, slices, four questions. Recommended: **go**, slice 1 first (a migration).
 - **D-20 Home is one standing queue** — **answered 2026-11-25 by the owner: go** ("Implement", on the
   proposal recorded in owner-notes) → P-94. No separate brief; the item carries the design.
 - **D-19 B-12: plan and run look different** — **answered 2026-11-25 by the owner: go on the Plan

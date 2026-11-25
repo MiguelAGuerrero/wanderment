@@ -18,6 +18,25 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Everything in a stack is a task; we strive to push things off
+"Each stack holds its own state, that state is mutable and reflects your current goals at the time. Each
+stack can reference routines or just have their own one-off tasks. All routines are tasks. They're just
+named and templated. They're just instances of a template, which we call the routine, but everything in a
+stack is a task. They're just a meaningful amount of work that can be done and represented in text. Or
+you can push a reference to another stack to hold state within state. So if there are sub goals,
+effectively, you can always work on them as needed, as desired, by switching between your current focus.
+And the idea is that we're always trying to strive to push things off the stack and only push work where
+we think we need to … Otherwise, there's no sense of progress. The idea is that I don't have to remember
+or hold where I am in my journeys and efforts because I hold enough context within the app to tell me,
+oh, that's what I'm working on and to what end. And I can define and reshape the necessary work towards
+whatever level feels comfortable, that level representing a stack. Again, these are just the terms and
+concepts I'm using. You can take what I'm saying and transform them into something polished or map them
+into a known domain because I'm not beholden to this metaphor."
+Interpretation (ours): one entity, the task; a task that holds tasks is what the owner calls a stack; a
+routine is a template that stamps out a task. Progress is things leaving. The known domain is the
+outliner you can zoom into, with a cursor for where you are, plus templates.
+Led to: B-13 rewritten (second draft)
+
 ## 2026-11-25 — A routine holds no state; a stack does
 "So I think I'm trying to make concrete how to manage context and stacks … A routine is an execution, but
 it holds no state. Well, a stack inherently holds state. So if I wanted to hold a stack for how to
