@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { tileLine } from '@/domain/goText';
+import { OLD_HOME } from '@/domain/home';
 import { leftOff, Tile } from '@/domain/runView';
 import { searchStarts, StartRow } from '@/domain/starts';
 import { useStore } from '@/store/useStore';
@@ -93,7 +94,7 @@ export function GoHome() {
     <GoScreen testID="go-home" settled={here} layer={offer ? <KeepSheet runId={offer.runId} ids={offer.changeIds} onClose={act().dismissRunOffer} /> : null}>
       <View style={[styles.flex, !here && styles.away]}>
       <View style={styles.bar}>
-        <Btn kind="plain" mark="back" spoken="Back to Wanderment" onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.back} />
+        <Btn kind="plain" mark="back" spoken="Back to Wanderment" onPress={() => (router.canGoBack() ? router.back() : router.replace(OLD_HOME))} style={styles.back} />
         <H1 ref={title} style={styles.title}>{running ? 'Running' : 'Nothing running'}</H1>
       </View>
       <ScrollView style={styles.flex} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" testID="go-tiles">

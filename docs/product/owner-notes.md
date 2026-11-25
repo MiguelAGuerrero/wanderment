@@ -18,6 +18,14 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Remove the old app entirely
+Told the new home keeps a "Back to Wanderment" button to the old home at `/old`: "No, just please get
+rid of the old app entirely. Retired."
+*Interpretation:* decided — the old app's screens, routes and its way back are removed, not kept at an
+address. Read as removing the app, NOT the person's data: everything logged stays in storage and in
+export, to surface in Looking back later (deleting data is not undoable and was not asked for). Export
+and import must stay reachable. Led to: P-89.
+
 ## 2026-11-24 — "It is still showing the old app": open the new one by default
 After the first slice shipped: "It is still showing the old app and refreshing doesn't do anything."
 Told it lives at `/go` beside the old home, and asked whether to make it what opens by default: "Yes,

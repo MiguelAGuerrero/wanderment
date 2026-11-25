@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { declareThread, logActivity } from './model';
 import {
   endsByItself,
+  OLD_HOME,
   REST_FLOOR,
   REST_MAX,
   REST_WINDOW_DAYS,
@@ -120,6 +121,14 @@ describe('stems', () => {
   it('folds simple endings and drops short and common words', () => {
     expect(stems('Sketched hands, sketching HAND')).toEqual(['sketch', 'hand']);
     expect(stems('with that from this')).toEqual([]);
+  });
+});
+
+describe('the old home has its own address (P-88)', () => {
+  it('is /old — never `/`, which opens the new app — and no session link is the app\'s address', () => {
+    expect(OLD_HOME).toBe('/old');
+    const subjects: Subject[] = [{ kind: 'whys' }, { kind: 'why', id: 'a' }, { kind: 'wander', id: 'x' }, { kind: 'line', activityId: 'l' }];
+    for (const s of subjects) expect(subjectHref(s)).not.toBe('/');
   });
 });
 

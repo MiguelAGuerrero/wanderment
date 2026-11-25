@@ -4,12 +4,13 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { decorative } from '@/components/a11y';
+import { OLD_HOME } from '@/domain/home';
 import { search, SearchHit } from '@/domain/search';
 import { ageLabel } from '@/domain/selectors';
 import { rememberSearchQuietly, useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
-const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+const goBack = () => (router.canGoBack() ? router.back() : router.replace(OLD_HOME));
 
 /** Search across activities, notes and next steps, grouped by thread. */
 export default function Search() {

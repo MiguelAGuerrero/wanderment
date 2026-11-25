@@ -14,7 +14,7 @@ import { ShownProvider } from '@/components/shown';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { Toast } from '@/components/Toast';
 import { FEED_ROWS, FeedLine, feedLines, feedName, pickFeed } from '@/domain/feed';
-import { GUIDE_BAND_END, restGuides, subjectHref } from '@/domain/home';
+import { GUIDE_BAND_END, OLD_HOME, restGuides, subjectHref } from '@/domain/home';
 import { BAND_TOP, bandHeight, FEED_SIDE, LAND_MS, landedWords, litGeometry, LitLink, litLineName, litLinks, LitNode, litNodes, NODE_GLYPH, NODE_H, nodeName, NodePlace, nodePlaces, nodeWidth } from '@/domain/litMap';
 import { placeStars, searchLineIds, searchSheetHeight, STAR_ROW_H, StarPlace, starWords } from '@/domain/searchSky';
 import { starTarget } from '@/domain/sky';
@@ -31,8 +31,8 @@ const display = Platform.select({ web: '"Space Grotesk", SpaceGrotesk, system-ui
 const SIDE = FEED_SIDE;
 const INDENT = 0.4;
 
-/** Lighting goes back to rest: the trailhead in the history if it's there (Back), else it replaces `/sky`. */
-const dim = () => router.dismissTo('/');
+/** Lighting goes back to rest: the trailhead in the history if it's there (Back), else it replaces `/sky` (P-88: the old home is `/old`). */
+const dim = () => router.dismissTo(OLD_HOME);
 
 /**
  * The home at rest (P-65 → B-09). P-79: the composer is at the bottom, in thumb reach, like messaging

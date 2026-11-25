@@ -7,7 +7,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logLine, openSheet, test } from './fixtures';
+import { AT_OLD, expect, logLine, OLD, openSheet, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -24,7 +24,7 @@ const star = (page: Page) => page.getByTestId('rise-star');
 const stepField = (page: Page) => page.getByRole('textbox', { name: 'First step', exact: true });
 const toward = (page: Page) => page.getByRole('group', { name: 'Toward…', exact: true });
 const lit = (page: Page) => page.locator('[data-testid="rest-line"][data-state="lit"]');
-const AT_REST = /\/wanderment\/$/;
+const AT_REST = AT_OLD;
 const RISEN = /\/wanderment\/line\/[^/]+$/;
 
 async function expectNoSeriousViolations(page: Page) {
@@ -45,7 +45,7 @@ function world(extra: (json: { state: { data: { threads: Record<string, Record<s
 
 async function open(page: Page, seed = world()) {
   await page.addInitScript(seedScript, seed);
-  await page.goto('./');
+  await page.goto(OLD);
   await expect(field(page)).toBeVisible();
 }
 
@@ -351,7 +351,7 @@ test.describe('the rise', () => {
     await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
     await page.goto('./trail/cook');
     await button(page, 'Did it').click();
-    await page.goto('./');
+    await page.goto(OLD);
     await expect(field(page)).toBeVisible();
     await expect(page.getByTestId('rest-line')).toHaveCount(3);
     await expect(lit(page)).toHaveCount(0);
@@ -420,7 +420,7 @@ test.describe('the rise', () => {
     for (const reduce of [false, true]) {
       await page.emulateMedia({ reducedMotion: reduce ? 'reduce' : 'no-preference' });
       if (!reduce) await open(page);
-      else await page.goto('./');
+      else await page.goto(OLD);
       await send(page, LINE);
       const b = (await words(page).boundingBox())!;
       const drag = async (dy: number) => {

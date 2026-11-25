@@ -1,6 +1,7 @@
 import { Redirect } from 'expo-router';
 import { useLayoutEffect } from 'react';
 
+import { OLD_HOME } from '@/domain/home';
 import { SheetSection } from '@/domain/sheet';
 import { useStore } from '@/store/useStore';
 
@@ -12,5 +13,5 @@ export function SheetLink({ section }: { section: SheetSection }) {
   const openSheet = useStore((st) => st.openSheet);
   // Before the redirect: Home comes up with the sheet already out (no slide).
   useLayoutEffect(() => openSheet(section), [openSheet, section]);
-  return <Redirect href="/" />;
+  return <Redirect href={OLD_HOME} />;
 }

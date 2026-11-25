@@ -111,6 +111,12 @@ export function subjectPlace(s: Subject): Exclude<Place, 'trailhead' | 'map'> {
   return s.kind === 'whys' || s.kind === 'line' ? 'sky' : s.kind === 'why' ? 'star' : 'trail';
 }
 
+/**
+ * The old home's own address (P-88): `/` opens the new app (`/go`), so everything in the old app that
+ * means "the home at rest" goes here, and never throws you into the new one.
+ */
+export const OLD_HOME = '/old';
+
 /** A session's link: the home, already tilted to it. */
 export function subjectHref(s: Subject): string {
   if (s.kind === 'whys') return '/sky';

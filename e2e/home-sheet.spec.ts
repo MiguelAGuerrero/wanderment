@@ -11,7 +11,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, PROMPT, test } from './fixtures';
+import { AT_OLD, expect, logBox, logLine, OLD, PROMPT, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -51,7 +51,7 @@ const field = (page: Page) => page.getByRole('textbox', { name: PROMPT, exact: t
 /** P-83: the home (Map is retired), its field focused. */
 async function open(page: Page) {
   await page.addInitScript(seedScript, world());
-  await page.goto('./');
+  await page.goto(OLD);
   await expect(field(page)).toBeVisible();
 }
 
@@ -259,7 +259,7 @@ test.describe('at 390 px', () => {
     // Back again puts the sheet away before leaving Home.
     await page.goBack();
     await expectClosed(page);
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
   });
 
   test('the browser’s Back closes the sheet before leaving the home', async ({ page }) => {
@@ -267,7 +267,7 @@ test.describe('at 390 px', () => {
     await expectOpen(page, 'Wanders');
     await page.goBack();
     await expectClosed(page);
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expect(field(page)).toBeVisible();
     // Opened and closed again by Esc, it doesn't leave a Back step behind it.
     await handle(page).click();
@@ -278,7 +278,7 @@ test.describe('at 390 px', () => {
     await expectOpen(page, 'Wanders');
     await page.goBack();
     await expectClosed(page);
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
   });
 
   test('it slides, but under Reduce Motion it just appears and goes', async ({ page }) => {
@@ -316,7 +316,7 @@ test('deep links to /wanders and /activities open the home with the sheet on tha
   await page.addInitScript(seedScript, world());
   await page.goto('./activities');
   await expectOpen(page, 'Activities');
-  await expect(page).toHaveURL(/\/wanderment\/$/); // P-83: the home (was Map)
+  await expect(page).toHaveURL(AT_OLD); // P-83: the home (was Map)
   await expect(dialog(page).getByText('cooked dinner', { exact: true })).toBeVisible();
   await page.goBack();
   await expectClosed(page);
@@ -380,7 +380,7 @@ test.describe('P-83: the sheet replaces Map', () => {
     await dialog(page).getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(page).toHaveURL(/\/settings$/);
     await page.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expectNoSeriousViolations(page);
   });
 
@@ -394,7 +394,7 @@ test.describe('P-83: the sheet replaces Map', () => {
     await expectClosed(page);
     await expect(page).toHaveURL(/\/wanderment\/sky$/);
     await page.goBack();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expect(page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true })).toHaveAttribute('aria-pressed', 'false');
     // The graph Map, its What's next card and its focus/scope chains are gone.
     await expect(page.getByTestId('home-graph')).toHaveCount(0);
@@ -429,7 +429,7 @@ test.describe('P-84: the sheet’s search lights the stars above', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(seedScript, searchWorld());
-    await page.goto('./');
+    await page.goto(OLD);
     await expect(field(page)).toBeVisible();
     await handle(page).click();
     await expectOpen(page, 'Wanders');
@@ -530,7 +530,7 @@ test.describe('P-86: the sheet has one more row, to the new screens', () => {
     await expect(page).toHaveURL(/\/wanderment\/go$/);
     await expect(page.locator('[data-testid="go-home"][data-settled="true"]')).toBeVisible();
     await page.goBack();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expectOpen(page, 'Wanders');
   });
 });

@@ -30,8 +30,8 @@ const AFTER_DRAG_MS = 600;
 const native = Platform.OS !== 'web';
 const web = () => Platform.OS === 'web' && typeof window !== 'undefined';
 const ours = () => web() && !!(window.history.state as Record<string, unknown> | null)?.[KEY];
-/** The location is the home at rest (`/` or `/sky`, under the app's base path). */
-const atHome = () => /\/(sky)?$/.test(window.location.pathname);
+/** The location is the old home at rest (`/old` or `/sky`, under the app's base path; P-88: `/` is the new app's). */
+const atHome = () => /\/(old|sky)$/.test(window.location.pathname);
 /** The section the sheet's history entry was left on (`true` from before it said which). */
 const sectionOf = (state: unknown): SheetSection | undefined => {
   const v = (state as Record<string, unknown> | null)?.[KEY];

@@ -11,6 +11,7 @@ import { useHome } from '@/components/Home';
 import { campWalk, from, PassageStars, Wanderer } from '@/components/passage';
 import { StarGlyph, useMotes } from '@/components/StarGlyph';
 import { useEscBack } from '@/components/useEscBack';
+import { OLD_HOME } from '@/domain/home';
 import { landmarkName, landmarks, SCENE_H, skyStars, starScene, starTarget } from '@/domain/sky';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
@@ -21,7 +22,7 @@ const MAX_W = 640;
 const web = Platform.OS === 'web';
 
 /** Back to the sky: where it came from, or (opened first) the home at rest (P-74). */
-const toSky = () => (router.canGoBack() ? router.back() : router.replace('/'));
+const toSky = () => (router.canGoBack() ? router.back() : router.replace(OLD_HOME));
 const openTrail = (threadId: Id, starId: Id) => router.push(`/trail/${encodeURIComponent(threadId)}?star=${encodeURIComponent(starId)}`);
 
 /**

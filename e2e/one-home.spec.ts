@@ -13,7 +13,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, test } from './fixtures';
+import { AT_OLD, expect, OLD, test } from './fixtures';
 import { bigBlob, legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -72,7 +72,7 @@ const LINES = 6;
 const FEED_MAX = 5;
 const WHYS = 2;
 
-async function open(page: Page, seed: string | null = world(), path = './') {
+async function open(page: Page, seed: string | null = world(), path = OLD) {
   if (seed) await page.addInitScript(seedScript, seed);
   await page.goto(path);
 }
@@ -87,7 +87,7 @@ const sameSky = (page: Page) => page.getByTestId('night-sky').evaluate((el) => (
 
 /** At rest: the home, its camera down, the field focused (web). P-81: lit or not (it stays lit until toggled). */
 async function expectAtRest(page: Page) {
-  await expect(page).toHaveURL(/\/wanderment\/(sky)?$/);
+  await expect(page).toHaveURL(/\/wanderment\/(old|sky)$/);
   await expect(home(page)).toHaveAttribute('data-camera', 'rest');
   await expect(field(page)).toBeFocused();
   await expect(sessions(page)).toHaveCount(0);
@@ -174,7 +174,7 @@ test.describe('one home', () => {
       await expect(page.getByTestId('night-sky')).toHaveCount(1);
       if (leave === 'Esc') await page.keyboard.press('Escape');
       if (leave === 'Back') await page.goBack();
-      await expect(page).toHaveURL(/\/wanderment\/$/);
+      await expect(page).toHaveURL(AT_OLD);
       await expect(whys(page)).toHaveCount(0);
       expect(await sameSky(page), leave).toBe(true);
     }
@@ -279,7 +279,7 @@ test.describe('one home', () => {
     await expect(home(page)).toHaveAttribute('data-camera', 'rest');
     await expectNoSeriousViolations(page);
     await unsure(page).click();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
 
     await page.goto('./star/become%20an%20illustrator');
     await expect(cards(page)).toHaveCount(2);

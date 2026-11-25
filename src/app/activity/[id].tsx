@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { OLD_HOME } from '@/domain/home';
 import { nextOwner } from '@/domain/model';
 import { lastTimeFor } from '@/domain/selectors';
 import { Id } from '@/domain/types';
@@ -13,7 +14,7 @@ import { C, s } from '@/theme';
 
 const DAY = 864e5;
 
-const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+const goBack = () => (router.canGoBack() ? router.back() : router.replace(OLD_HOME));
 
 /**
  * Details for one activity: what you did, which threads, when, a note, and the owning thread's

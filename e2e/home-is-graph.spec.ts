@@ -5,7 +5,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, openHome, openSheet, test } from './fixtures';
+import { AT_OLD, expect, logBox, openHome, openSheet, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 
@@ -47,7 +47,7 @@ test('Explore opens the old graph view (with its List view), from the home’s s
   await expectNoSeriousViolations(page);
   await page.getByRole('button', { name: '‹ Back' }).click();
   // P-83: back on the home, its sheet still out where Explore was opened from.
-  await expect(page).toHaveURL(/\/wanderment\/$/);
+  await expect(page).toHaveURL(AT_OLD);
   await expect(page.getByRole('dialog', { name: 'Wanders and activities' })).toBeVisible();
 
   // From a wander's page, centred on that wander.

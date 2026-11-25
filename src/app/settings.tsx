@@ -7,6 +7,7 @@ import { VERSION_LABEL } from '@/build';
 import { exportBackup } from '@/components/exportBackup';
 import { moveFocus } from '@/components/FirstRun';
 import { ImportPreviewCard } from '@/components/ImportPreview';
+import { OLD_HOME } from '@/domain/home';
 import { canCheckForUpdates, checkForUpdates, UpdateCheck } from '@/pwa/serviceWorker';
 import { backupsLocation } from '@/storage/nativeBackup';
 import { askToKeepData, onPersistenceAnswered, PersistenceStatus, persistenceStatus } from '@/storage/persistent';
@@ -153,7 +154,7 @@ export default function Settings() {
       <Body scrollRef={scrollRef}>
         <View style={styles.header}>
           <Text style={s.h1}>Settings</Text>
-          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
+          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace(OLD_HOME))} style={{ minHeight: 44, justifyContent: 'center' }} accessibilityRole="button">
             <Text style={{ color: C.accent, fontWeight: '600', fontSize: 16 }}>Done</Text>
           </Pressable>
         </View>

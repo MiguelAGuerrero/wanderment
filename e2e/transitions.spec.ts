@@ -8,7 +8,7 @@
  */
 import { Locator, Page } from '@playwright/test';
 
-import { expect, test } from './fixtures';
+import { AT_OLD, expect, OLD, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const DAY = 864e5;
@@ -38,7 +38,7 @@ function world() {
 
 async function open(page: Page) {
   await page.addInitScript(seedScript, world());
-  await page.goto('./');
+  await page.goto(OLD);
   await expect(field(page)).toBeVisible();
 }
 
@@ -130,7 +130,7 @@ test.describe('transitions through the picture', () => {
     // The field is the trailhead's first stop, as before.
     await expect(field(page)).toBeFocused();
     await page.goBack();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expect(field(page)).toBeVisible();
   });
 });

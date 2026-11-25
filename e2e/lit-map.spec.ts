@@ -10,14 +10,14 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, test } from './fixtures';
+import { AT_OLD, expect, OLD, test } from './fixtures';
 import { seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
 const DAY = 864e5;
 const PROMPT = 'Where are we wandering today?';
 const UNSURE = 'I’m not sure — light up the map';
-const AT_REST = /\/wanderment\/$/;
+const AT_REST = AT_OLD;
 const LIT = /\/wanderment\/sky$/;
 
 const field = (page: Page) => page.getByRole('textbox', { name: PROMPT, exact: true });
@@ -75,7 +75,7 @@ function world({ shading = true, hidden = [] as string[] } = {}) {
   return JSON.stringify({ state: { data: { version: 1, threads, activities }, showShading: shading }, version: 1 });
 }
 
-async function open(page: Page, seed = world(), path = './') {
+async function open(page: Page, seed = world(), path = OLD) {
   await page.addInitScript(seedScript, seed);
   await page.goto(path);
   await expect(field(page)).toBeVisible();

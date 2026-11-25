@@ -3,7 +3,7 @@
  * Journeys J01 (first open), J02 (come back and pick up), J03 (say what you're going to do).
  * Seeded through a format-2 backup import (goFixture). Every wait is on a state attribute.
  */
-import { expect, test } from './fixtures';
+import { AT_OLD, expect, OLD, test } from './fixtures';
 import { expectInside, home, MAYA, openGo, RoutineSpec, runner, settled, startGo, tile, sinceDate } from './goFixture';
 
 const THREE = [
@@ -134,11 +134,11 @@ test('J02-b: with a paused run /go opens its paused screen; with nothing going, 
   await expect(page).toHaveURL(/\/go\/run\/r1\/paused$/);
 });
 
-test('today’s home is untouched: opening / never redirects into a run', async ({ page }) => {
+test('the old home at /old is untouched: opening it never redirects into a run', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-  await page.goto('./');
+  await page.goto(OLD);
   await expect(page.getByRole('textbox', { name: 'Where are we wandering today?', exact: true })).toBeVisible();
-  await expect(page).toHaveURL(/\/wanderment\/$/);
+  await expect(page).toHaveURL(AT_OLD);
 });
 
 test('J03-a: typing filters the tiles, then routines, with "New: …" last; the first row is marked and Return takes it', async ({ page }) => {
@@ -263,7 +263,7 @@ test('a way back to today’s home, and the tile’s ⋯ opens its routine', asy
   await page.goBack();
   // Opened by its address there is nothing beneath it: the way back is today's home itself.
   await home(page).screen.getByRole('button', { name: 'Back to Wanderment', exact: true }).click();
-  await expect(page).toHaveURL(/\/wanderment\/$/);
+  await expect(page).toHaveURL(AT_OLD);
   await expect(page.getByRole('textbox', { name: 'Where are we wandering today?', exact: true })).toBeVisible();
 });
 

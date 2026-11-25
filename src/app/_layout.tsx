@@ -63,6 +63,8 @@ export default function RootLayout() {
       <View ref={app} style={styles.app} pointerEvents={over ? 'none' : 'auto'} importantForAccessibility={over ? 'no-hide-descendants' : 'auto'}>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
+          {/* P-88: `/` only redirects to the new app (`/go`); dark, so nothing light flashes on the way. */}
+          <Stack.Screen name="index" options={{ contentStyle: { backgroundColor: N.bg }, animation: 'none' }} />
           {/* One home (P-74): the trailhead, the sky, under a star and on a trail, one night drawn once. */}
           <Stack.Screen name="(home)" options={NIGHT} />
           {/* Map is the graph, whose sheet holds Wanders and Activities (P-58). */}

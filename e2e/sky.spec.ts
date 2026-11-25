@@ -7,7 +7,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
-import { expect, test } from './fixtures';
+import { AT_OLD, expect, OLD, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -66,7 +66,7 @@ function world({ shading = true } = {}) {
 /** Opens the trailhead and lights the map (P-81: was "looks up"). */
 async function lookUp(page: Page, seed = world()) {
   await page.addInitScript(seedScript, seed);
-  await page.goto('./');
+  await page.goto(OLD);
   await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();
   await expect(page).toHaveURL(/\/wanderment\/sky$/);
   await expect(stars(page).first()).toBeVisible();
@@ -252,13 +252,13 @@ test.describe('look up, and under a star', () => {
     await expect(page).toHaveURL(/\/wanderment\/sky$/);
     await expect(stars(page).first()).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expect(page.getByRole('textbox', { name: PROMPT, exact: true })).toBeVisible();
     // Opened on its own, Esc still finds a way: P-74, down to the home at rest (was: the trail to the sky).
     await page.goto('./trail/a%20calm%20space');
     await expect(page.getByRole('heading', { name: 'a calm space', exact: true })).toBeVisible();
     await page.keyboard.press('Escape');
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expect(page.getByRole('textbox', { name: PROMPT, exact: true })).toBeVisible();
     // Esc in a field is the field's (it doesn't leave the trail).
     await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();

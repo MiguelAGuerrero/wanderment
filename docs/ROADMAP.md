@@ -37,18 +37,21 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-88 The new app opens by default `[platform]` `[ux]` M
+### P-89 Retire the old app `[feature]` `[data]` `[platform]` L
 *Status:* todo
-*Why:* the owner, 2026-11-24: the old app is retired and "it is still showing the old app" — the new
-app was only reachable through a row in the old home's sheet or by typing `/go`. Opening the app, on the
-phone included, should land in the new one.
-*Done when:* opening the app at its address (and from the installed icon) lands on the new home (`/go`);
-the old home lives at its own address (`/old`) with everything in it working as before — its sheet,
-sky, lines, stars, trails, search, explore, settings, export and import — and its own "home" links
-staying inside the old app; the old app's existing e2e specs pass with only their start address and URL
-expectations repointed (no assertion weakened); a spec proves `/` lands on the new home, that the old
-home is reachable at `/old`, and that a run in progress still opens where you left off; the service
-worker, base path and offline start still work (update spec passes); `verify.sh --full` passes.
+*Why:* the owner, 2026-11-25: "get rid of the old app entirely. Retired." After P-88 it still lives at
+`/old` with a "Back to Wanderment" button in the new home. B-11's last slice, brought forward.
+*Done when:* the old app's screens and routes are gone (the home with its sky, composer and sheet,
+rise, lines, stars, trails, wanders, activities, thread and activity pages, search, explore, map,
+pull-in), with their components, domain code used only by them, unit tests and e2e specs; every old
+address lands on the new home; the new home has no "Back to Wanderment"; **no stored data is deleted or
+converted** — wanders and activities stay in the database, the journal, the fallback, export and import
+(a backup made before still imports; an export still contains them), proved by a test; Export, Import
+(with its preview), storage status and Erase stay reachable from the new home (the existing settings
+screen kept, restyled only as far as needed, or its equivalent); the app-level states stay (opening,
+blocked storage, another tab, reconnecting, the update banner, saved by a newer version); DESIGN.md and
+STRATEGY.md say what the app now is, pointing to B-11; CLAUDE.md and the skills' references are
+corrected; `verify.sh --full` passes and its smoke set names specs that exist.
 
 ### P-87 The new app's first slice, after its panel `[ux]` `[a11y]` M
 *Status:* todo
@@ -449,6 +452,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-25 · P-88 — the new app opens by default: `/` (and the installed icon) lands on the new home, opening where you left off when a run is in progress; the old home moved to `/old` with everything in it working as before, and its own home links (sheet close, Back fallbacks, the history mark) stay inside it; the new home keeps its "Back to Wanderment" button, now pointing at `/old`. evidence: new spec `e2e/go-default.spec.ts` (20 tests, failing before the change), 13 old spec files repointed (start address and old-home URL only, nothing removed), the whole e2e suite twice (364 passed), 1007 unit tests, `verify.sh --full`. Light tier (routing): no separate audit. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred.
 - 2026-11-24 · P-86 (B-11 slice 1) — the first usable slice of the new app, on its own route `/go` beside today's home (one added row in today's sheet, "Run a routine"): home as tiles with "I'm going to…" searching them and "New: …"; a pure engine (run + verb → run) with a tolerant reader; routines with steps, wait steps and the Repeat divider (until I'm done / a number); the runner — context line with Done, the sticky note, Pause · Break it down / Step in · Next, the last-step mark, notices with Undo; the pull-up panel (round, then, Back to, Jump to…, Change the words, See it all, Keep in); Break it down for this run with Keep; the edge of a goal asking for the next small step; leaving a level offering this run's changes; Pause with a reason, the paused screen, Home asking first; "waiting for … · since"; See it all, Jump to…, a plain routine editor; one pressed verb queued while a tab reconnects. evidence: 1006 unit tests (228 new; every row of the execution table, a random-walk fuzz, persistence round trips), new e2e specs `e2e/go-*.spec.ts` for J01–J05, J10, J29, J34–J39 and an accessibility pass, the builder's screenshots in `.polish/archive`, `verify.sh --full`. Not verified: native, a real phone keyboard and real text scaling (web only, by window size); single-letter shortcuts were removed pending a settings switch. audit: 23 reported · 18 reproduced · 19 fixed · 4 deferred.
 - 2026-11-24 · P-85 (B-11 groundwork) — storage for any kind of record, no visible change: one list of collections drives the journal, undo, the localStorage fallback, tab hand-over, load / save / replace, export and import; backup format 2 is always written and format 1 still imports (a newer one is refused); migration 4 adds `routines` and `runs` tables only, nothing converted; strict import refuses a format-2 file missing its routines or runs; ids that are method names can now be deleted; the import preview names routines and runs. evidence: 778 unit tests (64 new, written first and shown failing before the change), a differential fuzz against the previous code identical for wanders and activities, a real schema-3 → 4 upgrade with a pending old-format journal, load with 4,000 activities unchanged (~870 ms), `verify.sh --full`. Known and accepted: once migration 4 has run, an older build shows its blocked / reload screen, so the deploy cannot be reverted. audit: 13 reported · 3 reproduced · 7 fixed · 6 deferred.
 - 2026-11-24 · P-79, P-80, P-81, P-82, P-83, P-84 (B-09) — the home: the composer at the bottom ("I'm not sure" beside the field, the question a small heading, suggestions and the done chip above the field); above it a live map — a random few of the last three weeks' lines, drawn once a day, words and when in words, a calm sky beyond; "I'm not sure" lights the map in place (whys and wanders as nodes, routed links, nothing moving); attaching lands visibly in its node; the grabber (tap or swipe) opens the sheet with a visible Close and Explore / Settings / Export, and its search lights the matching stars above; the graph Map retired (`/map` → the lit home) · evidence: `src/domain/{feed,litMap,searchSky}.test.ts`, `e2e/{live-map,lit-map,attach-lands,home-sheet}.spec.ts`, whole suite 242 passed; UI audit before building (`docs/product/briefs/B-09-home-live-map.md`) · audit: 72 reported · 72 reproduced · 72 fixed · 0 deferred (the end-of-run full e2e run; one app bug — Back closing the sheet after reopening an activity — the rest specs moved off retired Map behaviour) · this commit

@@ -100,6 +100,13 @@ export async function openWanders(page: Page) {
   await expect(logBox(page)).toBeVisible();
 }
 
+/**
+ * P-88: the old home's own address (`/` opens the new app, `/go`) — where the old app's specs start,
+ * and what the location is when the old home is at rest.
+ */
+export const OLD = './old';
+export const AT_OLD = /\/wanderment\/old$/;
+
 /** The home's field (P-79): the composer's, named by the question. */
 export const PROMPT = 'Where are we wandering today?';
 

@@ -12,7 +12,7 @@ import { NightSky } from '@/components/NightSky';
 import { PassageState, usePassage, Veil } from '@/components/passage';
 import { useWhileShown } from '@/components/shown';
 import { STAR_PATH } from '@/components/StarGlyph';
-import { endsByItself, Guide, restGuides, RETURN_BEAT_MS, swipeLeaves, swipeStarts } from '@/domain/home';
+import { endsByItself, Guide, OLD_HOME, restGuides, RETURN_BEAT_MS, swipeLeaves, swipeStarts } from '@/domain/home';
 import { Place } from '@/domain/passage';
 import { groundFits, groundGlideMs } from '@/domain/trailhead';
 import { useStore } from '@/store/useStore';
@@ -83,15 +83,15 @@ export function useKeyboardUp() {
 /** An Esc this soon after a tilt starts, before its session has arrived, still leaves it (audit F3). */
 const TILT_ESC_MS = 1500;
 
-/** Where the home was at rest last: `/`, or `/sky` while the map is lit (P-81). */
-let restPath: '/' | '/sky' = '/';
+/** Where the home was at rest last: `/old` (P-88: `/` is the new app's), or `/sky` while the map is lit (P-81). */
+let restPath: typeof OLD_HOME | '/sky' = OLD_HOME;
 /**
  * Leaving a session: back to the home at rest as it was — lit or not (P-81: it stays lit until
  * toggled) — in the history if it's there, else it replaces the session.
  */
 const toRest = () => router.dismissTo(restPath);
 /** A path of the home at rest: the trailhead, or the trailhead with the map lit (P-81: `/sky` is the lit state). */
-export const restRoute = (path: string): '/' | '/sky' | undefined => (path === '/' ? '/' : path === '/sky' ? '/sky' : undefined);
+export const restRoute = (path: string): typeof OLD_HOME | '/sky' | undefined => (path === OLD_HOME ? OLD_HOME : path === '/sky' ? '/sky' : undefined);
 
 /**
  * Where a drag starts (audit F5). Web: in a field (a drag selects text), and whether anything it's in

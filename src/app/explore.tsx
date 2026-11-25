@@ -9,12 +9,13 @@ import { GraphList } from '@/components/graph/GraphList';
 import { Screen } from '@/components/Screen';
 import { valueThreads } from '@/domain/emergence';
 import { buildFlowIndex, looseActivities, neighbourhood } from '@/domain/graph';
+import { OLD_HOME } from '@/domain/home';
 import { homeThreads } from '@/domain/selectors';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
-const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+const goBack = () => (router.canGoBack() ? router.back() : router.replace(OLD_HOME));
 
 /**
  * Explore (the old Graph tab, opened from Home and from a wander's page): where activity flows — a

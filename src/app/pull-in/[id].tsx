@@ -5,12 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { decorative } from '@/components/a11y';
 import { candidatesForThread, pullInRole } from '@/domain/emergence';
+import { OLD_HOME } from '@/domain/home';
 import { ageLabel } from '@/domain/selectors';
 import { Id } from '@/domain/types';
 import { useStore } from '@/store/useStore';
 import { C, s } from '@/theme';
 
-const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
+const goBack = () => (router.canGoBack() ? router.back() : router.replace(OLD_HOME));
 
 /**
  * After naming a thread: earlier activities that mention it, to pull in with one tap.

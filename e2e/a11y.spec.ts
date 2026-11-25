@@ -1,7 +1,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
-import { expect, logBox, logLine, openHome, openSheet, openWanders, test, toHome } from './fixtures';
+import { expect, logBox, logLine, OLD, openHome, openSheet, openWanders, test, toHome } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 /** Fails on serious or critical axe violations, printing what and where. */
@@ -237,7 +237,7 @@ test('Home while the page doesn’t hold the data (“Reconnecting…” on Log)
 
 test('the home (P-79–P-84): at rest, lit, with the sheet up and searching, has no serious accessibility violations', async ({ page }) => {
   await seed(page);
-  await page.goto('./');
+  await page.goto(OLD);
   await expect(page.getByRole('textbox', { name: 'Where are we wandering today?', exact: true })).toBeVisible();
   await expectNoSeriousViolations(page);
   await page.getByRole('button', { name: 'I’m not sure — light up the map', exact: true }).click();

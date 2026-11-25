@@ -5,7 +5,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
-import { expect, openSheet, test } from './fixtures';
+import { AT_OLD, expect, OLD, openSheet, test } from './fixtures';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -81,7 +81,7 @@ function world() {
 
 async function open(page: Page, seed: string | null = world()) {
   if (seed) await page.addInitScript(seedScript, seed);
-  await page.goto('./');
+  await page.goto(OLD);
   await expect(field(page)).toBeVisible();
 }
 
@@ -188,7 +188,7 @@ test.describe('the trailhead', () => {
     await expect(button(page, 'Undo')).toBeVisible();
     expect((await button(page, 'Undo').boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await button(page, 'Undo').click();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expect(words(page)).toHaveCount(0);
     await expect(field(page)).toHaveValue(LINE);
     await expect(field(page)).toBeFocused();
@@ -202,7 +202,7 @@ test.describe('the trailhead', () => {
     await button(page, NEW_LINE).click();
     await expect(await looseOnMap(page, LINE)).toBeVisible();
     await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expect(words(page)).toHaveCount(0);
     await expect(field(page)).toBeVisible();
     // And after a reload it's still there, still loose.
@@ -218,7 +218,7 @@ test.describe('the trailhead', () => {
     await expect(field(page)).toBeVisible();
     await expect(page.getByTestId('look-up')).toHaveCount(0); // P-66's separate look-up is retired into the lit map
     await page.goBack();
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expect(field(page)).toBeVisible();
 
     await page.goto('./map');
@@ -226,7 +226,7 @@ test.describe('the trailhead', () => {
     await expect(page.getByTestId('home-graph-picture')).toHaveCount(0);
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press('Escape');
-    await expect(page).toHaveURL(/\/wanderment\/$/);
+    await expect(page).toHaveURL(AT_OLD);
     await expect(field(page)).toBeVisible();
   });
 

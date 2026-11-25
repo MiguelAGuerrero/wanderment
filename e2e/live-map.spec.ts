@@ -10,7 +10,7 @@
 import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
-import { expect, test } from './fixtures';
+import { AT_OLD, expect, OLD, test } from './fixtures';
 import { seedScript } from './graphFixture';
 
 const SHOTS = process.env.E2E_SHOTS; // set to a folder to save screenshots for a visual check
@@ -27,7 +27,7 @@ const send = (page: Page) => button(page, 'Log');
 const recent = (page: Page) => page.getByRole('group', { name: 'Recent', exact: true });
 const lines = (page: Page) => recent(page).getByRole('button');
 const suggestions = (page: Page) => page.getByRole('listbox', { name: 'Suggestions' });
-const AT_REST = /\/wanderment\/$/;
+const AT_REST = AT_OLD;
 
 async function expectNoSeriousViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze();
@@ -74,7 +74,7 @@ const MANY: Line[] = [...Array.from({ length: 14 }, (_, i) => ({ text: `recent l
 
 async function open(page: Page, seed: string) {
   await page.addInitScript(seedScript, seed);
-  await page.goto('./');
+  await page.goto(OLD);
   await expect(field(page)).toBeVisible();
 }
 

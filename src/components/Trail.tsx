@@ -10,6 +10,7 @@ import { useHome } from '@/components/Home';
 import { STAR_PATH } from '@/components/StarGlyph';
 import { Toast } from '@/components/Toast';
 import { useEscBack } from '@/components/useEscBack';
+import { OLD_HOME } from '@/domain/home';
 import { footprintName, footprints, latestNote, skyStars, starTarget, starTint } from '@/domain/sky';
 import { promptSize } from '@/domain/trailhead';
 import { Id } from '@/domain/types';
@@ -62,7 +63,7 @@ export function Trail({ id, starId }: { id: Id; starId?: Id }) {
   const steps = useMemo(() => footprints(data, id), [data, id]);
   // Came from a star with several wanders: back to them; else back to the sky.
   const toWanders = cameFrom && !!why && starTarget(data, why.id).startsWith('/star/');
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  const back = () => (router.canGoBack() ? router.back() : router.replace(OLD_HOME));
   useEscBack(shown && !!thread && !thread.hidden, back);
   if (!thread || thread.hidden) return <Redirect href="/sky" />;
 
