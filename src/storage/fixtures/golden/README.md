@@ -37,3 +37,21 @@ are what a person's browser still holds, and must stay readable for good.
 | `p90-expected.json` | that build's store | what those four must read as |
 
 `freeze-p90.ts.txt` is the script that wrote them.
+
+## P-94 (frozen 2026-11-25, before the queue)
+
+Written the same way by the build before P-94 (`0e98cf3`), whose home was tiles in a fixed order and
+which let one thing run at a time. It started from `schema4.sqlite` (so the retired app's wanders and
+activities, and a run with this-run changes from before P-90, are in it) and was then used through its
+own store actions. P-94 reads its open runs as the queue (the one the app is on first, then the others
+last touched first) without writing anything; these files must stay readable for good.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p94-schema4.sqlite` | that build, ordinary saves, over `schema4.sqlite` | the 3 wanders and 5 activities and the 3 routines and 2 runs of `schema4.sqlite`, plus 9 routines and 6 runs: a routine never started; a run left on a step three days before the rest; a run resting on a wait step; a run left in Plan, whose routine has a step broken down (an unnamed sequence owned by no run); a run at the edge of an open goal (in Plan); an ended run; a removed routine; and the run the app is on, paused with a reason |
+| `p94-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p94-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p94-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p94-expected.json` | that build's store | what those four must read as |
+
+`freeze-p94.ts.txt` is the script that wrote them.

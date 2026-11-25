@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — The queue is recursive: every item is its own main thread
+"So there has to be some recursiveness to it, right? Everything in the queue can operate its own main
+thread in a sense, where you can queue up stuff into it, run routines, reset at that level. So the work
+type of workflow is that and I can always context switch between the things I want to do and hold and
+offload what comes next, and that way I can iterate and define my next steps as I work at the level that
+seems appropriate for me, while still managing the context for other outgoing tasks at hand. And you can
+keep doing this at any level."
+Interpretation (ours): home's queue is not a special list; it is the top level of the same thing every
+item is. Any item can be opened into its own queue: push work into it, run it, switch between its items,
+reset it — at any depth. P-94's flat queue was halted before landing to fit this.
+Led to: P-94 (halted, redesign)
+
 ## 2026-11-25 — One-off tasks in the queue
 "Also allow for one-off tasks. So I can just push things that aren't named ro[u]tines"
 Interpretation (ours): "+ Add to the queue" with words that match no routine offers first "Add: <words>"

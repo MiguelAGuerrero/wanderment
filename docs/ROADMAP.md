@@ -44,7 +44,7 @@ _Empty. Write here — one line is enough._
 ## Now
 
 ### P-94 Home is one standing queue: line up work and run it `[feature]` `[data]` `[ux]` `[a11y]` L
-*Status:* in-progress
+*Status:* blocked — halted 2026-11-25 before any engine code: the owner made the queue recursive (every item its own thread, at any level); three questions are with the owner (owner-notes). Kept: a golden fixture written by the build at 0e98cf3.
 *Why:* owner (owner-notes 2026-11-25): home "just start[s] a whole bunch of things … It's just a search
 box … I'm going to queue up work and run it." D-20 go.
 *Design:* Home is one standing queue (owner, 2026-11-25: "I'm going to queue up work and run it"; proposal
