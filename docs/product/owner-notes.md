@@ -18,6 +18,19 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Home doesn't say what's going on; it should be "queue up work and run it"
+(Voice-typed; transcribed as said.) "The user loop needs to be refined because it's not really obvious
+what's going on [on the] home screen[;] it just start[s] a whole bunch of things[.] that's because the
+expectation of running through a series of threads concurrent[ly is not] really [clear / is] imperative.
+It's just a search box so there has to be some I guess composer[,] some guidance thing[:] I'm going to
+queue up work and run it."
+Interpretation (ours): the same concern as the "working session" note, now from use. Home reads as a grid
+of separate things to start plus a search box; nothing composes them into one line of work. The owner
+wants a composer: line up what you are going to do (a queue / a session), then run it in order, with
+other threads loaded to switch to. Open: whether the queue is the session itself, what home shows when
+it is empty, and what is left when it ends.
+Led to: nothing yet — questions asked first; then a brief (B-13).
+
 ## 2026-11-25 — Plan on a phone: steps overflow, and the add icon
 (Screenshot from an iPhone: Plan for "clean the car", keyboard up; the Undo notice "Added “Car wash”"
 and Start sit over the list, so the step just added and the row being typed in are hidden.)
