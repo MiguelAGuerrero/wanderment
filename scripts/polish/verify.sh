@@ -27,8 +27,8 @@ for arg in "$@"; do
 done
 [ "$repeat" -gt 0 ] && [ "$mode" = fast ] && mode=full
 
-# A few specs that cover the core loop (log, persist, Home), always run in fast mode.
-SMOKE="e2e/capture.spec.ts e2e/storage.spec.ts e2e/home-graph.spec.ts"
+# A few specs that cover the core loop (home, a run, persist, import), always run in fast mode.
+SMOKE="e2e/go-home.spec.ts e2e/go-run.spec.ts e2e/storage.spec.ts e2e/import.spec.ts"
 
 logs=.polish/logs
 mkdir -p "$logs"

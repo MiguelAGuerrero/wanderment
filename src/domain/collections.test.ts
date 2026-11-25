@@ -85,10 +85,10 @@ describe('migrateData: format 1 and format 2', () => {
 
   it('format 3 is refused with the “newer version” message, in both modes', () => {
     for (const opts of [{}, { skipInvalid: true }]) {
-      expect(() => migrateData({ ...v2(), version: 3 }, opts)).toThrow('That Wanderment backup was made by a newer version of the app. Update Wanderment, then import it again.');
+      expect(() => migrateData({ ...v2(), version: 3 }, opts)).toThrow('That backup was made by a newer version of the app. Update the app, then import it again.');
     }
-    expect(() => migrateData({ ...v2(), version: 0 })).toThrow('That file isn’t a Wanderment backup.');
-    expect(() => migrateData({ ...v2(), version: '2' })).toThrow('That file isn’t a Wanderment backup.');
+    expect(() => migrateData({ ...v2(), version: 0 })).toThrow('That file isn’t a backup from this app.');
+    expect(() => migrateData({ ...v2(), version: '2' })).toThrow('That file isn’t a backup from this app.');
   });
 
   it('strict: a format-2 file whose routines or runs are missing or null is refused (audit F3); lenient reads them as empty', () => {
@@ -122,9 +122,9 @@ describe('migrateData: format 1 and format 2', () => {
 
   it('a version that isn’t a whole number: above 1 it still reads as “newer version”, as before (audit F7)', () => {
     for (const version of [1.5, 2.5]) {
-      expect(() => migrateData({ ...v2(), version }), String(version)).toThrow('That Wanderment backup was made by a newer version of the app. Update Wanderment, then import it again.');
+      expect(() => migrateData({ ...v2(), version }), String(version)).toThrow('That backup was made by a newer version of the app. Update the app, then import it again.');
     }
-    expect(() => migrateData({ ...v2(), version: 0.5 })).toThrow('That file isn’t a Wanderment backup.');
+    expect(() => migrateData({ ...v2(), version: 0.5 })).toThrow('That file isn’t a backup from this app.');
   });
 
   it('a null in an optional field of a routine or run reads as absent, never as a bad record (audit F5)', () => {
@@ -280,9 +280,9 @@ describe('the import preview’s words name routines and runs', () => {
       'This backup has 2 activities and 1 wander.',
     );
     const both = data({ routines: { r1: routine('r1'), r2: routine('r2') }, runs: { n1: run('n1') } });
-    expect(importHolds(planImport(emptyData(), both))).toBe('This backup has 0 activities, 0 wanders, 2 routines and 1 run.');
-    expect(importHolds(planImport(emptyData(), data({ routines: { r1: routine('r1') } })))).toBe('This backup has 0 activities, 0 wanders and 1 routine.');
-    expect(importHolds(planImport(here, emptyData()))).toBe('This backup has no activities and no wanders.');
+    expect(importHolds(planImport(emptyData(), both))).toBe('This backup has 2 routines and 1 run.');
+    expect(importHolds(planImport(emptyData(), data({ routines: { r1: routine('r1') } })))).toBe('This backup has 1 routine.');
+    expect(importHolds(planImport(here, emptyData()))).toBe('This backup is empty.');
   });
 
   it('what replacing would do: a format-1 backup says the routines and runs here would be removed', () => {

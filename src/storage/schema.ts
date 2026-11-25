@@ -75,7 +75,7 @@ export const SCHEMA_VERSION = MIGRATIONS.length;
 export async function migrateSchema(db: Db): Promise<number> {
   const [{ user_version: from }] = await db.all<{ user_version: number }>('PRAGMA user_version');
   if (from > SCHEMA_VERSION) {
-    throw new Error(`This data was saved by a newer version of Wanderment (schema ${from}). Reload to update.`);
+    throw new Error(`This data was saved by a newer version of the app (schema ${from}). Reload to update.`);
   }
   for (let v = from; v < SCHEMA_VERSION; v++) {
     await db.transaction(async () => {

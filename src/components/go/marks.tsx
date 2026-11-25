@@ -27,7 +27,8 @@ export type MarkName =
   | 'pencil'
   | 'bin'
   | 'split'
-  | 'lines';
+  | 'lines'
+  | 'gear';
 
 const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corner'>, string> = {
   wait: 'M6 3h12M6 21h12M7 3v4l5 5-5 5v4M17 3v4l-5 5 5 5v4',
@@ -46,6 +47,8 @@ const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corne
   bin: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6',
   split: 'M4 5h16M4 12h10M4 19h10',
   lines: 'M4 6h16M4 12h16M4 18h11',
+  // Settings: the conventional cog, in blocks (eight teeth, a square hub).
+  gear: 'M10 3h4v3h1l2-2 3 3-2 2v1h3v4h-3v1l2 2-3 3-2-2h-1v3h-4v-3H9l-2 2-3-3 2-2v-1H3v-4h3V9L4 7l3-3 2 2h1zM10 10h4v4h-4z',
 };
 
 export function Mark({ name, size = 24, color }: { name: MarkName; size?: number; color: string }) {

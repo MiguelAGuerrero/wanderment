@@ -27,9 +27,15 @@ You steer both by editing this file and by telling `/product` how you use the ap
 - `node scripts/polish/roadmap-lint.mjs` checks this format (it also runs in `scripts/polish/verify.sh`
   and in CI). Finished items leave Now/Next for the Done log, as one line:
   `- YYYY-MM-DD · P-01, P-02 — what changed · evidence: <tests/specs/screenshots> · audit: N reported · N reproduced · N fixed · N deferred · <commit>`
-- Rules every item must respect: [`DESIGN.md`](DESIGN.md) — especially *capture is sacred* and the
-  *never* list (goals, streaks, % complete, timers, notifications, badge counts, anything that
-  creates a thread or attaches an activity without a tap).
+- Rules every item must respect: [`DESIGN.md`](DESIGN.md) — especially the *never* list (streaks,
+  deadlines, notifications, tallies of what you did, anything that shows how much is left, anything
+  created without a tap) and "no instructional or explanatory text".
+- **The app changed on 2026-11-25** (P-89): the old app is retired and the repository now holds the
+  runbook app designed in `docs/product/briefs/B-11-context-stacks.md`. Items that only concerned the
+  old app were closed as superseded then, not done: the old home's cost with a large history, kinds
+  and constellations, step stacks, camp, desire paths, the B-07 cleanup, screens without explanations,
+  naming copy, the thread page at 200 %, the exact `@` match, live animation, the first-step question,
+  find in the graph, the log box's finds, backdating, and search that shows why it matched.
 
 ## Inbox
 
@@ -37,21 +43,34 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-89 Retire the old app `[feature]` `[data]` `[platform]` L
+### P-90 Plan and run look different `[feature]` `[ux]` L
 *Status:* todo
-*Why:* the owner, 2026-11-25: "get rid of the old app entirely. Retired." After P-88 it still lives at
-`/old` with a "Back to Wanderment" button in the new home. B-11's last slice, brought forward.
-*Done when:* the old app's screens and routes are gone (the home with its sky, composer and sheet,
-rise, lines, stars, trails, wanders, activities, thread and activity pages, search, explore, map,
-pull-in), with their components, domain code used only by them, unit tests and e2e specs; every old
-address lands on the new home; the new home has no "Back to Wanderment"; **no stored data is deleted or
-converted** — wanders and activities stay in the database, the journal, the fallback, export and import
-(a backup made before still imports; an export still contains them), proved by a test; Export, Import
-(with its preview), storage status and Erase stay reachable from the new home (the existing settings
-screen kept, restyled only as far as needed, or its equivalent); the app-level states stay (opening,
-blocked storage, another tab, reconnecting, the update banner, saved by a newer version); DESIGN.md and
-STRATEGY.md say what the app now is, pointing to B-11; CLAUDE.md and the skills' references are
-corrected; `verify.sh --full` passes and its smoke set names specs that exist.
+*Why:* the owner's first real use (owner-notes 2026-11-25): adding a next step and breaking a step down
+happen on the runner and look like running, so doing turned into drafting — "plan, execute, plan,
+execute is the type of context switching I had in mind, but the app blurs the two". "Done" meant both
+done drafting and done working. Coming back, you could not tell which you had been doing. Loops and
+inputs belong to composing and could not be reached mid-run; the Repeat divider could not be moved (no
+drag, no visible control); opening the app did not offer to create anything; there was no scaffolding
+for creating (the outcome or feeling wanted, the inputs, the steps between).
+*Done when:* to be written from a design pass with the owner (mockups, a UI audit) — two modes, each
+unmistakable at a glance and on return, alternating; the composer reachable from any point in a run and
+back; Done only ever meaning done with the work; a movable Repeat divider; creating offered on open.
+Not started; nothing here is decided beyond the owner's concerns.
+
+### P-91 Erase everything `[data]` `[feature]` S
+*Status:* todo
+*Why:* B-11 lists Erase in Settings, but it has never existed; split out of P-89 as a new destructive
+feature.
+*Done when:* Settings offers Erase everything behind a confirm that offers Export first, with Cancel as
+the filled button; it clears every collection through the journal and survives a reload; whether the
+five frozen settings flags reset is decided; tests through the real persistence module.
+
+### P-92 The app's own states in the new look `[ux]` `[a11y]` S
+*Status:* todo
+*Why:* after the old app's retirement (P-89 audit) the opening, blocked-storage and waiting screens are
+still light, with 44 px targets and 13–15 px text, against DESIGN.md's ≥ 48 px and ≥ 16 px.
+*Done when:* those screens and the update banner use the new look and meet the size rules; their specs
+assert 48; nothing about their behaviour changes.
 
 ### P-87 The new app's first slice, after its panel `[ux]` `[a11y]` M
 *Status:* todo
@@ -69,16 +88,6 @@ never truncates the level you are in; a wrapping notice never moves the note; si
 ("since Tuesday" within a week, otherwise a date); one real pass on a phone (keyboard up, large text)
 and with a screen reader, its findings fixed or filed; e2e for each.
 
-### P-46 Home's cost with a large history `[perf]` M
-*Status:* todo
-*Why:* the one home opens a 4,000-line history in ~4 s here and ~14 s at CI CPU speed (E2E_SLOW=4);
-`restSky` + `skyStars` are ~0.1 s of it, so most is the load and first render (P-78, 2026-11-24). The
-old graph's per-log budget spec (`home-graph-perf.spec.ts`) retired with the graph Map (P-83); its
-per-log check lives in `e2e/perf.spec.ts`. P-38 (keep log dots) is moot with the graph gone.
-*Done when:* profile the home's load and first render with a 4,000-line history; bring it under ~1.5 s
-here and under the default e2e wait at E2E_SLOW=4; the one-home "many lines" spec goes back to the
-default wait; per-log cost on the home stays within `perf.spec.ts`'s budget.
-
 ### P-05 Prove it in Safari and Firefox `[platform]` M
 *Status:* todo
 *Why:* storage relies on expo-sqlite's async API working without COOP/COEP and on OPFS; that's only
@@ -87,81 +96,6 @@ verified in Chromium. Installed-on-iPhone use means Safari is the main browser.
 genuinely lacks a feature); any browser that can't run SQLite lands in the fallback path, tested.
 
 ## Next
-
-### P-75 Kinds `[feature]` `[data]` `[capture]` `[a11y]` S
-*Status:* todo
-*Why:* B-08 slice 3.
-*Done when:* once you've typed, a fixed row — make, read, write, research, watch, plan, move,
-people, rest — in one container after the suggestions, "I'm not sure" and the done chip; tap tags
-(again untags), "selected" spoken, never takes focus or catches Return, no layout jump; optional
-`kind` stored, exported, round-trips; never counted.
-
-### P-76 Constellations and "Name this?" `[feature]` `[a11y]` M
-*Status:* todo
-*Why:* B-08 slice 4.
-*Done when:* derived on the fly (never stored): lines draw faint links when they share word stems,
-or a kind within a few days (a kind alone only pulls stars near); ≥ 3 within a few weeks; tapping
-shows the lines with dates in words and the shared word or kind highlighted, and **Name this?** (a
-wander or a why) attaches them in one tap with Undo; screen readers hear "Lines that go together:
-…", no count; a named theme keeps its lines reachable from its star.
-
-### P-77 B-08 in DESIGN.md `[feature]` S
-*Status:* todo
-*Why:* B-08 slice 5.
-*Done when:* DESIGN.md describes lines as stars (pursuit and done), the done chip, kinds,
-constellations and guiding stars; B-07's P-67 (step stacks) continues from ↳ First step.
-
-### P-67 Step stacks `[data]` `[feature]` M
-*Status:* todo
-*Why:* B-07 slice 3 (absorbs P-19).
-*Focus view (owner, 2026-11-24):* opening a wander is a focus view — the current step, stylized, alone at
-the centre (no ring, no timer), the wander's name small above; **Done it** and **Nearer step** (decompose:
-set a nearer step, which takes the centre; the step it came from waits behind it); after Done it the
-next step comes forward; when the stack is empty, "Reached" — you stay in focus until then or until you
-leave. UI audit done (`.polish/product/ui-audit-P-67-focus.md`, local); fold-ins: "Nearer step" with no
-icon, name "Nearer step: break <step> into a smaller one", outline ≥ 3:1, 44 pt, buttons stack at
-large text; the field above the keyboard, Return sets it, Set it disabled when empty; "then …" in the
-muted colour, deeper steps as fainter "then …" lines (never a count); after Done it "Done it: <step>"
-with Undo (no timer) and the next step takes the centre ("Next: …" announced, focus to the step);
-after Set it the nearer step takes the centre with Undo; Back/Esc close the field first, leaving keeps
-everything; "Reached." doesn't close the wander, offers a quiet "＋ Add a next step" and "Back to the
-sky"; a wander with no step shows "＋ Add a next step"; the glow is static (no ring/pulse — not a
-timer); long steps scroll, never truncate; large text drops the stylization; the note and footprints
-stay reachable below the step; "Done it" everywhere (the trail's "Did it" renamed).
-*Done when:* an ordered stack of steps per wander (additive migration; `next` kept as the top for
-older versions and older exports); "Nearer step" pushes; Did it pops into an activity; set down with
-Undo; a cleared stack shows "Reached"; export/import round-trip; migration + persistence tests,
-mutation-checked; verify --full.
-
-### P-68 Camp: a note and "waiting on…" per wander `[data]` `[feature]` S
-*Status:* todo
-*Why:* B-07 slice 4.
-*Done when:* a per-wander note and optional waiting-on, edited on the trail and the camp sheet,
-shown under each trail; switching or closing keeps everything; stored, exported, round-trips; e2e.
-
-### P-69 Routines: desire paths and marked routes `[data]` `[feature]` M
-*Status:* todo
-*Why:* B-07 slice 5.
-*Done when:* typing brings up similar past entries as desire paths (no storage); "Mark this route"
-on a cleared stack saves a route and a step can be kept as a pebble; both show as chips under their
-star and in typing; pushing a route re-creates its steps; nothing pushed without a tap; stored,
-exported, round-trips; e2e.
-
-### P-70 B-07 cleanup `[feature]` S
-*Status:* todo
-*Why:* B-07 slice 6.
-*Done when:* DESIGN.md fully describes the night sky (model, stacks, camp, routines, visuals); the
-perf spec measures Map and the trailhead separately; leftovers of the graph-first Home removed.
-
-### P-44 Screens without explanations `[ux]` `[a11y]` M
-*Status:* todo
-*Why:* owner, 2026-11-22: "the UI should be intuitive enough … you should have an information
-dialogue, but never it being part of the UI itself" (now a DESIGN.md rule). Today's screens carry
-helper sentences: the empty-Home welcome, the first run's helper lines, the bridge question's
-framing, Settings notes.
-*Done when:* each screen shows actions and data only; the explanations move into an ⓘ sheet per
-screen that never opens by itself; safety warnings stay inline; accessible names keep the full
-meaning; e2e and a11y specs updated (copy assertions move to the sheet); screenshots at 390 px.
 
 ### P-45 Import odds and ends `[data]` S
 *Status:* todo
@@ -181,15 +115,6 @@ page that holds the data) before the swap; the toast's Undo and a Settings "Rest
 before the import" line (surviving reload, until the next import or dismissed) restore it exactly,
 through the gated and journaled path; a crash between snapshot and swap leaves data intact;
 persistence tests for reload, crash, second page and the local-storage fallback.
-
-### P-40 Naming copy `[feature]` `[ux]` S
-*Status:* todo
-*Why:* B-05 slice 2 (D-8): "nothing feeds it yet" reads false right after you did something and
-scolds a month later; the examples read as moods only.
-*Done when:* "nothing feeds it yet" is gone from the summary; the examples span a feeling, a value
-and an end (keeping "feel productive"); placeholder "A feeling, a reason or an end, in your own
-words"; the step prompt reads "a next step, if one comes to mind · it can wait"; a why's list button
-names its staged step for screen readers, and the summary never repeats it; tests updated.
 
 ### P-32 Take-back conflicts and leftovers `[data]` `[platform]` S
 *Status:* todo
@@ -212,16 +137,6 @@ lands on it again. Deferred from P-29 because it reverses three Part A tests on 
 the three Part A assertions are updated with the reason; the remembered Return and draft survive;
 persistence + e2e tests. Patch ready: session scratchpad `U1-cold-start-retry.patch`.
 
-### P-28 The thread page at 200 % zoom and long names `[ux]` `[a11y]` S
-*Status:* todo
-*Why:* audit of P-14 (F5, F6, F9, F12): at 200 % zoom the swap row opens below the fold and a swap
-toast with long names grows past the screen top; Esc doesn't close the swap row from the log box; a
-long thread name makes its page wider than the screen (the composer's "Doing:" chip doesn't wrap —
-existing, not from P-14).
-*Done when:* the swap row is scrolled into view when it opens; toasts cap their height (names wrap,
-Undo stays visible); the doing chip wraps at 390 px with a 90-character name; Esc closes the swap row
-from anywhere on that page only; e2e at 390 px and 200 %.
-
 ### P-27 The toast speaks on iOS `[a11y]` `[native]` S
 *Status:* todo
 *Why:* audit of P-13/P-24 (F9): the toast relies on `accessibilityLiveRegion`, which is Android-only;
@@ -237,48 +152,6 @@ hasn't promised it, hides the ask button there, and shows the iOS-only "Share �
 on desktop and Android. The warning also shows when there's nothing saved yet.
 *Done when:* the install hint names the platform's own way (or none); "installed" never claims what
 `persisted()` denies; no warning on an empty install; e2e per stubbed platform.
-
-### P-23 An exact `@` match always shows `[capture]` S
-*Status:* todo
-*Why:* audit B (finding 13): with 220 threads, `@thread 21` offers 215, 216 and 211, so the exact
-match can be neither picked nor created.
-*Done when:* an exact (normalized) name match is always the first suggestion; unit test with
-`bigBlob`-sized data.
-
-
-### P-17 Gentle live animation `[feature]` `[a11y]` S
-*Status:* todo
-*Why:* B-01 slice 3c: new nodes and links ease in and glow briefly, then settle.
-*Done when:* animation on declare/log; none under Reduce Motion (native setting or
-`prefers-reduced-motion`), e2e with reduced motion emulated; no layout shift for the cards below;
-only what's new animates, once (thickening is instant); the toast carries the same moment in words.
-
-### P-18 An optional first step: what's it all for? `[feature]` M — superseded by P-36
-*Status:* blocked
-*Why:* B-01 slice 4: on first open, name up to three whys — or skip in one tap; the log box is
-live throughout.
-*Done when:* first-open card with one field + "+ another" (up to 3), "You can change these any
-time", "Let it surface" as an equal path (no trace), one value-shaped example; logging dismisses it
-for good; e2e for declare, let-it-surface and log-during-card; axe. (B-01 panel refinement 9.)
-
-### P-25 Find in the graph: matches in memory `[feature]` S
-*Status:* todo
-*Why:* B-03 slice 1 (D-6): the log box needs to know what the typed line matches.
-*Done when:* domain `findInGraph(data, text)` ranks whys and threads (exact, prefix, word-start),
-then staged steps (meaningful-word match only), then past activities *in a thread* by recency; the
-whole line with every word required; one chip per thread (its step wins); the "doing X?" thread left
-out; capped; unit tests incl. `bigBlob` timing under one frame.
-
-### P-26 The log box also finds: quiet row and graph focus `[feature]` `[a11y]` M
-*Status:* todo
-*Why:* B-03 slice 2 (D-6): find a why, thread or step from the box and see it in the live graph.
-*Done when:* on Home only, after 2+ chars and a short settle, up to 3 chips above the box in words
-(no symbols, no dates), stable order, no animation, never an empty message; `@` hides the row; a
-tap focuses the live graph (P-15) — graph only moves, instant under Reduce Motion — with a "Showing
-X · toward … · fed by …" caption in names and a 44 pt "Show all"; Return logs as typed and also
-ends focus (after the new link lands); Esc on web only with `@` closed; "All results →" opens Search
-and the draft survives; accessible names start with visible text then kind; one match at the
-largest text; e2e; axe; 390 px and 200 % text.
 
 ### P-06 Dark mode `[ux]` `[a11y]` M — needs 🙋 D-2
 *Status:* blocked
@@ -299,12 +172,6 @@ browser tab title never changes.
 *Done when:* each screen sets a document title and moves focus to its heading on navigation; e2e
 checks focus after opening a thread, details and search.
 
-### P-09 Say when, beyond "2 days ago" `[ux]` S
-*Status:* todo
-*Why:* activity details offer Today / Yesterday / 2 days ago only; anything older can't be backdated.
-*Done when:* a date (and optional time) can be picked without leaving the screen, on web and native,
-never in the future; Activities and Home order update.
-
 ### P-10 Long, odd and many `[ux]` M
 *Status:* todo
 *Why:* untested at the extremes: 80-character thread names, 500-character activities, emoji, RTL
@@ -319,17 +186,8 @@ last change.
 *Done when:* native writes are journalled synchronously (e.g. expo-sqlite's sync key-value store) and
 replayed on start; covered by the persistence tests with a native-flavoured mock.
 
-### P-12 Search that shows why it matched `[ux]` S
-*Status:* todo
-*Why:* results don't highlight the matched words, and very large histories search on every keystroke.
-*Done when:* matches are highlighted; input is debounced for large histories; empty-state hints.
-
 ## Later
 
-- **Graph tuning with real data** — revisit node sizing, siblings and the two-steps-out ring once
-  there are weeks of entries. `[ux]`
-- **Home at scale** — virtualise thread lists past ~100 threads; cold-start time and the 1.1 MB entry
-  bundle (route-level splitting). `[perf]`
 - **Real-device accessibility pass** — VoiceOver, TalkBack, largest Dynamic Type, Reduce Motion, on
   a development build. `[a11y]` `[native]` — needs 🙋 D-3
 - **Old-version tabs** — once the first release can't still be open anywhere, retire the legacy
@@ -452,6 +310,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-25 · P-89 — the old app is retired: 112 files deleted (14 routes, 27 components, 22 domain modules, 29 unit test files, 20 specs); every old address lands on the new home; Settings moved into the new app (dark) with Export, Import and its preview, where the data lives and the version, and a line saying earlier data is kept when there is any; the import confirm now has Cancel filled and first; no stored data deleted or converted — wanders, activities and the five settings stay in the database, the journal, the fallback, export and import; DESIGN.md, STRATEGY.md, the README, CLAUDE.md, the skills and agents rewritten for the app that is here now; 18 roadmap items that only concerned the old app closed as superseded. evidence: golden fixtures written by the two previous builds (`src/storage/golden.test.ts`, 21 tests, green through every step), a guarantee table mapping each removed storage test to the one that now proves it, 568 unit tests, the whole e2e suite (200 passed), the auditor's own base-build data loading deep-equal and a real old-build tab beside a new one, load with 4,000 lines unchanged, `verify.sh --full`. audit: 9 reported · 4 reproduced · 6 fixed · 3 deferred.
 - 2026-11-25 · P-88 — the new app opens by default: `/` (and the installed icon) lands on the new home, opening where you left off when a run is in progress; the old home moved to `/old` with everything in it working as before, and its own home links (sheet close, Back fallbacks, the history mark) stay inside it; the new home keeps its "Back to Wanderment" button, now pointing at `/old`. evidence: new spec `e2e/go-default.spec.ts` (20 tests, failing before the change), 13 old spec files repointed (start address and old-home URL only, nothing removed), the whole e2e suite twice (364 passed), 1007 unit tests, `verify.sh --full`. Light tier (routing): no separate audit. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred.
 - 2026-11-24 · P-86 (B-11 slice 1) — the first usable slice of the new app, on its own route `/go` beside today's home (one added row in today's sheet, "Run a routine"): home as tiles with "I'm going to…" searching them and "New: …"; a pure engine (run + verb → run) with a tolerant reader; routines with steps, wait steps and the Repeat divider (until I'm done / a number); the runner — context line with Done, the sticky note, Pause · Break it down / Step in · Next, the last-step mark, notices with Undo; the pull-up panel (round, then, Back to, Jump to…, Change the words, See it all, Keep in); Break it down for this run with Keep; the edge of a goal asking for the next small step; leaving a level offering this run's changes; Pause with a reason, the paused screen, Home asking first; "waiting for … · since"; See it all, Jump to…, a plain routine editor; one pressed verb queued while a tab reconnects. evidence: 1006 unit tests (228 new; every row of the execution table, a random-walk fuzz, persistence round trips), new e2e specs `e2e/go-*.spec.ts` for J01–J05, J10, J29, J34–J39 and an accessibility pass, the builder's screenshots in `.polish/archive`, `verify.sh --full`. Not verified: native, a real phone keyboard and real text scaling (web only, by window size); single-letter shortcuts were removed pending a settings switch. audit: 23 reported · 18 reproduced · 19 fixed · 4 deferred.
 - 2026-11-24 · P-85 (B-11 groundwork) — storage for any kind of record, no visible change: one list of collections drives the journal, undo, the localStorage fallback, tab hand-over, load / save / replace, export and import; backup format 2 is always written and format 1 still imports (a newer one is refused); migration 4 adds `routines` and `runs` tables only, nothing converted; strict import refuses a format-2 file missing its routines or runs; ids that are method names can now be deleted; the import preview names routines and runs. evidence: 778 unit tests (64 new, written first and shown failing before the change), a differential fuzz against the previous code identical for wanders and activities, a real schema-3 → 4 upgrade with a pending old-format journal, load with 4,000 activities unchanged (~870 ms), `verify.sh --full`. Known and accepted: once migration 4 has run, an older build shows its blocked / reload screen, so the deploy cannot be reverted. audit: 13 reported · 3 reproduced · 7 fixed · 6 deferred.

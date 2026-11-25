@@ -28,7 +28,9 @@ Read `docs/DESIGN.md` first; its product rules are not negotiable.
    `src/storage/persistence.test.ts`). In the app:
    1. run `npm run build:web`, then `node e2e/serve.mjs`;
    2. open http://localhost:4173/wanderment/ with Playwright at 390×844;
-   3. seed data with the `e2e/graphFixture.ts` helpers.
+   3. seed routines and runs with `seedGo` / `startGo` in `e2e/goFixture.ts` (they import a backup
+      through Settings); for data from the retired app use `legacyBlob` / `seedScript` in
+      `e2e/graphFixture.ts`.
 
    Take screenshots for UX questions. If you conclude "not a bug" or "already fine", show the
    evidence.

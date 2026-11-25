@@ -1,57 +1,62 @@
-# Wanderment
+# The app (no name yet)
 
-A personal log for people with many interests who don't want goal-setting apps.
+**Not what you have to do. How you do it.** A personal runbook: you keep your own ways of doing
+things — routines, in your words — and run them one small step at a time.
 
-Log what you just did in one line. Optionally say what it was **to** — `practiced scales @play guitar`.
-Over time, wanders form, each with a small "next step" so picking an interest back up
-feels warm instead of cold. No goals, streaks, timers or notifications: you can name what you're
-moving toward or let it surface from what you do; how you get there stays open.
+Say what you're going to do, and run it: one step on screen, with Pause, Break it down and Next. A
+heavy step can be broken into smaller ones as you go; a routine can repeat until you're done, or a set
+number of times; a run can wait on something outside your hands and be picked up later, where you left
+it. Nothing counts what you did or shows how much is left; there are no deadlines, streaks or
+notifications.
+
+The repository, the database and the web address are still called `wanderment` — a leftover from the
+app this replaced (a personal log, retired on 2026-11-25). What was logged there is kept in storage and
+in exports; it is not shown in the app yet.
 
 ## Run it
 
 ```bash
 npm install
-npm run web        # browser prototype (primary target for now)
-npm start          # Expo dev server for iOS / Android
+npm run web        # the web app (the primary target for now)
+npm start          # Expo dev server for iOS / Android (not verified on devices yet)
 ```
 
 ## Live
 
-Every push to `main` is tested, built and deployed straight to GitHub Pages by the "Deploy web" workflow
-(Pages source: **GitHub Actions**): https://miguelaguerrero.github.io/wanderment/
+Every push to `main` is tested, built and deployed to GitHub Pages by the "Deploy web" workflow:
+https://miguelaguerrero.github.io/wanderment/
 
-Your data lives in a SQLite database in that browser (on iOS/Android, on the device, with a dated backup in
-Documents/backups for the last 7 days). Use Settings → Export to keep a copy.
+Your data lives in a SQLite database in that browser. Use Settings → Export to keep a copy.
 
-It's an installable web app: on iPhone, Safari → Share → **Add to Home Screen**; on Android/desktop Chrome, **Install app**.
-After the first visit it works offline. When a new version is deployed, a small "A new version is ready · Reload"
-banner appears; nothing reloads on its own.
+It's an installable web app: on iPhone, Safari → Share → **Add to Home Screen**; on Android or desktop
+Chrome, **Install app**. After the first visit it works offline. When a new version is deployed, a
+"new version is ready" banner appears.
 
 ## Checks
 
 ```bash
-npm test           # domain unit tests (vitest)
+npm test           # unit tests (vitest)
 npm run typecheck  # tsc --noEmit
 npx eslint .       # lint
 npm run e2e        # Playwright end-to-end tests against the built web app
 ```
 
+`scripts/polish/verify.sh` runs all of them and is the definition of done (see `CLAUDE.md`).
+
 ## Layout
 
 | Path | What lives there |
 |---|---|
-| `src/domain/` | Pure TypeScript model, selectors, @-autocomplete, emergence (pull-in, values), search, graph neighbourhoods, backup/migration. No React. Fully unit-tested. |
-| `src/store/` | Zustand store: data, draft, toast, single-step undo. |
-| `src/storage/` | SQLite schema + migrations, repository (tested against real SQLite via `node:sqlite`), persistence with a write-ahead journal on web, native file backups. |
-| `src/components/` | Composer (log box), ThreadCard (card + next-step crumb), Toast, UpdateBanner, PullInOffer, Screen shell; `graph/` holds Home's graph, Explore's canvas (react-native-svg edges), list view and attach card. |
+| `src/domain/` | Pure TypeScript: the execution engine (`run.ts`: a run plus a verb gives the next run), the views the screens read (`runView.ts`), the prompt's search (`starts.ts`), backup and migration. No React. Unit-tested. |
+| `src/store/` | Zustand store: data, actions, notices, single-step undo. |
+| `src/storage/` | SQLite schema and migrations, the repository, persistence with a write-ahead journal on web, the localStorage fallback, tab hand-over. |
+| `src/app/go/`, `src/components/go/` | The screens: home (tiles and the prompt), the runner, the paused screen, See it all, Jump to…, the routine editor, Settings. |
 | `src/pwa/` | Service-worker registration and update detection (web only). |
-| `public/` | Web HTML template, PWA manifest and icons. `workbox-config.js` generates `sw.js` at build time. |
+| `public/` | Web HTML template, PWA manifest and icons. |
 | `e2e/` | Playwright specs and a static server that mimics GitHub Pages. |
-| `src/app/` | Expo Router screens: Home (the graph), Wanders, Activities, Explore, wander page (`thread/[id]`), activity details, pull-in, search, settings. |
-| `docs/` | Design decisions and roadmap. |
+| `docs/` | Product rules, the design, the roadmap. |
 
-See [`docs/DESIGN.md`](docs/DESIGN.md) for the product rules and [`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next —
-drop ideas or annoyances in its **Inbox**. In Claude Code, `/product` pushes the product forward (it ships small
-features, proposes big ones as briefs in [`docs/product/`](docs/product/), and asks you only for product decisions);
-`/polish` works through roadmap items one audited batch at a time.
-[`docs/IMPLEMENTATION_PLAN.md`](docs/IMPLEMENTATION_PLAN.md) is the (completed) plan for M1–M4.
+See [`docs/DESIGN.md`](docs/DESIGN.md) for the product rules, the design in
+[`docs/product/briefs/B-11-context-stacks.md`](docs/product/briefs/B-11-context-stacks.md), and
+[`docs/ROADMAP.md`](docs/ROADMAP.md) for what's next — drop ideas or annoyances in its **Inbox**. In
+Claude Code, `/product` grows the app and `/polish` refines it, one audited batch at a time.

@@ -10,7 +10,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { tileLine } from '@/domain/goText';
-import { OLD_HOME } from '@/domain/home';
 import { leftOff, Tile } from '@/domain/runView';
 import { searchStarts, StartRow } from '@/domain/starts';
 import { useStore } from '@/store/useStore';
@@ -94,8 +93,8 @@ export function GoHome() {
     <GoScreen testID="go-home" settled={here} layer={offer ? <KeepSheet runId={offer.runId} ids={offer.changeIds} onClose={act().dismissRunOffer} /> : null}>
       <View style={[styles.flex, !here && styles.away]}>
       <View style={styles.bar}>
-        <Btn kind="plain" mark="back" spoken="Back to Wanderment" onPress={() => (router.canGoBack() ? router.back() : router.replace(OLD_HOME))} style={styles.back} />
         <H1 ref={title} style={styles.title}>{running ? 'Running' : 'Nothing running'}</H1>
+        <Btn kind="plain" mark="gear" spoken="Settings" onPress={() => router.push('/go/settings')} style={styles.settings} testID="go-settings-btn" />
       </View>
       <ScrollView style={styles.flex} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" testID="go-tiles">
         <View style={styles.grid}>
@@ -217,8 +216,8 @@ function TileBox({ tile, first, wide, onPress, only, unavailable }: { tile: Tile
 const styles = StyleSheet.create({
   flex: { flex: 1, minHeight: 0 },
   away: { opacity: 0 },
-  bar: { minHeight: 56, flexDirection: 'row', alignItems: 'center', paddingHorizontal: SP.s2, gap: SP.s1 },
-  back: { width: TARGET, paddingHorizontal: 0, justifyContent: 'center' },
+  bar: { minHeight: 56, flexDirection: 'row', alignItems: 'center', paddingLeft: SP.s3, paddingRight: SP.s2, gap: SP.s1 },
+  settings: { width: TARGET, paddingHorizontal: 0, justifyContent: 'center' },
   title: { flex: 1, minWidth: 0 },
   list: { paddingHorizontal: SP.s3, paddingTop: SP.s2, paddingBottom: SP.s3, gap: SP.s3 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s3 - 2 },

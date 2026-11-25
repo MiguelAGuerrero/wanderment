@@ -20,6 +20,6 @@ export function fromBackup(json: string): Data {
     throw new Error('That file isn’t valid JSON.');
   }
   const b = parsed as Partial<Backup>;
-  if (b?.app !== 'wanderment' || !b.data) throw new Error('That file isn’t a Wanderment backup.');
+  if (b?.app !== 'wanderment' || !b.data) throw new Error('That file isn’t a backup from this app.');
   return migrateData(b.data);
 }

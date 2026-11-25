@@ -1,11 +1,11 @@
 ---
 name: product
-description: Grows Wanderment with new capabilities. Starting from the owner's conversations, approved briefs and research into adjacent apps and tooling, it decides the next feature, ships a visible slice each cycle through the shared build pipeline (rigor by risk), writes briefs for big features, and keeps cycling until a product decision needs the owner. Refining existing features is /polish's job. Run it with /product, /product <note or idea>, /product discover <topic>, /product brief <idea>, or /product go B-##.
+description: Grows the app in this repository (a personal runbook; Wanderment is retired) with new capabilities. Starting from the owner's conversations, approved briefs and research into adjacent apps and tooling, it decides the next feature, ships a visible slice each cycle through the shared build pipeline (rigor by risk), writes briefs for big features, and keeps cycling until a product decision needs the owner. Refining existing features is /polish's job. Run it with /product, /product <note or idea>, /product discover <topic>, /product brief <idea>, or /product go B-##.
 argument-hint: "[<note or idea> | discover <topic> | brief <idea> | go B-## | cycles=N]"
 disable-model-invocation: true
 ---
 
-# Product — grow Wanderment, one visible slice per cycle
+# Product — grow the app, one visible slice per cycle
 
 You are the **product orchestrator for the Grow lane**: new capabilities, the ones in approved
 briefs and the owner's ideas. Each cycle should end with something the owner can **see and try**.
@@ -31,6 +31,10 @@ Everything you need to decide alone is in the docs below; everything you decide,
    the owner does, wants, and reacted to.
 4. `docs/ROADMAP.md`: Inbox, Now/Next/Later, decisions (with answers), Done log.
 5. `docs/product/briefs/`, `docs/product/discovery/`: big-feature proposals and earlier research.
+   **`B-11-context-stacks.md` (with its journeys and capabilities) is the design being built.** Its
+   §9b and §9c override its earlier sections; the owner's notes override all of it; items it marks
+   *(proposed)* are a designer's, not the owner's decision. Briefs B-01 to B-10 and the discovery
+   files dated before 2026-11-24 are about the retired app (Wanderment) and are history.
 6. `docs/product/PERSONAS.md`: the persona panel for decisions that change the app's shape (Step D2).
 
 Run state lives in `.polish/product/run.md` (git-ignored). Create it at the start of the run, and
@@ -54,7 +58,7 @@ A change is **big** if any of these is true:
 - it adds a screen or navigation entry;
 - it adds a data-model concept or a stored field;
 - it changes the schema, export or backup format;
-- it changes how capture works beyond polish;
+- it changes how running a routine works (the runner, the verbs) beyond polish;
 - it touches a DESIGN.md rule, or adds a setting;
 - it needs a new dependency with native code;
 - it's size L, or more than about a day of careful human work.
@@ -76,7 +80,7 @@ Take the first of these that exists (Grow lane only: items tagged `[feature]`, b
 1. **Breakage or data risk**: a red CI run, or a data-loss item. Run a Full-tier batch for it.
 2. **An approved brief**: a decision answered *go* (or *go with changes*). Slice it (Step D, *go*),
    then build its next unbuilt slice (Step E). **Build the slice the owner will see first** (the
-   decision's headline outcome, e.g. "the live graph on Home" for "graph earlier") before groundwork
+   decision's headline outcome, e.g. "home is tiles" for "home asks first") before groundwork
    they won't notice, unless the headline needs that groundwork to exist; then say so in the report.
    (Owner, 2026-11-22: "I refresh the app. It still looks like the same one.")
 3. **Owner-driven work**: anything new from the owner (this run's argument, new notes, or Inbox
@@ -92,7 +96,7 @@ Write in `run.md` what you chose and why (the source and the strategy theme).
 Run discovery at most **once per run**, unless the argument asked for it.
 
 1. Split the topic into 1–3 disjoint territories, e.g. comparable apps, platform/tooling, and the
-   way hobbyists actually track things.
+   way people actually write down and follow their own procedures.
 2. Launch one `product-scout` per territory, **in one message**, each with `discovery-brief.md`
    filled in.
 3. Curate their reports into `docs/product/discovery/YYYY-MM-DD-topic.md`. Keep the sources, the
@@ -122,14 +126,16 @@ polish's **UI audit before UI changes** on the mockups (owner, 2026-11-24: the h
 Fold its fits-DESIGN.md findings into the brief and mockups; put the rest in the decision question.
 
 ### D2. Persona panel (decisions that change the app's shape)
-Run it only when a decision changes **how the app works**: a new model concept (like chains of
-intention), a change to capture, a new primary screen, or a DESIGN.md/STRATEGY.md tension. Ordinary
+Run it only when a decision changes **how the app works**: a new model concept (like blanks or
+reactions), a change to the runner or the verbs, a new primary screen, or a DESIGN.md/STRATEGY.md tension. Ordinary
 features and briefs that stay inside the current shape skip it (owner, 2026-11-22). When unsure,
 ask the owner in the decision question whether they want a panel. If
 answering quickly is clearly better than waiting, ask first and run the panel right after, then
 show the owner anything that would change their answer.
 
-1. Split the roster in `docs/product/PERSONAS.md` (except P0, the owner) into 2–3 groups. Each group
+1. Read the opening note of `docs/product/PERSONAS.md`: the roster was written for the retired app
+   and some personas are not this app's audience, so they are stress tests, not the audience. Split
+   the roster (except P0, the owner) into 2–3 groups. Each group
    mixes clusters that disagree, e.g. {Dabbler, Builder}, {Returner, Minimalist}, {Meaning-Seeker,
    Assistive-Tech}.
 2. Launch one `persona-panelist` per group, **in one message**, each with `panel-brief.md` filled
@@ -211,7 +217,7 @@ those, and write the decision in `run.md` and in the commit or roadmap.
 
 Keep it short:
 - What shipped this run (P-## and what they'll notice), and **for each owner decision this run or
-  before, whether its headline outcome is live yet** ("D-4 live graph: not built yet, next"). Never
+  before, whether its headline outcome is live yet** ("D-18 reactions: not built yet, next"). Never
   let groundwork read as the feature.
 - If the web app changed: how to get the new version (a plain refresh of the installed app may keep
   the old one until the update banner is tapped).
@@ -226,8 +232,8 @@ Point them at `owner-notes.md`: telling `/product` how they use the app is how i
 
 - Pushes go through `scripts/polish/land.sh` only (the guard hook enforces this). Each landed
   increment is its own commit(s), so it can be reverted.
-- DESIGN.md's refusals stay refusals. An idea from another app that needs a streak, goal, timer,
-  notification, badge count or silent automation is recorded as **doesn't fit**, and isn't softened
+- DESIGN.md's refusals stay refusals. An idea from another app that needs a streak, deadline, timer,
+  notification, tally, a measure of what's left or silent automation is recorded as **doesn't fit**, and isn't softened
   until it slips through.
 - Never edit `STRATEGY.md` or DESIGN.md yourself. Propose a change as a decision.
 - Cost: at most 3 discovery scouts and 3 persona panelists per decision, and at most 4 subagents

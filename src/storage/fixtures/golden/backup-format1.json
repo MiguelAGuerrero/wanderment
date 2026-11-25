@@ -1,0 +1,78 @@
+{
+  "app": "wanderment",
+  "exportedAt": "2026-10-03T12:00:00.000Z",
+  "data": {
+    "version": 1,
+    "threads": {
+      "old-001": {
+        "id": "old-001",
+        "name": "practice drawing",
+        "next": "sketch hands for ten minutes",
+        "hidden": false,
+        "createdAt": "2026-10-03T08:00:00.000Z",
+        "declaredAt": "2026-10-03T08:21:00.000Z"
+      },
+      "old-002": {
+        "id": "old-002",
+        "name": "learn piano",
+        "hidden": true,
+        "createdAt": "2026-10-03T08:07:00.000Z"
+      },
+      "old-003": {
+        "id": "old-003",
+        "name": "make apparel",
+        "next": "cut the pattern",
+        "hidden": false,
+        "createdAt": "2026-10-03T08:14:00.000Z"
+      }
+    },
+    "activities": {
+      "old-004": {
+        "id": "old-004",
+        "text": "scales, slowly",
+        "occurredAt": "2026-09-28T19:30:00.000Z",
+        "createdAt": "2026-10-03T08:35:00.000Z",
+        "doingId": "old-002",
+        "toIds": [
+          "old-001"
+        ],
+        "note": "left hand only"
+      },
+      "old-005": {
+        "id": "old-005",
+        "text": "drew for an hour",
+        "occurredAt": "2026-10-03T08:42:00.000Z",
+        "createdAt": "2026-10-03T08:42:00.000Z",
+        "toIds": [
+          "old-001"
+        ],
+        "lit": true
+      },
+      "old-006": {
+        "id": "old-006",
+        "text": "sewed a hem",
+        "occurredAt": "2026-10-03T08:49:00.000Z",
+        "createdAt": "2026-10-03T08:49:00.000Z",
+        "doingId": "old-003",
+        "toIds": [],
+        "note": "blue thread — the machine jams on denim",
+        "settledAt": "2026-10-03T08:52:00.000Z"
+      },
+      "old-007": {
+        "id": "old-007",
+        "text": "made tea",
+        "occurredAt": "2026-10-03T08:59:00.000Z",
+        "createdAt": "2026-10-03T08:59:00.000Z",
+        "toIds": [],
+        "settledAt": "2026-10-03T08:59:00.000Z"
+      },
+      "old-008": {
+        "id": "old-008",
+        "text": "walked to the river — “just because”",
+        "occurredAt": "2026-10-03T09:06:00.000Z",
+        "createdAt": "2026-10-03T09:06:00.000Z",
+        "toIds": []
+      }
+    }
+  }
+}

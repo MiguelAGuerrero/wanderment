@@ -1,0 +1,176 @@
+/**
+ * P-89 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE P-85 (f477e07: schema 3, data format 1,
+ * the four-key journal). Run once, in a copy of that commit; never part of the suite.
+ */
+import { copyFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const OUT = process.env.P89_OUT!;
+
+const env = vi.hoisted(() => {
+  const ls = new Map<string, string>();
+  const state = { dbPath: '', openError: undefined as Error | undefined, hangWrites: false };
+  const localStorage = {
+    get length() {
+      return ls.size;
+    },
+    key: (i: number) => [...ls.keys()][i] ?? null,
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => void ls.set(k, String(v)),
+    removeItem: (k: string) => void ls.delete(k),
+  };
+  (globalThis as { localStorage?: unknown }).localStorage = localStorage;
+  return { ls, state, localStorage };
+});
+
+vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => env.localStorage.getItem(k),
+    setItem: async (k: string, v: string) => env.localStorage.setItem(k, v),
+    removeItem: async (k: string) => env.localStorage.removeItem(k),
+  },
+}));
+vi.mock('./expoDb', async () => {
+  const { nodeDb } = await import('./nodeDb');
+  return {
+    openExpoDb: async () => {
+      if (env.state.openError) throw env.state.openError;
+      const db = nodeDb(env.state.dbPath);
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+    },
+  };
+});
+vi.mock('./nativeBackup', () => ({ scheduleBackup: () => {} }));
+
+const settle = () => new Promise((r) => setTimeout(r, 40));
+
+async function load() {
+  vi.resetModules();
+  const { startPersistence } = await import('./persistence');
+  const { useStore } = await import('@/store/useStore');
+  await startPersistence();
+  return useStore;
+}
+type Store = Awaited<ReturnType<typeof load>>;
+
+/** Ids are a counter and the clock is fixed and stepped, so every session makes the same records. */
+let n = 0;
+let clock = 0;
+const T0 = Date.parse('2026-10-03T08:00:00.000Z');
+const tick = (minutes = 7) => vi.setSystemTime(new Date((clock += minutes * 60000)));
+
+beforeEach(() => {
+  env.ls.clear();
+  env.state.openError = undefined;
+  env.state.hangWrites = false;
+  env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-freeze-')), 'db.sqlite');
+  n = 0;
+  clock = T0;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(T0));
+  vi.stubGlobal('crypto', { randomUUID: () => `old-${String(++n).padStart(3, '0')}` });
+});
+afterEach(async () => {
+  (await import('./persistence')).stopPersistence();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+/** What a person did in the old app, through its own actions. */
+function drive(store: Store) {
+  const s = () => store.getState();
+  const drawing = s().createThread('practice drawing');
+  tick();
+  const piano = s().createThread('learn piano');
+  tick();
+  const apparel = s().createThread('make apparel');
+  tick();
+  expect(s().declareThread(drawing).ok).toBe(true); // a declared wander (a why)
+  tick();
+  s().setNext(drawing, 'sketch hands for ten minutes');
+  s().setNext(apparel, 'cut the pattern');
+  tick();
+  // A plain log, backdated, with a doing wander, a "to" wander and a note.
+  const scales = s().log({ text: 'scales, slowly', doingId: piano, toIds: [drawing], note: 'left hand only', occurredAt: new Date('2026-09-28T19:30:00.000Z') })!;
+  tick();
+  // A line sent up from the trailhead: lit, and it stays lit.
+  const drew = s().log({ text: 'drew for an hour', toIds: [drawing] }, { trail: true })!;
+  s().leaveKept();
+  tick();
+  // A line sent up, then Done it: settled, with its time.
+  const hem = s().log({ text: 'sewed a hem', doingId: apparel }, { trail: true })!;
+  tick(3);
+  expect(s().settleKept()).toBe(true);
+  s().leaveKept();
+  tick();
+  s().updateActivity(hem, { note: 'blue thread — the machine jams on denim' });
+  // Sent up with the done chip: settled at once.
+  const tea = s().log({ text: 'made tea' }, { trail: true, done: true })!;
+  s().leaveKept();
+  tick();
+  // A loose line, left as it is.
+  const river = s().log({ text: 'walked to the river — “just because”' })!;
+  tick();
+  s().leaveAsIs(river);
+  s().setHidden(piano, true); // a hidden wander
+  tick();
+  s().rememberSearch('drawing');
+  s().rememberSearch('river');
+  s().setShowShading(false);
+  s().putOffWhy();
+  s().endFirstRun();
+  s().dismissToast();
+  return { drawing, piano, apparel, scales, drew, hem, tea, river };
+}
+
+const settingsOf = (store: Store) => {
+  const s = store.getState();
+  return { showShading: s.showShading, recentSearches: s.recentSearches, leftAsIs: s.leftAsIs, whyOfferOff: s.whyOfferOff, firstRunDone: s.firstRunDone };
+};
+const snapshot = (store: Store) => JSON.parse(JSON.stringify({ data: store.getState().data, settings: settingsOf(store) }));
+let expected: unknown;
+
+it('1. the database (schema 3), through ordinary saves', async () => {
+  let store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+  drive(store);
+  await settle();
+  expected = snapshot(store);
+  expect(env.ls.has('wanderment:journal')).toBe(false);
+  // It reads back the same.
+  store = await load();
+  expect(snapshot(store)).toEqual(expected);
+  const { nodeDb } = await import('./nodeDb');
+  const db = nodeDb(env.state.dbPath);
+  expect(await db.all('PRAGMA user_version')).toEqual([{ user_version: 3 }]);
+  await db.exec('VACUUM');
+  db.close();
+  copyFileSync(env.state.dbPath, join(OUT, 'schema3.sqlite'));
+  writeFileSync(join(OUT, 'expected-old.json'), JSON.stringify(expected, null, 2) + '\n');
+  const { toBackup } = await import('@/domain/backup');
+  writeFileSync(join(OUT, 'backup-format1.json'), toBackup(store.getState().data, new Date('2026-10-03T12:00:00.000Z')));
+});
+
+it('2. the pending journal (four keys): everything, never committed', async () => {
+  const store = await load();
+  env.state.hangWrites = true;
+  drive(store);
+  await settle();
+  expect(snapshot(store)).toEqual(expected);
+  const raw = env.ls.get('wanderment:journal')!;
+  expect(Object.keys(JSON.parse(raw).changes).sort()).toEqual(['deleteActivities', 'deleteThreads', 'upsertActivities', 'upsertThreads']);
+  writeFileSync(join(OUT, 'journal-four-key.json'), raw);
+});
+
+it('3. the fallback blob (a browser that can’t run SQLite)', async () => {
+  env.state.openError = new Error('no OPFS');
+  const store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+  drive(store);
+  await settle();
+  expect(snapshot(store)).toEqual(expected);
+  writeFileSync(join(OUT, 'fallback-old-build.json'), env.ls.get('wanderment')!);
+});

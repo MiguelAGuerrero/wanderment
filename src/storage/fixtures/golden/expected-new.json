@@ -1,0 +1,193 @@
+{
+  "data": {
+    "version": 2,
+    "threads": {
+      "old-001": {
+        "id": "old-001",
+        "name": "practice drawing",
+        "next": "sketch hands for ten minutes",
+        "hidden": false,
+        "createdAt": "2026-10-03T08:00:00.000Z",
+        "declaredAt": "2026-10-03T08:21:00.000Z"
+      },
+      "old-002": {
+        "id": "old-002",
+        "name": "learn piano",
+        "hidden": true,
+        "createdAt": "2026-10-03T08:07:00.000Z"
+      },
+      "old-003": {
+        "id": "old-003",
+        "name": "make apparel",
+        "next": "cut the pattern",
+        "hidden": false,
+        "createdAt": "2026-10-03T08:14:00.000Z"
+      }
+    },
+    "activities": {
+      "old-004": {
+        "id": "old-004",
+        "text": "scales, slowly",
+        "occurredAt": "2026-09-28T19:30:00.000Z",
+        "createdAt": "2026-10-03T08:35:00.000Z",
+        "doingId": "old-002",
+        "toIds": [
+          "old-001"
+        ],
+        "note": "left hand only"
+      },
+      "old-005": {
+        "id": "old-005",
+        "text": "drew for an hour",
+        "occurredAt": "2026-10-03T08:42:00.000Z",
+        "createdAt": "2026-10-03T08:42:00.000Z",
+        "toIds": [
+          "old-001"
+        ],
+        "lit": true
+      },
+      "old-006": {
+        "id": "old-006",
+        "text": "sewed a hem",
+        "occurredAt": "2026-10-03T08:49:00.000Z",
+        "createdAt": "2026-10-03T08:49:00.000Z",
+        "doingId": "old-003",
+        "toIds": [],
+        "note": "blue thread — the machine jams on denim",
+        "settledAt": "2026-10-03T08:52:00.000Z"
+      },
+      "old-007": {
+        "id": "old-007",
+        "text": "made tea",
+        "occurredAt": "2026-10-03T08:59:00.000Z",
+        "createdAt": "2026-10-03T08:59:00.000Z",
+        "toIds": [],
+        "settledAt": "2026-10-03T08:59:00.000Z"
+      },
+      "old-008": {
+        "id": "old-008",
+        "text": "walked to the river — “just because”",
+        "occurredAt": "2026-10-03T09:06:00.000Z",
+        "createdAt": "2026-10-03T09:06:00.000Z",
+        "toIds": []
+      }
+    },
+    "routines": {
+      "new-001": {
+        "id": "new-001",
+        "words": "Make dinner",
+        "named": true,
+        "createdAt": "2026-11-20T18:00:00.000Z",
+        "items": [
+          {
+            "id": "new-003",
+            "text": "chop the onions"
+          },
+          {
+            "id": "new-004",
+            "text": "boil the pasta"
+          }
+        ],
+        "open": true,
+        "home": true
+      },
+      "new-005": {
+        "id": "new-005",
+        "words": "boil the pasta",
+        "named": false,
+        "createdAt": "2026-11-20T18:06:00.000Z",
+        "ownerRunId": "new-002",
+        "items": [
+          {
+            "id": "new-006",
+            "text": "fill the pot"
+          },
+          {
+            "id": "new-007",
+            "text": "salt the water"
+          }
+        ]
+      },
+      "new-010": {
+        "id": "new-010",
+        "words": "Tidy the desk",
+        "named": true,
+        "createdAt": "2026-11-20T18:15:00.000Z",
+        "items": [
+          {
+            "id": "new-012",
+            "text": "clear the cups"
+          }
+        ],
+        "open": true,
+        "home": true
+      }
+    },
+    "runs": {
+      "new-002": {
+        "id": "new-002",
+        "routineId": "new-001",
+        "startedAt": "2026-11-20T18:00:00.000Z",
+        "frames": [
+          {
+            "seq": "new-001",
+            "at": "new-004",
+            "round": 1
+          },
+          {
+            "seq": "new-005",
+            "at": "new-007",
+            "round": 1,
+            "from": "new-004"
+          }
+        ],
+        "changes": [
+          {
+            "id": "new-008",
+            "kind": "breakdown",
+            "seq": "new-001",
+            "item": "new-004",
+            "into": "new-005"
+          },
+          {
+            "id": "new-009",
+            "kind": "reword",
+            "seq": "new-005",
+            "item": "new-007",
+            "text": "salt the water — a big pinch"
+          }
+        ],
+        "touchedAt": "2026-11-20T18:10:00.000Z",
+        "reason": "the phone rang"
+      },
+      "new-011": {
+        "id": "new-011",
+        "routineId": "new-010",
+        "startedAt": "2026-11-20T18:15:00.000Z",
+        "frames": [
+          {
+            "seq": "new-010",
+            "at": "new-012",
+            "round": 1
+          }
+        ],
+        "changes": [],
+        "touchedAt": "2026-11-20T18:17:00.000Z",
+        "endedAt": "2026-11-20T18:17:00.000Z",
+        "endedBy": "done"
+      }
+    }
+  },
+  "settings": {
+    "showShading": false,
+    "recentSearches": [
+      "river",
+      "drawing"
+    ],
+    "leftAsIs": [
+      "old-008"
+    ],
+    "whyOfferOff": true,
+    "firstRunDone": true
+  }
+}

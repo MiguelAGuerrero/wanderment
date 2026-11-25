@@ -5,7 +5,7 @@ import { Data } from '@/domain/types';
 import { shareBackup } from '@/storage/nativeBackup';
 
 /**
- * Exports everything as a `.json` backup (Settings, and P-83's row in the home's sheet): on web a
+ * Exports everything as a `.json` backup (Settings): on web a
  * download, on iOS/Android the share sheet with the file (or its text, where a file can't be shared).
  */
 export async function exportBackup(data: Data): Promise<void> {

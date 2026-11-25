@@ -8,7 +8,7 @@ Checklist:
 - [ ] No scout is launched (S item, not a bug, no `[data]`). The orchestrator localizes the rename
       path itself.
 - [ ] `contract.md` is filled before the builder starts: done-when lines, must-handle cases (case and
-      spacing variants, unchanged name, empty name), non-goals (no merging threads).
+      spacing variants, unchanged name, empty name), non-goals (no merging routines).
 - [ ] No owner question is asked (nothing in it is a product call), or exactly one if the error
       wording is treated as one.
 - [ ] The builder's reply starts with `STATUS:`. It shows a domain test failing before the fix and

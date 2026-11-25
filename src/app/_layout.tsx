@@ -4,21 +4,17 @@ import { StatusBar } from 'expo-status-bar';
 import { ComponentRef, RefObject, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { ToastTimer } from '@/components/Toast';
+import { G } from '@/components/go/tokens';
+import { ToastTimer } from '@/components/ToastTimer';
 import { shownDetails } from '@/domain/opening';
 import { UpdateBanner } from '@/components/UpdateBanner';
 import { registerServiceWorker } from '@/pwa/serviceWorker';
 import { reloadKeepingDraft, startPersistence } from '@/storage/persistence';
 import { StorageStatus, useStore } from '@/store/useStore';
-import { C, N, s } from '@/theme';
+import { C, s } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
-/**
- * P-72: the night screens (the one home, Map) move through the picture themselves
- * (`components/passage`), so on iOS and Android the stack only cross-fades between them, briefly.
- */
-const NIGHT = { contentStyle: { backgroundColor: N.bg }, animation: 'fade', animationDuration: 250 } as const;
 registerServiceWorker();
 void startPersistence();
 
@@ -62,21 +58,11 @@ export default function RootLayout() {
     <>
       <View ref={app} style={styles.app} pointerEvents={over ? 'none' : 'auto'} importantForAccessibility={over ? 'no-hide-descendants' : 'auto'}>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: C.bg } }}>
-          {/* P-88: `/` only redirects to the new app (`/go`); dark, so nothing light flashes on the way. */}
-          <Stack.Screen name="index" options={{ contentStyle: { backgroundColor: N.bg }, animation: 'none' }} />
-          {/* One home (P-74): the trailhead, the sky, under a star and on a trail, one night drawn once. */}
-          <Stack.Screen name="(home)" options={NIGHT} />
-          {/* Map is the graph, whose sheet holds Wanders and Activities (P-58). */}
-          <Stack.Screen name="map" options={NIGHT} />
-          <Stack.Screen name="wanders" />
-          <Stack.Screen name="activities" />
-          <Stack.Screen name="thread/[id]" />
-          <Stack.Screen name="activity/[id]" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="settings" />
-          <Stack.Screen name="search" />
-          <Stack.Screen name="explore" />
-          <Stack.Screen name="pull-in/[id]" options={{ presentation: 'modal' }} />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: G.bg } }}>
+          {/* `/` (P-88), `/settings` and every retired or unknown address (P-89) only redirect into the app at `/go`. */}
+          <Stack.Screen name="index" options={{ animation: 'none' }} />
+          <Stack.Screen name="settings" options={{ animation: 'none' }} />
+          <Stack.Screen name="[...rest]" options={{ animation: 'none' }} />
         </Stack>
         <ToastTimer />
         <UpdateBanner />
@@ -107,10 +93,7 @@ function Opening() {
   return (
     <View style={[s.screen, styles.center]}>
       {slow && (
-        <>
-          <Text style={s.h1}>Wanderment</Text>
-          <Text style={s.meta}>Opening…</Text>
-        </>
+        <Text style={s.meta}>Opening…</Text>
       )}
     </View>
   );
@@ -120,7 +103,6 @@ function Opening() {
 function Blocked({ storage, messageRef }: { storage: Extract<StorageStatus, { state: 'blocked' }>; messageRef?: RefObject<ComponentRef<typeof Text> | null> }) {
   return (
     <View style={[s.screen, styles.center]}>
-      <Text style={s.h1}>Wanderment</Text>
       <Text ref={messageRef} style={[s.body, { textAlign: 'center' }]} accessibilityRole="alert">
         {storage.message}
       </Text>
@@ -135,7 +117,7 @@ function Blocked({ storage, messageRef }: { storage: Extract<StorageStatus, { st
           </Pressable>
           <Text style={[s.meta, { textAlign: 'center' }]}>
             That file holds what’s kept in local storage (older-format data and unsaved changes). Data already in the database stays safe in this
-            browser and shows up again once Wanderment can open it.
+            browser and shows up again once the app can open it.
           </Text>
         </>
       )}

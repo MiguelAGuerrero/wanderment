@@ -19,63 +19,9 @@ export const C = {
   onInk: '#FFFFFF',
 };
 
-export type Palette = typeof C;
+/** The light screens left (P-89): opening, the blocked screen, the update banner and the save-error line. */
+type Palette = typeof C;
 
-
-/** The trailhead's night (P-65, B-07): sky, hills, lantern; text and lines readable on it. */
-export const N = {
-  skyTop: '#0B0D1C',
-  skyMid: '#1B1933',
-  skyLow: '#2B2238',
-  bg: '#0E1020',
-  hillFar: '#17142A',
-  hillNear: '#0D0B17',
-  path: '#3A3555',
-  line: '#3A3555',
-  ink: '#F5F3EE',
-  muted: '#B9B6CC',
-  faint: '#9C99B3',
-  lantern: '#F2B48C',
-  lanternCore: '#FFF3E6',
-  /** The lantern's glow with shading off: no warmth. */
-  silver: '#C9C7D9',
-  surface: '#1A1830',
-  /** P-66: a trail not walked lately, and the cards under a star. */
-  trail: '#6E6890',
-  card: 'rgba(30, 26, 46, 0.92)',
-  /** P-66: the note's paper tag on a trail. */
-  tag: '#F3E9D8',
-  tagInk: '#2A2238',
-};
-
-/**
- * Dark Map (owner, 2026-11-24): Map and its sheet in the night palette, under C's names so the same
- * styles take either. Words 4.5:1 or more on bg, surface, quietBg, crumbBg and accentTint; marks
- * (dashed, accent) 3:1 or more.
- */
-export const M: Palette = {
-  bg: N.bg,
-  surface: N.surface,
-  ink: N.ink,
-  body: '#D9D6E6',
-  muted: N.muted,
-  faint: N.faint,
-  line: N.line,
-  lineSoft: '#2A2643',
-  dashed: N.trail,
-  accent: N.lantern,
-  accentInk: '#F7CDAE',
-  accentTint: '#3A2A33',
-  crumbBg: '#15132A',
-  quietBg: '#1F1C38',
-  onInk: N.bg,
-};
-
-export const font = {
-  display: 'SpaceGrotesk', // falls back to system if not loaded
-};
-
-/** The shared styles in a palette (`s` by day, `sm` on dark Map). */
 const shared = (C: Palette) =>
   StyleSheet.create({
     screen: { flex: 1, backgroundColor: C.bg },
@@ -96,5 +42,3 @@ const shared = (C: Palette) =>
   });
 
 export const s = shared(C);
-export const sm = shared(M);
-export type Shared = typeof s;

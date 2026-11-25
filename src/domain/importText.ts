@@ -8,8 +8,9 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 const list = (parts: string[]) => (parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts.join(''));
 
 /**
- * "98 activities and 12 wanders (2 hidden)": activities and wanders always; every later kind of
- * record (routines, runs) only when there are any, as "…, 12 wanders, 3 routines and 1 run".
+ * "98 activities and 12 wanders (2 hidden)", "…, 12 wanders, 3 routines and 1 run", "3 routines and
+ * 2 runs": every kind of record only when there are any (P-89: someone who never had activities or
+ * wanders is not told they have none).
  */
 function held(plan: ImportPlan, side: 'here' | 'incoming'): string {
   const c = plan[side];
@@ -17,12 +18,12 @@ function held(plan: ImportPlan, side: 'here' | 'incoming'): string {
   const later = LATER_COLLECTIONS.map((k) => [k, (side === 'here' ? heldHere : heldIncoming)(plan[k])] as const)
     .filter(([, n]) => n > 0)
     .map(([k, n]) => count(n, COLLECTION_INFO[k].one, COLLECTION_INFO[k].many));
-  return list([count(c.activities, 'activity', 'activities'), `${count(c.wanders, 'wander', 'wanders')}${hidden}`, ...later]);
+  return list([...(c.activities ? [count(c.activities, 'activity', 'activities')] : []), ...(c.wanders ? [`${count(c.wanders, 'wander', 'wanders')}${hidden}`] : []), ...later]);
 }
 
 /** "This backup has 98 activities and 12 wanders (2 hidden), from 3 Jan to 9 Mar 2026." */
 export function importHolds(plan: ImportPlan): string {
-  if (plan.empty) return 'This backup has no activities and no wanders.';
+  if (plan.empty) return 'This backup is empty.';
   return `This backup has ${held(plan, 'incoming')}${when(plan.dateRange)}.`;
 }
 

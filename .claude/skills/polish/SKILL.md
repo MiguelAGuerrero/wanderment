@@ -1,13 +1,13 @@
 ---
 name: polish
-description: Refines Wanderment's existing features — benchmarks a feature area against what similar apps' users expect (UI/UX conventions, quality of life), turns gaps and the owner's annoyances into Refine-lane items, and builds them in small audited batches; also fixes reliability and data issues at full rigor. Growing the app with new features is /product's job. Run it with /polish, /polish <feature area> (benchmark then refine it), /polish P-## (named items), or /polish inbox.
-argument-hint: "[<feature area: capture, home, threads, activities, search, graph, settings, onboarding> | item ids like P-03 | inbox]"
+description: Refines the existing features of the app in this repository (a personal runbook; Wanderment is retired) — benchmarks a feature area against what similar apps' users expect (UI/UX conventions, quality of life), turns gaps and the owner's annoyances into Refine-lane items, and builds them in small audited batches; also fixes reliability and data issues at full rigor. Growing the app with new features is /product's job. Run it with /polish, /polish <feature area> (benchmark then refine it), /polish P-## (named items), or /polish inbox.
+argument-hint: "[<feature area: home, runner, panel, paused, see-it-all, editor, settings> | item ids like P-03 | inbox]"
 disable-model-invocation: true
 ---
 
 # Polish — refine what exists, one batch end to end
 
-**Your job is the Refine lane:** make the features Wanderment already has feel right — what people
+**Your job is the Refine lane:** make the features the app already has feel right — what people
 who use similar apps expect from the UI and the interaction, quality of life, edge cases,
 accessibility — plus the **Fix lane** (data loss, lockouts, red CI) at full rigor. You don't add new
 capabilities; that's `/product` (the Grow lane). A gap that would need a new capability becomes an
@@ -69,7 +69,8 @@ Material 3, WCAG 2.2) and the app's own patterns:
 - **Navigation:** every place reachable by a visible control (a gesture is only a shortcut, with a
   visible affordance such as a grabber); one obvious way back; deep links and Back agree.
 - **Feedback:** every action shows its result where the person is looking (not only in a toast).
-- **Text and targets:** 44 pt targets, contrast, Dynamic Type / 200 % zoom, Reduce Motion.
+- **Text and targets:** targets ≥ 48 px and body text ≥ 16 px (DESIGN.md), contrast, Dynamic Type /
+  200 % zoom, Reduce Motion.
 - **Consistency:** the same control looks and behaves the same everywhere.
 
 Findings that fit `DESIGN.md` are folded into the design before the build; ones that would change
@@ -97,10 +98,16 @@ what the owner asked for go to the owner. Record the audit at `.polish/current/P
 ## Ground rules
 
 - Read `CLAUDE.md`, `AGENTS.md`, `docs/DESIGN.md` and `docs/ROADMAP.md` first, every run.
-- `DESIGN.md` outranks this skill and the roadmap. Ask the owner before adding goals, streaks,
-  % complete, timers, notifications, badge counts, or anything that creates a thread or attaches an
-  activity without a tap. Those are the product's refusals, and keeping them is the point. Capture
-  must never get slower, stricter or more interruptive.
+- `DESIGN.md` outranks this skill and the roadmap. Ask the owner before adding streaks, deadlines,
+  timers, notifications, tallies, % complete or anything else that shows how much is left,
+  instructional or explanatory text, a confirm where an Undo would do, or anything that creates or
+  starts something without a tap. Those are the product's refusals, and keeping them is the point.
+  Starting a run and pressing Next must never get slower, stricter or more interruptive, and the
+  person's words are never clipped, counted or warned about.
+- The design behind DESIGN.md is `docs/product/briefs/B-11-context-stacks.md`. Much of it is not
+  built; DESIGN.md says which parts are. Don't build an unbuilt part as "polish": that is `/product`'s.
+- The retired app's stored data (wanders, activities) is kept and not shown. Nothing may delete or
+  convert it.
 - Expo SDK 58: use the versioned docs (see `AGENTS.md`). If `npx expo install` can't reach the
   network, pin the version from `node_modules/expo/bundledNativeModules.json`.
 - Budget: by tier (above), and at most 4 subagents running at once. Finishing beats starting.
@@ -133,11 +140,11 @@ Now. Run `node scripts/polish/roadmap-lint.mjs`.
 
 1. Pick the area (the argument, else the one with the oldest benchmark in `docs/product/discovery/`,
    else the one the owner's notes complain about).
-2. One `product-scout` with `benchmark-brief.md`: how 3–5 similar apps (journaling, lifelog,
-   habit-free trackers, quick capture, notes) handle that area's everyday moments, and what their
-   users take for granted. It also walks Wanderment's current screens for that area (screenshots).
+2. One `product-scout` with `benchmark-brief.md`: how 3–5 similar apps (routine runners, checklist
+   and procedure tools, outliners, task managers) handle that area's everyday moments, and what their
+   users take for granted. It also walks the app's current screens for that area (screenshots).
 3. Curate into `docs/product/discovery/refine-<area>-YYYY-MM-DD.md`: each convention with sources,
-   Wanderment today, the gap, and a verdict — *adopt* (fits DESIGN.md), *adapt* (with the change),
+   the app today, the gap, and a verdict — *adopt* (fits DESIGN.md), *adapt* (with the change),
    *refuse* (with the rule), or *grow* (needs a new capability → an Inbox note for `/product`).
 4. Each *adopt/adapt* gap becomes a Refine-lane item (no `[feature]` tag), ordered by how often
    the moment happens. Then choose the batch from them.

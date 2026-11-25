@@ -4,7 +4,7 @@
  * routine that can't be shown reads as undefined, and the screen goes home.
  */
 import { advance, Change, currentRun, isRef, isStep, isWait, Item, MAX_DEPTH, openRuns, place, Place, previous, readRoutine, readRun, RoutineEdit, RunState, Said, Seq, Verb, view, wordsOf } from './run';
-import { hash } from './sky';
+import { hash } from './hash';
 import { Data, Id } from './types';
 
 const tidy = (s: string | undefined) => (s ?? '').trim().replace(/\s+/g, ' ');

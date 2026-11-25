@@ -152,12 +152,12 @@ async function step<T>(name: OpenStep, task: () => Promise<T>): Promise<T> {
 }
 
 /** Shown while another copy holds the data. The page opens by itself once it's free. */
-const TAB_HELD = 'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
+const TAB_HELD = 'The app is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
 /** Taking the data back keeps failing for another reason (audit 2 F1). It still opens by itself once it can. */
 const CANT_TAKE_BACK =
-  'Wanderment can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept.';
+  'The app can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept.';
 const FILES_HELD =
-  'Wanderment is still open somewhere else in this browser — maybe an old tab, or a page in a tab’s history. Close other Wanderment tabs; if this stays, quit the browser and reopen it. Your data is safe; this page will open by itself.';
+  'The app is still open somewhere else in this browser — maybe an old tab, or a page in a tab’s history. Close its other tabs; if this stays, quit the browser and reopen it. Your data is safe; this page will open by itself.';
 
 /** Ids already taken in from the first release's format — never taken in again (so deletions stick). */
 const ABSORBED = 'legacyIds';
@@ -441,7 +441,7 @@ function fail(e: unknown) {
   console.warn('Could not load data', e);
   const cause = e instanceof StepError ? e.cause : e;
   if (cause instanceof BlockedError) block(cause.message, cause.details ?? detailsLine(e));
-  else block(`Wanderment couldn’t load its data (${(cause as Error)?.message ?? cause}).`, detailsLine(e));
+  else block(`The app couldn’t load its data (${(cause as Error)?.message ?? cause}).`, detailsLine(e));
 }
 
 let journalFailed = false;
@@ -609,7 +609,7 @@ function wire() {
       useStore.setState({
         data: withRecords(data, fresh),
         saveError:
-          'An older version of Wanderment is open in another tab. Close it — new entries made there are added here, but edits and deletions there aren’t.',
+          'An older version of the app is open in another tab. Close it — new entries made there are added here, but edits and deletions there aren’t.',
       });
     });
   }
@@ -731,7 +731,7 @@ async function acquire(signal: AbortSignal): Promise<void> {
         throw new StepError(
           error.step,
           new BlockedError(
-            `Wanderment couldn’t open its data (${message}). ${Platform.OS === 'web' ? 'Reload to try again.' : 'Close the app and open it again to retry.'}`,
+            `The app couldn’t open its data (${message}). ${Platform.OS === 'web' ? 'Reload to try again.' : 'Close the app and open it again to retry.'}`,
             detailsLine(error),
           ),
         );

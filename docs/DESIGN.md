@@ -1,128 +1,169 @@
 # Design rules
 
-These came out of the design sessions and several rounds of persona reviews. Change them deliberately.
+These are the product rules for the app this repository now holds. They are distilled from the
+design, [`product/briefs/B-11-context-stacks.md`](product/briefs/B-11-context-stacks.md) (with its
+[journeys](product/briefs/B-11-journeys.md) and [capabilities](product/briefs/B-11-capabilities.md)).
+Change them deliberately.
+
+**Where two sources disagree, this order wins:** the owner's notes
+([`product/owner-notes.md`](product/owner-notes.md), newest first), then B-11 §9b and §9c, then this
+file, then the rest of B-11. B-11 marks some items *(proposed)*: those are a designer's answer to a
+gap, not the owner's decision, and are not rules until the owner takes them.
+
+**The app has no name yet** (owner, 2026-11-24: "let's not worry about the name for now"). The
+repository, the database and the storage keys are still called `wanderment`; that is a leftover, not
+a name. Write "the app".
+
+Each thing below is marked **built** (in the app today) or **designed, not built yet** (in B-11, not
+in the code). Never describe the second kind as existing, in the app or in a report.
+
+## What it is
+**Not what you have to do. How you do it.** The app keeps a person's *ways* of doing things —
+routines in their own words — and runs them with the person, one small step at a time.
+- You open it to **declare**: "I'm going to … now." It is not a log and not a reflection tool.
+- A routine is the person's own know-how, written down as they discover it and sharpened each time
+  they run it. It stays to be run again; it is not a task that disappears when done.
+- Any step can be broken into smaller steps until it is easy to start.
+- A routine grows and changes as it is used (§9c) — but **planning and running are two different
+  activities and must never look alike** (owner, first real use, 2026-11-25): "plan, execute, plan,
+  execute is the type of context switching I had in mind, but the app blurs the two". Adding a step and
+  breaking one down are planning; they are welcome mid-run, in a view that is unmistakably not the
+  runner, and coming back to the app must show at a glance which of the two you were doing. As built
+  today the runner hosts both; that is a known fault (roadmap P-90), not a rule to copy.
 
 ## Model
-- **Activity**: a one-off thing you did. Free text, when it happened, optional note, optional **doing** wander, zero or more **to** wanders.
-- **Wander** (`Thread` in code and stored data): an ongoing pursuit named as an action ("practice drawing", "make apparel"). At most one visible **next** step.
-- **Links between wanders are never stored.** They are derived from activities (doing → to), counted. Both directions are distinct intentions ("drawing to make apparel" ≠ "making apparel to practise drawing").
-- Everything references ids, so renaming a wander never rewrites history.
-- A line sent up from the trailhead is **lit** (something you're pursuing now) until **Done it**
-  settles it (`settledAt`); with the **done** chip it settles at once. Every other log, and everything
-  older, is settled. Lit is never counted or nagged about: its glow fades like warmth, and about a
-  month on it looks settled. Heat and the map treat lit and settled alike. _(Owner, D-14; P-73.)_
-- A wander can be created with just a name. If nothing flows into it, it simply fades.
-- A wander can be marked as **what it's for** (a "why"): a direction, not a goal — no target, progress
-  or deadline. A why can be declared (named up front) or earned (most activity flows into it); both
-  look the same on the lit map and both fade to Earlier when nothing flows in. _(Owner decision D-4.)_
-  At most **three** are declared at once, all visible: declaring a fourth offers a swap (you pick
-  which one steps back, nothing is chosen for you), and hiding a declared wander unmarks it (Undo
-  restores both). No counts are shown.
-- The **next** belongs to the activity's doing wander, else its first "to".
+- **Step** *(built)*: a line of the person's words.
+- **Wait step** *(built, plain)*: a deliberate step, "Wait for: <words>". Reaching it means
+  everything before it is done, to the person's knowledge. A run resting on one reads as *waiting*,
+  with since when, in words only.
+- **Routine** *(built)*: a named, ordered sequence. Each item is a step, a wait step or another
+  routine. It has one divider, **Repeat from here**: items above run once, items below repeat —
+  **until I'm done** (the default) or **a number of times** the person sets. With no divider it runs
+  once through. A routine can't contain itself. Its end is either open (the edge, below) or "ends
+  here".
+- **Run** *(built)*: a routine being carried out — where the person is at every level (including the
+  round), the changes made for this run only, a pause reason, and a definite end. **A run is a
+  working copy**: inside it you can add, remove or reword for this run only; "Keep in <routine>"
+  makes a change permanent.
+- **A breakdown** *(built)*: Break it down turns the current step into a sequence, for this run,
+  unnamed. Unnamed things are not listed, but typing their words finds them.
+- **One version per name.** A name always means one routine. To vary, copy *(copying: designed, not
+  built yet)*.
+- **Designed, not built yet:** **blanks** (an optional input in a routine's name or steps, "Apply to
+  ▢ employer"; it never asks); **child runs** (the same routine for different values, each at its own
+  place); **reactions** (a named outcome on a wait step that holds one or more steps or routines —
+  never empty, never a bare yes/no); **things set going** ("Wait for this later…" on a step makes a
+  wait tied to it; until it is waited for, that thing is listed as "waiting on: <the wait's words>");
+  adding an existing routine into another in the editor, and Group. Running a routine that is
+  already an item (Step in) is built.
+- The first layer — a routine shown on home — is nothing special and has no name in the app.
+- **Never shown as words:** frame, thread, stack, pointer, parameter, foundation, async, promise.
+
+## The verbs
+**Start, Resume, Pause, Done, Next** (owner, §9b). They must read as one set; no word is chosen for
+how it sounds alone. A paused run is "paused".
+- **Start** begins a run. **Next** goes to the next step; on a wait step it reads **"It's
+  happened"**. **Break it down** goes deeper and reads **Step in** when the step is a routine (same
+  slot, same meaning).
+- **Done** leaves the level you are in, for whatever reason, and carries on with what comes next
+  above it; at the top it ends the run. It names what it ends.
+- **Pause** says "I'm done with this for now" and may carry a reason. The paused screen shows the run
+  with **Resume**, and beneath it whatever else can be resumed — siblings first, then up a level —
+  each with its own Resume. There is no "Switch".
+- **Home** on the paused screen replaces "Stop". It asks first ("Stop <name>?"; the run stays where
+  it is; Cancel is the filled button).
+- **One wording per meaning:** a paused run reads "at <step>"; a waiting one "waiting for <words> ·
+  since <day>"; a run with no blank reads "· since <day>".
 
 ## Interaction
-- **Capture is sacred.** One line, Return logs, as typed. Nothing is required, and nothing attaches
-  without a tap.
-- **The home** (owner, D-13, D-15, D-16; B-07/B-08/B-09; P-65, P-74, P-79–P-84): one place, a night
-  sky over dark hills with a lantern where the path starts. Above is the **live map**; at the bottom,
-  in thumb reach like messaging (never chat-bubble styled), the **composer**: a **grabber**, the question
-  **"Where are we wandering today?"** as a small heading (it collapses with the keyboard up, in a short
-  window or at large text; the field keeps it as its name), **I'm not sure** as a chip right above the
-  field, the done chip once you've typed, and the field ("nothing yet is fine", one border, lantern
-  while focused) with its send ↑ (disabled while empty; an empty Return logs nothing). As you type,
-  P-61's suggestions (staged steps, then past entries, then wanders) open **above** the field — the
-  composer grows, the map yields, the field and its chips never move; a tap attaches. When the words
-  match a wander, a quiet last item **Open <wander>** opens its trail (a why: its star) and never
-  attaches or logs. "Reconnecting…" is a line of the field's own box, never over a control. The ground
-  (hills, path, lantern) stands on the composer only where it fits below the map, and glides (never
-  jumps) to the foot when a session starts. Reduce Motion stills the sky.
-- **Capture on the home:** **Return logs at once, exactly as typed** (no toast) and the line **rises**
-  (P-73): the camera looks up and your words are the heading, lit, with quiet **✦ Done it**, **↳ First
-  step** (a step field; only its Return makes the wander, named with your words, and sets its step —
-  never over a staged one) and a corner **Toward…** (a visible wander; never offered for a line that
-  already went somewhere — it says where instead); each has Undo on the line (no timer), then the
-  session ends by itself. With the **done** chip on (shown once you type; sticky until turned off or
-  you leave the home) each line rises settled. "New line" (or typing) starts the next line; leaving
-  keeps the line as it is. No hint lines.
-- **The live map at rest** (P-80, D-16): what's been done, nothing highlighted, no counts — a **random
-  few** (at most five) of the last three weeks' lines, **drawn once a day**, each a small light with its
-  words and when in words, in a **fixed place from its id**; never redrawn while on screen. Age is in
-  words and the light's glow (warmth), never in faded text. Lit and settled lines look alike. Beyond
-  three weeks, a calm sky with no copy. Your whys are guiding stars high up (decorative). A tap on a
-  line opens it again (its words, its note, its choices as it is now). For a screen reader the lines are
-  a "Recent" group after the composer; at the largest text, or with too little room, a plain list.
-- **I'm not sure lights the map** (P-81; `/sky` is the lit state): a toggle (pressed state, a filled
-  star on a filled chip, named "I'm not sure — light up the map"). Lit, your whys (stars) and the
-  wanders feeding them — complete, never a sample — and the wanders the shown lines went toward appear
-  as **named nodes**, all one size, in a fixed order (whys first; never by heat), in a band **kept for
-  them at rest**, so the feed's lines **never move or change**; warmth shows only as each node's glow
-  (none with the shading off); links (3:1 or more) go from each shown line to the nodes it went toward,
-  and its name says so. "Map lit" is said, with no count. A node opens its session (a why its star, or
-  with one wander its trail; a wander its trail, with What's next). It stays lit until the chip again,
-  Esc or Back; a session left comes back to it lit.
-- **Attaching lands where you're looking** (P-82): after Toward…, First step or a suggestion picked
-  before Return, the line travels into its node on the home (≤ 600 ms, picture only, never taking a tap;
-  under Reduce Motion it just appears there) as "<words> → <wander>", the node warm, and stays until the
-  next action (typing, a log, Undo, the sheet, opening a line); the toast says it in words, above the
-  composer and the keyboard.
-- **The sheet** (P-58, P-83; owner D-10): the grabber (a 44 pt button with an expanded state) pulls it
-  up by a tap or by a swipe that **starts on it** (never one over the field); one sheet in the night
-  palette with **Wanders** (the cards; a plain **YOUR WANDERS** list until value headers are earned)
-  and **Activities**, each with its own log box (with the toast); a visible **Close**; rows for
-  **Explore** (the single-centre view), **Search**, **Settings** and **Export**. Close, the scrim, a drag
-  down on its top, Esc or Back put it away. The sheet and the lit state live in the history, so Back
-  closes the sheet first, then dims the map; `/wanders` and `/activities` open the home with it out.
-- **The sheet's search lights the stars above** (P-84, owner): while it has words the sheet sits low,
-  leaving the sky in view; every matching line is a star there with its words and when (placed from its
-  id; a star that stays as the query changes never moves; with no row free, a star without words); the
-  other lines dim to their lights and the nodes the matches went toward light. The results list in the
-  sheet is what a screen reader reads; what was found is said in words, never a number. Back or Esc in
-  the field clears it before the sheet goes; clearing it or closing the sheet returns the sky to rest.
-  Reduce Motion: nothing moves, the stars just appear.
-- **Map is retired** (P-83, D-16): the live map is the home. `/map` lands on the home lit (replacing the
-  entry). Map's graph, its What's next card and its focus/scope chains are gone; their depth went into
-  the lit map (whys, wanders, What's next on a trail) and the sheet.
-- **Sessions** (`/star/…`, `/trail/…`, and the rise `/line/…`) are one layer over the same night,
-  opened already tilted by a link; left by their Back, Esc or tapping the ground (back to the home as it
-  was, lit or not); a session ends by itself after a choice (it waits under assistive tech).
-- **Under a star** (`/star/<id>`): the star and its name; on the hills its **landmarks** (the wanders
-  feeding it), each a flag with a dotted trail from camp, names in a row above every flag (never on a
-  trail); landmarks are in a **fixed order** (when the wander was made, then name), never by recency.
-  Under them one card per landmark: its name, its next step (or a small "＋ Add a next step" line) and
-  the note on its latest activity. The one walked most lately is only warm (and its card's name says
-  "last walked <when>", as every card's does); beyond three, "More wanders…". A why with one wander
-  opens that **trail** directly (with none, its own). Esc goes back here and on the trail.
-- **On the trail** (`/trail/<id>`): its star and name, "Here's where we left off", the next step in
-  large type (a heading; it steps down at large text like the prompt), the note on a paper tag, **Did it** (logs the step, with Undo; focus moves
-  on) or "＋ Add a next step", and **footprints**: its latest five activities in dated words (today,
-  on Tuesday, last week, in March), never counts.
-- **Moving between screens moves through the picture** (owner, 2026-11-24; P-72): looking up sinks
-  the hills and fades the stars in; under a star its landmarks rise and the wanderer walks to camp; on
-  a trail the wanderer walks up the path; going back reverses it (lighting the map is in place:
-  no passage). Only the
-  picture moves (never the controls: each screen is usable at once and nothing shifts), at most ~600 ms,
-  and focus goes to the screen's heading (the home: its field). Under Reduce Motion nothing moves.
-- **The night palette** (owner, 2026-11-24, "Dark Map"): the home, its sheet and its sessions use the night palette (theme `N`/`M`). Other screens (a wander's page, Settings, Search, Explore) are still light.
-- `@` opens up to 3 wander suggestions (prefix match, then recency). **Tap** (or **Tab** on web) picks. Return never picks or creates a wander; an unmatched `@word` stays plain text.
-- A "doing" can be *suggested* from words in the sentence (dashed chip) but is never applied silently.
-- The next-step **crumb** hangs under each wander card. Tapping it **loads** the text into the log box with the wander as doing — it doesn't complete anything. If you've already started a line, your words stay and a removable "↳ step" chip says the line counts as that step (D-6). Logging turns it into an activity and clears the next (only if the step hasn't changed since it was loaded).
-- After logging in the sheet, the owning wander shows one quiet "+ What's next? (optional)" line. Ignoring it leaves no trace.
-- Toast (the sheet and other screens; the home's Return rises instead, and a choice made there goes on in the home's toast): "Logged" or "Logged → <node>" (no question; D-11), one action (Undo), body opens details, ≥ 6 s, pauses while held, doesn't auto-dismiss under a screen reader.
-- Recency is neutral: "last touched 2d", an "Earlier" section after 21 days, warmth halves every 14 days, and the shading can be turned off.
-- **Heat** is the warmth of the most recent activity on a wander or anything feeding it, never a sum
-  (owner, D-9, 2026-11-22); it shows as glow on the lit map's nodes and as warmth under a star, and
-  never orders or sizes anything. Links are never widened by a count. (P-34's graph Map, its focus and
-  scope, retired with Map, P-83; **Explore** keeps the single-centre graph.)
-- **Screens show actions and data, not explanations** (owner, 2026-11-22). What something means is
-  carried by structure, position and a few marks; explanations live in an ⓘ sheet that never opens by
-  itself. Safety warnings stay inline. Accessible names keep the full meaning.
-- Never: goals, streaks, % complete, timers, notifications.
+- **One thing runs at a time.** At most one run is running. To take up another you pause first. The
+  app opens where you left off: the runner, the paused screen, or home.
+- **Home asks first, and home is tiles** *(built)*: everything you have open is a tile, coloured
+  like its note — the name, where it is, and Resume or Start. Tiles stay in a fixed order *(as built — a builder's ruling, not an owner decision)* (when each
+  was first made); nothing is ranked. The prompt **"I'm going to…"** searches the tiles as you type,
+  then routines and unnamed things, with **"New: <your words>"** last. Home is titled "Running" when
+  a run is running and "Nothing running" otherwise.
+- **Nothing is created or started without a tap.** Typing starts nothing until a row is chosen
+  (Return takes the first row, which is always visible and marked). The app never jumps by itself.
+- **The runner is the step and nothing else** *(built)*: a context line (the level and its parent,
+  in words; tapping it opens See it all) with Done; the step as a fixed, roughly square sticky note;
+  three buttons in fixed places — Pause, Break it down / Step in, Next (the one filled button,
+  lowest). Nothing about repeating is on the surface except one small mark on **the last step of a
+  round**. A repeating part comes round again silently; a counted loop ends by itself. There is no
+  "one more round".
+- **The note always fits**, keyboard up included: the type steps down first, then the note shrinks
+  to the space. Words too long for it scroll inside it and Break it down carries a quiet mark.
+- **The person's words are never clipped, counted or warned about.**
+- **The pull-up panel** *(built)*: swiping up on the runner or tapping the note. It holds where you
+  are in this run (the round, "Last step of the round", "then: <next step>", "This run only") and
+  the actions: Change the words, Back to <step>, Jump to…, See it all, Keep in <routine>.
+- **Jump to…** *(built)* sets the run to where the person really is: the start of any level they are
+  in (round one), or a particular step (the round is kept). The app never suggests you are behind.
+- **The edge keeps extending** *(built; §9c)*: reaching the end of what has been worked out does not
+  finish the run. The runner asks for the next small step, and the step added is kept in the
+  routine. Done still ends the run. A routine set to "ends here" finishes on its last Next.
+- **A run leaves the routine better** *(built; §9c)*: leaving a level in which something was changed
+  for this run shows those changes once, each with Keep (and Keep all). It appears only when there
+  is something to keep and never blocks leaving.
+- **See it all is the run, not the routine** *(built — from a proposal, not an owner decision)*: titled "This run of <name>", it looks
+  different from the routine editor, and what you change there is for this run only.
+- **The routine editor** *(built, plain)*: a list of steps and wait steps, move up / down, the
+  Repeat divider, "ends here", rename, remove. Editing is live, with Undo — no Save. Blocks, Read
+  it, Walk through, rails and drag are designed, not built yet.
+- **Designed, not built yet:** Your routines, Looking back ("a set, not a log": one line per ended
+  run), the Map of a tile's contents, the leaving ask for things still waited on ("Still waiting" /
+  "Let it go"), "Stop waiting for this". **Erase everything is not built and not decided** as an
+  item; build none of these without their roadmap item.
+
+## Rules
+- **Minimalism (owner).** The app should communicate itself. Use an icon only where it is
+  conventional and unambiguous; otherwise the word. Words are for form labels, button labels that
+  need them, and the person's own text. **No instructional or explanatory text, no preamble, no
+  disclaimers** — needing one is a sign the design has failed to say it. Not to be applied
+  overzealously: a label that prevents a mistake stays.
+- **Borrow established conventions** from adjacent productivity apps for layout, spacing, icon and
+  settings placement and component choice, so the app meets expectations before it asks anyone to
+  learn.
+- **Safeguards.** Everything reversible gets an **Undo and no confirm**. A confirm appears only when
+  an action reaches beyond what is on screen (other routines, open runs, all data), and every Remove
+  names its reach.
+- **An ask and a confirm are different** (§9b). In an **ask** every choice goes forward and the
+  filled one carries on. In a **confirm**, Cancel is filled (stopping, removing everywhere).
+- **The filled button is the safe or forward choice**, one per screen or sheet. **Red and "!" only
+  for errors and the irreversible.**
+- **One vocabulary, and one wording and one mark per meaning.** A mark never means two things (now,
+  repeats, routine, wait, forward, fold, more, pause each have their own).
+- **Nothing is counted against you.** No streaks, deadlines, notifications or tallies of what you
+  did; nothing shows how much is left; no timers. A repeat number you set and the round you are on
+  are context, **shown only in the panel**. Counts appear otherwise only in the import preview.
+  "Since" is in words (a day's name or a date), never a running count.
+- **Acting.** Fixed places for the runner's buttons. The level is in words, never colour alone.
+  Nothing by gesture alone: every drag, swipe and long-press has a visible control.
+- **Accessibility.** Targets ≥ 48 px; body text ≥ 16 px; layouts reflow at 200 % text and with the
+  keyboard up; screen titles are headings; icon-only and repeated buttons have full spoken names
+  ("Resume Apply to Acme"); focus has its own ring and is moved sensibly after Next, Done, Undo and
+  a sheet closing; an error never dims the words it is about. Under Reduce Motion every change is
+  instant.
+- **The data stays on the device.** There is no account and no server. **Export** writes everything
+  to a file and **Import** reads one back, with a preview, replace only. Settings (built) holds
+  them, with where the data lives and the version.
+- **Stored data is never deleted or converted to fit a design.** New kinds of record are added;
+  old ones are kept (see *Before*).
+
+## The look
+Dark. Pixel accents with a programmatic feel: a pixel font for screen titles only, chunky blocks,
+hard shadows. The person's words are in a clean sans face (IBM Plex Sans; the owner may overrule the
+font — B-11 §10). A routine's colour is the colour of its tile and its note. Menus and pickers are
+bottom sheets; a notice with Undo follows anything reversible; a centred dialog appears only when an
+action reaches beyond the screen.
 
 ## One copy at a time (web, P-29)
 - A page holds the data only while it's visible. A page that doesn't hold it (coming back to a tab,
-  "Reconnecting…", or waiting for another copy) **can't change it**: changes are refused with one
-  quiet "Just a moment — reconnecting.", while the log box keeps working and a Return pressed meanwhile
-  logs once the data is back (if the line is unchanged). Typed text is never dropped.
+  reconnecting, or waiting for another copy) **can't change it**: changes are refused with one quiet
+  notice. One pressed verb (Next, Done, Pause, Resume, Step in) is kept and applied once the data is
+  back, only if the run is unchanged. Typed text stays in its field and is never dropped.
+- The app's own states stay: opening, can't open the data (with a download of this browser's local
+  copy), another tab took over, reconnecting, a new version is ready, saved by a newer version.
 - Known edge cases (accepted):
   - Desktop, two visible windows: reloading (or updating) the window in use while the other is waiting
     hands the data to that window; the reloaded one waits, saying so, until the other is in the
@@ -132,6 +173,11 @@ These came out of the design sessions and several rounds of persona reviews. Cha
     back over files another copy holds could fork the data. If WebKit uses that text for another reason,
     the advice is wrong until the WebKit lane (P-05) shows it.
 
-## Design canvas
-The full set of explorations and the final screens (with the reference behind each decision) live in the
-"Orbit — Mobile UI draft" design canvas (working name before Wanderment).
+## Before
+Until 2026-11-25 this repository held Wanderment: a night-sky themed log in which a person wrote one
+line about something they did, attached it to "wanders" (ongoing pursuits) and "whys", and saw lines
+and stars on a live map. The owner retired it ("get rid of the old app entirely. Retired.") and its
+screens and routes are removed. **Its data is kept**: wanders and activities stay in storage, in
+every export and through import, and are not shown anywhere yet (B-11 places them in Looking back,
+which is not built). **Its rules no longer apply** — "capture is sacred", the composer, the sky, the
+sheet, heat and the rest are history, readable in this file's git log and in briefs B-01 to B-10.

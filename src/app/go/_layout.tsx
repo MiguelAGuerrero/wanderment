@@ -6,8 +6,8 @@ import { Platform } from 'react-native';
 import { FAMILY, G } from '@/components/go/tokens';
 
 /**
- * B-11 slice 1 (P-86): the `/go` screens, beside today's home (nothing of it is touched). Dark, with
- * their own faces — loaded HERE only, so nothing else in the app waits on them; the first frame
+ * B-11 slice 1 (P-86): the `/go` screens — since P-89 the whole app. Dark, with their own faces,
+ * loaded here; the first frame
  * waits until they are in or have failed (the note is sized from its words: a late face would move
  * it), and a failure just means the system face.
  */

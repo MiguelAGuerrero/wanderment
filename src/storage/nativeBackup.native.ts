@@ -52,7 +52,7 @@ export function scheduleBackup(data: Data): void {
 export async function shareBackup(data: Data): Promise<boolean> {
   const file = writeBackup(data);
   if (!(await Sharing.isAvailableAsync())) return false;
-  await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Export Wanderment data' });
+  await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Export your data' });
   return true;
 }
 

@@ -6,7 +6,7 @@
 import { normalizeName } from './model';
 import { openRuns, readRoutine, routineNamed, Seq } from './run';
 import { homeTiles, Tile } from './runView';
-import { fold } from './search';
+import { fold } from './fold';
 import { Data, Id } from './types';
 
 export interface StartRow {

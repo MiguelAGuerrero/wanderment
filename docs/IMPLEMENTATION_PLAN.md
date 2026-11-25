@@ -1,5 +1,12 @@
 # Wanderment — implementation plan for a coding agent
 
+> **History, not a plan to follow (2026-11-25).** This is the completed plan (M1–M4) for Wanderment, the
+> app this repository held before. The owner retired that app on 2026-11-25 and its screens are removed.
+> Nothing below describes the app that exists now, and its "never" list and product rules are superseded
+> by [`DESIGN.md`](DESIGN.md). The current design is
+> [`product/briefs/B-11-context-stacks.md`](product/briefs/B-11-context-stacks.md); current work is in
+> [`ROADMAP.md`](ROADMAP.md). The stack and storage notes may still be accurate, but check the code.
+
 > **Status: complete (Phases 0–4, November 2026).** Ongoing work lives in [`ROADMAP.md`](ROADMAP.md) and is
 > driven by the `/polish` skill.
 

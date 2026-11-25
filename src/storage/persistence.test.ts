@@ -7,6 +7,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { person } from '@/test/records';
+
 const env = vi.hoisted(() => {
   const ls = new Map<string, string>();
   const state = { dbPath: '', openError: undefined as Error | undefined, quotaKey: undefined as string | undefined, hangWrites: false };
@@ -81,10 +83,12 @@ async function load() {
   return useStore;
 }
 const texts = (store: Awaited<ReturnType<typeof load>>) => Object.values(store.getState().data.activities).map((a) => a.text).sort();
-const logText = (store: Awaited<ReturnType<typeof load>>, text: string) => {
-  store.getState().setDraft({ text });
-  store.getState().log();
-};
+/**
+ * P-89: the old app's actions are gone. Records are made and changed with the test-support builders
+ * (`@/test/records`: the old app's own functions), put in the store as an action put them — so every
+ * test below still goes through the real persistence module, its journal and real SQLite.
+ */
+const logText = (store: Awaited<ReturnType<typeof load>>, text: string) => void person(store).log(text);
 
 beforeEach(() => {
   env.ls.clear();
@@ -146,13 +150,13 @@ describe('moving from the first release’s format', () => {
   it('records deleted here don’t come back from an old-version tab, but its new records are added', async () => {
     env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'one'), a2: act('a2', 'two') } }));
     let store = await load();
-    store.getState().removeActivity('a2');
+    person(store).removeActivity('a2');
     await settle();
     env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'one'), a2: act('a2', 'two'), a3: act('a3', 'three') } }));
     store = await load();
     expect(texts(store)).toEqual(['one', 'three']);
     // Even if everything is deleted, the old blob doesn't come back as a "first move".
-    for (const id of Object.keys(store.getState().data.activities)) store.getState().removeActivity(id);
+    for (const id of Object.keys(store.getState().data.activities)) person(store).removeActivity(id);
     await settle();
     env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'one') } }));
     store = await load();
@@ -162,7 +166,7 @@ describe('moving from the first release’s format', () => {
   it('adds records an old-version tab wrote after the move, keeping newer copies', async () => {
     env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'old') } }));
     let store = await load();
-    store.getState().updateActivity('a1', { text: 'old, edited here' });
+    person(store).updateActivity('a1', { text: 'old, edited here' });
     await settle();
     // The old tab rewrites its whole (stale) state plus one new entry.
     env.ls.set('wanderment', legacyBlob({ version: 1, threads: {}, activities: { a1: act('a1', 'old'), a2: act('a2', 'from the old tab') } }));
@@ -175,7 +179,7 @@ describe('moving from the first release’s format', () => {
     let store = await load();
     expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
     logText(store, 'in fallback');
-    store.getState().leaveAsIs('x1');
+    store.setState({ leftAsIs: ['x1'] });
     await settle();
     store = await load();
     expect(texts(store)).toEqual(['in fallback']);
@@ -217,9 +221,9 @@ describe('saving', () => {
     logText(store, 'b');
     await settle();
     const b = Object.values(store.getState().data.activities).find((x) => x.text === 'b')!;
-    store.getState().removeActivity(b.id);
+    person(store).removeActivity(b.id);
     store.getState().undoLast();
-    store.getState().updateActivity(b.id, { note: 'kept' });
+    person(store).updateActivity(b.id, { note: 'kept' });
     store = await load();
     expect(texts(store)).toEqual(['a', 'b']);
     expect(store.getState().data.activities[b.id].note).toBe('kept');
@@ -247,7 +251,7 @@ describe('asking the browser to keep the data', () => {
       await settle();
       expect(calls.persist).toBe(1);
       logText(store, 'two');
-      store.getState().setShowShading(false);
+      store.setState({ showShading: false });
       await settle();
       expect(calls.persist).toBe(1);
       // A reload without changes asks nothing.
@@ -274,24 +278,12 @@ describe('asking the browser to keep the data', () => {
   });
 });
 
-describe('the bridge after a log', () => {
-  it('is never saved: a reload drops it and keeps the activity, with nothing attached', async () => {
+describe('a change that touches two kinds of record at once (a line attached to a wander made for it)', () => {
+  it('then Undo leaves no wander on disk and the line unattached', async () => {
     let store = await load();
-    store.getState().setDraft({ text: 'read a novel' });
-    const id = store.getState().log(undefined, { bridge: true })!;
-    expect(store.getState().bridgeFor).toBe(id);
-    await settle();
-    store = await load();
-    expect(store.getState().bridgeFor).toBeUndefined();
-    expect(store.getState().data.activities[id].toIds).toEqual([]);
-    expect(store.getState().data.threads).toEqual({});
-  });
-
-  it('naming a thread then Undo leaves no thread on disk and the activity unattached', async () => {
-    let store = await load();
-    store.getState().setDraft({ text: 'read a novel' });
-    const id = store.getState().log(undefined, { bridge: true })!;
-    store.getState().attachToNew(id, 'reading');
+    const id = person(store).log('read a novel');
+    person(store).attachToNew(id, 'reading');
+    expect(Object.values(store.getState().data.threads).map((t) => t.name)).toEqual(['reading']);
     await settle();
     store.getState().undoLast();
     await settle();
@@ -306,8 +298,8 @@ describe('what a thread is for (P-14)', () => {
   const thread = (extra: Record<string, unknown> = {}) => ({ id: 't1', name: 'practice drawing', hidden: false, createdAt: at, ...extra });
   const mark = (store: Awaited<ReturnType<typeof load>>, id = 't1') => store.getState().data.threads[id]?.declaredAt;
   const declared = (store: Awaited<ReturnType<typeof load>>) => {
-    const id = store.getState().createThread('practice drawing');
-    expect(store.getState().declareThread(id).ok).toBe(true);
+    const id = person(store).createThread('practice drawing');
+    expect(person(store).declareThread(id).ok).toBe(true);
     return { id, at: store.getState().data.threads[id].declaredAt! };
   };
 
@@ -330,10 +322,10 @@ describe('what a thread is for (P-14)', () => {
     expect(mark(store, d.id)).toBe(d.at);
 
     // Every edit rewrites the whole row: none of them may drop the mark.
-    expect(store.getState().renameThread(d.id, 'draw').ok).toBe(true);
+    expect(person(store).renameThread(d.id, 'draw').ok).toBe(true);
     await settle();
     store = await load();
-    store.getState().setNext(d.id, 'gesture study');
+    person(store).setNext(d.id, 'gesture study');
     await settle();
     store = await load();
     expect(store.getState().data.threads[d.id]).toEqual({ id: d.id, name: 'draw', next: 'gesture study', hidden: false, createdAt: expect.any(String), declaredAt: d.at });
@@ -348,19 +340,19 @@ describe('what a thread is for (P-14)', () => {
     store = await load();
     expect(mark(store, d.id)).toBeUndefined();
 
-    expect(store.getState().declareThread(d.id).ok).toBe(true);
+    expect(person(store).declareThread(d.id).ok).toBe(true);
     const again = mark(store, d.id)!;
     await settle();
-    store.getState().undeclareThread(d.id);
+    person(store).undeclareThread(d.id);
     await settle();
     store = await load();
     expect(mark(store, d.id)).toBeUndefined();
     // Undo after the undeclare was saved puts the exact time back on disk.
-    store.getState().declareThread(d.id);
+    person(store).declareThread(d.id);
     const third = mark(store, d.id)!;
     expect(third >= again).toBe(true);
     await settle();
-    store.getState().undeclareThread(d.id);
+    person(store).undeclareThread(d.id);
     await settle();
     store.getState().undoLast();
     await settle();
@@ -372,15 +364,15 @@ describe('what a thread is for (P-14)', () => {
     let store = await load();
     const d = declared(store);
     await settle();
-    store.getState().setHidden(d.id, true);
+    person(store).setHidden(d.id, true);
     await settle();
     store = await load();
     expect(store.getState().data.threads[d.id]).toMatchObject({ hidden: true });
     expect(mark(store, d.id)).toBeUndefined();
-    store.getState().setHidden(d.id, false);
-    store.getState().declareThread(d.id);
+    person(store).setHidden(d.id, false);
+    person(store).declareThread(d.id);
     const at2 = mark(store, d.id)!;
-    store.getState().setHidden(d.id, true);
+    person(store).setHidden(d.id, true);
     store.getState().undoLast();
     await settle();
     store = await load();
@@ -389,10 +381,10 @@ describe('what a thread is for (P-14)', () => {
 
   it('a declare survives the tab closing before SQLite commits (journal)', async () => {
     let store = await load();
-    const id = store.getState().createThread('practice drawing');
+    const id = person(store).createThread('practice drawing');
     await settle();
     env.state.hangWrites = true;
-    store.getState().declareThread(id);
+    person(store).declareThread(id);
     const at2 = mark(store, id)!;
     await settle();
     env.state.hangWrites = false;
@@ -419,9 +411,9 @@ describe('what a thread is for (P-14)', () => {
     const { toBackup, fromBackup } = await import('@/domain/backup');
     let store = await load();
     const d = declared(store);
-    store.getState().createThread('run');
+    person(store).createThread('run');
     const json = toBackup(store.getState().data);
-    store.getState().undeclareThread(d.id);
+    person(store).undeclareThread(d.id);
     await settle();
     store.getState().replaceData(fromBackup(json));
     await settle();
@@ -438,10 +430,8 @@ describe('what a thread is for (P-14)', () => {
 });
 
 describe('lit and settled lines (P-73)', () => {
-  const lit = (store: Awaited<ReturnType<typeof load>>, text: string, done = false) => {
-    store.getState().setDraft({ text });
-    return store.getState().log(undefined, { trail: true, done })!;
-  };
+  /** A line sent up from the trailhead: lit, or (with the done chip) settled at once. */
+  const lit = (store: Awaited<ReturnType<typeof load>>, text: string, done = false) => person(store).log(text, done ? { settled: true } : { lit: true });
   const line = (store: Awaited<ReturnType<typeof load>>, id: string) => store.getState().data.activities[id];
 
   it('a lit line, a done-chip line, Done it and its Undo all survive a reload in SQLite; a note edited later wipes nothing', async () => {
@@ -449,7 +439,7 @@ describe('lit and settled lines (P-73)', () => {
     const a = lit(store, 'sketch hands');
     const b = lit(store, 'read a chapter', true);
     const c = lit(store, 'went for a swim');
-    store.getState().settleKept(); // c, the line rising now
+    person(store).settle(c); // Done it
     await settle();
     store = await load();
     expect(line(store, a)).toMatchObject({ lit: true });
@@ -460,37 +450,39 @@ describe('lit and settled lines (P-73)', () => {
     expect(line(store, c).settledAt).toEqual(expect.any(String));
 
     // Every edit rewrites the whole row: none may drop lit or settledAt.
-    store.getState().updateActivity(a, { note: 'with charcoal' });
-    store.getState().updateActivity(b, { note: 'chapter 3' });
+    person(store).updateActivity(a, { note: 'with charcoal' });
+    person(store).updateActivity(b, { note: 'chapter 3' });
     await settle();
     store = await load();
     expect(line(store, a)).toMatchObject({ lit: true, note: 'with charcoal' });
     expect(line(store, b)).toMatchObject({ settledAt: expect.any(String), note: 'chapter 3' });
 
     // Done it, then Undo, saved: lit again on disk.
-    store.setState({ kept: { activityId: a, text: 'sketch hands' } });
-    store.getState().settleKept();
+    person(store).settle(a);
     await settle();
-    store.getState().undoKept();
+    expect(line(store, a).lit).toBeUndefined();
+    store.getState().undoLast();
     await settle();
     store = await load();
     expect(line(store, a).lit).toBe(true);
     expect(line(store, a).settledAt).toBeUndefined();
   });
 
-  it('↳ First step survives a reload (the wander, its step, the line settled toward it); its Undo does too', async () => {
+  it('↳ First step survives a reload (the wander, its step, the line settled toward it); a fresh page has no Undo for it', async () => {
     let store = await load();
     const a = lit(store, 'learn watercolour');
-    expect(store.getState().firstStepKept('buy a brush')).toBe(true);
+    expect(person(store).firstStep(a, 'buy a brush')).toBeDefined();
     const tid = line(store, a).doingId!;
     await settle();
     store = await load();
     expect(store.getState().data.threads[tid]).toMatchObject({ name: 'learn watercolour', next: 'buy a brush' });
     expect(line(store, a)).toMatchObject({ doingId: tid, settledAt: expect.any(String) });
     expect(line(store, a).lit).toBeUndefined();
-    store.setState({ kept: { activityId: a, text: 'learn watercolour', did: { kind: 'step', threadId: tid } }, undo: undefined });
-    // A fresh page has no Undo for it: refused, nothing changes.
-    expect(store.getState().undoKept()).toBe(false);
+    // A fresh page has no Undo for it: nothing changes.
+    expect(store.getState().undo).toBeUndefined();
+    const was = store.getState().data;
+    store.getState().undoLast();
+    expect(store.getState().data).toBe(was);
   });
 
   it('survives the tab closing before SQLite commits (journal)', async () => {
@@ -541,7 +533,7 @@ describe('lit and settled lines (P-73)', () => {
     const b = lit(store, 'read', true);
     const settledAt = line(store, b).settledAt;
     const json = toBackup(store.getState().data);
-    store.getState().removeActivity(a);
+    person(store).removeActivity(a);
     await settle();
     store.getState().replaceData(fromBackup(json));
     await settle();
@@ -562,9 +554,9 @@ describe('lit and settled lines (P-73)', () => {
 describe('another copy of the app holds the data (P-29)', () => {
   const WEBKIT_HELD = 'The object is in an invalid state.';
   const held = () => new Error(WEBKIT_HELD);
-  const ANOTHER_TAB = 'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
+  const ANOTHER_TAB = 'The app is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
   const ELSEWHERE =
-    'Wanderment is still open somewhere else in this browser — maybe an old tab, or a page in a tab’s history. Close other Wanderment tabs; if this stays, quit the browser and reopen it. Your data is safe; this page will open by itself.';
+    'The app is still open somewhere else in this browser — maybe an old tab, or a page in a tab’s history. Close its other tabs; if this stays, quit the browser and reopen it. Your data is safe; this page will open by itself.';
   type Store = Awaited<ReturnType<typeof load>>;
   const tick = (ms: number) => vi.advanceTimersByTimeAsync(ms);
   const snapshot = () => JSON.stringify([...env.ls.entries()].sort());
@@ -710,7 +702,7 @@ describe('another copy of the app holds the data (P-29)', () => {
     store = await load();
     expect(store.getState().storage).toEqual({
       state: 'blocked',
-      message: `Wanderment couldn’t open its data (${unknown().message}). Reload to try again.`,
+      message: `The app couldn’t open its data (${unknown().message}). Reload to try again.`,
       details: `Details: open · ${unknown().message}`,
     });
     await tick(60_000);
@@ -733,7 +725,7 @@ describe('another copy of the app holds the data (P-29)', () => {
       const store = await load();
       expect(store.getState().storage, step).toEqual({
         state: 'blocked',
-        message: 'Wanderment couldn’t open its data (disk I/O error). Reload to try again.',
+        message: 'The app couldn’t open its data (disk I/O error). Reload to try again.',
         details: `Details: ${step} · disk I/O error`,
       });
       await tick(60_000);
@@ -774,7 +766,7 @@ describe('another copy of the app holds the data (P-29)', () => {
 describe('holding the data only while the page is visible (P-29 part B)', () => {
   type Store = Awaited<ReturnType<typeof load>>;
   const tick = (ms: number) => vi.advanceTimersByTimeAsync(ms);
-  const TAB_HELD = 'Wanderment is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
+  const TAB_HELD = 'The app is open in another tab or window. It’ll open here as soon as that one is closed or in the background.';
   const READY = { state: 'ready', kind: 'sqlite' };
   const RECONNECTING = { state: 'ready', kind: 'sqlite', reconnecting: true };
   /** What happened, in order: commits, the journal clearing, close, shutdown, the tab lock going. */
@@ -962,9 +954,9 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     await tick(30);
     const id = idOf(store, 'alpha');
     writeGate = deferred();
-    store.getState().updateActivity(id, { note: 'n1' });
+    person(store).updateActivity(id, { note: 'n1' });
     await tick(0);
-    store.getState().updateActivity(id, { note: 'from B' }); // queued behind the write in flight
+    person(store).updateActivity(id, { note: 'from B' }); // queued behind the write in flight
     await tick(0);
     page.hide();
     writeGate.open();
@@ -999,7 +991,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     logText(store, 'in flight');
     await tick(0);
     logText(store, 'queued');
-    store.getState().updateActivity(id, { note: 'edited' });
+    person(store).updateActivity(id, { note: 'edited' });
     await tick(0);
     page.hide();
     writeGate.open();
@@ -1084,7 +1076,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       let typed = '';
       for (const c of 'abcdefghijkl') {
         typed += c;
-        store.getState().updateActivity(id, { note: typed });
+        person(store).updateActivity(id, { note: typed });
         await tick(0);
       }
       page.hide();
@@ -1128,7 +1120,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       await tick(30);
       const id = idOf(store, 'alpha');
       failWrites();
-      store.getState().updateActivity(id, { note: 'kept note' });
+      person(store).updateActivity(id, { note: 'kept note' });
       logText(store, 'unsaved');
       await tick(30);
       page.hide();
@@ -1138,7 +1130,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       env.p29.failSql = undefined;
       expect(texts(store)).toEqual(['alpha', 'unsaved']);
       expect(store.getState().data.activities[id].note).toBe('kept note');
-      store.getState().setShowShading(false); // any next change saves everything pending
+      store.setState({ showShading: false }); // any next change saves everything pending
       await tick(30);
       expect(await diskTexts()).toEqual(['alpha', 'unsaved']);
       expect((await onDisk()).activities[id].note).toBe('kept note');
@@ -1174,18 +1166,17 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     expect(log.slice(-3)).toEqual(['close', 'shutdown', 'lock released']);
     env.p29.writes = [];
     const { data } = store.getState();
-    expect(store.getState().updateActivity(idOf(store, 'before'), { note: 'while hidden' })).toBe(false);
+    expect(store.getState().startNew('while hidden')).toEqual({ ok: false, reason: 'reconnecting' });
     await tick(1000);
     expect(store.getState().data).toBe(data);
-    // Audit 2 F4: the "Logged" toast (with Undo) stays, and says why on its second line.
-    expect(store.getState().toast).toEqual({ message: 'Logged', activityId: idOf(store, 'before'), detail: 'Just a moment — reconnecting.' });
+    expect(store.getState().toast).toEqual({ message: 'Just a moment — reconnecting.', notice: true });
     expect(env.p29.writes).toEqual([]);
     expect(env.ls.has('wanderment:journal')).toBe(false);
 
     page.show();
     await tick(30);
     expect(store.getState().storage).toEqual(READY);
-    expect(store.getState().updateActivity(idOf(store, 'before'), { note: 'once shown' })).toBe(true);
+    person(store).updateActivity(idOf(store, 'before'), { note: 'once shown' });
     await tick(30);
     expect(Object.values((await onDisk()).activities)[0].note).toBe('once shown');
     expect(env.ls.has('wanderment:journal')).toBe(false);
@@ -1198,14 +1189,15 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     await tick(30);
     page.hide();
     await tick(30);
-    store.getState().updateActivity(idOf(store, 'before'), { note: 'while hidden' });
+    expect(store.getState().startNew('while hidden').ok).toBe(false);
     await tick(30);
     // The page is gone (iOS dropped it); another one opens.
     page = fakePage();
     const next = await load();
     expect(next.getState().storage).toEqual(READY);
     expect(texts(next)).toEqual(['before']);
-    expect(next.getState().data.activities[idOf(next, 'before')].note).toBeUndefined();
+    expect(next.getState().data.routines).toEqual({});
+    expect(next.getState().data.runs).toEqual({});
   });
 
   it('shown again, it shows what another page saved meanwhile, keeps the draft, and drops Undo', async () => {
@@ -1217,7 +1209,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     page.hide();
     await tick(30);
     await writeElsewhere('from another tab');
-    store.getState().setDraft({ text: 'half-typed' });
+    store.setState({ draft: { text: 'half-typed', toIds: [] } });
 
     page.show();
     await tick(30);
@@ -1257,7 +1249,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     page.hide();
     await tick(30);
     const letGo = locks.holdElsewhere();
-    store.getState().setDraft({ text: 'typing' });
+    store.setState({ draft: { text: 'typing', toIds: [] } });
     const seen: unknown[] = [];
     store.subscribe((s, prev) => s.storage !== prev.storage && seen.push(s.storage));
 
@@ -1396,9 +1388,10 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     expect(store.getState().storage).toEqual(RECONNECTING);
     expect(locks.free()).toBe(true);
     expect(log.filter((e) => e === 'shutdown').length).toBe(env.p29.opens);
-    logText(store, 'still saved');
     page.show();
     await tick(100);
+    logText(store, 'still saved');
+    await tick(30);
     expect(await diskTexts()).toEqual(['still saved']);
   });
 
@@ -1536,41 +1529,14 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         },
       }));
     };
-    /** Every action that changes the data or the saved settings, with arguments that do change something. */
+    /**
+     * Every action that changes the data, with arguments that do change something. (P-89: the old app's
+     * actions are gone; what is left is Undo, import's replace, taking the data back, and the runner's.)
+     */
     const MUTATING: Record<string, { args: unknown[]; setup?: (store: Store) => void }> = {
-      log: { args: [], setup: (store) => store.getState().setDraft({ text: 'typed' }) },
-      createThread: { args: ['fresh'] },
-      pullIn: { args: ['t2', ['a1']] },
-      rememberSearch: { args: ['q'] },
-      clearSearches: { args: [] },
-      leaveAsIs: { args: ['a1'] },
-      setNext: { args: ['t2', 'go'] },
-      renameThread: { args: ['t2', 'renamed'] },
-      setHidden: { args: ['t2', true] },
-      declareThread: { args: ['t2'] },
-      undeclareThread: { args: ['t1'] },
-      swapWhy: { args: ['t1', 't2'] },
-      attach: { args: ['a1', 't2'] },
-      attachToNew: { args: ['a1', 'brand new'] },
-      updateActivity: { args: ['a1', { note: 'n' }] },
-      removeActivity: { args: ['a2'] },
-      undoLast: { args: [], setup: (store) => store.getState().removeActivity('a3') },
+      undoLast: { args: [], setup: (store) => person(store).removeActivity('a3') },
       replaceData: { args: [other()] },
       refreshData: { args: [other(), { showShading: false, recentSearches: [], leftAsIs: [] }, false] },
-      setShowShading: { args: [false] },
-      putOffWhy: { args: [] },
-      endFirstRun: { args: [] },
-      // P-73: the rise's choices and their Undo change the data (the rising line is a1, loose and lit).
-      settleKept: { args: [], setup: (store) => store.setState({ kept: { activityId: 'a1', text: 'unattached' } }) },
-      firstStepKept: { args: ['first'], setup: (store) => store.setState({ kept: { activityId: 'a1', text: 'unattached' } }) },
-      towardKept: { args: ['t2'], setup: (store) => store.setState({ kept: { activityId: 'a1', text: 'unattached' } }) },
-      undoKept: {
-        args: [],
-        setup: (store) => {
-          store.setState({ kept: { activityId: 'a1', text: 'unattached' } });
-          store.getState().towardKept('t2');
-        },
-      },
       // P-86: routines and runs. (A start is refused while something runs, so those two start from a paused run.)
       startRoutine: { args: ['g2'], setup: going({ status: 'paused' }) },
       startNew: { args: ['Learn Spanish'], setup: going({ status: 'paused' }) },
@@ -1591,46 +1557,14 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       editRun: { args: ['n1', { kind: 'add', seq: 'g1', after: 'a', text: 'extra' }], setup: going() },
       editRoutine: { args: ['g1', { kind: 'addStep', text: 'File it' }], setup: going() },
     };
-    /** The draft, and what's only on screen this session: these never change the data. */
+    /** What's only on screen this session: these never change the data. */
     const NOT_DATA: Record<string, unknown[]> = {
-      setDraft: [{ text: 'still typing' }],
-      clearDraft: [],
-      loadNext: ['t1'],
-      select: ['t1'],
-      setPullInOffer: ['t1'],
-      dismissPullIn: ['t1'],
-      dismissBridge: [],
       dismissToast: [],
-      holdToast: [true],
-      dismissPrompt: [],
+      // A Return the old app kept while reconnecting (it comes only from a reload across the update):
+      // nothing to log here, and it does nothing until the page holds the data.
       logMarked: [],
-      // P-49: which face Home's slot shows, and handing focus to the log box.
-      showHomeFace: ['next'],
-      focusLogBox: [],
-      // P-50: Home's focus and scope (session only; a tap's attach is the draft's chip, like select).
-      tapNode: ['t1'],
-      moveFocus: [1],
-      scopeUp: [],
-      setFocusMap: [undefined],
-      askAddStep: ['t1'],
-      // P-58: Home's sheet, out or away, and its section (session only).
-      openSheet: ['activities'],
-      closeSheet: [],
-      showSheetSection: ['activities'],
-      // P-65/P-73: walking away from the rising line (session only).
-      leaveKept: [],
-      // Fix 18 (P-73): a loose line tapped on the sky rises again (session only).
-      keepLoose: ['a1'],
-      // P-80: a line tapped on the live map opens again (session only).
-      reopenLine: ['a1'],
-      // P-73: the trailhead's done chip (session only, never stored).
-      setDoneChip: [true],
-      // P-82: a landed line's label goes (session only).
-      clearLanded: [],
-      // P-84: the sheet's search query (session only).
-      setSheetSearch: ['sketch'],
       // P-86: the Keep sheet and the notice put away (session only); and the press kept while
-      // reconnecting, which does nothing until the page holds the data again (as logMarked).
+      // reconnecting, which does nothing until the page holds the data again.
       dismissRunOffer: [],
       dismissRunNotice: [],
       verbMarked: [],
@@ -1667,7 +1601,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         if (mode === 'local') env.state.openError = new Error('no OPFS');
         const store = await load();
         reset(store);
-        store.getState().removeActivity('a3'); // an Undo to keep
+        person(store).removeActivity('a3'); // an Undo to keep
         await tick(30);
         page.hide();
         await tick(30);
@@ -1692,9 +1626,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
           expect(after.data, name).toBe(before.data);
           expect(settingsOf(after), name).toEqual(settingsOf(before));
           expect(after.undo, name).toBe(before.undo);
-          // Return while reconnecting is remembered instead (and logged once the data is back).
-          if (name === 'log') expect(after.toLog, name).toBeDefined();
-          else expect(after.toast, name).toEqual(NOTICE);
+          expect(after.toast, name).toEqual(NOTICE);
         }
         for (const [name, args] of Object.entries(NOT_DATA)) {
           const before = store.getState();
@@ -1721,7 +1653,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       page.show();
       await tick(100);
       expect(store.getState().storage).toEqual(RECONNECTING);
-      expect(store.getState().updateActivity(idOf(store, 'before'), { note: 'edited while reconnecting' })).toBe(false);
+      expect(store.getState().startNew('made while reconnecting')).toEqual({ ok: false, reason: 'reconnecting' });
       expect(env.ls.has('wanderment:journal')).toBe(false);
       // B writes; A is reloaded from its waiting screen.
       await writeElsewhere('from B');
@@ -1734,47 +1666,6 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(texts(next)).toEqual(['before', 'from B']);
     });
 
-    it('Return while reconnecting is remembered and logs exactly once when the data is back; a line changed since waits for the next Return', async () => {
-      const locks = fakeLocks();
-      const store = await load();
-      await tick(30);
-      page.hide();
-      await tick(30);
-      const release = locks.holdElsewhere();
-      page.show();
-      await tick(100);
-      expect(store.getState().storage).toEqual(RECONNECTING);
-      store.getState().setDraft({ text: 'pressed while away' });
-      expect(store.getState().log()).toBeUndefined();
-      expect(store.getState().log()).toBeUndefined(); // pressed twice
-      expect(texts(store)).toEqual([]);
-      expect(store.getState().draft.text).toBe('pressed while away');
-      release();
-      await tick(30);
-      expect(store.getState().storage).toEqual(READY);
-      expect(texts(store)).toEqual(['pressed while away']);
-      expect(store.getState().draft.text).toBe('');
-      expect(store.getState().toLog).toBeUndefined();
-      expect(await diskTexts()).toEqual(['pressed while away']);
-
-      // Changed after Return: not logged when the data is back.
-      page.hide();
-      await tick(30);
-      const release2 = locks.holdElsewhere();
-      page.show();
-      await tick(100);
-      store.getState().setDraft({ text: 'first try' });
-      store.getState().log();
-      store.getState().setDraft({ text: 'first try, then more' });
-      release2();
-      await tick(30);
-      expect(store.getState().storage).toEqual(READY);
-      expect(texts(store)).toEqual(['pressed while away']);
-      expect(store.getState().draft.text).toBe('first try, then more');
-      store.getState().log();
-      expect(texts(store)).toEqual(['first try, then more', 'pressed while away']);
-    });
-
     it('a transient failure taking the data back (an open that timed out) keeps the data and draft on screen and tries again by itself', async () => {
       fakeLocks();
       const store = await load();
@@ -1782,7 +1673,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       await tick(30);
       page.hide();
       await tick(30);
-      store.getState().setDraft({ text: 'a draft' });
+      store.setState({ draft: { text: 'a draft', toIds: [] } });
       env.p29.failOpens = [new Error('Opening the database timed out'), new Error('Aborted(NetworkError: wasm)')];
       const opens = env.p29.opens;
       page.show();
@@ -1800,10 +1691,17 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(texts(store)).toEqual(['before']);
     });
 
-    it('taking the data back that keeps failing (not held) says so over the app after 6 tries — never before — with the details; it keeps trying behind it, opens by itself, and the remembered Return logs once (audit 2 F1)', async () => {
+    it('taking the data back that keeps failing (not held) says so over the app after 6 tries — never before — with the details; it keeps trying behind it, opens by itself, and the press kept meanwhile is applied once (audit 2 F1)', async () => {
       fakeLocks();
       const store = await load();
       logText(store, 'before');
+      const { runnerView } = await import('@/domain/runView');
+      const made = store.getState().startNew('Morning');
+      if (!made.ok || !made.runId) throw new Error('New: was refused');
+      const runId = made.runId;
+      store.getState().addEdgeStep(runId, 'Stretch');
+      store.getState().editRoutine(store.getState().data.runs[runId].routineId, { kind: 'addStep', text: 'Shower' });
+      const step = () => runnerView(store.getState().data, runId)!.step.words;
       await tick(30);
       page.hide();
       await tick(30);
@@ -1814,8 +1712,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       const opens = env.p29.opens;
       page.show();
       await tick(10);
-      store.getState().setDraft({ text: 'pressed while it fails' });
-      expect(store.getState().log()).toBeUndefined();
+      expect(store.getState().nextStep(runId)).toEqual({ ok: false, reason: 'reconnecting' });
       // Tries at about 0, 0.25, 0.75, 1.75 and 3.75 s, then 7.75 s: five failures are still only "Reconnecting…".
       await tick(7720);
       expect(env.p29.opens).toBe(opens + 5);
@@ -1827,24 +1724,26 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         state: 'blocked',
         waiting: true,
         // Audit 3 U1: no advice to reload (it opens by itself; Reload stays as a second way).
-        message: 'Wanderment can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept.',
+        message: 'The app can’t open its data right now. It keeps trying, and this page will carry on by itself once it can; what you’ve typed is kept.',
         details: 'Details: open · Aborted(NetworkError: wasm)',
       });
       // It keeps trying (every 5 s now), without saying it again on each try; the line and the data stay.
       await tick(20_000);
       expect(env.p29.opens).toBe(opens + 10);
       expect(seen).toHaveLength(1);
-      expect(store.getState().toLog?.draft.text).toBe('pressed while it fails');
+      expect(store.getState().toVerb).toMatchObject({ runId, verb: 'next' });
+      expect(step()).toBe('Stretch');
       expect(texts(store)).toEqual(['before']);
       expect(env.p29.writes.filter((q) => /INSERT|UPDATE|DELETE/i.test(q))).toEqual([]);
-      // Back: it opens by itself, and the line pressed meanwhile is logged once.
+      // Back: it opens by itself, and the press made meanwhile is applied once.
       env.state.openError = undefined;
       await tick(5000);
       expect(store.getState().storage).toEqual(READY);
-      expect(texts(store)).toEqual(['before', 'pressed while it fails']);
-      expect(store.getState().draft.text).toBe('');
+      expect(texts(store)).toEqual(['before']);
+      expect(step()).toBe('Shower');
+      expect(store.getState().toVerb).toBeUndefined();
       await tick(30);
-      expect(await diskTexts()).toEqual(['before', 'pressed while it fails']);
+      expect(await onDisk()).toEqual(store.getState().data);
     });
 
     it('taking the data back that keeps failing slowly (each open timing out) says so after about 30 s, not before (audit 2 F1)', async () => {
@@ -1926,7 +1825,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       vi.stubGlobal('location', { reload, href: 'http://localhost/wanderment/' });
       fakeLocks();
       let store = await load();
-      store.getState().setDraft({ text: 'typed before Reload', toIds: [] });
+      store.setState({ draft: { text: 'typed before Reload', toIds: [] } });
       (await import('./persistence')).reloadKeepingDraft();
       expect(reload).toHaveBeenCalledTimes(1);
       (await import('./persistence')).stopPersistence();
@@ -1941,29 +1840,22 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(store.getState().draft.text).toBe('');
     });
 
-    it('Return pressed while reconnecting survives Reload like the draft: it’s logged once when the data shows again (audit 3 U1)', async () => {
+    it('across the update: a Return the old app kept while reconnecting (in this tab’s session storage, with its draft) is logged once by this build when the data shows — and never again', async () => {
       const session = new Map<string, string>();
       vi.stubGlobal('sessionStorage', { getItem: (k: string) => session.get(k) ?? null, setItem: (k: string, v: string) => void session.set(k, v), removeItem: (k: string) => void session.delete(k) });
       vi.stubGlobal('location', { reload: vi.fn(), href: 'http://localhost/wanderment/' });
-      const locks = fakeLocks();
+      // What the old build's page wrote before it reloaded itself (its keys and shapes, b50ffec).
+      const draft = { text: 'pressed before Reload', toIds: [] };
+      session.set('wanderment:draft', JSON.stringify(draft));
+      session.set('wanderment:draft:to-log', JSON.stringify({ draft, opts: { trail: true } }));
+      fakeLocks();
       let store = await load();
       await tick(30);
-      page.hide();
-      await tick(30);
-      locks.holdElsewhere();
-      page.show();
-      await tick(100);
-      expect(store.getState().storage).toEqual(RECONNECTING);
-      store.getState().setDraft({ text: 'pressed before Reload' });
-      expect(store.getState().log()).toBeUndefined();
-      (await import('./persistence')).reloadKeepingDraft();
-      (await import('./persistence')).stopPersistence();
-      page = fakePage();
-      fakeLocks();
-      store = await load();
-      await tick(30);
       expect(texts(store)).toEqual(['pressed before Reload']);
-      expect(store.getState().draft.text).toBe('');
+      // As the old app would have logged it: sent up from the trailhead, so lit.
+      expect(Object.values(store.getState().data.activities)[0]).toMatchObject({ text: 'pressed before Reload', lit: true, toIds: [] });
+      expect(store.getState().toLog).toBeUndefined();
+      expect(session.size).toBe(0);
       expect(await diskTexts()).toEqual(['pressed before Reload']);
       // Once: another reload logs nothing more.
       (await import('./persistence')).reloadKeepingDraft();
@@ -1973,6 +1865,41 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       store = await load();
       await tick(30);
       expect(texts(store)).toEqual(['pressed before Reload']);
+    });
+
+    it('across the update: a draft the old app kept without a Return is not logged (nothing was asked for)', async () => {
+      const session = new Map<string, string>();
+      vi.stubGlobal('sessionStorage', { getItem: (k: string) => session.get(k) ?? null, setItem: (k: string, v: string) => void session.set(k, v), removeItem: (k: string) => void session.delete(k) });
+      session.set('wanderment:draft', JSON.stringify({ text: 'only typed', toIds: [] }));
+      // A Return kept for another line than the one in the box (it was changed since): not logged either.
+      session.set('wanderment:draft:to-log', JSON.stringify({ draft: { text: 'an earlier line', toIds: [] } }));
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      expect(texts(store)).toEqual([]);
+      expect(await diskTexts()).toEqual([]);
+    });
+
+    it('across the update: a damaged session key from the old tab never blocks the load — the data opens, nothing is logged, the keys are gone (audit B1)', async () => {
+      fakeLocks();
+      let store = await load();
+      logText(store, 'kept');
+      await tick(30);
+      (await import('./persistence')).stopPersistence();
+      const session = new Map<string, string>();
+      vi.stubGlobal('sessionStorage', { getItem: (k: string) => session.get(k) ?? null, setItem: (k: string, v: string) => void session.set(k, v), removeItem: (k: string) => void session.delete(k) });
+      const draft = { text: 'pressed before Reload', toIds: [] };
+      session.set('wanderment:draft', JSON.stringify(draft));
+      session.set('wanderment:draft:to-log', JSON.stringify({ draft, extra: { toIds: 'nope', occurredAt: 'never' } }));
+      page = fakePage();
+      fakeLocks();
+      store = await load();
+      await tick(30);
+      expect(store.getState().storage).toEqual(READY);
+      expect(texts(store)).toEqual(['kept']);
+      expect(store.getState().toLog).toBeUndefined();
+      expect(session.size).toBe(0);
+      expect(await diskTexts()).toEqual(['kept']);
     });
 
     it('a shutdown that fails (or times out) leaves the page the holder: it keeps the tab lock, tells no one, and lets go properly the next time it’s hidden — two pages never wait on each other', async () => {
@@ -2027,7 +1954,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       logText(store, 'in flight');
       await tick(0);
       expect(JSON.parse(env.ls.get('wanderment:journal')!).settings).toBeUndefined();
-      store.getState().setShowShading(false);
+      store.setState({ showShading: false });
       await tick(0);
       expect(JSON.parse(env.ls.get('wanderment:journal')!).settings).toEqual({ showShading: false });
       writeGate.open();
@@ -2098,7 +2025,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       writeGate = deferred();
       logText(store, 'in flight');
       await tick(0);
-      store.getState().removeActivity(idOf(store, 'one')); // queued behind the write in flight
+      person(store).removeActivity(idOf(store, 'one')); // queued behind the write in flight
       const { data, undo } = store.getState();
       page.hide();
       writeGate.open();
@@ -2110,7 +2037,6 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(texts(store)).toEqual(['in flight']);
       expect(store.getState().data).toBe(data);
       expect(store.getState().undo).toBe(undo);
-      expect(store.getState().toast?.message).toMatch(/^Deleted/);
     });
 
     it('an old-version tab’s records wait while the page doesn’t hold the data, and are taken in once it does', async () => {
@@ -2345,7 +2271,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       fakeLocks();
       let store = await load();
       logText(store, 'mine');
-      store.getState().createThread('draw');
+      person(store).createThread('draw');
       seed(store);
       await tick(30);
       const exported = store.getState().data;
@@ -2972,6 +2898,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
   });
 });
 
+// P-89: the control is gone with the old app; the saved setting is still a person's data, kept as it is.
 describe('P-34: “Not now” on “+ What’s it all for?” is kept for good', () => {
   it('survives a reload in SQLite, and is off until it’s used', async () => {
     let store = await load();
@@ -2980,7 +2907,7 @@ describe('P-34: “Not now” on “+ What’s it all for?” is kept for good',
     await settle();
     store = await load();
     expect(store.getState().whyOfferOff).toBe(false);
-    expect(store.getState().putOffWhy()).toBe(true);
+    store.setState({ whyOfferOff: true });
     await settle();
     store = await load();
     expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
@@ -2990,7 +2917,7 @@ describe('P-34: “Not now” on “+ What’s it all for?” is kept for good',
   it('survives the tab closing before SQLite commits (journal)', async () => {
     let store = await load();
     env.state.hangWrites = true;
-    store.getState().putOffWhy();
+    store.setState({ whyOfferOff: true });
     await settle();
     env.state.hangWrites = false;
     store = await load();
@@ -3001,7 +2928,7 @@ describe('P-34: “Not now” on “+ What’s it all for?” is kept for good',
     env.state.openError = new Error('no OPFS');
     let store = await load();
     expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
-    store.getState().putOffWhy();
+    store.setState({ whyOfferOff: true });
     await settle();
     store = await load();
     expect(store.getState().whyOfferOff).toBe(true);
@@ -3016,11 +2943,11 @@ describe('P-36: the first run, once over, is over for good', () => {
   it('survives a reload in SQLite, and is not over until it’s ended', async () => {
     let store = await load();
     expect(store.getState().firstRunDone).toBe(false);
-    store.getState().createThread('feel calmer');
+    person(store).createThread('feel calmer');
     await settle();
     store = await load();
     expect(store.getState().firstRunDone).toBe(false);
-    expect(store.getState().endFirstRun()).toBe(true);
+    store.setState({ firstRunDone: true });
     await settle();
     store = await load();
     expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
@@ -3032,7 +2959,7 @@ describe('P-36: the first run, once over, is over for good', () => {
   it('survives the tab closing before SQLite commits (journal)', async () => {
     let store = await load();
     env.state.hangWrites = true;
-    store.getState().endFirstRun();
+    store.setState({ firstRunDone: true });
     await settle();
     env.state.hangWrites = false;
     store = await load();
@@ -3043,7 +2970,7 @@ describe('P-36: the first run, once over, is over for good', () => {
     env.state.openError = new Error('no OPFS');
     let store = await load();
     expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
-    store.getState().endFirstRun();
+    store.setState({ firstRunDone: true });
     await settle();
     store = await load();
     expect(store.getState().firstRunDone).toBe(true);
@@ -3062,7 +2989,7 @@ describe('P-04: import checks, then previews; only Replace changes the data', ()
   async function withMine() {
     const store = await load();
     logText(store, 'mine');
-    store.getState().createThread('draw');
+    person(store).createThread('draw');
     await settle();
     return store;
   }
@@ -3165,7 +3092,6 @@ describe('P-04: import checks, then previews; only Replace changes the data', ()
     const { previewImport, confirmImport } = await helpers();
     const before = store.getState().data;
     const preview = previewImport(file(incoming));
-    store.getState().dismissToast(); // the "Logged" toast (with a toast up, the note goes on its second line)
     store.setState({ storage: { state: 'ready', kind: 'sqlite', reconnecting: true } });
     expect(confirmImport(preview)).toEqual({ ok: false, reason: 'reconnecting' });
     expect(store.getState().data).toBe(before);

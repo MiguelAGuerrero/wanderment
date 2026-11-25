@@ -1,7 +1,7 @@
 # 03 — The owner says go on a brief
 
-**Setup:** a brief `B-01-on-this-day.md` (status `proposed`, three slices) and its D-## entry exist.
-**Prompt:** `/product go B-01`
+**Setup:** a brief `B-##-<name>.md` (status `proposed`, three slices) and its D-## entry exist.
+**Prompt:** `/product go B-##`
 
 Checklist:
 - [ ] The brief's status becomes `building`, and the D-## entry records "go → P-##…".

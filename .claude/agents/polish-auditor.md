@@ -1,6 +1,6 @@
 ---
 name: polish-auditor
-description: Fresh-context adversarial reviewer for a Wanderment batch (everything since its base commit), graded against the batch contracts. Hunts data loss, logic bugs, DESIGN.md violations, UX/a11y defects, native-only mistakes and vacuous tests, reproducing what it can. Used once per batch by the /polish skill; never edits tracked files.
+description: Fresh-context adversarial reviewer for a batch of the app in this repository (a personal runbook; Wanderment is retired) (everything since its base commit), graded against the batch contracts. Hunts data loss, logic bugs, DESIGN.md violations, UX/a11y defects, native-only mistakes and vacuous tests, reproducing what it can. Used once per batch by the /polish skill; never edits tracked files.
 tools: Read, Grep, Glob, Bash, Write
 model: inherit
 maxTurns: 150

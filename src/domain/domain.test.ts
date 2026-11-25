@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { fromBackup, toBackup } from './backup';
 import { applyUndo, diffData, isEmptyDiff, missingFrom, pendingChanges, undoEntry } from './diff';
 import { migrateData } from './migrate';
-import { activeMention, removeActiveMention, suggestDoing, suggestThreads } from './compose';
-import { attachActivity, deleteActivity, editActivity, ensureThread, logActivity, nextOwner, renameThread, updateThread } from './model';
-import { flowsFrom, homeThreads, lastTimeFor, warmth } from './selectors';
+import { logActivity } from './model';
 import { Data, emptyData } from './types';
+// P-89: the old app's record builders, now test support (they still make the records these data-layer tests need).
+import { attachActivity, deleteActivity, editActivity, ensureThread, nextOwner, renameThread, updateThread } from '@/test/records';
 
 const day = (n: number) => new Date(Date.UTC(2026, 10, 20) - n * 864e5);
 
@@ -134,67 +134,11 @@ describe('logging', () => {
   });
 });
 
-describe('selectors', () => {
-  it('warmth halves every 14 days', () => {
-    expect(warmth(day(14), day(0))).toBeCloseTo(0.5, 5);
-    expect(warmth(undefined)).toBe(0);
-  });
-
-  it('splits current and earlier threads by last touch', () => {
-    let { data, drawing, apparel } = seed();
-    data = logActivity(data, { text: 'old', doingId: apparel.id, occurredAt: day(40) }, day(40)).data;
-    data = logActivity(data, { text: 'new', doingId: drawing.id, occurredAt: day(1) }, day(1)).data;
-    const { current, earlier } = homeThreads(data, day(0));
-    expect(current.map((s) => s.thread.id)).toEqual([drawing.id]);
-    expect(earlier.map((s) => s.thread.id)).toEqual([apparel.id]);
-  });
-
-  it('derives links from activities, both directions kept apart', () => {
-    let { data, drawing, apparel } = seed();
-    data = logActivity(data, { text: 'a', doingId: drawing.id, toIds: [apparel.id] }).data;
-    data = logActivity(data, { text: 'b', doingId: drawing.id, toIds: [apparel.id] }).data;
-    data = logActivity(data, { text: 'c', doingId: apparel.id, toIds: [drawing.id] }).data;
-    expect(flowsFrom(data, drawing.id)).toEqual([{ thread: data.threads[apparel.id], count: 2 }]);
-    expect(flowsFrom(data, apparel.id)).toEqual([{ thread: data.threads[drawing.id], count: 1 }]);
-  });
-
-  it('"last time" prefers the same direction', () => {
-    let { data, drawing, apparel } = seed();
-    data = logActivity(data, { text: 'plain', doingId: drawing.id, occurredAt: day(1) }, day(1)).data;
-    data = logActivity(data, { text: 'for apparel', doingId: drawing.id, toIds: [apparel.id], occurredAt: day(3) }, day(3)).data;
-    expect(lastTimeFor(data, drawing.id, apparel.id)?.text).toBe('for apparel');
-    expect(lastTimeFor(data, drawing.id)?.text).toBe('plain');
-  });
-});
-
-describe('composing', () => {
-  it('finds the active @query, including spaces, but not emails', () => {
-    expect(activeMention('sketched @make app')).toEqual({ start: 9, query: 'make app' });
-    expect(activeMention('mail me@x.com')).toBeUndefined();
-    expect(removeActiveMention('sketched @make app')).toBe('sketched ');
-  });
-
-  it('ranks prefix matches first, then recency', () => {
-    let { data, drawing, apparel } = seed();
-    const videos = ensureThread(data, 'make short videos');
-    data = videos.data;
-    const out = suggestThreads(data, 'make', [videos.thread.id, apparel.id]);
-    expect(out.map((t) => t.name)).toEqual(['make short videos', 'make apparel']);
-    expect(suggestThreads(data, 'draw', []).map((t) => t.id)).toEqual([drawing.id]);
-  });
-
-  it('suggests a doing thread from words, never from short or stop words', () => {
-    const { data, drawing } = seed();
-    expect(suggestDoing(data, 'more drawing tonight')?.id).toBe(drawing.id);
-    expect(suggestDoing(data, 'went to the gym')).toBeUndefined();
-  });
-});
-
 describe('backup', () => {
   it('round-trips and rejects foreign files', () => {
     const { data } = seed();
     expect(fromBackup(toBackup(data))).toEqual(data);
-    expect(() => fromBackup('{"hello":1}')).toThrow(/Wanderment backup/);
+    expect(() => fromBackup('{"hello":1}')).toThrow(/isn’t a backup from this app/);
     expect(() => fromBackup('nope')).toThrow(/valid JSON/);
   });
 });
@@ -208,7 +152,7 @@ describe('migrating data', () => {
     });
     expect(repaired.threads.t1).toMatchObject({ id: 't1', name: 'run', hidden: false, createdAt: new Date(0).toISOString() });
     expect(repaired.activities.a1).toMatchObject({ id: 'a1', toIds: ['t2'], createdAt: '2026-01-01T00:00:00.000Z' });
-    expect(() => migrateData({ version: 3, threads: {}, activities: {} })).toThrow(/Wanderment backup/);
+    expect(() => migrateData({ version: 3, threads: {}, activities: {} })).toThrow(/newer version of the app/);
     expect(() => migrateData({ version: 1, threads: {}, activities: { a: { text: 1 } } })).toThrow(/malformed/);
   });
 });

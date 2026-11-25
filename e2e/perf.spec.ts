@@ -1,34 +1,47 @@
-import { Page } from '@playwright/test';
-
-import { expect, logBox, openSheet, test } from './fixtures';
+import { expect, test } from './fixtures';
+import { exported, home, runner, settled } from './goFixture';
 import { bigBlob, seedScript } from './graphFixture';
 
-/** Time from Return to the toast, with a large history (220 threads, 4000 activities). */
-async function timedLog(page: Page, text: string) {
-  await logBox(page).fill(text);
-  const t0 = Date.now();
-  await logBox(page).press('Enter');
-  await expect(page.getByText('Logged', { exact: true }).filter({ visible: true })).toBeVisible();
-  return Date.now() - t0;
-}
-
-test('logging stays quick on Home and Activities with a large history', async ({ page }) => {
+/**
+ * P-89: an existing person with a large history from the old app (220 wanders, 4,000 lines) and
+ * nothing new. The app opens on the home, a start stays quick, and the export holds all of it.
+ * (Was: "logging stays quick on Home and Activities"; the screens that drew the history are gone,
+ * so nothing here does work per line any more.)
+ */
+test('with a 4,000-line history from the old app: the home opens, a start stays quick, and the export holds every line', async ({ page }) => {
   // A timing benchmark: it runs at the machine's real speed (verify's full run and CI). Under the
-  // CI-speed pass's CPU throttle (E2E_SLOW) it would measure the throttle, and the 4,000-line load
-  // outlasts its waits — that load time is P-46's to bring down.
-  test.skip(!!process.env.E2E_SLOW, 'timing benchmark: not meaningful under CPU throttling (P-46)');
+  // CI-speed pass's CPU throttle (E2E_SLOW) it would measure the throttle.
+  test.skip(!!process.env.E2E_SLOW, 'timing benchmark: not meaningful under CPU throttling');
   test.slow();
   await page.addInitScript(seedScript, bigBlob(220, 4000));
-  await page.goto('./activities'); // P-83: Map is retired — the home's sheet on Activities (a log box)
-  // P-83: Map (the "Home" timed here) is retired; the sheet's Wanders box stands in for it, once the data has loaded.
-  await expect(logBox(page)).toBeVisible({ timeout: 20_000 });
-  await openSheet(page, 'Wanders');
-  const home = await timedLog(page, 'home log');
-  await openSheet(page, 'Activities'); // P-58: a section of Home's sheet (was a tab)
-  await expect(page.getByRole('button', { name: /Show 100 more/ })).toBeVisible({ timeout: 10_000 });
-  await page.getByText('Logged', { exact: true }).filter({ visible: true }).waitFor({ state: 'hidden', timeout: 10_000 });
-  const activities = await timedLog(page, 'activities log');
-  console.log(`log → toast: Home ${home} ms, Activities ${activities} ms`);
-  expect(home).toBeLessThan(1500);
-  expect(activities).toBeLessThan(1500);
+  const t0 = Date.now();
+  await page.goto('./go');
+  // The first load also moves the whole history from the first release's format into the database.
+  await expect(settled(page, 'home')).toBeVisible({ timeout: 20_000 });
+  const firstLoad = Date.now() - t0;
+
+  // From the database (every later open).
+  const t1 = Date.now();
+  await page.reload();
+  await expect(settled(page, 'home')).toBeVisible({ timeout: 20_000 });
+  const load = Date.now() - t1;
+
+  // Return on "New: …" to the runner asking for a first step.
+  await home(page).prompt.fill('Water the plants');
+  await expect(home(page).screen.getByTestId('go-row-new')).toBeVisible();
+  const t2 = Date.now();
+  await home(page).prompt.press('Enter');
+  await expect(runner(page).field).toBeVisible();
+  const start = Date.now() - t2;
+
+  const t3 = Date.now();
+  const data = await exported(page);
+  const exportMs = Date.now() - t3;
+  console.log(`4,000 lines: first load ${firstLoad} ms, load ${load} ms, start → runner ${start} ms, settings + export ${exportMs} ms`);
+  expect(Object.keys(data.activities)).toHaveLength(4000);
+  expect(Object.keys(data.threads)).toHaveLength(220);
+  expect(Object.values(data.routines).map((r) => r.words)).toEqual(['Water the plants']);
+  expect(load).toBeLessThan(5000);
+  expect(start).toBeLessThan(1500);
+  expect(exportMs).toBeLessThan(8000);
 });

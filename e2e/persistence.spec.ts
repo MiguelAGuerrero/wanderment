@@ -1,6 +1,7 @@
 import { Page } from '@playwright/test';
 
-import { expect, logLine, openHome, test } from './fixtures';
+import { expect, test } from './fixtures';
+import { addStep, goBackup, importBackup, openGo, openSettings, saved, startThing, storedNames } from './goFixture';
 
 /**
  * Stubs navigator.storage before the app loads. persist() calls are counted in sessionStorage,
@@ -29,11 +30,14 @@ async function stubStorage(page: Page, mode: 'grant' | 'refuse' | 'reject' | 'mi
 
 const persistCalls = (page: Page) => page.evaluate(() => Number(sessionStorage.getItem('persistCalls') ?? 0));
 
-/** Logs a line and waits until SQLite has committed it (the journal is cleared after each write). */
-async function logAndSave(page: Page, text: string) {
-  await logLine(page, text);
-  await expect(page.getByText('Logged', { exact: true })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('wanderment:journal'))).toBeNull();
+/**
+ * A change, saved (P-89: was a logged line): the first one says what you're going to do (a routine and
+ * its run); a later one is the next small step, typed where the runner asks for it.
+ */
+async function changeAndSave(page: Page, words: string, first = true) {
+  if (first) await startThing(page, words);
+  else await addStep(page, words);
+  await saved(page);
 }
 
 const GRANTED = 'This browser has promised to keep your data.';
@@ -42,15 +46,14 @@ const NOT_GRANTED =
 const INSTALLED = 'Installed on this device — your data is kept with the app.';
 const ASK = 'Ask the browser to keep it';
 
-test('granted: asks once after the first log, and Settings says the data is kept', async ({ page }) => {
+test('granted: asks once after the first saved change, and Settings says the data is kept', async ({ page }) => {
   await stubStorage(page, 'grant');
-  await openHome(page);
+  await openGo(page);
   expect(await persistCalls(page)).toBe(0);
-  await logAndSave(page, 'first');
+  await changeAndSave(page, 'first');
   await expect.poll(() => persistCalls(page)).toBe(1);
-  await logAndSave(page, 'second');
-  await page.goto('./settings');
-  await expect(page.getByText('2 activities · 0 wanders')).toBeVisible();
+  await changeAndSave(page, 'second', false);
+  expect(await storedNames(page)).toEqual({ lines: [], wanders: [], routines: ['first'] });
   await expect(page.getByText(GRANTED)).toBeVisible();
   await expect(page.getByText('Saved in a database in this browser.')).toBeVisible();
   await expect(page.getByRole('button', { name: ASK })).toHaveCount(0);
@@ -59,10 +62,10 @@ test('granted: asks once after the first log, and Settings says the data is kept
 
 test('refused: Settings suggests Install / Export, and the button asks again', async ({ page }) => {
   await stubStorage(page, 'refuse');
-  await openHome(page);
-  await logAndSave(page, 'first');
+  await openGo(page);
+  await changeAndSave(page, 'first');
   await expect.poll(() => persistCalls(page)).toBe(1);
-  await page.goto('./settings');
+  await openSettings(page);
   await expect(page.getByText(NOT_GRANTED)).toBeVisible();
   await expect(page.getByText(GRANTED)).toHaveCount(0);
   await page.getByRole('button', { name: ASK }).click();
@@ -71,22 +74,22 @@ test('refused: Settings suggests Install / Export, and the button asks again', a
   await expect(page.getByText(NOT_GRANTED)).toBeVisible();
 });
 
-test('nothing is asked on load: a load and a reload without logging make no request', async ({ page }) => {
+test('nothing is asked on load: a load and a reload without a change make no request', async ({ page }) => {
   await stubStorage(page, 'grant');
-  await openHome(page);
+  await openGo(page);
   await page.reload();
-  await openHome(page);
-  await page.goto('./settings');
+  await openGo(page);
+  await openSettings(page);
   await expect(page.getByText(NOT_GRANTED)).toBeVisible();
   expect(await persistCalls(page)).toBe(0);
 });
 
 test('a persist() rejection is swallowed', async ({ page }) => {
   await stubStorage(page, 'reject');
-  await openHome(page);
-  await logAndSave(page, 'first');
+  await openGo(page);
+  await changeAndSave(page, 'first');
   await expect.poll(() => persistCalls(page)).toBe(1);
-  await page.goto('./settings');
+  await openSettings(page);
   await page.getByRole('button', { name: ASK }).click();
   await expect.poll(() => persistCalls(page)).toBe(2);
   await expect(page.getByText(NOT_GRANTED)).toBeVisible();
@@ -94,10 +97,9 @@ test('a persist() rejection is swallowed', async ({ page }) => {
 
 test('without the storage API the app works and Settings shows no persistence line', async ({ page }) => {
   await stubStorage(page, 'missing');
-  await openHome(page);
-  await logAndSave(page, 'first');
-  await page.goto('./settings');
-  await expect(page.getByText('1 activities · 0 wanders')).toBeVisible();
+  await openGo(page);
+  await changeAndSave(page, 'first');
+  expect((await storedNames(page)).routines).toEqual(['first']);
   await expect(page.getByText('Saved in a database in this browser.')).toBeVisible();
   for (const line of [GRANTED, NOT_GRANTED, INSTALLED]) await expect(page.getByText(line)).toHaveCount(0);
   await expect(page.getByRole('button', { name: ASK })).toHaveCount(0);
@@ -105,7 +107,7 @@ test('without the storage API the app works and Settings shows no persistence li
 
 test('installed (standalone): Settings says the data is kept with the app', async ({ page }) => {
   await stubStorage(page, 'refuse', { standalone: true });
-  await page.goto('./settings');
+  await openSettings(page);
   await expect(page.getByText(INSTALLED)).toBeVisible();
   await expect(page.getByText(NOT_GRANTED)).toHaveCount(0);
 });
@@ -116,13 +118,11 @@ test('in the localStorage fallback with persistence refused, data is still kept'
     // As in a browser without workers: there is no Worker at all.
     Object.defineProperty(window, 'Worker', { value: undefined });
   });
-  await openHome(page);
-  await logLine(page, 'offline-ish note');
-  await expect(page.getByText('Logged', { exact: true })).toBeVisible();
+  await openGo(page);
+  await startThing(page, 'offline-ish note');
   await expect.poll(() => persistCalls(page)).toBe(1);
   await page.reload();
-  await page.goto('./settings');
-  await expect(page.getByText('1 activities · 0 wanders')).toBeVisible();
+  expect((await storedNames(page)).routines).toEqual(['offline-ish note']);
   await expect(page.getByText(/local storage/)).toBeVisible();
   await expect(page.getByText(NOT_GRANTED)).toBeVisible();
 });
@@ -130,13 +130,13 @@ test('in the localStorage fallback with persistence refused, data is still kept'
 test.describe('Firefox (may prompt)', () => {
   test.use({ userAgent: 'Mozilla/5.0 (X11; Linux x86_64; rv:140.0) Gecko/20100101 Firefox/140.0' });
 
-  test('no automatic request after a log, but the Settings button asks', async ({ page }) => {
+  test('no automatic request after a change, but the Settings button asks', async ({ page }) => {
     await stubStorage(page, 'grant');
-    await openHome(page);
-    await logAndSave(page, 'first');
-    await logAndSave(page, 'second');
+    await openGo(page);
+    await changeAndSave(page, 'first');
+    await changeAndSave(page, 'second', false);
     expect(await persistCalls(page)).toBe(0);
-    await page.goto('./settings');
+    await openSettings(page);
     await page.getByRole('button', { name: ASK }).click();
     await expect(page.getByText(GRANTED)).toBeVisible();
     expect(await persistCalls(page)).toBe(1);
@@ -145,12 +145,12 @@ test.describe('Firefox (may prompt)', () => {
 
 test('Settings opened before the automatic request updates when it is granted (audit B, finding 2)', async ({ page }) => {
   await stubStorage(page, 'grant');
-  await openHome(page);
-  await page.goto('./settings');
+  await openGo(page);
+  await openSettings(page);
   await expect(page.getByText(NOT_GRANTED)).toBeVisible();
   expect(await persistCalls(page)).toBe(0);
-  // A change made from Settings saves and triggers the once-per-session request.
-  await page.getByRole('switch', { name: 'Recency shading' }).click();
+  // A change made from Settings (an import) saves and triggers the once-per-session request.
+  await importBackup(page, goBackup([{ id: 'm', name: 'Morning', steps: ['Stretch'] }]));
   await expect.poll(() => persistCalls(page)).toBe(1);
   await expect(page.getByText(GRANTED)).toBeVisible();
   await expect(page.getByText(NOT_GRANTED)).toHaveCount(0);
@@ -168,10 +168,10 @@ test('refuse twice, then grant: each answer replaces the last, and focus stays o
       return calls >= 4;
     };
   });
-  await openHome(page);
-  await logAndSave(page, 'first');
+  await openGo(page);
+  await changeAndSave(page, 'first');
   await expect.poll(() => persistCalls(page)).toBe(1);
-  await page.goto('./settings');
+  await openSettings(page);
   const ask = page.getByRole('button', { name: ASK });
   await ask.focus();
   await page.keyboard.press('Enter');

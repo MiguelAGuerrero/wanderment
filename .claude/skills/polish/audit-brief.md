@@ -3,7 +3,7 @@
 <objective>
 Find what's wrong with a change you didn't write, in /home/user/wanderment (Expo SDK 58 / Expo
 Router / React Native Web, deployed as a PWA under /wanderment/), before it ships to people who
-trust it with their personal log. Report **everything** you find, including things you're unsure
+trust it with their routines and with everything they stored before. Report **everything** you find, including things you're unsure
 about. Someone else filters the findings, so don't hold any back. Skip style and naming; report
 what affects correctness, data, the product rules, UX and accessibility, or test strength.
 </objective>
@@ -26,7 +26,8 @@ Assume the author was overconfident, and that the tests may test the wrong thing
 2. Probe beyond the happy path. At minimum, try every "Must handle" state in the contracts, plus:
    - reload mid-action;
    - undo after the change;
-   - empty and huge data (`bigBlob` in `e2e/graphFixture.ts`);
+   - empty and huge data (many tiles, a thirty-step routine, a frame ten deep: `seedGo` in
+     `e2e/goFixture.ts`; a large history from the retired app: `bigBlob` in `e2e/graphFixture.ts`);
    - keyboard-only use;
    - 200 % zoom;
    - two tabs.

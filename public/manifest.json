@@ -1,7 +1,7 @@
 {
   "name": "Wanderment",
   "short_name": "Wanderment",
-  "description": "A personal log for people with many interests.",
+  "description": "Your own ways of doing things, run one step at a time.",
   "id": "/wanderment/",
   "start_url": "/wanderment/",
   "scope": "/wanderment/",

@@ -36,6 +36,16 @@ describe('a field that saves as you type, when the saved value changes elsewhere
     }
   });
 
+  it('the same where the text is saved exactly as typed (a pause’s reason keeps its trailing space): what the field shows is what it last took in, so it isn’t unsaved typing (P-89, found re-pointing the D2 spec)', () => {
+    for (const shown of ['went well ', 'went well\n', ' went well']) {
+      expect(syncField({ saved: 'B wrote a long careful reason', seen: shown, shown, focused: true })).toEqual({ seen: 'B wrote a long careful reason', shown: 'B wrote a long careful reason' });
+    }
+    // Its own keystroke, saved as typed with its space: nothing changes on screen.
+    expect(syncField({ saved: 'went well ', seen: 'went well', shown: 'went well ', focused: true })).toEqual({ seen: 'went well ', shown: 'went well ' });
+    // Typed since (not saved: refused while reconnecting): still never replaced.
+    expect(syncField({ saved: 'from B', seen: 'went well ', shown: 'went well and more', focused: true })).toEqual({ seen: 'from B', shown: 'went well and more' });
+  });
+
   it('typing a space, or deleting back to one, keeps it on screen (the saved text has no trailing space)', () => {
     expect(syncField({ saved: 'abc', seen: 'abc d', shown: 'abc ', focused: true })).toEqual({ seen: 'abc', shown: 'abc ' });
     expect(syncField({ saved: 'went well', seen: 'went wel', shown: 'went well ', focused: true })).toEqual({ seen: 'went well', shown: 'went well ' });

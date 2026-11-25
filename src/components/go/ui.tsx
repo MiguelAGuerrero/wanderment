@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useReduceMotion } from '@/components/graph/scopeNav';
+import { useReduceMotion } from '@/components/a11y';
 
 import { Mark, MarkName } from './marks';
 import { decideWhere } from './session';

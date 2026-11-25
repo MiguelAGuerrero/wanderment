@@ -1,7 +1,7 @@
 import { savedForm } from './model';
 
 /**
- * A field that saves as you type (the activity sheet's text and note) keeps its own copy of the
+ * A field that saves as you type (a pause's reason, a routine's name) keeps its own copy of the
  * text. When the saved value changes from elsewhere — another page's edit, taken in when this page
  * takes the data back (P-29), or an Undo — the field shows it, so the next keystroke adds to what's
  * saved instead of replacing it with an old copy (audit 2 F2). What the person is typing and hasn't
@@ -16,8 +16,9 @@ export function syncField(f: { saved: string; seen: string; shown: string; focus
   const typed = savedForm(f.shown);
   // Its own keystroke, saved: what's typed stays as typed (with its trailing space).
   if (typed === f.saved) return { seen: f.saved, shown: f.shown };
-  // Changed elsewhere: shown, unless the focused field holds typing that isn't saved.
-  const unsaved = typed !== f.seen;
+  // Changed elsewhere: shown, unless the focused field holds typing that isn't saved. (Where the
+  // text is saved exactly as typed — a pause's reason — what's shown IS what was last taken in.)
+  const unsaved = typed !== f.seen && f.shown !== f.seen;
   return { seen: f.saved, shown: f.focused && unsaved ? f.shown : f.saved };
 }
 

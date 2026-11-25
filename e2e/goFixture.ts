@@ -120,22 +120,91 @@ export const MAYA: RoutineSpec[] = [
   { id: 'spanish-es', name: 'Feel at home in Spanish', steps: [] },
 ];
 
+/** What Settings says once a backup has replaced what was here (`components/go/Settings.tsx`). */
+export const IMPORTED = 'Imported.';
+
+/** Opens Settings by its own address and waits for it. */
+export async function openSettings(page: Page) {
+  await page.goto('./go/settings');
+  await expect(settled(page, 'settings')).toBeVisible();
+}
+
+/** On Settings: chooses a backup file, and waits for its preview (or, for a refused file, nothing). */
+export async function chooseBackup(page: Page, json: string) {
+  const importBtn = page.getByRole('button', { name: 'Import from a backup', exact: true });
+  await expect(importBtn).toBeVisible();
+  const chooser = page.waitForEvent('filechooser');
+  await importBtn.click();
+  await (await chooser).setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(json) });
+}
+
+/** Imports a backup file through Settings — checked, previewed, Replace — and leaves the page there. */
+export async function importBackup(page: Page, json: string) {
+  await openSettings(page);
+  await chooseBackup(page, json);
+  await page.getByRole('button', { name: 'Replace', exact: true }).click();
+  await expect(page.getByText(IMPORTED, { exact: true })).toBeVisible();
+}
+
 /** Imports the backup through Settings (the person's own way in), then leaves the page where it is. */
 export async function seedGo(page: Page, routines: RoutineSpec[], runs: RunSpec[] = [], now = Date.now()) {
   // Nothing to seed: a fresh page already holds nothing (and a backup matching what is here has no Replace).
   if (!routines.length && !runs.length) return;
-  await page.goto('./settings');
-  const importBtn = page.getByRole('button', { name: 'Import from a backup' });
-  await expect(importBtn).toBeVisible();
-  const chooser = page.waitForEvent('filechooser');
-  await importBtn.click();
-  await (await chooser).setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(goBackup(routines, runs, now)) });
-  await page.getByRole('button', { name: 'Replace', exact: true }).click();
-  await expect(page.getByText(/^Imported \d+ activit/)).toBeVisible();
+  await importBackup(page, goBackup(routines, runs, now));
+}
+
+export interface Stored {
+  threads: Record<string, { id: string; name: string; hidden: boolean; next?: string; declaredAt?: string }>;
+  activities: Record<string, { id: string; text: string; note?: string; doingId?: string; toIds: string[]; lit?: true; settledAt?: string }>;
+  routines: Record<string, { id: string; words: string; items?: { id: string; text?: string; wait?: string }[] }>;
+  runs: Record<string, { id: string; routineId: string; status?: string }>;
+}
+
+/**
+ * What is stored, read the person's own way: Settings → "Export everything", and the file it
+ * downloads. (P-89: the old screens that listed wanders and activities are gone; the export is where
+ * they can be seen, so this is how the storage specs read them back.) Leaves the page on Settings.
+ */
+export async function exported(page: Page): Promise<Stored> {
+  await openSettings(page);
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export everything (.json)', exact: true }).click();
+  const stream = await (await download).createReadStream();
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+  const backup = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { app: string; data: Stored & { version: number } };
+  expect(backup.app).toBe('wanderment');
+  return backup.data;
+}
+
+/** The names of everything stored, sorted: the lines' words, the wanders' names, the routines' names. */
+export async function storedNames(page: Page) {
+  const data = await exported(page);
+  const sorted = (list: string[]) => [...list].sort();
+  return { lines: sorted(Object.values(data.activities).map((a) => a.text)), wanders: sorted(Object.values(data.threads).map((t) => t.name)), routines: sorted(Object.values(data.routines).map((r) => r.words)) };
+}
+
+/**
+ * Says what you're going to do: the words in the prompt, Return ("New: <words>"). The runner opens,
+ * asking for the first small step. It makes a routine and a run: something stored, to read back.
+ */
+export async function startThing(page: Page, words: string) {
+  const h = home(page);
+  await h.prompt.fill(words);
+  await expect(h.screen.getByTestId('go-row-new')).toHaveText(`New: ${words}`);
+  await h.prompt.press('Enter');
+  await expect(runner(page).screen).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Undo Start', exact: true })).toBeVisible();
+}
+
+/** Opens the app (`/go`) on a page with nothing running, and starts a thing: see `startThing`. */
+export async function openAndStart(page: Page, words: string) {
+  await openGo(page);
+  await startThing(page, words);
 }
 
 /** A `/go` screen by its test id, once it has nothing left to load or move. */
-export const settled = (page: Page, screen: 'home' | 'runner' | 'paused' | 'all' | 'jump' | 'editor'): Locator => page.locator(`[data-testid="go-${screen}"][data-settled="true"]`).filter({ visible: true });
+export const settled = (page: Page, screen: 'home' | 'runner' | 'paused' | 'all' | 'jump' | 'editor' | 'settings'): Locator => page.locator(`[data-testid="go-${screen}"][data-settled="true"]`).filter({ visible: true });
 
 /** Opens `/go` (it goes where you left off) and waits for the screen it lands on. */
 export async function openGo(page: Page, lands: 'home' | 'runner' | 'paused' = 'home', path = './go') {
@@ -225,6 +294,33 @@ export async function setVisibility(page: Page, state: 'hidden' | 'visible') {
   }, state);
   if (state === 'hidden') await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).held?.length ?? 0)).toBe(0);
 }
+
+/**
+ * Hides or shows a page and waits for nothing: for specs with two pages, where the tab lock another
+ * page holds or takes at once makes `setVisibility`'s wait ("nobody holds it") the wrong one. Wait on
+ * what the other page then shows instead.
+ */
+export async function turn(page: Page, state: 'hidden' | 'visible') {
+  await page.evaluate((v) => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => v });
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => v === 'hidden' });
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, state);
+}
+
+/** Everything written so far has been committed to the database (the journal is cleared after each write). */
+export const saved = (page: Page) => expect.poll(() => page.evaluate(() => localStorage.getItem('wanderment:journal'))).toBeNull();
+
+/** At the edge of a goal, the runner asks for the next small step: types it and Return. The run is then on that step. */
+export async function addStep(page: Page, text: string) {
+  const r = runner(page);
+  await r.field.fill(text);
+  await r.field.press('Enter');
+  await expect(r.words).toHaveText(text);
+}
+
+/** The waiting screen's words while another tab or window holds the data. */
+export const anotherTab = (page: Page) => page.getByText(/^The app is open in another tab or window\./);
 
 /** Where a control is, to the pixel: "fixed places" means these never change. */
 export const place = async (l: Locator) => {

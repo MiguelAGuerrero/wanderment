@@ -1,6 +1,6 @@
 /**
  * B-11 slice 1 (P-86): what the `/go` screens remember for this page load only. Nothing here runs at
- * import (the bundle is shared with today's home): plain values, read and written by the screens.
+ * import: plain values, read and written by the screens.
  */
 let decided = false;
 

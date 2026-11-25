@@ -33,9 +33,9 @@ Read all of them, plus `CLAUDE.md`, `AGENTS.md` and `docs/DESIGN.md`, before wri
   stop and report BLOCKED with your reasoning; don't change it.
 - **Accessibility is part of done:**
   - accessible names include the visible text;
-  - 44 px targets;
+  - targets ≥ 48 px and body text ≥ 16 px (DESIGN.md);
   - decorative glyphs spread `decorative` from `src/components/a11y.ts`;
-  - the axe checks in `e2e/a11y.spec.ts` stay green.
+  - the axe checks in `e2e/go-a11y.spec.ts` and `e2e/a11y.spec.ts` stay green.
 - **Test-driven, e2e at the end** (owner, 2026-11-24). Write the tests first, unit and e2e. Run
   only the unit tests you touch, red → green, plus `npm run typecheck` and `npx eslint .`. Don't
   run Playwright or `scripts/polish/verify.sh`: the orchestrator runs the whole e2e and regression

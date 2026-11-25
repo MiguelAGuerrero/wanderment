@@ -1,7 +1,7 @@
 # Discovery brief (fill the blanks; send as the `product-scout` prompt)
 
 <objective>
-Find ideas worth borrowing for ____ (the theme or problem). The goal is that Wanderment ____ (the
+Find ideas worth borrowing for ____ (the theme or problem). The goal is that the app ____ (the
 outcome, in the owner's terms if they gave one). Look at adjacent apps and at tooling.
 </objective>
 
@@ -12,8 +12,8 @@ outcome, in the owner's terms if they gave one). Look at adjacent apps and at to
 </context>
 
 <territory>
-Your slice: ____ (for example "journaling and lifelog apps", or "Expo/web platform capabilities for
-quick capture"). Another scout covers ____, so leave that to them.
+Your slice: ____ (for example "routine runners and checklist tools", or "Expo/web platform capabilities for
+offline storage"). Another scout covers ____, so leave that to them.
 </territory>
 
 <output>

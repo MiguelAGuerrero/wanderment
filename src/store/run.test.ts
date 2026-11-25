@@ -9,6 +9,8 @@ import { readRoutine, readRun } from '@/domain/run';
 import { describeChanges, homeTiles, runnerView } from '@/domain/runView';
 import { Data, emptyData, Id } from '@/domain/types';
 
+import { person } from '@/test/records';
+
 import { useStore } from './useStore';
 
 const st = () => useStore.getState();
@@ -161,18 +163,18 @@ describe('Undo after every reversible action, and never a stale one', () => {
     expect(st().undo).toBe(slot);
   });
 
-  it('an action elsewhere in the app replaces the slot: the notice’s Undo is no longer its own; and a run action puts the old toast away', () => {
+  it('a change elsewhere replaces the slot: the notice’s Undo is no longer its own; and a run action puts a quiet note away', () => {
     const id = started('report');
     st().nextStep(id);
     const notice = st().runNotice!;
-    st().setDraft({ text: 'logged on the old home' });
-    st().log();
+    // Something else took the Undo slot (P-89: nothing in the app does today; the screen still checks).
+    person(useStore).log('a line from before');
+    useStore.setState({ toast: { message: 'Just a moment — reconnecting.', notice: true } });
     expect(st().undo).toBeDefined();
     expect(notice.entry).not.toBe(st().undo);
     expect(st().runNotice).toBe(notice); // still there to read; the screen offers Undo only while entry === undo
-    expect(st().toast).toMatchObject({ message: 'Logged' });
     st().nextStep(id);
-    expect(st().toast).toBeUndefined(); // its Undo would have meant this Next
+    expect(st().toast).toBeUndefined();
     expect(st().runNotice!.entry).toBe(st().undo);
   });
 

@@ -48,10 +48,10 @@ describe('the strict check (imports)', () => {
       message = (e as Error).message;
     }
     expect(message).toMatch(/newer version/);
-    expect(message).not.toMatch(/isn’t a Wanderment backup/);
+    expect(message).not.toMatch(/isn’t a backup from this app/);
     // Not a backup at all still says so.
-    expect(() => fromBackup(backup({ version: 'one', threads: {}, activities: {} }))).toThrow('That file isn’t a Wanderment backup.');
-    expect(() => fromBackup(backup({ version: 0, threads: {}, activities: {} }))).toThrow('That file isn’t a Wanderment backup.');
+    expect(() => fromBackup(backup({ version: 'one', threads: {}, activities: {} }))).toThrow('That file isn’t a backup from this app.');
+    expect(() => fromBackup(backup({ version: 0, threads: {}, activities: {} }))).toThrow('That file isn’t a backup from this app.');
   });
 
   it('refuses two wanders whose names match as `@` matches them, naming both', () => {

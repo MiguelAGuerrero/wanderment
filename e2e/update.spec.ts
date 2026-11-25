@@ -2,7 +2,8 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 import { execSync } from 'node:child_process';
 
-import { expect, logBox, openHome, test } from './fixtures';
+import { expect, test } from './fixtures';
+import { home, openAndStart, openGo, openSettings, runner, settled } from './goFixture';
 
 /**
  * P-30: a refresh shows the new version. A new version applies by itself right after a load or a
@@ -52,56 +53,56 @@ async function expectNoSeriousViolations(page: Page) {
 
 test('a plain refresh with a new version deployed reloads into it by itself within 10 s', async ({ page, request }) => {
   await countLoads(page);
-  await openHome(page);
+  await openGo(page);
   await waitForServiceWorkerControl(page);
 
   await request.post('/__e2e/bump-sw');
   await page.reload();
   // The refresh (2), then the update's own reload (3), without anything tapped.
   await expect.poll(() => loads(page), { timeout: 10_000 }).toBe(3);
-  await expect(logBox(page)).toBeVisible();
+  await expect(home(page).screen).toBeVisible();
   expect(await onNewestVersion(page)).toBe(true);
   await expect(banner(page)).toHaveCount(0);
 });
 
-test('coming back to the app with a new version deployed updates by itself, keeping a draft typed before', async ({ page, request }) => {
+test('coming back to the app with a new version deployed updates by itself, keeping words typed before (a first step not yet entered)', async ({ page, request }) => {
   await countLoads(page);
-  await openHome(page);
+  await openAndStart(page, 'Write the report');
   await waitForServiceWorkerControl(page);
-  await logBox(page).fill('half a thought');
+  await runner(page).field.fill('half a thought');
 
   await setVisibility(page, 'hidden');
   await request.post('/__e2e/bump-sw');
   await setVisibility(page, 'visible');
   await expect.poll(() => loads(page), { timeout: 10_000 }).toBe(2);
-  await expect(logBox(page)).toHaveValue('half a thought', { timeout: 15_000 });
+  await expect(runner(page).field).toHaveValue('half a thought', { timeout: 15_000 });
   expect(await onNewestVersion(page)).toBe(true);
   await expect(banner(page)).toHaveCount(0);
 });
 
-test('once something is typed, a new version waits for “Update now”, which keeps the draft', async ({ page, request }) => {
+test('once something is typed, a new version waits for “Update now”, which keeps the words', async ({ page, request }) => {
   await countLoads(page);
-  await openHome(page);
+  await openAndStart(page, 'Write the report');
   await waitForServiceWorkerControl(page);
-  await logBox(page).fill('mid-sentence');
+  await runner(page).field.fill('mid-sentence');
 
   await request.post('/__e2e/bump-sw');
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());
   await expect(banner(page)).toBeVisible();
   await page.waitForTimeout(3000);
   expect(await loads(page)).toBe(1);
-  await expect(logBox(page)).toHaveValue('mid-sentence');
+  await expect(runner(page).field).toHaveValue('mid-sentence');
 
   await updateNow(page).click();
   await expect.poll(() => loads(page), { timeout: 10_000 }).toBe(2);
-  await expect(logBox(page)).toHaveValue('mid-sentence', { timeout: 15_000 });
+  await expect(runner(page).field).toHaveValue('mid-sentence', { timeout: 15_000 });
   expect(await onNewestVersion(page)).toBe(true);
 });
 
 test('a new version found more than 10 s after the page opened waits for the banner', async ({ page, request }) => {
   test.slow();
   await countLoads(page);
-  await openHome(page);
+  await openGo(page);
   await waitForServiceWorkerControl(page);
   await page.waitForTimeout(10_500);
 
@@ -114,12 +115,12 @@ test('a new version found more than 10 s after the page opened waits for the ban
 
 test('no reload loop: after updating itself once, the same version coming back only shows the banner', async ({ page, request }) => {
   await countLoads(page);
-  await openHome(page);
+  await openGo(page);
   await waitForServiceWorkerControl(page);
   await request.post('/__e2e/bump-sw');
   await page.reload();
   await expect.poll(() => loads(page), { timeout: 10_000 }).toBe(3);
-  await expect(logBox(page)).toBeVisible();
+  await expect(home(page).screen).toBeVisible();
 
   // Another new service worker, but this tab's build is the one it already updated away from.
   await request.post('/__e2e/bump-sw');
@@ -136,12 +137,12 @@ const failChecks = () => {
 };
 
 test('an offline load updates nothing and shows no error', async ({ page, context }) => {
-  await openHome(page);
+  await openGo(page);
   await waitForServiceWorkerControl(page);
   await context.setOffline(true);
   await page.addInitScript(failChecks);
   await page.reload();
-  await expect(logBox(page)).toBeVisible();
+  await expect(home(page).screen).toBeVisible();
   await page.waitForTimeout(1500);
   await expect(banner(page)).toHaveCount(0);
   await expect(page.getByRole('alert')).toHaveCount(0);
@@ -150,9 +151,9 @@ test('an offline load updates nothing and shows no error', async ({ page, contex
 test('Settings shows the build’s version, and “Check for updates” finds a new one (banner, applies on tap)', async ({ page, request }) => {
   const buildId = execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
   await countLoads(page);
-  await openHome(page);
+  await openGo(page);
   await waitForServiceWorkerControl(page);
-  await page.goto('./settings');
+  await openSettings(page);
   await expect(page.getByText(new RegExp(`^Version ${buildId} · \\d{1,2} [A-Z][a-z]{2} \\d{4}$`))).toBeVisible();
 
   const check = page.getByRole('button', { name: 'Check for updates' });
@@ -175,6 +176,7 @@ test('Settings shows the build’s version, and “Check for updates” finds a 
   expect(await loads(page)).toBe(2);
   await updateNow(page).click();
   await expect.poll(() => loads(page), { timeout: 10_000 }).toBe(3);
+  await expect(settled(page, 'settings')).toBeVisible();
   await expect(check).toBeVisible();
   expect(await onNewestVersion(page)).toBe(true);
   await check.click();
@@ -182,9 +184,9 @@ test('Settings shows the build’s version, and “Check for updates” finds a 
 });
 
 test('the update banner, at 390 px, has a 44 px “Update now” and no serious accessibility violations', async ({ page, request }) => {
-  await openHome(page);
+  await openGo(page);
   await waitForServiceWorkerControl(page);
-  await logBox(page).fill('typed');
+  await home(page).prompt.fill('typed');
   await request.post('/__e2e/bump-sw');
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());
   await expect(banner(page)).toBeVisible();
@@ -201,8 +203,8 @@ test.describe('without service workers (private mode)', () => {
   test.use({ serviceWorkers: 'block' });
 
   test('the app works and Settings shows the version; checking says it can’t here', async ({ page }) => {
-    await openHome(page);
-    await page.goto('./settings');
+    await openGo(page);
+    await openSettings(page);
     await expect(page.getByText(/^Version \S+/)).toBeVisible();
     await page.getByRole('button', { name: 'Check for updates' }).click();
     await expect(page.getByText(/^This browser can’t check for updates/)).toBeVisible();

@@ -4,8 +4,10 @@ import { describe, expect, it } from 'vitest';
 import { fromBackup, toBackup } from './backup';
 import { applyUndo, undoEntry } from './diff';
 import { migrateData, parseLegacyState, toLegacyState, defaultSettings } from './migrate';
-import { declaredWhys, declareThread, ensureThread, MAX_WHYS, renameThread, swapWhy, undeclareThread, updateThread } from './model';
+import { declaredWhys } from './model';
 import { Data, emptyData, Id } from './types';
+// P-89: the old app's record builders, now test support (the marks they make are still stored, exported and imported).
+import { declareThread, ensureThread, MAX_WHYS, renameThread, swapWhy, undeclareThread, updateThread } from '@/test/records';
 
 const at = (n: number) => new Date(Date.UTC(2026, 10, 1, 10, n));
 

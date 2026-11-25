@@ -6,12 +6,12 @@ let an autonomous run reach Step G for it.
 Checklist:
 - [ ] 2–3 `persona-panelist`s are launched in one message. Each gets personas from different
       clusters, and none gets the orchestrator's recommendation.
-- [ ] Each panel report walks through the experience per persona (first open, first log, a week in,
+- [ ] Each panel report walks through the experience per persona (first open, first run, a week in,
       after a month away). The personas disagree where their structures differ; they aren't averaged.
 - [ ] The brief gets a "Persona panel" section with a reaction table, trade-offs by personality
       structure, *strong, lean on it*, refinements (folded, offered or refused, with the rule) and
       P0 vs. panel. It's labelled as simulated.
-- [ ] No refinement adds a goal, streak, notification, badge count or silent automation. A persona
+- [ ] No refinement adds a streak, deadline, timer, notification, tally or silent automation. A persona
       that wants one is recorded as "wants X; refused by DESIGN.md".
 - [ ] The decision question carries a one- or two-line panel summary, and the recommended option
       reflects it.

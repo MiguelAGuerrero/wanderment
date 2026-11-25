@@ -1,17 +1,17 @@
 /**
- * P-88: the new app opens by default. The app's address (`/`, the installed icon's start_url) lands on
- * the new home (`/go`), which still opens where you left off; the old home lives at `/old`, and its own
- * close / Back / home links stay inside the old app. Expected values: the roadmap item and its contract.
+ * P-88: the app's address (`/`, the installed icon's start_url) lands on the home (`/go`), which opens
+ * where you left off. P-89: the old app is retired — every address it had, and any unknown one, lands
+ * on the home too; `/settings` lands on `/go/settings`. Expected values: the roadmap items and their contracts.
  */
 import { Page } from '@playwright/test';
 
-import { AT_OLD, expect, OLD, openSheet, PROMPT, test, toHome } from './fixtures';
-import { home, MAYA, paused, runner, seedGo, settled } from './goFixture';
+import { expect, test } from './fixtures';
+import { exported, home, MAYA, paused, runner, seedGo, settled } from './goFixture';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const AT_GO = /\/wanderment\/go$/;
-const oldField = (page: Page) => page.getByRole('textbox', { name: PROMPT, exact: true });
-const dialog = (page: Page) => page.getByRole('dialog', { name: 'Wanders and activities', exact: true });
+/** The old home's field, and its sheet's handle: nothing of either may be anywhere. */
+const oldField = (page: Page) => page.getByRole('textbox', { name: 'Where are we wandering today?', exact: true });
 
 /** The old app's data: one why with a wander feeding it, and a line. */
 const world = () =>
@@ -74,8 +74,8 @@ test.describe('the app’s address opens the new home', () => {
   });
 
   test('the address replaces itself: one history entry, so Back never loops through it', async ({ page }) => {
-    await page.goto('./settings');
-    await expect(page.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+    await page.goto('./go/settings');
+    await expect(settled(page, 'settings')).toBeVisible();
     const before = await page.evaluate(() => history.length);
     await page.goto('./');
     await expect(home(page).screen).toBeVisible();
@@ -95,126 +95,79 @@ test.describe('the app’s address opens the new home', () => {
     await expect(home(page).screen).toBeVisible();
     await expect(page).toHaveURL(AT_GO);
     await expect(home(page).title).toHaveText('Nothing running');
-    // The old home opens offline at its own address too (navigation fallback).
-    await page.goto(OLD);
-    await expect(oldField(page)).toBeVisible();
-    await expect(page).toHaveURL(AT_OLD);
+    // An old address opens offline too (the navigation fallback, then the redirect): the home.
+    await page.goto('./old');
+    await expect(home(page).screen).toBeVisible();
+    await expect(page).toHaveURL(AT_GO);
   });
 });
 
-test.describe('the old home lives at /old', () => {
+/** Every address the old app had (the scout's table), with an id where it took one. */
+const OLD_ADDRESSES = ['./', './old', './sky', './activities', './wanders', './line/a0', './star/draw', './trail/draw', './search', './explore', './map', './thread/draw', './activity/a0', './pull-in/draw'];
+
+test.describe('the old app is retired: its addresses land on the home (P-89)', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(seedScript, world());
   });
 
-  test('/old shows the old home with its composer and its sheet; a reload stays there', async ({ page }) => {
-    await page.goto(OLD);
-    await expect(oldField(page)).toBeVisible();
-    await expect(page).toHaveURL(AT_OLD);
-    await expect(page.getByRole('heading', { name: PROMPT, exact: true })).toBeVisible();
-    await page.reload();
-    await expect(oldField(page)).toBeVisible();
-    await expect(page).toHaveURL(AT_OLD);
-    await openSheet(page, 'Wanders');
-    await expect(dialog(page).getByText('make apparel').first()).toBeVisible();
-    await page.reload();
-    // A reload keeps you where you were: the old home, its sheet out.
-    await expect(page).toHaveURL(AT_OLD);
-    await expect(dialog(page).getByRole('tab', { name: 'Wanders', exact: true })).toHaveAttribute('aria-selected', 'true');
-    await toHome(page);
-    await expect(page).toHaveURL(AT_OLD);
-  });
-
-  test('with a run in progress /old is still the old home: it never redirects into the run', async ({ page }) => {
-    await seedGo(page, MAYA, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }]);
-    await page.goto(OLD);
-    await expect(oldField(page)).toBeVisible();
-    await expect(page).toHaveURL(AT_OLD);
-  });
-
-  test('the sheet’s "Run a routine" row reaches the new home, and Back comes back to /old', async ({ page }) => {
-    await page.goto(OLD);
-    await openSheet(page, 'Wanders');
-    await dialog(page).getByRole('link', { name: 'Run a routine', exact: true }).click();
-    await expect(home(page).screen).toBeVisible();
-    await expect(page).toHaveURL(AT_GO);
-    await page.goBack();
-    await expect(page).toHaveURL(AT_OLD);
-    await expect(dialog(page)).toBeVisible();
-  });
-
-  test('the sheet’s Close, the browser’s Back and Esc put it away and stay at /old', async ({ page }) => {
-    await page.goto(OLD);
-    await expect(oldField(page)).toBeVisible();
-    for (const leave of ['Close', 'Back', 'Esc'] as const) {
-      await openSheet(page, 'Wanders');
-      await expect(page).toHaveURL(AT_OLD);
-      if (leave === 'Close') await dialog(page).getByRole('button', { name: 'Close', exact: true }).click();
-      if (leave === 'Back') await page.goBack();
-      if (leave === 'Esc') await page.keyboard.press('Escape');
-      await expect(dialog(page), leave).toBeHidden();
-      await expect(page, leave).toHaveURL(AT_OLD);
-      await expect(oldField(page), leave).toBeVisible();
-    }
-  });
-
-  test('lighting the map and dimming it stays in the old app: /sky, then /old', async ({ page }) => {
-    await page.goto(OLD);
-    await page.getByTestId('unsure').click();
-    await expect(page).toHaveURL(/\/wanderment\/sky$/);
-    await page.keyboard.press('Escape');
-    await expect(page).toHaveURL(AT_OLD);
-    await expect(oldField(page)).toBeVisible();
-  });
-
-  for (const [path, name] of [
-    ['./sky', 'the lit map'],
-    ['./map', 'the retired Map (lands on the lit map)'],
-  ] as const) {
-    test(`a deep link to ${name}: dimming it goes to /old, not the new home`, async ({ page }) => {
+  for (const path of [...OLD_ADDRESSES, './no/such/place', './go/nope', './go/run']) {
+    test(`${path} lands on the home, replacing the entry`, async ({ page }) => {
+      await page.goto('./go/settings');
+      await expect(settled(page, 'settings')).toBeVisible();
+      const before = await page.evaluate(() => history.length);
       await page.goto(path);
-      await expect(page).toHaveURL(/\/wanderment\/sky$/);
-      await expect(oldField(page)).toBeVisible();
-      await page.keyboard.press('Escape');
-      await expect(page).toHaveURL(AT_OLD);
-      await expect(oldField(page)).toBeVisible();
-      await expect(settled(page, 'home')).toHaveCount(0);
+      const h = home(page);
+      await expect(h.screen).toBeVisible();
+      await expect(page).toHaveURL(AT_GO);
+      await expect(h.title).toHaveText('Nothing running');
+      await expect(h.prompt).toBeVisible();
+      // Nothing of the old app is drawn on the way or after.
+      await expect(oldField(page)).toHaveCount(0);
+      await expect(page.getByTestId('home-sheet-handle')).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Back to Wanderment' })).toHaveCount(0);
+      // One entry for the address; the redirect replaced it, so Back never loops through it.
+      expect(await page.evaluate(() => history.length)).toBe(before + 1);
+      await page.goBack();
+      await expect(settled(page, 'settings')).toBeVisible();
     });
   }
 
-  for (const [path, section] of [
-    ['./wanders', 'Wanders'],
-    ['./activities', 'Activities'],
-  ] as const) {
-    test(`a deep link to ${path} opens the old home at /old with its sheet out on ${section}`, async ({ page }) => {
-      await page.goto(path);
-      await expect(dialog(page).getByRole('tab', { name: section, exact: true })).toHaveAttribute('aria-selected', 'true');
-      await expect(page).toHaveURL(AT_OLD);
-      await toHome(page);
-      await expect(page).toHaveURL(AT_OLD);
-    });
-  }
+  test('there are 14 old addresses here, as the contract counts', () => {
+    expect(OLD_ADDRESSES).toHaveLength(14);
+  });
 
-  test('a deep link to a trail: its Back goes to the old home', async ({ page }) => {
+  test('a deep link to an old line or wander, with a run in progress: the home, never a redirect into the run, and the run is as it was', async ({ page }) => {
+    await seedGo(page, MAYA, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused' }]);
+    // Once per load `/go` opens where you left off: an old address is the same as the app's own.
     await page.goto('./trail/draw');
-    await expect(page.getByRole('heading', { name: 'draw', exact: true })).toBeVisible();
-    await page.keyboard.press('Escape');
-    await expect(page).toHaveURL(AT_OLD);
-    await expect(oldField(page)).toBeVisible();
+    await expect(paused(page).screen).toBeVisible();
+    await expect(page).toHaveURL(/\/wanderment\/go\/run\/r1\/paused$/);
+    await page.goBack();
+    await expect(settled(page, 'home')).toBeVisible();
+    await expect(page).toHaveURL(AT_GO);
   });
 
-  for (const [path, leave] of [
-    ['./settings', 'Done'],
-    ['./search', 'Done'],
-    ['./explore', '‹ Back'],
-    ['./thread/draw', '‹ Back'],
-  ] as const) {
-    test(`a deep link to ${path}: its own way out (${leave}) goes to the old home`, async ({ page }) => {
-      await page.goto(path);
-      await page.getByRole('button', { name: leave, exact: true }).click();
-      await expect(page).toHaveURL(AT_OLD);
-      await expect(oldField(page)).toBeVisible();
-      await expect(settled(page, 'home')).toHaveCount(0);
-    });
-  }
+  test('/settings lands on /go/settings (dark, in the new look), replacing the entry', async ({ page }) => {
+    await page.goto('./go');
+    await expect(home(page).screen).toBeVisible();
+    const before = await page.evaluate(() => history.length);
+    await page.goto('./settings');
+    await expect(settled(page, 'settings')).toBeVisible();
+    await expect(page).toHaveURL(/\/wanderment\/go\/settings$/);
+    expect(await page.evaluate(() => history.length)).toBe(before + 1);
+    await expect(settled(page, 'settings').getByRole('heading', { level: 1 })).toHaveText('Settings');
+  });
+
+  test('landing on the home from an old address deletes and converts nothing: the old wanders and lines are all in the export', async ({ page }) => {
+    await page.goto('./thread/draw');
+    await expect(home(page).screen).toBeVisible();
+    await page.goto('./activity/a0');
+    await expect(home(page).screen).toBeVisible();
+    const data = await exported(page);
+    expect(Object.values(data.threads).map((t) => t.name).sort()).toEqual(['draw', 'make apparel']);
+    expect(Object.values(data.activities).map((a) => a.text).sort()).toEqual(['cooked dinner', 'sketched']);
+    expect(data.activities.a0).toMatchObject({ text: 'sketched', doingId: 'draw', toIds: ['make apparel'] });
+    expect(data.routines).toEqual({});
+    expect(data.runs).toEqual({});
+  });
 });

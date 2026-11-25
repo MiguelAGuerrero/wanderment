@@ -4,7 +4,7 @@
  * while reconnecting, a run whose stored place is gone, a run that does not exist.
  */
 import { expect, test } from './fixtures';
-import { expectInside, focused, goBackup, home, MAYA, openGo, place, RoutineSpec, runner, seedGo, setVisibility, settled, startGo, tile } from './goFixture';
+import { expectInside, focused, goBackup, home, importBackup, MAYA, openGo, place, RoutineSpec, runner, seedGo, setVisibility, settled, startGo, tile } from './goFixture';
 
 const LONG =
   'Write to the landlord about the boiler, the window latch and the stair light, attach the three photographs from Sunday, say which days someone is in, and ask for a date in writing before the end of the month, then copy the letting agent and put a note in the calendar to chase it';
@@ -275,12 +275,7 @@ test('must-handle: a run that is not there goes home without an error; a run who
   // A run standing on a step that no longer exists (as an old backup might hold).
   const backup = JSON.parse(goBackup(MAYA, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }]));
   backup.data.runs.r1.frames = [{ seq: 'apply', at: 'a-step-that-is-gone', round: 1 }];
-  await page.goto('./settings');
-  const chooser = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: 'Import from a backup' }).click();
-  await (await chooser).setFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(backup)) });
-  await page.getByRole('button', { name: 'Replace', exact: true }).click();
-  await expect(page.getByText(/^Imported \d+ activit/)).toBeVisible();
+  await importBackup(page, JSON.stringify(backup));
   await openGo(page, 'runner');
   await expect(runner(page).words).toHaveText('Read the job ad twice');
   await runner(page).next.click();

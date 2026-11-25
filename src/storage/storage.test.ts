@@ -4,9 +4,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { diffData } from '@/domain/diff';
 import { parseLegacyState } from '@/domain/migrate';
-import { attachActivity, declareThread, editActivity, ensureThread, logActivity, undeclareThread, updateThread } from '@/domain/model';
-import { settle } from '@/domain/rise';
+import { logActivity } from '@/domain/model';
 import { COLLECTIONS, Data, emptyData, Routine, Run } from '@/domain/types';
+// P-89: the old app's record builders, now test support.
+import { attachActivity, declareThread, editActivity, ensureThread, settle, undeclareThread, updateThread } from '@/test/records';
 
 import { nodeDb } from './nodeDb';
 import { Db } from './db';
@@ -364,7 +365,7 @@ describe('P-85: storage for any kind of record', () => {
       await saveChanges(db, diffData(emptyData(), { ...emptyData(), routines }));
       await db.exec('PRAGMA user_version = 5');
       const before = await rows(db);
-      await expect(migrateSchema(db)).rejects.toThrow('This data was saved by a newer version of Wanderment (schema 5). Reload to update.');
+      await expect(migrateSchema(db)).rejects.toThrow('This data was saved by a newer version of the app (schema 5). Reload to update.');
       expect(await version(db)).toBe(5);
       expect(await rows(db)).toEqual(before);
       expect((await loadData(db)).routines).toEqual(routines);

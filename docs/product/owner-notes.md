@@ -18,6 +18,84 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — Plan, execute, plan, execute — and the two must look different
+"there is definitely room to add steps mid-session, but there has to be a clear delineation between
+composing and running to make that seamless. Right now, when you create a next step, it looks exactly
+like the UI from running, and so the only thing you can tell that it's the next step is the blank
+prompt, not necessarily something about the UI telling you like, hey, … take a break, consider the next
+moves, plan, and then execute … Plan, execute, plan, execute, plan, execute is the type of context
+switching I had in mind, but the app blurs the two because they look very similar … So definitely
+mid-run planning is a thing, but the app has to make that apparent … Because if I left the app with the
+next step, I couldn't tell if I was [done] drafting or if that was actually part of the workflow, because
+they looked exactly the same. But if I had the composer view, it was like, oh, I remember now. I was
+trying to refine this procedure … the app clearly conveys the information about what you were doing."
+*Interpretation (usage signal):* planning mid-run stays. What is wrong is that planning and running
+share one look. They are two modes that alternate — plan, execute, plan, execute — and each must be
+unmistakable at a glance, including when you come back to the app: a composer view when you were
+planning, the runner when you were doing. This refines, not reverses, B-11 §9c.
+
+## 2026-11-25 — First real use, continued: composing is not running; "done" means two things
+Answering where the split happened and what felt right: "the split happened when I started breaking
+down the steps, because the breakdown sequence didn't feel like I was adding a next step to anything …
+there was a composer that defined the [sequence] of steps for that routine. But it didn't feel like I
+was adding a next step. I feel like I was drafting. It felt like planning rather than actually doing …
+And also … there wasn't a real definition of done, because my mind was like, okay, drafting up the
+proposal and then running through it. So done didn't feel like I was done with the work … It felt like
+I was either done drafting or I was done working on the thing, which is confusing because done feels
+like two different things depending on what I was doing with the app at the time. … when I opened the
+app, I guess I expected some form of like, hey, do you want to create a stack to define the work you
+want to do? … but that wasn't offered, and I had to use my prior knowledge of how the app works to use
+the search bar to elicit the create stack. So that was not intuitive … And when I clicked on, okay,
+create a new stack, then I would … work through the goal or outcome I was trying to achieve, the output,
+and consider what my inputs are, and then define a series of steps to transform my inputs to get to the
+desired output, as like a structured way of guiding myself to thinking about the problem at hand. But I
+had to work with just the prompt … and not … a little bit of scaffolding to tell me, hey, what … feeling
+or goal you're trying to achieve, and walk me through a nice way of leveraging the app to promote that.
+And when I was creating the stack, it felt like I was creating it, not running it … I never made a loop
+in the editor because there was no way to actually drag it. And for the input, that was me using prior
+knowledge … I expected it to be there … But because my head was stuck between editing and running,
+there wasn't a clear way of … entering the use of that feature, because there was no proposal or
+staging or a drafting stage to actually make that intuitive, because I jumped straight into the runner
+and not the composer. And the composer is where you would actually define the parameters, not
+necessarily while you're mid-run. Because the parameters define the execution[; the execution] doesn't
+define the parameters."
+*Interpretation (usage signal):* composing and running are two different activities and the app blurs
+them. Breaking a step down and adding "the next step" are composing, and felt like planning inside the
+runner. "Done" was ambiguous between done drafting and done working. Opening the app did not offer to
+create something — the prompt had to be known. Expected: a composing stage with a little scaffolding
+(the outcome or feeling wanted → the inputs → the steps that turn one into the other), where inputs and
+loops are defined, and then running. The loop divider could not be moved (expected to drag). This cuts
+against B-11 §9c's "the structure is written by running it" as built; the owner still liked being made
+to think about how they do the thing. Concerns, still being batched; no redesign decided.
+
+## 2026-11-25 — First real use: running and editing pull against each other
+The owner used the first slice on a phone (a routine "test out wonderment": Select a feature to test ·
+Vibe check · Write down concerns; screenshot of the plain editor). Said as concerns to batch, not a
+proposal: "I tried the approach of doing it as I go, and I noticed that [it] force[d] me to think a lot
+about how I actually do it, which I kind of liked because I didn't really have a process for iterating
+on a tool … what I notice is that the editing and running don't feel intuitive in the sense that the
+next step didn't seem like the next step … it feels like me drafting it rather than [executing it] … my
+mind was split … between two modes of thought, like OK what do I do next versus how do I represent this
+in the app in a way that [captures] my thoughts, and … that's no longer … doing the work, that's …
+working with the app, and that's a lot of [context switching] back-and-forth. So there has to be like a
+stage where I am editing and then running, [or] make those [contexts] very apparent … so my mind is just
+worried about what's the next step rather than editing. And … the edit features for like defining loops
+… [can't] happen mid run … I can't swap back and … revise my procedure because I have to click done and
+then edit the settings, which is not intuitive. There's no mode … no strong context switching for that,
+'cause in my head it's like, well, this is definitely gonna be a loop: select the feature, vibe check it,
+write my concerns, keep doing that over and over … until I feel like it's good enough. And also … it
+wasn't obvious … how to actually parameterize … the routine so I can select the feature [and] apply [it]
+to different features too. And this is not a proposal, this is just me voicing my concerns in a way where
+I can address each concern individually … right now the friction is the context switching that stood out
+for me in this first one, but I do like the fact that [it] forces [me] to really think about how I go
+about doing things."
+*Interpretation (usage signal, the first):* (1) adding the next step while running feels like drafting,
+not doing — two modes of thought compete; (2) there is no clear line between editing and running, and
+there should be either separate stages or an unmistakable context; (3) structure such as a loop cannot
+be set mid-run — you must leave the run to reach the editor; (4) how to give a routine an input was not
+discoverable (blanks are not built yet); (5) liked: being made to think about how you actually do the
+thing. Not a proposal; concerns to be taken one at a time before any redesign.
+
 ## 2026-11-25 — Remove the old app entirely
 Told the new home keeps a "Back to Wanderment" button to the old home at `/old`: "No, just please get
 rid of the old app entirely. Retired."

@@ -117,9 +117,9 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
   if (!d || typeof d !== 'object') throw new Error('The backup is missing its data.');
   // (A version that isn't a whole number was never written; above 1 it has always read as newer.)
   if (typeof d.version === 'number' && (d.version > DATA_VERSION || (d.version > 1 && !Number.isInteger(d.version)))) {
-    throw new Error('That Wanderment backup was made by a newer version of the app. Update Wanderment, then import it again.');
+    throw new Error('That backup was made by a newer version of the app. Update the app, then import it again.');
   }
-  if (typeof d.version !== 'number' || !Number.isInteger(d.version) || d.version < 1) throw new Error('That file isn’t a Wanderment backup.');
+  if (typeof d.version !== 'number' || !Number.isInteger(d.version) || d.version < 1) throw new Error('That file isn’t a backup from this app.');
   const version = d.version;
   if (!d.threads || typeof d.threads !== 'object' || !d.activities || typeof d.activities !== 'object') {
     throw new Error('The backup is missing wanders or activities.');

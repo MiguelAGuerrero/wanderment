@@ -3,7 +3,7 @@
  * Journeys J01 (first open), J02 (come back and pick up), J03 (say what you're going to do).
  * Seeded through a format-2 backup import (goFixture). Every wait is on a state attribute.
  */
-import { AT_OLD, expect, OLD, test } from './fixtures';
+import { expect, test } from './fixtures';
 import { expectInside, home, MAYA, openGo, RoutineSpec, runner, settled, startGo, tile, sinceDate } from './goFixture';
 
 const THREE = [
@@ -134,13 +134,6 @@ test('J02-b: with a paused run /go opens its paused screen; with nothing going, 
   await expect(page).toHaveURL(/\/go\/run\/r1\/paused$/);
 });
 
-test('the old home at /old is untouched: opening it never redirects into a run', async ({ page }) => {
-  await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-  await page.goto(OLD);
-  await expect(page.getByRole('textbox', { name: 'Where are we wandering today?', exact: true })).toBeVisible();
-  await expect(page).toHaveURL(AT_OLD);
-});
-
 test('J03-a: typing filters the tiles, then routines, with "New: …" last; the first row is marked and Return takes it', async ({ page }) => {
   await startGo(page, THREE);
   const h = home(page);
@@ -256,15 +249,31 @@ test('keyboard up (a 390×510 window stands in for it): the prompt and the marke
   await expect(tile(page, 'Apply to Initech')).toBeInViewport();
 });
 
-test('a way back to today’s home, and the tile’s ⋯ opens its routine', async ({ page }) => {
+test('the tile’s ⋯ opens its routine; Settings is one control at the top right; there is no way “back” to an old app (P-89)', async ({ page }) => {
   await startGo(page, []);
   await home(page).screen.getByRole('button', { name: 'More for Practise drawing', exact: true }).click();
   await expect(settled(page, 'editor').getByRole('heading', { level: 1 })).toHaveText('Practise drawing');
   await page.goBack();
-  // Opened by its address there is nothing beneath it: the way back is today's home itself.
-  await home(page).screen.getByRole('button', { name: 'Back to Wanderment', exact: true }).click();
-  await expect(page).toHaveURL(AT_OLD);
-  await expect(page.getByRole('textbox', { name: 'Where are we wandering today?', exact: true })).toBeVisible();
+  const h = home(page);
+  await expect(h.screen.getByRole('button', { name: /Back/ })).toHaveCount(0);
+  await expect(page.getByText('Wanderment')).toHaveCount(0);
+  const control = h.screen.getByRole('button', { name: 'Settings', exact: true });
+  await expect(control).toHaveCount(1);
+  const box = (await control.boundingBox())!;
+  const title = (await h.title.boundingBox())!;
+  // A 48 px target (B-11 §6), right of the title, at the right edge, on the title's row.
+  expect(box.width).toBeGreaterThanOrEqual(48);
+  expect(box.height).toBeGreaterThanOrEqual(48);
+  expect(box.x).toBeGreaterThanOrEqual(title.x + title.width - 1);
+  expect(box.x + box.width).toBeGreaterThan(390 - 24);
+  expect(box.y).toBeLessThan(title.y + title.height);
+  await control.click();
+  await expect(settled(page, 'settings').getByRole('heading', { level: 1 })).toHaveText('Settings');
+  await expect(page).toHaveURL(/\/wanderment\/go\/settings$/);
+  // Back (the screen's own, as on every sub-screen) returns to the home, its tiles as they were.
+  await settled(page, 'settings').getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(home(page).tiles).toHaveCount(4);
+  await expect(page).toHaveURL(/\/wanderment\/go$/);
 });
 
 test('must-handle: MAYA’s data is what the specs think it is', async ({ page }) => {
