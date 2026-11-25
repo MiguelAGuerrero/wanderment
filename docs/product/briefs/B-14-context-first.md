@@ -78,18 +78,17 @@ so that we understand why we're doing the things we're doing to produce what? Wh
 an artifact, or a result that other steps can reference … with the whole input-output chain to
 contextualize the meaning of that value … without over-engineering."
 
-One mechanism, three rules:
-1. **Every routine and every thread states what it is for**: one line, `→ …`, in words ("→ loose,
-   confident lines", "→ a sketch of the HUD", "→ which feature to fix first"). A routine must have one
-   (it is reused, so its why has to travel with it); a thread is asked once, when made, and may be left
-   empty. The line shows on its row, on its calls, and on the note's context line.
-2. **A step can produce a named value**: "Select a feature to test → {feature}". The note asks for it;
-   later steps use it as `{feature}`. That is the same mechanism as parameters — a parameter is a value
-   given from outside, an output is a value made inside. **Every value knows where it came from**: tapping
-   it shows the step, the thread and the day that produced it — the input-output chain, on demand.
-3. **Done may carry a result**: when a call or a thread returns, the note offers one line, "What came
-   of it?", skippable. The result is the thread's last word ("hands still stiff at the wrist") — shown as
-   "last:" on the way back in and on its row in the tree.
+**Amended after the owner's answer** ("there has to be a purpose for that outcome"): the name carries
+the intent; an output exists only when something uses it.
+1. **The name is the why.** No required `→` line; a routine or thread named "Practise gesture drawing"
+   already says what it is for. An optional `→` line stays available for when the name cannot say it.
+2. **A value exists only if something uses it.** "Select a feature to test → {feature}" is allowed
+   because a later step reads `{feature}`; Plan does not offer an output on a step that nothing reads.
+   Every value knows where it came from (tap it: the step, the thread, the day).
+3. **No "What came of it?"** Done asks nothing. "last:" on the way back in is the last step done.
+4. **Later, not now: a choice as an output.** A step "How did it feel? good · bad" produces `{feel}`, and
+   a following step can be "if {feel} is bad: reflect()". This is the owner's example of an output with
+   a purpose; it is conditional logic (B-11's reactions) and waits until values are used in practice.
 
 Not built, on purpose: types, schemas, validation, kinds of output (feeling / artifact / value are all just
 words), attachments, scales or ratings, any count.
@@ -101,11 +100,11 @@ words), attachments, scales or ratings, any count.
 - Freezes until used: Jump to…, references of one thread in two places, history views.
 
 ## Slices (each a full batch; the owner's freeze holds until lifted)
-1. **The way back in + values**: the `→` line on routines; `{blanks}` as parameters and as step outputs
+1. **The way back in + values**: `{blanks}` as parameters and as step outputs
    ("→ {feature}"), values held by the run with where each came from; the path, `→` and "last:" lines on
    the note. Fixes friction 1 with today's data model plus a few fields.
-2. **Threads that hold threads**: a thread with one-offs, routine calls and threads, its own `→`;
-   depth-first next; Done returns, with "What came of it?"; Home's tree. Existing runs read as threads under main at load; nothing converted.
+2. **Threads that hold threads**: a thread with one-offs, routine calls and threads;
+   depth-first next; Done returns; Home's tree. Existing runs read as threads under main at load; nothing converted.
 3. **The run queue**: ↑ queue, Up next on Home, finishing a queued item returns it in the tree. Fixes
    friction 2.
 
@@ -114,9 +113,7 @@ words), attachments, scales or ratings, any count.
    (it stays queued until you finish it)?
 2. **When a queued item returns, does the thread's new next item join the queue by itself?** Proposed: no;
    you push again (the queue is your plan, not the tree's).
-3. **Show "last:"** on the way back in — the result of the last return, else the last step done — yes?
-4. **A routine must have a `→` line; a thread may leave it empty** — or must threads have one too?
-5. **"What came of it?" on returning calls and threads only** (proposed), or on every step's Done?
+3. **Show "last:"** (the last step done) on the way back in — yes?
 
 ## Decision requested
 **D-22:** Go on B-14, slice 1 first? **Go** / **Go, but change …** / **Not now (keep the freeze)**.

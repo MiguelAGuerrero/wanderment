@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-25 — An output needs a purpose
+"I'm not sure what came of it has to be explicitly mentioned, because the routine's function names should
+relatively encode what that is. Like practicing gesture drawings, there's nothing to come out of it
+besides an intuitive feeling of progression. And to the extent that we don't really depend on that output
+to make other decisions, such as if there is a step that accepts that output of feeling and has a
+decision tree of like, how do you feel, good or bad, and you click bad, maybe it'll work you through a
+reflection workflow. I see the value in having the output … but there has to be a reason. There has to be
+a purpose for that outcome."
+Interpretation (ours): no "What came of it?" prompt; the name carries the intent; a value exists only when
+something later uses it — a step's words, or (later) a choice that leads into another routine.
+Led to: B-14 amended.
+
 ## 2026-11-25 — Context first, not routine first; the UI may be a tree
 "Yes, so I think the idea of context is the important thing here. And so we're not routine first, we're
 context first, hence context management. So the ability to manage state has to feel seamless, intuitive,
