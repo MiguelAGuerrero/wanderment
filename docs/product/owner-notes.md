@@ -18,6 +18,23 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — Design canvas is the baseline; no collisions between a routine's own values and its parent's
+"These look more in line with what I expect, and they serve as a good baseline. There's an edge case …
+there needs to be a way to ensure that there's no collision between inputs and outputs, because if a
+routine depends on an input that it expects to generate itself, and if a parent context happens to
+provide that input as well, I don't want the parental context to override or shadow the input of the
+routine. Also, I noticed certain things in the Notion document weren't addressed. For example, the
+issues with co-locating navigation buttons and the use of the add button steps to define constructs
+rather than just steps alone."
+(The two images on MyStack, now readable: a Plan where "For each reference photo, spend 3 minutes drawing
+it out." was typed into Add a step, with the Undo notice over the rows; and home with the notice over the
+New tile.)
+Interpretation (ours): a name a routine gives is local to it — never injected, never overwrites the
+parent's; needs are only names read and not given. Navigation sits together at the bottom of the runner
+(the top line is context only; finishing early moves to the pull-up panel). Add offers constructs
+(a routine, For each…, Repeat, Wait for…) beside typing a step. Notices never cover rows or tiles.
+Led to: the design canvas updated (https://claude.ai/artifact/7nXp9jT4HYn5g7rFx4GSjP).
+
 ## 2026-11-26 — The for-each sheet made no sense; steps must call routines; journeys in a document, not PNGs
 (Screenshot of mock-up frame 19, the "For each…" sheet: "in [photos | subject] · each [photo] · For each
 photo in photos · Close".) "This above screen makes no sense to me. I wasn't sure what I was looking at.
