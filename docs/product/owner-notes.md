@@ -18,6 +18,16 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — Home mixes things of very different size
+"There's still an open issue of the home screen being populated with a whole bunch of disparate types of
+routines, each with various levels of complexity. Something as grandiose as becoming a better drawer
+might be mixed with something like research a question. So a way of cleanly organizing that, or …
+having some organization would be preferred."
+Interpretation (ours): separate what is going from what is defined, and tell long-lived pursuits from
+finite work by structure (does it have an end?) rather than by labels; let small work live inside a
+pursuit when it belongs to one.
+Led to: proposal in conversation (home in three parts; ongoing vs finishing inferred; Move into).
+
 ## 2026-11-26 — The queue holds leaves only, found depth-first
 "So ensure that this is depth-first. For deeply nested concurrent routines, we only queue up only the
 leafs."
