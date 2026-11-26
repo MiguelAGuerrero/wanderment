@@ -763,6 +763,40 @@ describe('edits to a routine, under open runs (P-90: these are Plan’s edits; t
     expect(d.routines.R.words).toBe('Weekly report');
   });
 
+  it('P-95, a drag: a move of several rows is the same one-row moves in one result — crossing "Repeat from here" counts as a row and the step passes it alone; refused whole past either end or for no move at all', () => {
+    const d = world(seq('R', 'Report', [step('a'), step('b'), step('c'), step('d')], { repeatFrom: 2 }), seq('S', 'Sketch', []));
+    const by = (data: Data, item: string, n: number) => editRoutine(data, 'R', { kind: 'move', item, by: n }, env());
+    // One by one, as Move up / Move down would.
+    const stepwise = (item: string, n: number) => {
+      let x = d;
+      for (let i = 0; i < Math.abs(n); i++) x = by(x, item, n < 0 ? -1 : 1).data;
+      return x;
+    };
+    // d (below the divider) up three rows: past c, past the divider (alone: nothing else moves), past b.
+    const up = by(d, 'd', -3);
+    expect(up.ok).toBe(true);
+    expect(texts(up.data, 'R')).toEqual(['a', 'd', 'b', 'c']);
+    expect(readRoutine(up.data, 'R')!.repeatFrom).toBe(3);
+    expect(up.data).toEqual(stepwise('d', -3));
+    expect(up.data.routines.S).toBe(d.routines.S);
+    // a down two rows: past b, then past the divider — into the repeating part, no step but a moving.
+    const down = by(d, 'a', 2);
+    expect(texts(down.data, 'R')).toEqual(['b', 'a', 'c', 'd']);
+    expect(readRoutine(down.data, 'R')!.repeatFrom).toBe(1);
+    expect(down.data).toEqual(stepwise('a', 2));
+    // The last repeating step dragged out: the divider goes with it, and the step goes on up.
+    const one = world(seq('R', 'Report', [step('a'), step('b'), step('c')], { repeatFrom: 2 }));
+    const out = by(one, 'c', -2);
+    expect(texts(out.data, 'R')).toEqual(['a', 'c', 'b']);
+    expect('repeatFrom' in out.data.routines.R).toBe(false);
+    // Past an end, or nowhere: refused whole, nothing changes.
+    for (const [item, n] of [['b', -3], ['c', 3], ['a', 0], ['a', Number.NaN]] as const) {
+      const r = by(d, item, n);
+      expect(r.ok, `${item} ${n}`).toBe(false);
+      expect(r.data).toBe(d);
+    }
+  });
+
   it('refused, changing nothing: a move off either end, a divider that is not a place, a number below 1, empty words, a name another routine has, a step that is not there', () => {
     const d = world(seq('R', 'Report', [step('a'), step('b')]), seq('S', 'Sketch', []));
     const bad: Parameters<typeof editRoutine>[2][] = [

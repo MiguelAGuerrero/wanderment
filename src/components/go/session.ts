@@ -10,6 +10,32 @@ export const decideWhere = () => {
   decided = true;
 };
 
+const HOME_KEY = 'wandermentGoHome';
+
+/**
+ * P-95 audit F3: Home put this run down (paused) at `touchedAt` — so the app reopens on home, not on
+ * its paused screen (`opensAt`). A hint for this device's screens only: not data, never exported;
+ * anything that touches the run since makes it stale by itself.
+ */
+export function markWentHome(runId: string, touchedAt: string | undefined) {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(HOME_KEY, JSON.stringify({ runId, touchedAt }));
+  } catch {
+    // Private mode, a full store: the app reopens where the run is (its paused screen).
+  }
+}
+
+export function wentHome(): { runId: string; touchedAt?: string } | undefined {
+  try {
+    const had = typeof localStorage === 'undefined' ? null : (JSON.parse(localStorage.getItem(HOME_KEY) || 'null') as unknown);
+    if (!had || typeof had !== 'object' || typeof (had as { runId?: unknown }).runId !== 'string') return undefined;
+    const { runId, touchedAt } = had as { runId: string; touchedAt?: unknown };
+    return { runId, ...(typeof touchedAt === 'string' && { touchedAt }) };
+  } catch {
+    return undefined;
+  }
+}
+
 const drafts = new Map<string, string>();
 const KEY = 'wandermentGoDraft:';
 

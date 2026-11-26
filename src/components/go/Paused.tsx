@@ -1,8 +1,8 @@
 /**
  * B-11 slice 1 (P-86), B-12 (P-90): the paused screen (B-11 §3.3, §9b). The run, where it is, a reason
  * edited in place (stored as typed), Resume — the one filled button — and beneath it whatever else can
- * be resumed, each with its own Resume (or Plan, for one left in Plan). Home asks first ("Stop
- * <name>?", Cancel filled); the run stays where it is. A run resting on a wait is titled "Waiting" and
+ * be resumed, each with its own Resume (or Plan, for one left in Plan). Home goes home and asks
+ * nothing (P-95): the run stays paused where it is, the first tile there, with Resume. A run resting on a wait is titled "Waiting" and
  * carries "It's happened". A run left in Plan is never "paused" here: it is titled "Planning", reads
  * "planning · at <step>", and its one filled button is Plan.
  */
@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, TextInputProps, View } from 'react-native';
 
 import { tileLine } from '@/domain/goText';
+import { readRun } from '@/domain/run';
 import { leftOff, pausedView, routineHue, runnerView, sinceWords } from '@/domain/runView';
 import { useSavedField } from '@/components/useSavedField';
 import { useStore } from '@/store/useStore';
@@ -18,8 +19,9 @@ import { useStore } from '@/store/useStore';
 import { Mark } from './marks';
 import { Notice } from './Notice';
 import { goHome } from './Runner';
+import { markWentHome } from './session';
 import { G, hueOf, SP, TARGET } from './tokens';
-import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, H1, hard, T, TextRef, ViewRef } from './ui';
+import { Btn, Field, focusOn, focusSoon, GoScreen, H1, hard, T, TextRef, ViewRef } from './ui';
 
 const WEB = Platform.OS === 'web';
 
@@ -30,7 +32,6 @@ export function Paused({ runId }: { runId: string }) {
   const p = pausedView(data, runId);
   const status = runnerView(data, runId)?.status;
   const paused = !!p && status === 'paused';
-  const [asking, setAsking] = useState(false);
   const title = useRef<TextRef>(null);
   const forward = useRef<ViewRef>(null);
   const [tall, setTall] = useState(0);
@@ -84,7 +85,7 @@ export function Paused({ runId }: { runId: string }) {
     setTall(need);
   };
   return (
-    <GoScreen testID="go-paused" layer={asking ? <Confirm title={`Stop ${p.name}?`} action="Home" onCancel={() => setAsking(false)} onAct={() => act().leaveRun(runId)} testID="go-stop" /> : null}>
+    <GoScreen testID="go-paused">
       <View style={styles.bar}>
         <H1 ref={title}>{planning ? 'Planning' : waiting ? 'Waiting' : 'Paused'}</H1>
       </View>
@@ -197,7 +198,14 @@ export function Paused({ runId }: { runId: string }) {
       </ScrollView>
       <Notice />
       <View style={styles.foot}>
-        <Btn label="Home" onPress={() => setAsking(true)} testID="go-home-btn" />
+        <Btn
+          label="Home"
+          onPress={() => {
+            markWentHome(runId, readRun(data, runId)?.touchedAt);
+            goHome();
+          }}
+          testID="go-home-btn"
+        />
         {planning ? (
           <Btn kind="filled" ref={forward} label="Plan" spoken={`Plan ${p.name}`} onPress={() => toPlan(runId)} style={styles.grow} size={18} testID="go-paused-plan" />
         ) : (

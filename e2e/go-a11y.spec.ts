@@ -14,7 +14,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { addStep, arrived, home, paused, plan, planMenu, RoutineSpec, runner, settled, startGo } from './goFixture';
+import { addStep, arrived, home, paused, plan, planMenu, RoutineSpec, runner, setVisibility, settled, startGo } from './goFixture';
 
 const PAPER = 'rgb(244, 241, 232)';
 const RUNS = [
@@ -104,8 +104,9 @@ test('the runner and its panel: axe and the rules on each; reading order context
   // The notice is a polite live region, in the flow (it can cover nothing).
   const slot = r.screen.getByTestId('go-notice-slot');
   await expect(slot).toHaveAttribute('aria-live', 'polite');
-  await r.next.click();
-  await expect(r.notice).toBeVisible();
+  // (P-95: Next leaves no notice; Done does.)
+  await r.done.click();
+  await expect(r.notice).toContainText('Done with Hand studies of my left hand');
   const n = (await r.notice.boundingBox())!;
   const noteBox = (await r.note.boundingBox())!;
   const handle = (await r.handle.boundingBox())!;
@@ -121,7 +122,7 @@ test('the runner and its panel: axe and the rules on each; reading order context
 
   // Unmistakably the runner, without colour: said once on arriving, and the note has the focus.
   await page.reload();
-  await expect(r.said).toHaveText('Running: Block in the big shapes');
+  await expect(r.said).toHaveText('Running: Gesture drawing');
   await expect(r.said).toHaveAttribute('aria-live', 'polite');
   await expect(r.note).toBeFocused();
   await expect(r.middle).toHaveAccessibleName('Plan');
@@ -240,7 +241,7 @@ test('Plan against Run without colour: arriving in Plan says "Plan" and the rout
   await expect(p.said).toHaveAttribute('aria-live', 'polite');
 });
 
-test('a wait, Paused, Waiting, the confirm, Planning on the paused screen and Jump to…: axe and the rules on each', async ({ page }) => {
+test('a wait, Paused, Waiting, home with a paused run first (P-95), Planning on the paused screen and Jump to…: axe and the rules on each', async ({ page }) => {
   await startGo(page, [{ id: 'r2', routine: 'apply-acme', at: 1, waitingDaysAgo: 9, status: 'running' }, RUNS[1]], 'runner');
   const r = runner(page);
   await expectNoSeriousViolations(page);
@@ -252,11 +253,13 @@ test('a wait, Paused, Waiting, the confirm, Planning on the paused screen and Ju
   await expectRules(page, p.screen, 1, 1);
   await p.reason.fill('they said two weeks');
   await expectRules(page, p.screen, 1, 1);
+  // P-95: Home asks nothing; home has the run first, its Resume the one filled button.
   await p.home.click();
-  const ask = await arrived(page, 'go-stop');
+  await expect(home(page).tiles.first()).toHaveAttribute('data-state', 'waiting');
   await expectNoSeriousViolations(page);
-  await expectRules(page, ask, 2, 1);
-  await page.keyboard.press('Escape');
+  await expectRules(page, home(page).screen, 1, 1);
+  await home(page).tiles.first().getByRole('button', { name: 'Resume Apply to Acme', exact: true }).click();
+  await runner(page).pause.click();
 
   await paused(page).screen.getByRole('button', { name: 'Jump to…', exact: true }).click();
   const j = settled(page, 'jump');
@@ -359,7 +362,11 @@ test('Reduce Motion: sheets, the confirm, the panel and the change between Plan 
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
   await r.pause.click();
   await paused(page).home.click();
-  await expect(page.getByTestId('go-stop')).toHaveAttribute('data-moving', 'false');
+  await expect(home(page).tiles.first()).toHaveAttribute('data-state', 'paused');
+  expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+  // P-95: New's own sheet never moves either.
+  await home(page).screen.getByTestId('go-new').click();
+  await expect(page.getByTestId('go-new-sheet')).toHaveAttribute('data-moving', 'false');
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
 });
 
@@ -411,9 +418,16 @@ for (const [label, size] of [
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     };
     await fits();
-    // With a notice showing, too.
+    // With a notice showing, too. (P-95: Next has none now; the slot's short one is the quiet
+    // "reconnecting" note of a press made while the page does not hold the data. A long notice such as
+    // Done's "Done with Hand studies of my left hand" does not fit at 195×422 on the build before P-95
+    // either — reported, not covered here.)
+    await setVisibility(page, 'hidden');
     await r.next.click();
-    await expect(r.notice).toBeVisible();
+    await expect(r.notice).toHaveText('Just a moment — reconnecting.');
+    await fits();
+    await setVisibility(page, 'visible');
+    await expect(r.notice).toHaveCount(0);
     await fits();
     // The panel scrolls inside its room; the buttons have not moved off.
     await r.handle.click();
@@ -488,7 +502,7 @@ for (const [label, size] of [
     await expectRules(page, p.screen, 1, 0);
   });
 
-  test(`${label}: home, Paused and the confirm reflow — every control in reach`, async ({ page }) => {
+  test(`${label}: home, Paused and New's sheet reflow — every control in reach`, async ({ page }) => {
     await startGo(page, RUNS, 'runner');
     await page.setViewportSize(size);
     const r = runner(page);
@@ -499,15 +513,20 @@ for (const [label, size] of [
     await expect(p.home).toBeInViewport();
     await expectRules(page, p.screen, 1, 1);
     await p.home.click();
-    const ask = await arrived(page, 'go-stop');
-    await expect(ask.getByRole('button', { name: 'Cancel', exact: true })).toBeInViewport();
-    await expect(ask.getByRole('button', { name: 'Home', exact: true })).toBeInViewport();
-    await expectRules(page, ask, 2, 1);
-    await ask.getByRole('button', { name: 'Home', exact: true }).click();
 
     const h = home(page);
     await expect(h.prompt).toBeInViewport();
-    await expectRules(page, h.screen, 1, 0);
+    // P-95: the paused run is first, its Resume the one filled button.
+    await expect(h.tiles.first().getByRole('button', { name: 'Resume Practise drawing', exact: true })).toBeInViewport();
+    await expectRules(page, h.screen, 1, 1);
+    await expectNoSeriousViolations(page);
+    // New's own sheet: the name field and Plan in reach.
+    await h.screen.getByTestId('go-new').click();
+    const sheet = await arrived(page, 'go-new-sheet');
+    await sheet.getByTestId('go-new-name').fill('Learn the ukulele');
+    await expect(sheet.getByTestId('go-new-name')).toBeInViewport();
+    await expect(sheet.getByTestId('go-new-plan')).toBeInViewport();
+    await expectRules(page, sheet, 2, 1);
     await expectNoSeriousViolations(page);
   });
 }

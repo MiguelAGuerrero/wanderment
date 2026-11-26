@@ -200,15 +200,16 @@ export async function storedNames(page: Page) {
 }
 
 /**
- * Says what you're going to do: the words in the prompt, Return ("New: <words>"). Plan opens on the new
- * routine — its name as the heading, no steps, the open row focused. It makes a routine and no run
- * (P-90): something stored, to read back.
+ * Says what you're going to do: the words in the prompt, then the New tile (P-95: the prompt only finds
+ * what exists; New carries its words into the name). Plan opens on the new routine — its name as the
+ * heading, no steps, the open row focused. It makes a routine and no run (P-90): something stored, to
+ * read back.
  */
 export async function startThing(page: Page, words: string) {
   const h = home(page);
   await h.prompt.fill(words);
-  await expect(h.screen.getByTestId('go-row-new')).toHaveText(`New: ${words}`);
-  await h.prompt.press('Enter');
+  await expect(h.screen.getByTestId('go-new')).toHaveAccessibleName(`New: ${words}`);
+  await h.screen.getByTestId('go-new').click();
   const p = plan(page);
   await expect(p.title).toHaveText(words);
   await expect(page.getByRole('button', { name: 'Undo New', exact: true })).toBeVisible();
@@ -264,6 +265,8 @@ export const runner = (page: Page) => {
     middle: screen.getByTestId('go-middle'),
     pause: screen.getByRole('button', { name: 'Pause', exact: true }),
     done: screen.getByTestId('go-done'),
+    /** P-95: Home pauses the run and goes home. */
+    home: screen.getByTestId('go-runner-home'),
     context: screen.getByTestId('go-context'),
     handle: screen.getByTestId('go-handle'),
     panel: screen.getByTestId('go-panel'),
@@ -355,7 +358,7 @@ export const paused = (page: Page) => {
 };
 
 /** A sheet or confirm, once it has arrived (it slides in unless Reduce Motion is on). */
-export async function arrived(page: Page, testId: 'go-stop' | 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine'): Promise<Locator> {
+export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-new-sheet'): Promise<Locator> {
   const sheet = page.getByTestId(testId);
   await expect(sheet).toHaveAttribute('data-moving', 'false');
   return sheet;

@@ -3,24 +3,27 @@
  * its routine's colour (the name, where it is and in which mode — "at <step>" with Resume, or
  * "planning · …" with Plan, drawn as the Plan surface is — or Start), in a fixed order, then a New
  * tile, and the prompt "I'm going to…" at the bottom, in thumb reach. Typing filters the tiles, then
- * lists other routines and things done before, with "New: <words>" last. Nothing starts until a row is
- * chosen; Return takes the first, which is always marked. `/go` opens where you left off — the mode
- * you were in — once per load.
+ * lists other routines and things done before. Nothing starts until a row is chosen; Return takes the
+ * first, which is always marked. `/go` opens where you left off — the mode you were in — once per load.
+ *
+ * P-95: the prompt only finds what exists (no "New: <words>" row); making something is the New tile's
+ * — the prompt's words, if any, are its name, else it asks for one in a sheet of its own. The run the
+ * app is on (paused by Home, say) is the first tile, and its Resume is the screen's one filled button.
  */
 import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { tileLine } from '@/domain/goText';
-import { leftOff, Tile } from '@/domain/runView';
+import { homeShown, leftOff, opensAt, Tile } from '@/domain/runView';
 import { searchStarts, StartRow } from '@/domain/starts';
 import { useStore } from '@/store/useStore';
 
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
-import { decideWhere, whereDecided } from './session';
+import { decideWhere, wentHome, whereDecided } from './session';
 import { G, hueOf, SP, TARGET } from './tokens';
-import { Btn, Field, focusOn, focusSoon, GoScreen, H1, hard, InputRef, T, TextRef, useKeys } from './ui';
+import { Btn, Field, focusOn, focusSoon, GoScreen, H1, hard, InputRef, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
 
 const WEB = Platform.OS === 'web';
 
@@ -33,7 +36,8 @@ export function GoHome() {
   const { width } = useWindowDimensions();
 
   // Where you left off, decided once per load: the runner, Plan, the paused screen, or here.
-  const [first] = useState(() => (whereDecided() ? { kind: 'home' as const, runId: undefined } : leftOff(data)));
+  // (Home put the run down: home, audit F3.)
+  const [first] = useState(() => (whereDecided() ? { kind: 'home' as const, runId: undefined } : opensAt(data, wentHome())));
   useEffect(() => {
     decideWhere();
     if (first.kind === 'runner') router.push(`/go/run/${first.runId}`);
@@ -52,7 +56,9 @@ export function GoHome() {
 
   const typed = query.trim();
   const rows = searchStarts(data, query);
-  const tiles = rows.filter((r): r is StartRow & { tile: Tile } => r.kind === 'tile' && !!r.tile);
+  const found = rows.filter((r): r is StartRow & { tile: Tile } => r.kind === 'tile' && !!r.tile);
+  // Nothing typed: the run the app is on first (P-95); typed, the order the search found them in.
+  const tiles = typed ? found : homeShown(data, found.map((r) => r.tile)).map((t) => found.find((r) => r.tile === t)!);
   const others = typed ? rows.filter((r) => r.kind !== 'tile') : [];
   // One thing at a time: while a run is running it is the only thing home lets you resume or start
   // (its tile's Resume, filled). Every other Resume and Start is shown, unavailable, until you pause
@@ -60,6 +66,8 @@ export function GoHome() {
   const now = leftOff(data);
   const runningId = now.kind === 'runner' ? now.runId : undefined;
   const running = !!runningId;
+  // The run the app is on, running or paused: its Resume is the one filled button (P-95: Home from the runner leaves it paused, first).
+  const onIt = now.kind === 'runner' || now.kind === 'paused' ? now.runId : undefined;
   const busy = (row: StartRow) => running && row.runId !== runningId && (row.action === 'resume' || row.action === 'start');
 
   /** A routine's Plan: its run's (the run is put in Plan first: one write), or — with no run — the routine's own. */
@@ -68,16 +76,19 @@ export function GoHome() {
     setQuery('');
     router.push(runId ? `/go/run/${runId}/plan` : `/go/routine/${routineId}`);
   };
-  /** New: the routine only (named, on home, no run), then its Plan with the open row focused. Nothing typed: the prompt, to say what. */
+  /** New: the routine only (named, on home, no run), then its Plan with the open row focused. Nothing typed: its own sheet asks for the name. */
+  const [naming, setNaming] = useState(false);
+  const newTile = useRef<ViewRef>(null);
   const create = (words: string) => {
-    if (!words.trim()) return focusOn(field);
+    if (!words.trim()) return setNaming(true);
     const did = act().createRoutine(words);
-    if (did.ok && did.routineId) toPlan(did.routineId);
+    if (!did.ok || !did.routineId) return;
+    setNaming(false);
+    toPlan(did.routineId);
   };
   /** A row is chosen: only now does anything start. Refused: nothing changes, the words stay. */
   const choose = (row: StartRow) => {
     const s = act();
-    if (row.action === 'new') return create(row.words);
     if (row.action === 'plan') return row.routineId && toPlan(row.routineId, row.runId);
     // Nothing to start yet (no steps): its Plan is where the first is added.
     if (row.tile?.empty && row.routineId) return toPlan(row.routineId);
@@ -99,7 +110,7 @@ export function GoHome() {
     else focusOn(field);
   };
   useKeys(
-    focused,
+    focused && !naming,
     {
       'mod+z': () => {
         if (!can) return;
@@ -113,7 +124,7 @@ export function GoHome() {
 
   const columns = width >= 340 ? 2 : 1;
   return (
-    <GoScreen testID="go-home" settled={here}>
+    <GoScreen testID="go-home" settled={here} layer={naming ? <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newTile} /> : null}>
       <View style={[styles.flex, !here && styles.away]}>
       <View style={styles.bar}>
         <H1 ref={title} style={styles.title}>{running ? 'Running' : 'Nothing running'}</H1>
@@ -122,16 +133,18 @@ export function GoHome() {
       <ScrollView style={styles.flex} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" testID="go-tiles">
         <View style={styles.grid}>
           {tiles.map((r) => (
-            <TileBox key={r.tile.routineId} tile={r.tile} first={!!typed && r.first} wide={columns === 1} onPress={() => choose(r)} onPlan={() => toPlan(r.tile.routineId, r.tile.runId)} only={running && r.runId === runningId} unavailable={busy(r)} />
+            <TileBox key={r.tile.routineId} tile={r.tile} first={!!typed && r.first} wide={columns === 1} onPress={() => choose(r)} onPlan={() => toPlan(r.tile.routineId, r.tile.runId)} only={!!onIt && r.runId === onIt && r.tile.action === 'resume'} unavailable={busy(r)} />
           ))}
           <Pressable
+            ref={newTile}
             onPress={() => create(typed)}
             accessibilityRole="button"
             accessibilityLabel={typed ? `New: ${typed}` : 'New'}
             testID="go-new"
             style={(state) => [styles.tile, styles.newTile, columns === 1 ? styles.tileWide : [styles.tileHalf, styles.newHalf], (state as { focused?: boolean }).focused && RING]}>
-            <T bold size={18}>
-              New
+            {/* With words in the prompt it says it will use them (audit F5). */}
+            <T bold size={18} style={styles.newWords}>
+              {typed ? `New: ${typed}` : 'New'}
             </T>
           </Pressable>
         </View>
@@ -144,23 +157,14 @@ export function GoHome() {
                 disabled={busy(r)}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: busy(r) }}
-                accessibilityLabel={r.kind === 'new' ? `New: ${r.words}` : `Start ${r.words}`}
+                accessibilityLabel={`Start ${r.words}`}
                 testID={`go-row-${r.kind}`}
                 {...{ dataSet: { first: r.first ? 'true' : 'false' } }}
                 style={(state) => [styles.row, r.first && styles.rowFirst, busy(r) && styles.rowOff, (state as { focused?: boolean }).focused && RING]}>
-                <Mark name={r.kind === 'new' ? 'add' : r.kind === 'routine' ? 'routine' : 'lines'} color={busy(r) ? G.dim : G.text} />
+                <Mark name={r.kind === 'routine' ? 'routine' : 'lines'} color={busy(r) ? G.dim : G.text} />
                 <T style={styles.rowWords} dim={busy(r)}>
-                  {r.kind === 'new' ? (
-                    <>
-                      <T dim>New: </T>
-                      {r.words}
-                    </>
-                  ) : (
-                    <>
-                      <T dim>Start </T>
-                      {r.words}
-                    </>
-                  )}
+                  <T dim>Start </T>
+                  {r.words}
                 </T>
                 {r.first && <Mark name="return" color={G.text} />}
               </Pressable>
@@ -195,6 +199,22 @@ export function GoHome() {
       </View>
       </View>
     </GoScreen>
+  );
+}
+
+/**
+ * New with nothing in the prompt (P-95): its own sheet, never the prompt — the name, then Plan (the
+ * routine is made only now, and its Plan opens). Return in the field is the same as Plan.
+ */
+function NewSheet({ onMake, onClose, fallback }: { onMake: (words: string) => void; onClose: () => void; fallback: { current: unknown } }) {
+  const [name, setName] = useState('');
+  const make = () => (name.trim() ? onMake(name) : undefined);
+  return (
+    <Sheet title="New routine" onClose={onClose} testID="go-new-sheet" fallback={fallback}>
+      <Field value={name} onChangeText={setName} accessibilityLabel="Name" placeholder="Name" autoFocus submitBehavior="submit" returnKeyType="go" onSubmitEditing={make} testID="go-new-name" {...{ dataSet: { first: 'true' } }} />
+      <Btn kind="filled" label="Plan" spoken={name.trim() ? `Plan ${name.trim()}` : 'Plan'} disabled={!name.trim()} onPress={make} size={18} testID="go-new-plan" />
+      <Btn label="Close" onPress={onClose} />
+    </Sheet>
   );
 }
 
@@ -291,6 +311,7 @@ const styles = StyleSheet.create({
   // Tile-shaped, outlined (it has no colour of its own yet); never wider than a tile.
   newTile: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: G.line },
   newHalf: { flexGrow: 0, flexBasis: '47%' },
+  newWords: { textAlign: 'center', maxWidth: '100%' },
   rows: { borderWidth: 2, borderColor: G.line, backgroundColor: G.surf },
   row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: SP.s3, paddingHorizontal: SP.s3, paddingVertical: SP.s2, borderBottomWidth: 1, borderBottomColor: G.line },
   rowFirst: { backgroundColor: G.surf2, borderLeftWidth: 4, borderLeftColor: G.text },

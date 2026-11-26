@@ -38,22 +38,19 @@ beforeEach(() => {
 });
 
 describe('starting', () => {
-  it('Start from a tile: the run is running; Undo takes the run away again; a second tap changes nothing and keeps that Undo', () => {
-    const before = st().data;
+  it('Start from a tile: the run is running, with no Undo and no notice (P-95: a start is not undone), and the Undo there was is gone; a second tap changes nothing', () => {
+    st().editRoutine('sketch', { kind: 'addStep', text: 'Shade' });
+    expect(st().undo).toBeDefined();
     const id = started('report');
     expect(runnerView(st().data, id)).toMatchObject({ status: 'running', step: { words: 'Write report' } });
-    expect(st().runNotice).toMatchObject({ verb: 'start', text: '', label: 'Start' });
-    expect(st().runNotice!.entry).toBe(st().undo);
+    expect([st().undo, st().runNotice]).toEqual([undefined, undefined]);
     const once = st();
     expect(st().startRoutine('report')).toEqual({ ok: true, runId: id });
     expect(st().data).toBe(once.data);
-    expect(st().undo).toBe(once.undo);
-    st().undoLast();
-    expect(json(st().data)).toEqual(json(before));
-    expect(st().runNotice).toBeUndefined();
+    expect(st().undo).toBeUndefined();
   });
 
-  it('New: <words> (P-90): the routine only — open edge, on home, no steps, no run; its first step is added in its Plan, then Start; one Undo each', () => {
+  it('New: <words> (P-90): the routine only — open edge, on home, no steps, no run; its first step is added in its Plan, then Start; one Undo each for the routine and the step, none for the start (P-95)', () => {
     const fresh = st().data;
     const made = st().createRoutine('  Learn   Spanish ');
     if (!made.ok || !made.routineId) throw new Error('not made');
@@ -70,9 +67,8 @@ describe('starting', () => {
     expect(readRoutine(st().data, routineId)!.items.map((i) => ('text' in i ? i.text : ''))).toEqual(['Find a tutor']);
     const run = started(routineId);
     expect(runnerView(st().data, run)).toMatchObject({ status: 'running', step: { words: 'Find a tutor' } });
-    // One Undo each: the run, then (from where it was) the step, then the routine.
-    st().undoLast();
-    expect(st().data.runs).toEqual({});
+    // The start has no Undo (P-95); the step and the routine have one each.
+    expect(st().undo).toBeUndefined();
     useStore.setState({ data: empty, undo: undefined });
     st().editRoutine(routineId, { kind: 'addStep', text: 'Find a tutor' });
     st().undoLast();
@@ -108,22 +104,20 @@ describe('starting', () => {
 });
 
 describe('Undo after every reversible action, and never a stale one', () => {
-  it('each of these leaves an Undo that is the notice’s own, and it restores exactly what was there', () => {
+  it('each of these leaves an Undo that is the notice’s own, and it restores exactly what was there (P-95: what loses or reshapes something)', () => {
     const id = started('report');
     const steps: [string, () => { ok: boolean }][] = [
       ['editRoutine reword', () => st().editRoutine('report', { kind: 'reword', item: 'a', text: 'Draft report' })],
       ['editRoutine breakDown', () => st().editRoutine('report', { kind: 'breakDown', item: 'a', steps: ['outline', ' ', 'draft'] })],
       ['editRoutine addStep', () => st().editRoutine('report', { kind: 'addStep', text: 'File it', after: 'b' })],
-      ['nextStep', () => st().nextStep(id)],
-      ['backTo', () => st().backTo(id)],
       ['doneLevel', () => st().doneLevel(id)],
-      ['jumpTo', () => st().jumpTo(id, { path: ['b'] })],
+      ['jumpTo (P-95 audit F4: it can drop levels and reset the round)', () => st().jumpTo(id, { path: ['b'] })],
       ['editRoutine toWait', () => st().editRoutine('report', { kind: 'toWait', item: 'b' })],
       ['editRoutine move', () => st().editRoutine('report', { kind: 'move', item: 'b', by: -1 })],
+      ['editRoutine move (a drag)', () => st().editRoutine('report', { kind: 'move', item: 'b', by: 2 })],
       ['editRoutine divider', () => st().editRoutine('report', { kind: 'divider', from: 1 })],
       ['editRoutine remove', () => st().editRoutine('report', { kind: 'remove', item: 'b' })],
       ['createRoutine', () => st().createRoutine('Learn Spanish')],
-      ['stepIn', () => (st().jumpTo(id, { path: ['a'] }), st().stepIn(id))],
     ];
     for (const [name, press] of steps) {
       const before = st().data;
@@ -132,13 +126,58 @@ describe('Undo after every reversible action, and never a stale one', () => {
       expect(after, name).not.toBe(before);
       expect(st().undo, name).toBeDefined();
       expect(st().runNotice?.entry, name).toBe(st().undo);
-      if (name === 'stepIn') continue; // (two actions in one press here: the Undo is the second's)
       st().undoLast();
       expect(json(st().data), `${name} undone`).toEqual(json(before));
       expect(st().undo, name).toBeUndefined();
       expect(st().runNotice, name).toBeUndefined();
       useStore.setState({ data: after }); // carry on from after the action
     }
+  });
+
+  it('P-95: Next that ends the run (a routine that ends here, its last step) leaves an Undo with "Finished <name>": the run comes back where it was', () => {
+    const id = started('report'); // (Report ends here: it has no open edge)
+    st().jumpTo(id, { path: ['b'] });
+    const before = st().data;
+    expect(st().nextStep(id).ok).toBe(true);
+    expect(readRun(st().data, id)!.endedAt).toBeDefined();
+    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Finished Report', label: 'Next' });
+    expect(st().runNotice!.entry).toBe(st().undo);
+    st().undoLast();
+    expect(json(st().data)).toEqual(json(before));
+  });
+
+  it('P-95: moving through a run leaves no Undo and no notice, and clears the Undo there was — Start, Next (not the last), Back to, Step in, Pause, Resume, Plan, "It’s happened"', () => {
+    const id = started('report');
+    const steps: [string, () => { ok: boolean }][] = [
+      ['nextStep', () => st().nextStep(id)],
+      ['nextStep on a wait (It’s happened)', () => st().nextStep(id)],
+      ['backTo', () => st().backTo(id)],
+      ['pauseRun', () => st().pauseRun(id)],
+      ['resumeRun', () => st().resumeRun(id)],
+      ['planRun', () => st().planRun(id)],
+      ['resumeRun from Plan', () => st().resumeRun(id)],
+    ];
+    for (const [name, press] of steps) {
+      // An Undo to be cleared: a Plan edit just before.
+      st().editRoutine('sketch', { kind: 'reword', item: 'q', text: `Warm up ${name}` });
+      expect(st().undo, name).toBeDefined();
+      const before = st().data;
+      expect(press().ok, name).toBe(true);
+      expect(st().data, name).not.toBe(before);
+      expect([st().undo, st().runNotice], name).toEqual([undefined, undefined]);
+    }
+    // Step in: a step broken down first (that edit has its Undo), then Step in clears it.
+    st().jumpTo(id, { path: ['a'] });
+    st().editRoutine('report', { kind: 'breakDown', item: 'a', steps: ['outline'] });
+    st().jumpTo(id, { level: 0 });
+    st().editRoutine('sketch', { kind: 'reword', item: 'q', text: 'Warm up again' });
+    expect(st().stepIn(id).ok).toBe(true);
+    expect([st().undo, st().runNotice]).toEqual([undefined, undefined]);
+    // A start (of another, with this one paused).
+    st().pauseRun(id);
+    st().editRoutine('report', { kind: 'reword', item: 'b', text: 'Send it now' });
+    started('sketch');
+    expect([st().undo, st().runNotice]).toEqual([undefined, undefined]);
   });
 
   it('a step broken down in Plan: one Undo puts back the routine and the run together, and the sequence made is gone', () => {
@@ -154,9 +193,9 @@ describe('Undo after every reversible action, and never a stale one', () => {
     expect(json(st().data)).toEqual(json(before));
   });
 
-  it('Pause, Resume and Home leave no Undo and clear the one there was: Next → Pause → Resume → Undo does nothing', () => {
+  it('Pause, Resume and Home leave no Undo and clear the one there was: an edit → Pause → Resume → Undo does nothing', () => {
     const id = started('report');
-    st().nextStep(id);
+    st().editRoutine('sketch', { kind: 'addStep', text: 'Shade' });
     expect(st().undo).toBeDefined();
     st().pauseRun(id, 'lunch');
     expect(st().undo).toBeUndefined();
@@ -165,7 +204,7 @@ describe('Undo after every reversible action, and never a stale one', () => {
     const now = st().data;
     st().undoLast();
     expect(st().data).toBe(now);
-    st().nextStep(id);
+    st().editRoutine('sketch', { kind: 'addStep', text: 'Blend' });
     expect(st().undo).toBeDefined();
     st().leaveRun(id);
     expect(st().undo).toBeUndefined();
@@ -187,7 +226,7 @@ describe('Undo after every reversible action, and never a stale one', () => {
 
   it('a change elsewhere replaces the slot: the notice’s Undo is no longer its own; and a run action puts a quiet note away', () => {
     const id = started('report');
-    st().nextStep(id);
+    st().editRoutine('sketch', { kind: 'addStep', text: 'Shade' });
     const notice = st().runNotice!;
     // Something else took the Undo slot (P-89: nothing in the app does today; the screen still checks).
     person(useStore).log('a line from before');
@@ -195,7 +234,7 @@ describe('Undo after every reversible action, and never a stale one', () => {
     expect(st().undo).toBeDefined();
     expect(notice.entry).not.toBe(st().undo);
     expect(st().runNotice).toBe(notice); // still there to read; the screen offers Undo only while entry === undo
-    st().nextStep(id);
+    st().doneLevel(id);
     expect(st().toast).toBeUndefined();
     expect(st().runNotice!.entry).toBe(st().undo);
   });
@@ -216,12 +255,12 @@ describe('Undo after every reversible action, and never a stale one', () => {
 });
 
 describe('what the notice says', () => {
-  it('Next on a wait is "It’s happened"; a run that finishes says "Finished <name>"; Done says "Done with <name>"; a jump says where from', () => {
+  it('a run that finishes says "Finished <name>"; Done says "Done with <name>"; a jump says where from (P-95: Next and "It’s happened" say nothing — no notice)', () => {
     const id = started('report');
     st().nextStep(id);
-    expect(st().runNotice).toMatchObject({ verb: 'next', text: '', label: 'Next' });
+    expect(st().runNotice).toBeUndefined();
     st().nextStep(id);
-    expect(st().runNotice).toMatchObject({ verb: 'next', text: '', label: 'It’s happened' });
+    expect(st().runNotice).toBeUndefined();
     st().jumpTo(id, { level: 0 });
     expect(st().runNotice).toMatchObject({ verb: 'jump', text: 'Jumped from Send it', label: 'Jump' });
     st().editRoutine('report', { kind: 'breakDown', item: 'a', steps: ['outline'] });
@@ -237,8 +276,8 @@ describe('what the notice says', () => {
   });
 
   it('the notice can be put away; that is not Undo', () => {
-    const id = started('report');
-    st().nextStep(id);
+    started('report');
+    st().editRoutine('sketch', { kind: 'addStep', text: 'Shade' });
     st().dismissRunNotice();
     expect(st().runNotice).toBeUndefined();
     expect(st().undo).toBeDefined();
@@ -277,10 +316,10 @@ describe('after the audit', () => {
     expect(st().runNotice).toMatchObject({ text: 'Added “Shade”' });
     st().editRoutine('sketch', { kind: 'removeRoutine' });
     expect(st().runNotice).toMatchObject({ text: 'Removed “Sketch”' });
-    // What speaks for itself still says nothing.
+    // What speaks for itself still says nothing (P-95: Next has no notice at all).
     st().undoLast();
     st().nextStep(id);
-    expect(st().runNotice).toMatchObject({ text: '', label: 'Next' });
+    expect(st().runNotice).toBeUndefined();
   });
 });
 
@@ -291,6 +330,7 @@ describe('Plan (P-90)', () => {
   it('from the runner: the run is paused and in Plan in one change; nothing is running; no Undo (like Pause) and the Undo there was is gone; the app reopens in Plan', () => {
     const id = started('report');
     st().nextStep(id);
+    st().editRoutine('sketch', { kind: 'addStep', text: 'Shade' });
     expect(st().undo).toBeDefined();
     expect(st().planRun(id)).toEqual({ ok: true, runId: id });
     expect(st().data.runs[id]).toMatchObject({ status: 'paused', mode: 'plan' });
@@ -432,6 +472,34 @@ describe('Plan (P-90)', () => {
     const A = 'p90-008';
     const frozen = () => useStore.setState({ data: json(BEFORE), undo: undefined, runNotice: undefined });
 
+    it('P-95 audit F1: a Next that reaches the edge folds them too — and keeps the fold’s notice and Undo (it is not a plain Next); the Undo puts every record back', () => {
+      frozen();
+      expect(st().resumeRun(A).ok).toBe(true);
+      let before = st().data;
+      let n = 0;
+      while (!isPlanning(st().data, readRun(st().data, A)!) && n++ < 60) {
+        before = st().data;
+        expect(st().nextStep(A).ok).toBe(true);
+      }
+      expect(readRun(st().data, A)!.changes).toEqual([]);
+      expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Kept this run’s changes in Apply for jobs' });
+      expect(st().runNotice!.entry).toBeDefined();
+      expect(st().runNotice!.entry).toBe(st().undo);
+      st().undoLast();
+      expect(json(st().data)).toEqual(json(before));
+      expect(readRun(st().data, A)!.changes).toHaveLength(7);
+    });
+
+    it('P-95 audit F1/F4: a Jump that lands where the run reaches the edge, folding them, keeps its notice and Undo too', () => {
+      frozen();
+      expect(st().resumeRun(A).ok).toBe(true);
+      // Back to the first layer, on its last step; one Next then reaches the edge.
+      const last = readRoutine(st().data, 'p90-007')!.items.at(-1)!.id;
+      expect(st().jumpTo(A, { path: [last] }).ok).toBe(true);
+      expect(st().runNotice?.entry).toBe(st().undo);
+      expect(st().undo).toBeDefined();
+    });
+
     it('Plan folds them into the routine in ONE change, with a notice that names it and an Undo; the Undo puts every record back exactly — and the run is no longer in Plan (it is as it was)', () => {
       frozen();
       expect(planView(st().data, { runId: A })!.unfolded).toBe(true);
@@ -492,9 +560,8 @@ describe('after the P-90 audit', () => {
     expect(st().data.runs.edge.status).toBeUndefined();
     expect(st().data.runs.edge.mode).toBe('plan');
     expect(homeTiles(st().data).map((x) => [x.name, x.state])).toEqual([['Notes', 'paused'], ['Report', 'planning'], ['Sketch', 'running']]);
-    // One Undo takes the start back and leaves the edge run exactly as it was stored.
-    st().undoLast();
-    expect(json(st().data)).toEqual(json(legacyEdge()));
+    // A start has no Undo (P-95).
+    expect(st().undo).toBeUndefined();
   });
 
   it('F1: Resume on another run’s tile resumes it; Resume on the edge run itself is refused (nothing to resume at), never "already running"', () => {

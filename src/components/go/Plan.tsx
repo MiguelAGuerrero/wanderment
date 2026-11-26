@@ -8,6 +8,15 @@
  * run), which goes back exactly where you were. Nothing here says Next; Done exists only at the edge,
  * in its own slot beside Home.
  *
+ * P-95: every step row has a grip at its left edge ("Reorder <words>"): dragged (touch or mouse) it
+ * moves the row among its siblings — the row stays in place, dashed, and a line shows where it will go
+ * (past an open routine: after its last step); nothing moves until it is let go, so nothing covers
+ * anything and there is no reflow to animate (Reduce Motion or not).
+ * Dropped, it is ONE move edit of as many rows as it crossed ("Repeat from here" counts as a row and
+ * is passed alone, the P-90 rule), so one Undo. Pressed, it opens the row's menu, where Move up /
+ * Move down stay for the keyboard and screen readers — and for a window too narrow for a grip (large
+ * text), where the words keep the room instead.
+ *
  * The route follows the data and writes nothing — but for one case: a run the build before left at
  * the edge with this-run changes is folded into its routine on arriving (`planView().unfolded`), once,
  * with its notice and Undo. That Undo, at the edge, leaves the run in Plan by the data (nothing can run
@@ -16,7 +25,7 @@
  */
 import { router, useIsFocused } from 'expo-router';
 import { ComponentRef, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { RoutineEdit } from '@/domain/run';
 import { PlanDivider, PlanRow, planView, runRoute } from '@/domain/runView';
@@ -98,6 +107,14 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
   const [addFocused, setAddFocused] = useState(false);
   /** Routines opened or closed by hand (by row key); the rest follow `opened`. */
   const [folds, setFolds] = useState<Record<string, boolean>>({});
+  /** A row being dragged by its grip (P-95): its key and how far the pointer has moved. */
+  const [drag, setDrag] = useState<{ key: string; dy: number; line?: number } | null>(null);
+  /** Where each row's box is in the list, and where its step row and its divider are inside it (laid out). */
+  const boxes = useRef<Record<string, { y: number; row?: Span; div?: Span }>>({});
+  /** Each row's own box and divider (web: measured when a drag begins), and the siblings as they were then. */
+  const rails = useRef<Record<string, unknown>>({});
+  const dividers = useRef<Record<string, unknown>>({});
+  const dragFrom = useRef<{ key: string; spans: (Span & { key?: string })[] } | undefined>(undefined);
 
   const title = useRef<TextRef>(null);
   const addBox = useRef<ViewRef>(null);
@@ -188,6 +205,12 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
 
   const edit = (seq: string, e: RoutineEdit) => act().editRoutine(seq, e);
   const rowAt = (key: string): PlanRow | undefined => v.rows.find((r) => keyOf(r.path) === key);
+  const laid = (key: string, part: 'y' | 'row' | 'div') => (e: LayoutChangeEvent) => {
+    const { y, height } = e.nativeEvent.layout;
+    const b = (boxes.current[key] ??= { y: 0 });
+    if (part === 'y') b.y = y;
+    else b[part] = { y, h: height };
+  };
 
   // A routine row shows its steps when the run is inside it, when it is a step broken down, while
   // smaller steps are being typed into it — or as it was last opened or closed by hand.
@@ -200,6 +223,65 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
     shownRows.push(row);
     if (row.kind === 'routine' && !opened(row)) shut.push(key);
   }
+  /**
+   * Where a row (or its divider) is in the list, now. Web: measured from the page (RN-web's onLayout
+   * fires on a size change, not when a row only moves — audit F2); elsewhere, as laid out.
+   */
+  const where = (k: string, part: 'row' | 'div'): Span | undefined => {
+    const rect = (el: unknown) => (WEB && el && typeof (el as HTMLElement).getBoundingClientRect === 'function' ? (el as HTMLElement).getBoundingClientRect() : undefined);
+    const origin = rect(list.current);
+    const r = origin && rect(part === 'row' ? rails.current[k] : dividers.current[k]);
+    if (origin && r) return { y: r.top - origin.top, h: r.height };
+    const b = boxes.current[k];
+    const at = b?.[part];
+    return b && at ? { y: b.y + at.y, h: at.h } : undefined;
+  };
+  /** The siblings of a row as a drag sees them, in order: each row (an open routine with the steps it shows) and the divider. */
+  const spansOf = (key: string): (Span & { key?: string })[] | undefined => {
+    const spans: (Span & { key?: string })[] = [];
+    for (const r of shownRows) {
+      const k = keyOf(r.path);
+      if (parentOf(k) !== parentOf(key)) continue;
+      const own = where(k, 'row');
+      if (!own) return undefined;
+      const div = r.divider ? where(k, 'div') : undefined;
+      if (div) spans.push(div);
+      // An open routine is its name row AND the steps it shows (audit F2): crossing it means passing all of them.
+      let bottom = own.y + own.h;
+      for (const inner of shownRows) {
+        const ik = keyOf(inner.path);
+        const at = ik !== k && under(ik, k) ? where(ik, 'row') : undefined;
+        if (at) bottom = Math.max(bottom, at.y + at.h);
+      }
+      spans.push({ key: k, y: own.y, h: bottom - own.y });
+    }
+    return spans;
+  };
+  /**
+   * A drag let go at `dy` (P-95): how many rows it crossed among its siblings, the divider counting
+   * as one (negative: up), and where the line showing that goes — by where they were when it began.
+   */
+  const dropOf = (key: string, dy: number): { by: number; line?: number } | undefined => {
+    const spans = (dragFrom.current?.key === key ? dragFrom.current.spans : undefined) ?? spansOf(key);
+    if (!spans) return undefined;
+    const c = spans.findIndex((x) => x.key === key);
+    if (c < 0) return undefined;
+    const mid = (x: Span) => x.y + x.h / 2;
+    const at = mid(spans[c]) + dy;
+    let up = 0;
+    let down = 0;
+    while (c - up - 1 >= 0 && mid(spans[c - up - 1]) > at) up++;
+    while (c + down + 1 < spans.length && mid(spans[c + down + 1]) < at) down++;
+    const by = down - up;
+    return { by, ...(up ? { line: spans[c - up].y - SP.s1 } : down ? { line: spans[c + down].y + spans[c + down].h + SP.s1 } : {}) };
+  };
+  const drop = (row: PlanRow, dy: number | undefined) => {
+    const d = dy === undefined ? undefined : dropOf(keyOf(row.path), dy);
+    dragFrom.current = undefined;
+    setDrag(null);
+    if (d?.by) edit(row.seq, { kind: 'move', item: row.itemId, by: d.by });
+  };
+
   // Where the words typed after a row (or into it) go: beneath the last line of that row.
   const typingRow = typing && typing.mode !== 'name' ? rowAt(typing.path) : undefined;
   const typingAfter = typing && typingRow && typing.mode !== 'words' ? shownRows.reduce((last, r, i) => (under(keyOf(r.path), typing.path) ? i : last), -1) : -1;
@@ -457,20 +539,25 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
               <View
                 key={key}
                 style={[styles.gap, { marginLeft: indent(row.depth) }]}
-                onLayout={row.here ? (e) => hereLaid(e.nativeEvent.layout.y) : undefined}>
-                {row.divider && <DividerRow divider={row.divider} onMenu={() => setMenu({ divider: parent })} edit={edit} menuKey={`divider:${parent}`} />}
-                <View style={rail && styles.rail}>
+                onLayout={(e) => {
+                  laid(key, 'y')(e);
+                  if (row.here) hereLaid(e.nativeEvent.layout.y);
+                }}>
+                {row.divider && <DividerRow divider={row.divider} onMenu={() => setMenu({ divider: parent })} edit={edit} menuKey={`divider:${parent}`} onLayout={laid(key, 'div')} viewRef={(el) => { dividers.current[key] = el; }} />}
+                <View ref={(el) => { rails.current[key] = el; }} style={rail && styles.rail} onLayout={laid(key, 'row')}>
                   {typing?.mode === 'words' && typing.path === key ? (
                     typed(row.kind === 'wait' ? `Wait for: ${row.words}` : `Step: ${row.words}`)
                   ) : (
                     <View
                       ref={row.here ? hereRow : undefined}
-                      style={[styles.row, row.here && styles.rowHere]}
+                      style={[styles.row, row.here && styles.rowHere, drag?.key === key && styles.rowDragging]}
                       role="group"
                       aria-label={says}
                       accessibilityLabel={says}
                       testID="go-plan-row"
-                      {...{ dataSet: { here: row.here ? 'true' : 'false', within: row.within ? 'true' : 'false', kind: row.kind, depth: String(row.depth), repeats: rail ? 'true' : 'false' } }}>
+                      {...{ dataSet: { here: row.here ? 'true' : 'false', within: row.within ? 'true' : 'false', kind: row.kind, depth: String(row.depth), repeats: rail ? 'true' : 'false', dragging: drag?.key === key ? 'true' : 'false' } }}>
+                      {/* Too narrow (large text): no grip — the words keep their room; Move up / Move down are on the menu. */}
+                      {!narrow && (row.canUp || row.canDown) && <Grip words={row.words} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ row: key })} />}
                       {row.kind === 'routine' && (
                         <Btn
                           kind="plain"
@@ -512,6 +599,8 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
             );
           })}
 
+          {drag?.line !== undefined && <View style={[styles.dropLine, { top: drag.line - 2 }]} testID="go-plan-drop" pointerEvents="none" />}
+
           <View ref={addBox} style={[styles.addRow, addFocused && RING]} {...{ dataSet: { typing: '' } }}>
             <View style={styles.addMark}>
               <Mark name="add" color={G.dim} />
@@ -541,10 +630,10 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
 }
 
 /** "Repeat from here": a row of its own, with visible Move up / Move down and its menu (until I'm done or a number; take it out). */
-function DividerRow({ divider, onMenu, edit, menuKey }: { divider: PlanDivider; onMenu: () => void; edit: (seq: string, e: RoutineEdit) => { ok: boolean }; menuKey: string }) {
+function DividerRow({ divider, onMenu, edit, menuKey, onLayout, viewRef }: { divider: PlanDivider; onMenu: () => void; edit: (seq: string, e: RoutineEdit) => { ok: boolean }; menuKey: string; onLayout?: (e: LayoutChangeEvent) => void; viewRef?: (el: ViewRef | null) => void }) {
   const times = divider.repeat;
   return (
-    <View style={styles.divider} role="group" aria-label="Repeat from here" accessibilityLabel="Repeat from here" testID="go-plan-divider" {...{ dataSet: { from: String(divider.from) } }}>
+    <View ref={viewRef} onLayout={onLayout} style={styles.divider} role="group" aria-label="Repeat from here" accessibilityLabel="Repeat from here" testID="go-plan-divider" {...{ dataSet: { from: String(divider.from) } }}>
       <View style={styles.dividerWords}>
         <Mark name="repeat" color={G.text} />
         <T bold style={styles.shrink}>
@@ -555,6 +644,121 @@ function DividerRow({ divider, onMenu, edit, menuKey }: { divider: PlanDivider; 
       <Btn mark="up" spoken="Move Repeat from here up" disabled={!divider.canUp} onPress={() => edit(divider.seq, { kind: 'divider', from: divider.from - 1 })} />
       <Btn mark="down" spoken="Move Repeat from here down" disabled={!divider.canDown} onPress={() => edit(divider.seq, { kind: 'divider', from: divider.from + 1 })} />
       <Btn kind="plain" mark="more" spoken="More for Repeat from here" onPress={onMenu} dataSet={{ more: menuKey }} style={styles.sq} />
+    </View>
+  );
+}
+
+interface Span {
+  y: number;
+  h: number;
+}
+
+/** A move this far (px) is a drag; a press right after one is the drag's own release, not a tap. */
+const DRAG_PX = 8;
+const AFTER_DRAG_MS = 600;
+/** Web: the grip takes the touch itself (no page scroll, no text selected while dragging). */
+const GRAB = WEB ? ({ touchAction: 'none', userSelect: 'none', cursor: 'grab' } as object) : null;
+
+/**
+ * P-95: a row's grip — the visible way to drag it (nothing by gesture alone). It claims the pointer
+ * once it has moved DRAG_PX up or down; pressed, it is a button ("Reorder <words>") that opens the
+ * row's menu, where Move up / Move down are.
+ */
+function Grip({ words, onStart, onMove, onDrop, onPress }: { words: string; onStart: () => void; onMove: (dy: number) => void; onDrop: (dy: number | undefined) => void; onPress: () => void }) {
+  const start = useRef<number | null>(null);
+  const dragging = useRef(false);
+  const ended = useRef(0);
+  const box = useRef<ViewRef>(null);
+  // The latest handlers, for the listeners the web path adds once.
+  const calls = useRef({ onStart, onMove, onDrop });
+  useEffect(() => {
+    calls.current = { onStart, onMove, onDrop };
+  });
+  const end = (to: number | undefined) => {
+    if (dragging.current) ended.current = Date.now();
+    const was = dragging.current;
+    dragging.current = false;
+    start.current = null;
+    if (was) calls.current.onDrop(to);
+  };
+  const pointer = useRef<number | undefined>(undefined);
+  const moved = (y: number) => {
+    if (start.current === null) return;
+    const dy = y - start.current;
+    if (!dragging.current && Math.abs(dy) > DRAG_PX) {
+      dragging.current = true;
+      // Web: from here on the grip has the pointer, wherever it goes (not before: a press stays a press).
+      const el = box.current as unknown as HTMLElement | null;
+      try {
+        if (WEB && el && pointer.current !== undefined) el.setPointerCapture(pointer.current);
+      } catch {
+        // (A pointer that is already gone.)
+      }
+      calls.current.onStart();
+    }
+    if (dragging.current) calls.current.onMove(dy);
+  };
+  // Web: DOM pointer events (touch and mouse alike). Pressed on the grip, the pointer is followed on the
+  // whole window until it is let go: a quick first move is already off the grip before it counts as a
+  // drag (audit F2 spec), and RN-web's responder only asks the grip about moves over it.
+  useEffect(() => {
+    const el = box.current as unknown as HTMLElement | null;
+    if (!WEB || !el || typeof el.addEventListener !== 'function') return;
+    let id: number | undefined;
+    const move = (e: PointerEvent) => e.pointerId === id && moved(e.clientY);
+    const stop = (e: PointerEvent, to: number | undefined) => {
+      if (e.pointerId !== id) return;
+      id = undefined;
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+      end(to);
+    };
+    const up = (e: PointerEvent) => stop(e, start.current === null ? undefined : e.clientY - start.current);
+    const cancel = (e: PointerEvent) => stop(e, undefined);
+    const down = (e: PointerEvent) => {
+      if (e.button !== 0 || id !== undefined) return;
+      id = e.pointerId;
+      pointer.current = e.pointerId;
+      start.current = e.clientY;
+      dragging.current = false;
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', cancel);
+    };
+    el.addEventListener('pointerdown', down);
+    return () => {
+      el.removeEventListener('pointerdown', down);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
+    // Once: the handlers are read through `calls`.
+  }, []);
+  type Touch = { nativeEvent: { pageY: number } };
+  // Native: the responder system (a vertical move past DRAG_PX claims the touch).
+  const native = WEB
+    ? {}
+    : {
+        onStartShouldSetResponderCapture: (e: Touch) => {
+          start.current = e.nativeEvent.pageY;
+          return false;
+        },
+        onMoveShouldSetResponder: (e: Touch) => start.current !== null && Math.abs(e.nativeEvent.pageY - start.current) > DRAG_PX,
+        onResponderMove: (e: Touch) => moved(e.nativeEvent.pageY),
+        onResponderRelease: (e: Touch) => end(start.current === null ? undefined : e.nativeEvent.pageY - start.current),
+        onResponderTerminationRequest: () => false,
+        onResponderTerminate: () => end(undefined),
+      };
+  return (
+    <View ref={box} style={[styles.grip, GRAB]} {...native} testID="go-plan-grip">
+      <Pressable
+        onPress={() => Date.now() - ended.current > AFTER_DRAG_MS && !dragging.current && onPress()}
+        accessibilityRole="button"
+        accessibilityLabel={`Reorder ${words}`}
+        style={(state) => [styles.gripBtn, (state as { focused?: boolean }).focused && RING]}>
+        <Mark name="grip" color={G.dim} />
+      </Pressable>
     </View>
   );
 }
@@ -666,6 +870,12 @@ const styles = StyleSheet.create({
   name: { flex: 1, minWidth: 0, paddingVertical: SP.s2 + 2 },
   line: { marginBottom: SP.s2 },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 52, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf, paddingLeft: SP.s3 - 4, gap: SP.s2 },
+  // P-95: the grip, at the row's left edge (the row's own padding is its left half), a full target tall.
+  grip: { marginLeft: -(SP.s3 - 4), alignSelf: 'stretch', justifyContent: 'center' },
+  gripBtn: { width: TARGET, minHeight: TARGET, alignItems: 'center', justifyContent: 'center' },
+  // The row being dragged stays where it is, dashed (audit F2: nothing is covered — HERE included); the line shows where it goes.
+  rowDragging: { borderStyle: 'dashed', borderColor: G.dim },
+  dropLine: { position: 'absolute', left: 0, right: 0, height: 4, backgroundColor: G.paper, zIndex: 3 },
   // The white outline means HERE, and only HERE (focus has its own ring, in its own colour).
   rowHere: { borderColor: G.text, borderWidth: 3 },
   rowMark: { width: 24, alignItems: 'center' },

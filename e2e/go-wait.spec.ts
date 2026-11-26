@@ -79,7 +79,7 @@ test('J34-c, J34-d: leaving it — the paused screen is titled "Waiting" and car
   await expect(home(page).screen.getByRole('button', { name: 'Resume Apply to Acme', exact: true })).toBeVisible();
 });
 
-test('J34-e: back again — saying it has happened goes on to the next step, with Undo (from the runner, and from Waiting)', async ({ page }) => {
+test('J34-e: back again — saying it has happened goes on to the next step (P-95: with no Undo and no notice), from Waiting and from the runner', async ({ page }) => {
   await startGo(page, [{ id: 'r2', routine: 'apply-acme', at: 1, waitingDaysAgo: 9, status: 'paused' }], 'paused');
   const p = paused(page);
   await expect(p.title).toHaveText('Waiting');
@@ -89,15 +89,17 @@ test('J34-e: back again — saying it has happened goes on to the next step, wit
   await expect(r.note).toHaveAttribute('data-kind', 'step');
   await expect(r.next).toHaveText('Next');
   await expect(r.middle).toBeEnabled();
-  const undo = r.notice.getByRole('button', { name: 'Undo It’s happened', exact: true });
-  await undo.click();
+  await expect(r.notice).toHaveCount(0);
+  await expect(r.screen.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
+  // From the runner: the same.
+  await startGo(page, [{ id: 'r2', routine: 'apply-acme', at: 1, waitingDaysAgo: 9, status: 'running' }], 'runner');
   await expect(r.note).toHaveAccessibleName('Wait for: a reply from Acme');
-  // Since when is as it was: undone exactly.
   await r.handle.click();
   await expect(r.panel.getByTestId('go-where')).toContainText(`since ${SINCE}`);
   await page.keyboard.press('Escape');
   await r.next.click();
   await expect(r.words).toHaveText('Note the answer in the tracker');
+  await expect(r.notice).toHaveCount(0);
 });
 
 test('J34-f: a wait that is the last step of a round carries the mark and the wait together', async ({ page }) => {

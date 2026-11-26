@@ -35,8 +35,8 @@ test('J04-h, J38-a: over a step in a loop — the round, then, and the actions, 
   await expect(r.words).toHaveText('Add the shadows');
   await expect(where).toContainText('Last step of the round');
   await expect(where).toContainText('then: Block in the big shapes');
-  // After an action its Undo is a row here too (the notice is under the panel).
-  await expect(r.panel.getByRole('button', { name: 'Undo Next', exact: true })).toBeVisible();
+  // P-95: Next leaves no Undo — not as a row here either.
+  await expect(r.panel.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
 });
 
 test('J37-d: the last step of the last round — "Round 3 of 3", "Last step of the round", then the parent’s next step', async ({ page }) => {
@@ -132,7 +132,7 @@ test('J38-c: Esc closes it (focus to the handle) and never pauses; Back closes i
   await expect(home(page).screen.locator('[data-testid="go-tile"][data-state="running"]')).toHaveCount(1);
 });
 
-test('J29-b: Back to <step> from the panel, with Undo; the words are not changed here — the note is never a field (P-90)', async ({ page }) => {
+test('J29-b: Back to <step> from the panel (P-95: with no Undo); the words are not changed here — the note is never a field (P-90)', async ({ page }) => {
   await startGo(page, IN_LOOP, 'runner');
   const r = runner(page);
   await r.handle.click();
@@ -140,8 +140,7 @@ test('J29-b: Back to <step> from the panel, with Undo; the words are not changed
   await expect(r.panel).toHaveCount(0);
   await expect(r.words).toHaveText('Block in the big shapes');
   await expect(r.note).toBeFocused();
-  await r.notice.getByRole('button', { name: 'Undo Back', exact: true }).click();
-  await expect(r.words).toHaveText('Check your proportions');
+  await expect(r.notice).toHaveCount(0);
   await r.handle.click();
   await expect(r.panel.getByRole('button', { name: /Change the words|Keep|See it all/ })).toHaveCount(0);
   await expect(r.panel.getByText('This run only')).toHaveCount(0);
@@ -166,7 +165,7 @@ test('J38: Jump to… is reached from the panel and comes back to the runner; th
   await expect(r.panel).toHaveCount(0);
 });
 
-test('keys: Return on the note is Next, Ctrl/⌘+Z is Undo, Esc only closes — and no letter is ever a shortcut (WCAG 2.1.4)', async ({ page }) => {
+test('keys: Return on the note is Next, Ctrl/⌘+Z is Undo (P-95: of what has one), Esc only closes — and no letter is ever a shortcut (WCAG 2.1.4)', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 0, status: 'running' }], 'runner');
   const r = runner(page);
   await expect(r.note).toBeFocused();
@@ -185,10 +184,9 @@ test('keys: Return on the note is Next, Ctrl/⌘+Z is Undo, Esc only closes — 
   await expect(r.panel).toHaveCount(0);
   await expect(page).toHaveURL(/\/go\/run\/r1$/);
   await expect(r.screen).toBeVisible();
-  // Undo, from the keyboard.
+  // P-95: Next leaves no Undo, so Ctrl/⌘+Z here takes nothing back (Undo from the keyboard: in Plan, below).
   await page.keyboard.press('Control+z');
-  await expect(r.words).toHaveText('Read the job ad twice');
-  await expect(r.note).toBeFocused();
+  await expect(r.words).toHaveText('Tailor the CV');
   // While typing (in Plan: the runner has no field), the letters are letters; Esc leaves the field and nothing else.
   await r.middle.click();
   const p = plan(page);

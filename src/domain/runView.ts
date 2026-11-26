@@ -134,6 +134,16 @@ export function homeTiles(data: Data): Tile[] {
 }
 
 /**
+ * P-95: home's tiles as shown — the run the app is on (running, paused or in Plan) first, so the way
+ * back to it is the first thing on home; every other tile keeps `homeTiles`' fixed order.
+ */
+export function homeShown(data: Data, tiles: Tile[] = homeTiles(data)): Tile[] {
+  const on = currentRun(data)?.id;
+  const i = on === undefined ? -1 : tiles.findIndex((t) => t.runId === on);
+  return i <= 0 ? tiles : [tiles[i], ...tiles.slice(0, i), ...tiles.slice(i + 1)];
+}
+
+/**
  * Where the app opens — the mode you were in: Plan while the run the app is on is in Plan, the runner
  * while it is running, the paused screen while it is paused, else home.
  */
@@ -141,6 +151,17 @@ export function leftOff(data: Data): { kind: 'runner' | 'paused' | 'plan' | 'hom
   const cur = currentRun(data);
   if (!cur || !place(data, cur)) return { kind: 'home' };
   return { kind: isPlanning(data, cur) ? 'plan' : isRunning(data, cur) ? 'runner' : 'paused', runId: cur.id };
+}
+
+/**
+ * P-95 audit F3: where the app opens. As `leftOff` — but home when the run it is on was put down by
+ * Home (`wentHome`: that run and its `touchedAt` then) and nothing has touched it since: the person
+ * chose home. Pause alone still reopens on the paused screen.
+ */
+export function opensAt(data: Data, wentHome?: { runId: Id; touchedAt?: string }): ReturnType<typeof leftOff> {
+  const at = leftOff(data);
+  if (!wentHome || at.kind !== 'paused' || at.runId !== wentHome.runId) return at;
+  return readRun(data, at.runId)?.touchedAt === wentHome.touchedAt ? { kind: 'home' } : at;
 }
 
 /**
@@ -608,7 +629,7 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
       const own = isRef(i) && readRoutine(data, i.ref)?.named === false;
       return `Removed ${item(e.item)}${own ? ' and its smaller steps' : ''}${lastRepeating(e.item) ? WENT : ''}`;
     }
-    if (e.kind === 'move') return `Moved ${item(e.item)}${e.by === -1 && lastRepeating(e.item) ? WENT : ''}`;
+    if (e.kind === 'move') return `Moved ${item(e.item)}${e.by < 0 && lastRepeating(e.item) ? WENT : ''}`;
     if (e.kind === 'reword') return `Changed ${item(e.item)}`;
     if (e.kind === 'breakDown') return `Broke down ${item(e.item)}`;
     if (e.kind === 'toWait') return `Made ${item(e.item)} a wait`;

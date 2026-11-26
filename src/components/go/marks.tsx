@@ -28,9 +28,11 @@ export type MarkName =
   | 'bin'
   | 'split'
   | 'lines'
-  | 'gear';
+  | 'gear'
+  /** P-95: the drag handle of a Plan row — six blocks in two columns, the conventional grip. */
+  | 'grip';
 
-const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corner'>, string> = {
+const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corner' | 'grip'>, string> = {
   wait: 'M6 3h12M6 21h12M7 3v4l5 5-5 5v4M17 3v4l-5 5 5 5v4',
   forward: 'M4 12h15M13 6l6 6-6 6',
   repeat: 'M4 9h13l-3-3M20 15H7l3 3',
@@ -73,6 +75,8 @@ export function Mark({ name, size = 24, color }: { name: MarkName; size?: number
           <Rect x={8} y={8} width={8} height={2.5} fill={color} />
           <Rect x={8} y={13.5} width={8} height={2.5} fill={color} />
         </>
+      ) : name === 'grip' ? (
+        <>{[5, 10.5, 16].flatMap((y) => [7, 13.5].map((x) => <Rect key={`${x}:${y}`} x={x} y={y} width={3.5} height={3.5} fill={color} />))}</>
       ) : name === 'corner' ? (
         <Path d="M21 3v18H3z" fill={color} />
       ) : (

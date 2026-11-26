@@ -30,10 +30,10 @@ test.describe('B1: at the edge of a goal Plan’s open row has the focus, howeve
     await expect(page).toHaveURL(/\/go\/(run\/[^/]+\/plan|routine\/[^/]+)$/);
   }
 
-  test('by "New: …" (J01)', async ({ page }) => {
+  test('by New (J01; P-95: the New tile, carrying the prompt’s words)', async ({ page }) => {
     await startGo(page, [], 'home', []);
     await home(page).prompt.fill('Plan dinner');
-    await home(page).prompt.press('Enter');
+    await home(page).screen.getByTestId('go-new').click();
     await typesThere(page);
     await page.keyboard.press('Enter');
     await expectSteps(page, [SENTENCE]);
@@ -86,11 +86,11 @@ test('B3: Pause, the middle button, Next, the handle and Done do not move by a p
   const note = await place(r.note);
   await expect(r.notice).toHaveCount(0);
 
-  // A plain step, now with a notice.
+  // A plain step after Next (P-95: no notice).
   await r.next.click();
-  await expect(r.notice).toBeVisible();
-  expect(await boxes(), 'with a notice').toEqual(plain);
-  expect(await place(r.note), 'the note, with a notice').toEqual(note);
+  await expect(r.words).toHaveText('Read the job ad twice');
+  await expect(r.notice).toHaveCount(0);
+  expect(await boxes(), 'after Next').toEqual(plain);
   // A routine as the step.
   await r.next.click();
   await expect(r.middle).toHaveText('Step in');
@@ -101,11 +101,12 @@ test('B3: Pause, the middle button, Next, the handle and Done do not move by a p
   await expect(r.words).toHaveText('Read it aloud once');
   expect(await boxes(), 'a level down').toEqual(plain);
   expect(await place(r.note), 'the note, a level down').toEqual(note);
-  await r.next.click();
-  // A wait.
+  // Done leaves the level (P-95: Done has a notice, Next none): a wait, with a notice.
+  await r.done.click();
   await expect(r.next).toHaveText('It’s happened');
-  expect(await boxes(), 'a wait').toEqual(plain);
-  expect(await place(r.note), 'the note, a wait').toEqual(note);
+  await expect(r.notice).toBeVisible();
+  expect(await boxes(), 'a wait, with a notice').toEqual(plain);
+  expect(await place(r.note), 'the note, a wait, with a notice').toEqual(note);
   // The panel open. (The edge is not the runner's: a run with nothing next is in Plan.)
   await r.handle.click();
   await expect(r.panel).toBeVisible();
@@ -160,14 +161,12 @@ for (const size of [
 }
 
 test.describe('A2: focus never falls to nothing', () => {
-  test('first arrival on /go: the title; after Home is confirmed: the new home’s title', async ({ page }) => {
+  test('first arrival on /go: the title; after Home (P-95: no ask): the new home’s title', async ({ page }) => {
     await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused' }], 'paused');
     await expect(paused(page).title).toBeFocused();
     await paused(page).home.click();
-    const ask = await arrived(page, 'go-stop');
-    await ask.getByRole('button', { name: 'Home', exact: true }).click();
     await expect(home(page).title).toBeFocused();
-    // A cold open of home (nothing is the run the app is on now).
+    // A cold open after Home: home (audit F3), its title focused.
     await page.goto('./go');
     await expect(home(page).title).toBeFocused();
     // And the runner: the note.

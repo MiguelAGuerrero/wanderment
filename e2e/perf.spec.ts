@@ -26,11 +26,11 @@ test('with a 4,000-line history from the old app: the home opens, a start stays 
   await expect(settled(page, 'home')).toBeVisible({ timeout: 20_000 });
   const load = Date.now() - t1;
 
-  // Return on "New: …" to Plan on the new routine, asking for its first step.
+  // New (P-95: the New tile, with the prompt's words) to Plan on the new routine, asking for its first step.
   await home(page).prompt.fill('Water the plants');
-  await expect(home(page).screen.getByTestId('go-row-new')).toBeVisible();
+  await expect(home(page).screen.getByTestId('go-new')).toHaveAccessibleName('New: Water the plants');
   const t2 = Date.now();
-  await home(page).prompt.press('Enter');
+  await home(page).screen.getByTestId('go-new').click();
   await expect(plan(page).add).toBeVisible();
   const start = Date.now() - t2;
 

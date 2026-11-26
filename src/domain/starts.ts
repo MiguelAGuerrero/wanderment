@@ -1,25 +1,26 @@
 /**
  * B-11 slice 1 (P-86): the prompt "I'm going to…". As you type it searches the tiles, then the other
- * routines, then unnamed things you've done — each distinct thing once — with "New: <your words>"
- * last. Nothing starts until a row is chosen; Return takes the first. Pure.
+ * routines, then unnamed things you've done — each distinct thing once. It only finds what exists
+ * (P-95): making something new is the New tile's, never a row here. Nothing starts until a row is
+ * chosen; Return takes the first. Pure.
  */
 import { normalizeName } from './model';
-import { openRuns, readRoutine, routineNamed, Seq } from './run';
+import { openRuns, readRoutine, Seq } from './run';
 import { homeTiles, Tile } from './runView';
 import { fold } from './fold';
 import { Data, Id } from './types';
 
 export interface StartRow {
-  /** tile: on home (or with a run going). routine: another named routine. unnamed: a thing done before. new: "New: <words>". */
-  kind: 'tile' | 'routine' | 'unnamed' | 'new';
-  /** Its name; for "new", the words typed, tidied. */
+  /** tile: on home (or with a run going). routine: another named routine. unnamed: a thing done before. */
+  kind: 'tile' | 'routine' | 'unnamed';
+  /** Its name. */
   words: string;
   /**
    * resume: `resumeRun(runId)`. start: `startRoutine(routineId)` (refused `empty` for a routine with no
    * steps yet: its Plan is where the first is added). plan: a run in Plan (`planRun(runId)`, then its
-   * Plan). new: `createRoutine(words)`, then that routine's Plan.
+   * Plan).
    */
-  action: 'resume' | 'start' | 'plan' | 'new';
+  action: 'resume' | 'start' | 'plan';
   routineId?: Id;
   runId?: Id;
   /** For a tile row: the tile, as on home. */
@@ -82,6 +83,5 @@ export function searchStarts(data: Data, query: string): StartRow[] {
   }
   for (const s of [...newest.values()].sort(firstMade)) rows.push({ kind: 'unnamed', words: s.words, action: 'start', routineId: s.id });
 
-  if (!routineNamed(data, typed)) rows.push({ kind: 'new', words: typed, action: 'new' });
   return rows.map((r, i) => ({ ...r, first: i === 0 }));
 }

@@ -43,6 +43,17 @@ const ON_VIBE = [{ id: 'r1', routine: 'test', at: 1, round: 2, status: 'running'
 /** Left in Plan on "Vibe check": the run the app is on. */
 const PLANNING = [{ id: 'r1', routine: 'test', at: 1, round: 2, status: 'paused' as const, mode: 'plan' as const }];
 
+/** P-95: five steps, the last two repeating; a run left in Plan on the first. */
+const FIVE = ['One', 'Two', 'Three', 'Four', 'Five'];
+const DRAG: RoutineSpec = { id: 'drag', name: 'Five steps', steps: FIVE, repeatFrom: 3 };
+const DRAGGING = [{ id: 'r1', routine: 'drag', at: 0, status: 'paused' as const, mode: 'plan' as const }];
+/** A Plan row's grip, by its words. */
+const gripOf = (page: Parameters<typeof plan>[0], words: string) => plan(page).screen.getByRole('button', { name: `Reorder ${words}`, exact: true });
+const centre = async (l: ReturnType<typeof gripOf>) => {
+  const b = (await l.boundingBox())!;
+  return { x: b.x + b.width / 2, y: b.y + b.height / 2 };
+};
+
 const run = async (page: Parameters<typeof exported>[0], id = 'r1') => (await exported(page)).runs[id];
 const stepsOf = async (page: Parameters<typeof exported>[0], id = 'test') => {
   const r = (await exported(page)).routines[id];
@@ -416,6 +427,194 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     expect(await stepsOf(page)).toMatchObject({ steps: ['Select a feature to test', 'Vibe check', 'Write down concerns'], from: 1 });
   });
 
+  test('P-95 (4): every step row has a visible grip at its left edge, "Reorder <words>", at least 48 px; pressed (or Return on it) it opens the row’s menu, where Move up / Move down stay', async ({ page }) => {
+    await startGo(page, DRAGGING, 'plan', [DRAG]);
+    const p = plan(page);
+    await expect(p.screen.getByTestId('go-plan-grip')).toHaveCount(5);
+    for (const words of FIVE) {
+      const grip = gripOf(page, words);
+      await expect(grip).toBeVisible();
+      const g = (await grip.boundingBox())!;
+      const row = (await p.row(words).boundingBox())!;
+      expect(g.width).toBeGreaterThanOrEqual(48);
+      expect(g.height).toBeGreaterThanOrEqual(48);
+      // At the row's left edge, before its words.
+      expect(g.x - row.x).toBeLessThanOrEqual(4);
+    }
+    await gripOf(page, 'Three').click();
+    let sheet = await arrived(page, 'go-plan-menu');
+    await expect(sheet.getByRole('heading', { level: 2 })).toHaveText('Three');
+    await expect(sheet.getByRole('button', { name: 'Move up', exact: true })).toBeEnabled();
+    await expect(sheet.getByRole('button', { name: 'Move down', exact: true })).toBeEnabled();
+    await page.keyboard.press('Escape');
+    await expect(gripOf(page, 'Three')).toBeFocused();
+    await page.keyboard.press('Enter');
+    sheet = await arrived(page, 'go-plan-menu');
+    await sheet.getByRole('button', { name: 'Move down', exact: true }).click();
+    // (Next to the divider, Move down passes it alone.)
+    await expectSteps(page, FIVE);
+    await expect(p.row('Three')).toHaveAttribute('data-repeats', 'true');
+    // Too narrow for a grip (200 % text): none — the words keep their room, and the menu still moves rows.
+    await page.setViewportSize({ width: 195, height: 422 });
+    await expect(p.screen.getByTestId('go-plan-grip')).toHaveCount(0);
+    await planMenu(page, 'Two', 'Move up');
+    await expectSteps(page, ['Two', 'One', 'Three', 'Four', 'Five']);
+  });
+
+  test('P-95 (4): dragging a row’s grip with the mouse moves it — across "Repeat from here" too — in ONE change, with one Undo for the whole drag; the line shows where it will go', async ({ page }) => {
+    await startGo(page, DRAGGING, 'plan', [DRAG]);
+    const p = plan(page);
+    // Five (below the divider) up onto the top half of Two: past Four, the divider, Three and Two.
+    const from = await centre(gripOf(page, 'Five'));
+    const two = (await p.row('Two').boundingBox())!;
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x, two.y + two.height * 0.25, { steps: 12 });
+    // While dragging: the row is marked (it stays in place), a line shows where it will go, and nothing has changed yet.
+    await expect(p.row('Five')).toHaveAttribute('data-dragging', 'true');
+    await expect(p.screen.getByTestId('go-plan-drop')).toBeVisible();
+    await expectSteps(page, FIVE);
+    await page.mouse.up();
+    await expectSteps(page, ['One', 'Five', 'Two', 'Three', 'Four']);
+    await expect(p.screen.getByTestId('go-plan-drop')).toHaveCount(0);
+    // It crossed the divider alone: Five runs once now, Four still repeats, the divider before Four.
+    await expect(p.row('Five')).toHaveAttribute('data-repeats', 'false');
+    await expect(p.row('Four')).toHaveAttribute('data-repeats', 'true');
+    // One notice, one Undo, for the whole drag: it puts back all four rows and the divider.
+    await expect(p.notice).toContainText('Moved “Five”');
+    await p.undo.click();
+    await expectSteps(page, FIVE);
+    await expect(p.row('Five')).toHaveAttribute('data-repeats', 'true');
+    await expect(p.undo).toHaveCount(0);
+    // Dragged again, it is stored so (reading the backup goes through Settings: last).
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x, two.y + two.height * 0.25, { steps: 12 });
+    await page.mouse.up();
+    await expectSteps(page, ['One', 'Five', 'Two', 'Three', 'Four']);
+    await saved(page);
+    expect(await stepsOf(page, 'drag')).toMatchObject({ steps: ['One', 'Five', 'Two', 'Three', 'Four'], from: 4 });
+  });
+
+  test('P-95 (4): dragging by touch moves the row too; crossing only "Repeat from here" passes it alone (nothing else moves); a drag let go where it began changes nothing', async ({ page }) => {
+    await startGo(page, DRAGGING, 'plan', [DRAG]);
+    const p = plan(page);
+    const cdp = await page.context().newCDPSession(page);
+    const touch = async (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+    const touchDrag = async (words: string, toY: number) => {
+      const at = await centre(gripOf(page, words));
+      await touch('touchStart', at.x, at.y);
+      for (let i = 1; i <= 10; i++) await touch('touchMove', at.x, at.y + ((toY - at.y) * i) / 10);
+      await touch('touchEnd', at.x, toY);
+    };
+    // Three down, just past the divider (above Four's middle): it changes side, and no step moves.
+    const div = (await p.divider.boundingBox())!;
+    const four = (await p.row('Four').boundingBox())!;
+    await touchDrag('Three', (div.y + div.height + four.y + four.height / 2) / 2);
+    await expectSteps(page, FIVE);
+    await expect(p.row('Three')).toHaveAttribute('data-repeats', 'true');
+    await expect(p.row('Two')).toHaveAttribute('data-repeats', 'false');
+    // One down past Two (onto the lower half of Two): one row.
+    const two = (await p.row('Two').boundingBox())!;
+    await touchDrag('One', two.y + two.height * 0.75);
+    await expectSteps(page, ['Two', 'One', 'Three', 'Four', 'Five']);
+    // Let go where it began: nothing changes (the Undo is still the last move's).
+    const one = await centre(gripOf(page, 'One'));
+    await touch('touchStart', one.x, one.y);
+    for (const dy of [6, 14, 6, 0]) await touch('touchMove', one.x, one.y + dy);
+    await touch('touchEnd', one.x, one.y);
+    await expectSteps(page, ['Two', 'One', 'Three', 'Four', 'Five']);
+    await expect(p.notice).toContainText('Moved “One”');
+    await saved(page);
+    expect(await stepsOf(page, 'drag')).toMatchObject({ steps: ['Two', 'One', 'Three', 'Four', 'Five'], from: 2 });
+  });
+
+  test('P-95 audit F7: a touch drag on the grip of a list long enough to scroll moves the row and does not scroll the list (the same touch on the words does)', async ({ page }) => {
+    const LONG: RoutineSpec = { id: 'long', name: 'Thirty steps', steps: Array.from({ length: 30 }, (_, i) => `Step number ${i + 1}`) };
+    await startGo(page, [{ id: 'r9', routine: 'long', at: 0, status: 'paused', mode: 'plan' }], 'plan', [LONG]);
+    const p = plan(page);
+    const scrollable = await p.list.evaluate((e) => {
+      const el = e.querySelector('div') as HTMLElement;
+      const box = (e as HTMLElement).scrollHeight > (e as HTMLElement).clientHeight ? (e as HTMLElement) : el;
+      return box.scrollHeight - box.clientHeight;
+    });
+    expect(scrollable).toBeGreaterThan(200);
+    const top = () => p.list.evaluate((e) => (e as HTMLElement).scrollTop);
+    const cdp = await page.context().newCDPSession(page);
+    const touch = async (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
+    const swipe = async (x: number, y: number, dy: number) => {
+      await touch('touchStart', x, y);
+      for (let i = 1; i <= 10; i++) await touch('touchMove', x, y + (dy * i) / 10);
+      await touch('touchEnd', x, y + dy);
+    };
+    // On the grip of Step number 3, up past two rows: it moves; the list stays where it was.
+    const g = await centre(gripOf(page, 'Step number 3'));
+    const one = (await p.row('Step number 1').boundingBox())!;
+    const was = await top();
+    await swipe(g.x, g.y, one.y + one.height * 0.25 - g.y);
+    await expect(p.words.nth(0)).toHaveText('Step number 3');
+    expect(await top()).toBe(was);
+    // The same kind of swipe on a row's words scrolls the list: the check above could fail.
+    const w = (await p.row('Step number 6').getByTestId('go-plan-words').boundingBox())!;
+    await swipe(w.x + w.width / 2, w.y + w.height / 2, -150);
+    await expect.poll(top).toBeGreaterThan(was + 20);
+  });
+
+  test('P-95 audit F2: with an open routine among the rows, the drop line and the landing place agree — over its steps the row stays put; past its last step it lands after the routine — and the dragged row covers nothing (HERE stays in view)', async ({ page }) => {
+    const NEST: RoutineSpec[] = [
+      { id: 'outer', name: 'Outer', steps: ['Alpha', { routine: 'inner' }, 'Gamma', 'Delta'] },
+      { id: 'inner', name: 'Inner part', home: false, steps: ['Inner one', 'Inner two', 'Inner three'] },
+    ];
+    await startGo(page, [{ id: 'r1', routine: 'outer', at: 1, inner: [{ routine: 'inner', at: 0 }], status: 'paused', mode: 'plan' }], 'plan', NEST);
+    const p = plan(page);
+    await expectSteps(page, ['Alpha', 'Inner part', 'Inner one', 'Inner two', 'Inner three', 'Gamma', 'Delta']);
+    await expect(p.here).toHaveAccessibleName('Here, Inner one');
+    const from = await centre(gripOf(page, 'Alpha'));
+    const alphaBox = (await p.row('Alpha').boundingBox())!;
+    const hereBox = (await p.here.boundingBox())!;
+    // Onto Inner one (the top of the open routine): not past the routine — no line, and letting go changes nothing.
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x, hereBox.y + hereBox.height / 2, { steps: 10 });
+    await expect(p.row('Alpha')).toHaveAttribute('data-dragging', 'true');
+    await expect(p.screen.getByTestId('go-plan-drop')).toHaveCount(0);
+    // The dragged row stays in its place (marked), so it covers nothing — HERE included.
+    expect(await p.row('Alpha').boundingBox()).toEqual(alphaBox);
+    await page.mouse.up();
+    await expectSteps(page, ['Alpha', 'Inner part', 'Inner one', 'Inner two', 'Inner three', 'Gamma', 'Delta']);
+    // Past the routine's last step (onto the top of Gamma): the line is under Inner three, and that is where it lands.
+    const three = (await p.row('Inner three').boundingBox())!;
+    const gamma = (await p.row('Gamma').boundingBox())!;
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x, gamma.y + gamma.height * 0.2, { steps: 10 });
+    const line = (await p.screen.getByTestId('go-plan-drop').boundingBox())!;
+    expect(line.y).toBeGreaterThanOrEqual(three.y + three.height - 1);
+    expect(line.y + line.height).toBeLessThanOrEqual(gamma.y + 1);
+    await page.mouse.up();
+    await expectSteps(page, ['Inner part', 'Inner one', 'Inner two', 'Inner three', 'Alpha', 'Gamma', 'Delta']);
+    await expect(p.notice).toContainText('Moved “Alpha”');
+    await expect(p.here).toHaveAccessibleName('Here, Inner one');
+  });
+
+  test('P-95 (4): under Reduce Motion a drag reflows nothing with animation — the drop is instant and nothing animates', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await startGo(page, DRAGGING, 'plan', [DRAG]);
+    const p = plan(page);
+    const from = await centre(gripOf(page, 'One'));
+    const three = (await p.row('Three').boundingBox())!;
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    await page.mouse.move(from.x, three.y + three.height * 0.75, { steps: 8 });
+    expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+    // Nothing but the row being dragged has moved.
+    for (const words of ['Two', 'Three', 'Four']) expect(await p.row(words).evaluate((e) => getComputedStyle(e.parentElement!).transform)).toBe('none');
+    await page.mouse.up();
+    await expectSteps(page, ['Two', 'Three', 'One', 'Four', 'Five']);
+    expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+    expect(await p.row('One').evaluate((e) => getComputedStyle(e.parentElement!).transform)).toBe('none');
+  });
+
   test('Remove this step (not HERE): it goes from the routine; HERE and Resume stay; the notice names it and stays until the next action; Undo', async ({ page }) => {
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
@@ -670,8 +869,8 @@ test.describe('the edge of a goal', () => {
     const homeAtEdge = await place(p.home);
     const doneAtEdge = await place(p.done);
     expect(doneAtEdge.x + doneAtEdge.width).toBeLessThanOrEqual(homeAtEdge.x);
-    // The move's Undo is offered here (it takes you back onto the last step, on the runner).
-    await expect(p.notice.getByRole('button', { name: 'Undo Next', exact: true })).toBeVisible();
+    // P-95: the Next that got here leaves no Undo.
+    await expect(p.notice).toHaveCount(0);
 
     // Plan, execute: a step typed there is where the run stands; Resume runs it.
     await addStep(page, 'Shade the forms');
@@ -704,13 +903,13 @@ test.describe('the edge of a goal', () => {
     await expect(p.done).toBeVisible();
   });
 
-  test('the Undo of the Next that reached the edge goes back onto the last step, on the runner', async ({ page }) => {
+  test('P-95 (3): the Next that reached the edge leaves no Undo and no notice (the run is not ended: it is in Plan, at the edge)', async ({ page }) => {
     await startGo(page, LAST, 'runner');
     await runner(page).next.click();
     const p = plan(page);
     await expect(p.line).toHaveText('planning · nothing next yet');
-    await p.notice.getByRole('button', { name: 'Undo Next', exact: true }).click();
-    await expect(runner(page).words).toHaveText('Gesture drawing');
+    await expect(p.notice).toHaveCount(0);
+    await expect(p.screen.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
   });
 
   test('a run stored at the edge (as the build before left it, "running") opens in Plan; home shows it as planning', async ({ page }) => {
@@ -786,7 +985,7 @@ test.describe('the edge of a goal', () => {
 });
 
 test.describe('creating', () => {
-  test('"New: <words>" makes the routine only and opens its Plan: the name filled, the open row focused, no Start until there is a step; Start runs the first', async ({ page }) => {
+  test('New (with the prompt’s words; P-95: no "New: <words>" row) makes the routine only and opens its Plan: the name filled, the open row focused, no Start until there is a step; Start runs the first', async ({ page }) => {
     await startGo(page, []);
     await startThing(page, 'Learn to bake bread');
     const p = plan(page);
@@ -839,17 +1038,23 @@ test.describe('creating', () => {
     await expect(tile(page, 'Learn to bake bread')).toHaveCount(0);
   });
 
-  test('the New tile: on home with tiles and with none; with nothing typed it takes you to the prompt; with words typed it makes that routine and opens its Plan', async ({ page }) => {
+  test('the New tile: on home with tiles and with none; with nothing typed it asks for the name in its own sheet, not the prompt (P-95); with words typed it makes that routine and opens its Plan', async ({ page }) => {
     await startGo(page, [], 'home', []);
     const h = home(page);
     const make = h.screen.getByTestId('go-new');
     await expect(make).toHaveText('New');
     await expect(make).toHaveAccessibleName('New');
     await make.click();
-    await expect(h.prompt).toBeFocused();
+    const sheet = await arrived(page, 'go-new-sheet');
+    await expect(sheet.getByTestId('go-new-name')).toBeFocused();
+    await expect(h.prompt).not.toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('go-new-sheet')).toHaveCount(0);
     // Nothing was made.
     await expect(h.tiles).toHaveCount(0);
     await h.prompt.fill('Learn to bake bread');
+    // It shows the words it will use (audit F5).
+    await expect(make).toHaveText('New: Learn to bake bread');
     await expect(make).toHaveAccessibleName('New: Learn to bake bread');
     await make.click();
     const p = plan(page);
@@ -1189,4 +1394,29 @@ test('two tabs: Plan pressed in one — the other, on the runner, follows the da
   await turn(b, 'visible');
   await expect(runner(b).words).toHaveText('Vibe check', { timeout: 15_000 });
   await expect(runner(b).middle).toHaveText('Plan');
+});
+
+test.describe('P-95 audit F1', () => {
+  test('a run from the build before, with this-run changes: the Next that reaches the edge folds them — and says so, with an Undo that takes it all back to the runner', async ({ page }) => {
+    test.setTimeout(60_000);
+    await importBackup(page, PREVIOUS_BUILD_BACKUP);
+    await openGo(page, 'paused');
+    await page.goBack();
+    await tile(page, 'Apply for jobs').getByRole('button', { name: 'Resume Apply for jobs', exact: true }).click();
+    await expect(page).toHaveURL(/\/go\/run\/p90-008$/);
+    const r = runner(page);
+    await expect(r.screen).toBeVisible();
+    for (let i = 0; i < 40 && !/\/plan$/.test(page.url()); i++) {
+      await r.next.click();
+      await page.waitForTimeout(50);
+    }
+    const p = plan(page);
+    await expect(page).toHaveURL(/\/go\/run\/p90-008\/plan$/);
+    await expect(p.line).toHaveText('planning · nothing next yet');
+    await expect(p.notice).toContainText('Kept this run’s changes in Apply for jobs');
+    await p.undo.click();
+    await expect(runner(page).screen).toBeVisible();
+    await saved(page);
+    expect((await exported(page)).runs['p90-008'].changes).toHaveLength(7);
+  });
 });

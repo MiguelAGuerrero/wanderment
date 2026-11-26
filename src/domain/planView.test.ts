@@ -349,9 +349,9 @@ describe('home tiles and the prompt show the mode', () => {
     expect(tileLine(tile(d, 'new'))).toEqual({ line: '', button: 'Start', spoken: 'Start Learn Spanish', says: 'Learn Spanish' });
   });
 
-  it('the prompt: a planning run’s row takes you into its Plan (action "plan", with the run); "New: <words>" is still last', () => {
+  it('the prompt: a planning run’s row takes you into its Plan (action "plan", with the run); P-95: no "New: <words>" row', () => {
     const rows = searchStarts(inPlan(), 'apply');
-    expect(rows.map((r) => [r.kind, r.words, r.action, r.runId])).toEqual([['tile', 'Apply to Acme', 'plan', 'A'], ['new', 'apply', 'new', undefined]]);
+    expect(rows.map((r) => [r.kind, r.words, r.action, r.runId])).toEqual([['tile', 'Apply to Acme', 'plan', 'A']]);
     expect(searchStarts(inPlan(), '').map((r) => r.action)).toEqual(['plan', 'start']);
   });
 });

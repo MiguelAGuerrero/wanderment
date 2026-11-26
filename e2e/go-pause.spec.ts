@@ -4,7 +4,7 @@
  * Resume, Pause, Done, Next.
  */
 import { expect, test } from './fixtures';
-import { arrived, home, paused, runner, setVisibility, settled, startGo, tile, sinceDate } from './goFixture';
+import { home, paused, runner, setVisibility, settled, startGo, tile, sinceDate } from './goFixture';
 
 const RUNS = [
   { id: 'r1', routine: 'apply', at: 1, status: 'running' as const },
@@ -66,48 +66,24 @@ test('J10: Resume goes back to the step; Resume on another run opens that one, a
   await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-line')).toHaveText('at Tailor the CV');
 });
 
-test('J10, §9b: Home asks first — "Stop <name>?", Cancel filled and focused; Esc and Back cancel; Home leaves the run where it is', async ({ page }) => {
+test('J10, P-95 (5): Home on the paused screen asks nothing — no "Stop <name>?" — and goes home; the run stays paused where it is, first, with Resume filled', async ({ page }) => {
   await startGo(page, RUNS, 'runner');
   await runner(page).pause.click();
   const p = paused(page);
   await p.home.click();
-  let ask = await arrived(page, 'go-stop');
-  await expect(ask).toHaveRole('alertdialog');
-  await expect(ask.getByRole('heading', { level: 2 })).toHaveText('Stop Apply to Initech?');
-  const cancel = ask.getByRole('button', { name: 'Cancel', exact: true });
-  await expect(cancel).toBeFocused();
-  expect(await cancel.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(244, 241, 232)');
-  expect(await ask.getByRole('button', { name: 'Home', exact: true }).evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
-  // Nothing red: it can be undone by Resume.
-  expect(await ask.getByRole('button', { name: 'Home', exact: true }).evaluate((e) => getComputedStyle(e).borderTopColor)).not.toBe('rgb(255, 138, 122)');
-  // Esc cancels; focus goes back to what opened it.
-  await page.keyboard.press('Escape');
-  await expect(page.getByTestId('go-stop')).toHaveCount(0);
-  await expect(p.home).toBeFocused();
-  await expect(p.title).toHaveText('Paused');
-  // Back cancels too, and stays on the paused screen.
-  await p.home.click();
-  ask = await arrived(page, 'go-stop');
-  await page.goBack();
-  await expect(page.getByTestId('go-stop')).toHaveCount(0);
-  await expect(page).toHaveURL(/\/go\/run\/r1\/paused$/);
-  // Cancel.
-  await p.home.click();
-  ask = await arrived(page, 'go-stop');
-  await ask.getByRole('button', { name: 'Cancel', exact: true }).click();
-  await expect(p.title).toHaveText('Paused');
-
-  // Home: nothing is running; the run stays exactly where it was.
-  await p.home.click();
-  ask = await arrived(page, 'go-stop');
-  await ask.getByRole('button', { name: 'Home', exact: true }).click();
+  await expect(page.getByRole('alertdialog')).toHaveCount(0);
+  await expect(page.getByText(/^Stop /)).toHaveCount(0);
   const h = home(page);
+  await expect(page).toHaveURL(/\/go$/);
   await expect(h.title).toHaveText('Nothing running');
-  await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'paused');
+  await expect(h.tiles.first()).toHaveAccessibleName('Apply to Initech, paused at Tailor the CV');
   await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-line')).toHaveText('at Tailor the CV');
-  // Opening /go again is home now (nothing is the run the app is on).
+  const resume = h.screen.getByRole('button', { name: 'Resume Apply to Initech', exact: true });
+  expect(await resume.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(244, 241, 232)');
+  // Reopened, the app is home — where the person chose to go (audit F3) — with the run first.
   await page.goto('./go');
   await expect(settled(page, 'home')).toBeVisible();
+  await expect(home(page).tiles.first()).toHaveAccessibleName('Apply to Initech, paused at Tailor the CV');
   await home(page).screen.getByRole('button', { name: 'Resume Apply to Initech', exact: true }).click();
   await expect(runner(page).words).toHaveText('Tailor the CV');
 });

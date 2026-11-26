@@ -10,13 +10,13 @@ import { expectInside, focused, goBackup, home, importBackup, MAYA, openGo, plac
 const LONG =
   'Write to the landlord about the boiler, the window latch and the stair light, attach the three photographs from Sunday, say which days someone is in, and ask for a date in writing before the end of the month, then copy the letting agent and put a note in the calendar to chase it';
 
-test('J04-a, J04-b: a plain step — the context line with Done, the note, Pause · Plan · Next in fixed places; Next goes on and leaves an Undo', async ({ page }) => {
+test('J04-a, J04-b: a plain step — the context line with Home and Done, the note, Pause · Plan · Next in fixed places; Next goes on (P-95: with no Undo and no notice)', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 0, status: 'running' }], 'runner');
   const r = runner(page);
   await expect(r.words).toHaveText('Read the job ad twice');
   await expect(r.context).toHaveText('Apply to Initech');
   // The context line is words, not a control (P-90: the sequence is Plan's, reached by the Plan button).
-  await expect(r.screen.getByRole('button')).toHaveText(['Done', '', '', 'Plan', 'Next']);
+  await expect(r.screen.getByRole('button')).toHaveText(['Home', 'Done', '', '', 'Plan', 'Next']);
   await expect(r.done).toHaveText('Done');
   await expect(r.done).toHaveAccessibleName('Done with Apply to Initech');
   await expect(r.pause).toBeVisible();
@@ -30,24 +30,22 @@ test('J04-a, J04-b: a plain step — the context line with Done, the note, Pause
   // Next is THE filled button; nothing else on the screen is.
   const paper = 'rgb(244, 241, 232)';
   expect(await r.next.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(paper);
-  for (const b of [r.pause, r.middle, r.done]) expect(await b.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(paper);
+  for (const b of [r.pause, r.middle, r.done, r.home]) expect(await b.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(paper);
   // No notice yet, and nothing about what comes next or repeats on the surface.
   await expect(r.screen.getByTestId('go-last')).toHaveCount(0);
 
   const before = { pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), note: await place(r.note) };
   await r.next.click();
   await expect(r.words).toHaveText('Tailor the CV');
-  await expect(r.notice.getByRole('button', { name: 'Undo Next', exact: true })).toBeVisible();
+  // P-95: moving on is not something to take back — no notice, no Undo (not in the panel either).
+  await expect(r.notice).toHaveCount(0);
+  await expect(r.screen.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
   // Nothing moved: the three buttons and the note are where they were.
   expect({ pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), note: await place(r.note) }).toEqual(before);
   // Focus stays on Next, which is in its fixed place.
   await expect(r.next).toBeFocused();
-
-  await r.notice.getByRole('button', { name: 'Undo Next', exact: true }).click();
-  await expect(r.words).toHaveText('Read the job ad twice');
-  // After Undo: what came back.
-  await expect(r.note).toBeFocused();
-  await expect(r.notice).toHaveCount(0);
+  await r.handle.click();
+  await expect(r.panel.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
 });
 
 test('J04-c, J04-d: a routine as the step reads Step in, in the same slot; Done leaves the level for the parent’s next step, with Undo', async ({ page }) => {
@@ -63,6 +61,8 @@ test('J04-c, J04-d: a routine as the step reads Step in, in the same slot; Done 
 
   await r.middle.click();
   await expect(r.words).toHaveText('Read it aloud once');
+  // P-95: Step in leaves no Undo.
+  await expect(r.notice).toHaveCount(0);
   // The level and its parent, in words.
   await expect(r.context).toHaveText('Apply to InitechProofread out loud');
   await expect(r.done).toHaveAccessibleName('Done with Proofread out loud');
@@ -106,7 +106,7 @@ test('J04-f, J04-g, J37-e: the last step of a round has its mark and spoken name
   // Round 2 of 3: Next comes round again, saying nothing.
   await r.next.click();
   await expect(r.words).toHaveText('Block in the big shapes');
-  await expect(r.notice).toHaveText('Undo Next');
+  await expect(r.notice).toHaveCount(0);
   await expect(r.screen.getByText(/Round|Finished/)).toHaveCount(0);
   // Round 3: after its last step the loop is finished, and the parent goes on.
   await r.next.click();
@@ -114,11 +114,9 @@ test('J04-f, J04-g, J37-e: the last step of a round has its mark and spoken name
   await expect(r.words).toHaveText('Add the shadows');
   await r.next.click();
   await expect(r.words).toHaveText('Gesture drawing');
-  await expect(r.notice).toContainText('Finished Hand studies of my left hand');
   await expect(r.context).toHaveText('Practise drawing');
-  await r.notice.getByRole('button', { name: 'Undo Next', exact: true }).click();
-  await expect(r.words).toHaveText('Add the shadows');
-  await expect(r.done).toHaveAccessibleName('Done with Hand studies of my left hand');
+  // P-95: a loop finishing inside the run is moving on, not an ending: no notice, no Undo.
+  await expect(r.notice).toHaveCount(0);
 });
 
 test('J04-i, J25-b: a long step fills the note and scrolls inside it, with Plan marked (breaking it down is planning); a three-line step just steps the type down', async ({ page }) => {

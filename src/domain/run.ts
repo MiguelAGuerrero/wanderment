@@ -120,8 +120,12 @@ export type RoutineEdit =
   | { kind: 'addStep'; text: string; after?: Id | null }
   | { kind: 'addWait'; wait: string; after?: Id | null }
   | { kind: 'remove'; item: Id }
-  /** One row up or down. The Repeat divider is a row: next to it the step passes it and no other step moves. */
-  | { kind: 'move'; item: Id; by: -1 | 1 }
+  /**
+   * One row up (-1) or down (1). The Repeat divider is a row: next to it the step passes it and no other
+   * step moves. P-95: a drag is `by` rows at once (negative: up) — the same one-row moves, one after
+   * another, in ONE edit (one write, one Undo); refused whole if any of them would be.
+   */
+  | { kind: 'move'; item: Id; by: number }
   | { kind: 'reword'; item: Id; text: string }
   /** Break it down: the plain step becomes an unnamed sequence of these steps (blank ones dropped), under the same item id. */
   | { kind: 'breakDown'; item: Id; steps: string[] }
@@ -882,6 +886,17 @@ function resettle(before: Data, after: Data, env: Env): Data {
  * write, so one Undo covers the routine and the runs together.
  */
 export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: Env): Result {
+  // A drag (P-95): one row at a time, as Move up / Move down would, in one result.
+  if (edit.kind === 'move' && edit.by !== 1 && edit.by !== -1) {
+    const n = Math.trunc(Math.abs(edit.by));
+    if (!Number.isFinite(edit.by) || n === 0) return refuse(data, 'cannot');
+    let r: Result = done(data);
+    for (let i = 0; i < n; i++) {
+      r = editRoutine(r.data, routineId, { kind: 'move', item: edit.item, by: edit.by < 0 ? -1 : 1 }, env);
+      if (!r.ok) return refuse(data, r.reason ?? 'cannot');
+    }
+    return r;
+  }
   const routine = own(data.routines, routineId);
   const s = readRoutine(data, routineId);
   if (!routine || !s || s.removedAt) return refuse(data, 'gone');

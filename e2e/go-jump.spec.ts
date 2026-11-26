@@ -158,7 +158,9 @@ test('J37-a, J37-b: the number of a counted repeat is set in Plan; set below the
   await r.next.click();
   await r.next.click();
   await expect(r.words).toHaveText('Gesture drawing');
-  await expect(r.notice).toContainText('Finished Hand studies of my left hand');
+  await expect(r.context).toHaveText('Practise drawing');
+  // (P-95: the loop finishing inside the run is moving on — no notice.)
+  await expect(r.notice).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 

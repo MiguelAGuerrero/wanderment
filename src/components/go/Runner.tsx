@@ -8,18 +8,21 @@
  * run with nothing next is there, not here.
  *
  * The route follows the run: in Plan → its Plan; paused → the paused screen; ended, left or gone → home.
+ * P-95: Home, at the start of the context line, pauses the run (no ask; it keeps its place) and goes
+ * home, where it is the first tile, with Resume.
  */
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { NOTE_PAD, NOTE_SIZES, noteType } from '@/domain/goText';
+import { readRun } from '@/domain/run';
 import { panelView, routineHue, runnerView, RunnerView, sinceWords } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
-import { decideWhere } from './session';
+import { decideWhere, markWentHome } from './session';
 import { face, G, hueOf, SP, TARGET } from './tokens';
 import { Btn, focusOn, focusSoon, GoScreen, hard, HiddenH1, Said, T, useBackCloses, useKeys, useVisibleHeight, ViewRef } from './ui';
 
@@ -46,6 +49,8 @@ export function Runner({ runId }: { runId: string }) {
   const focused = useIsFocused();
 
   const [panel, setPanel] = useState(false);
+  // Home was pressed (P-95): the run is paused and this screen is on its way home, not to the paused screen.
+  const [leaving, setLeaving] = useState(false);
   const note = useRef<ViewRef>(null);
   const handle = useRef<ViewRef>(null);
 
@@ -54,12 +59,12 @@ export function Runner({ runId }: { runId: string }) {
   const planning = !!v?.planning;
   useEffect(() => {
     // Only the screen in front moves (one beneath another would move that one instead).
-    if ((running && !planning) || !focused) return;
+    if ((running && !planning) || !focused || leaving) return;
     // In Plan (the Plan button, the edge of a goal, another tab): its Plan, in this screen's place.
     if (planning && status !== 'ended') router.replace(`/go/run/${runId}/plan`);
     else if (status === 'paused') router.replace(`/go/run/${runId}/paused`);
     else goHome();
-  }, [running, planning, focused, status, runId]);
+  }, [running, planning, focused, status, runId, leaving]);
 
   const closePanel = () => {
     setPanel(false);
@@ -91,6 +96,13 @@ export function Runner({ runId }: { runId: string }) {
   const pause = () => {
     setPanel(false);
     act().pauseRun(runId);
+  };
+  // Home: paused where it is, and home — not the paused screen the route would follow it to.
+  const toHome = () => {
+    setLeaving(true);
+    setPanel(false);
+    if (act().pauseRun(runId).ok) markWentHome(runId, readRun(useStore.getState().data, runId)?.touchedAt);
+    goHome();
   };
   // Little room (the keyboard up, large text): everything but the note gives a little, so the note keeps more.
   const seen = useVisibleHeight();
@@ -128,6 +140,7 @@ export function Runner({ runId }: { runId: string }) {
       {/* With almost no room (large text AND the keyboard up) the column scrolls before anything goes: the note keeps a least size. */}
       <ScrollView style={styles.column} contentContainerStyle={styles.columnBody} keyboardShouldPersistTaps="handled" testID="go-column">
       <View style={styles.context}>
+        <Btn label="Home" spoken={`Home, pausing ${v.name}`} onPress={toHome} style={styles.home} testID="go-runner-home" />
         {/* The level and its parent, in words. Not a control: the runner is the step and nothing else (the sequence is Plan's). */}
         <View style={styles.contextWords} testID="go-context">
           {!!v.parent && <T dim numberOfLines={1}>{v.parent}</T>}
@@ -518,6 +531,7 @@ const styles = StyleSheet.create({
   // Tall enough for a parent and a level, always: the note does not move when a level is entered.
   contextWords: { flex: 1, minWidth: 0, minHeight: 56, justifyContent: 'center', paddingHorizontal: SP.s3 - 4, paddingVertical: SP.s1 },
   done: { borderWidth: 0, borderLeftWidth: 2, minWidth: 64 },
+  home: { borderWidth: 0, borderRightWidth: 2, minWidth: 64 },
   // …below that (large text AND the keyboard up) the note keeps a 96 px floor and the column scrolls instead.
   areaFloor: { minHeight: NOTE_FLOOR + SHADOW + SP.s1 * 2 },
   column: { flex: 1, minHeight: 0 },

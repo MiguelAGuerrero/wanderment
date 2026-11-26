@@ -2826,7 +2826,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         return { store, runId, routineId, release, step };
       }
 
-      it('Next pressed (twice, impatiently) is kept, with the quiet note, and applied exactly once when the data is back; its Undo works', async () => {
+      it('Next pressed (twice, impatiently) is kept, with the quiet note, and applied exactly once when the data is back (P-95: with no Undo, as any Next that does not end the run)', async () => {
         const { store, runId, release, step } = await away();
         const before = store.getState().data;
         expect(store.getState().nextStep(runId)).toEqual({ ok: false, reason: 'reconnecting' });
@@ -2841,10 +2841,9 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         expect(step()).toBe('Shower'); // once, not twice
         expect(store.getState().toVerb).toBeUndefined();
         expect(store.getState().toast).toBeUndefined();
-        expect(store.getState().runNotice).toMatchObject({ verb: 'next', label: 'Next' });
+        expect(store.getState().runNotice).toBeUndefined();
+        expect(store.getState().undo).toBeUndefined();
         expect(await onDisk()).toEqual(store.getState().data);
-        store.getState().undoLast();
-        expect(step()).toBe('Stretch');
       });
 
       it('the run was moved on by the other page meanwhile: the press is dropped, never applied on top', async () => {
@@ -3040,8 +3039,9 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         expect(d.runs.edge.mode).toBe('plan');
       }
       expect(await onDisk()).toEqual(store.getState().data);
-      // Its Undo puts the edge run back exactly as it was stored.
-      expect(store.getState().undoLast()).toBe(true);
+      // A start has no Undo (P-95): the edge run is put back exactly as it was stored by importing it again.
+      expect(store.getState().undo).toBeUndefined();
+      expect(store.getState().replaceData(legacy)).toBe(true);
       await tick(30);
       expect((await onDisk()).runs).toEqual({ edge: legacy.runs.edge });
 

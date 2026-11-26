@@ -6,8 +6,8 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { editRoutine, Env, Item, runVerb, Verb } from './run';
-import { homeTiles, leftOff, noticeFor, panelView, pausedView, routineHue, routineView, runnerView, seeItAll, sinceWords, whatChanged } from './runView';
+import { editRoutine, Env, Item, readRun, runVerb, Verb } from './run';
+import { homeShown, homeTiles, leftOff, opensAt, noticeFor, panelView, pausedView, routineHue, routineView, runnerView, seeItAll, sinceWords, whatChanged } from './runView';
 import { Data, emptyData, Id, Routine, Run } from './types';
 
 const T0 = Date.UTC(2026, 10, 24, 10, 0, 0);
@@ -68,6 +68,34 @@ describe('home: tiles', () => {
     expect(homeTiles(typed)[2].reason).toBe('need the ad');
     const left = ok(typed, { kind: 'home', runId: id }).data;
     expect(homeTiles(left)[2]).toMatchObject({ state: 'paused', at: 'Tailor the CV', reason: 'need the ad', action: 'resume' });
+  });
+
+  it('P-95: as home shows them, the run the app is on comes first — running, paused or in Plan — and the rest keep their fixed order; a run left by Home in the build before, or none, moves nothing', () => {
+    expect(homeShown(home()).map((x) => x.name)).toEqual(['Practise drawing', 'Feel at home in Spanish', 'Apply to Acme']);
+    const { d, id } = start(home(), 'acme');
+    expect(homeShown(d).map((x) => x.name)).toEqual(['Apply to Acme', 'Practise drawing', 'Feel at home in Spanish']);
+    const paused = ok(d, { kind: 'pause', runId: id }).data;
+    expect(homeShown(paused).map((x) => [x.name, x.state])).toEqual([['Apply to Acme', 'paused'], ['Practise drawing', 'idle'], ['Feel at home in Spanish', 'idle']]);
+    const planning = ok(d, { kind: 'plan', runId: id }).data;
+    expect(homeShown(planning)[0]).toMatchObject({ name: 'Apply to Acme', state: 'planning' });
+    const left = ok(paused, { kind: 'home', runId: id }).data;
+    expect(homeShown(left).map((x) => x.name)).toEqual(['Practise drawing', 'Feel at home in Spanish', 'Apply to Acme']);
+    // (The fixed order itself is homeTiles', unchanged.)
+    expect(homeTiles(paused).map((x) => x.name)).toEqual(['Practise drawing', 'Feel at home in Spanish', 'Apply to Acme']);
+  });
+
+  it('P-95 audit F3: where the app opens — home when the run it is on was left by Home and has not been touched since; else where it was left', () => {
+    const { d, id } = start(home(), 'acme');
+    const paused = ok(d, { kind: 'pause', runId: id }).data;
+    const at = readRun(paused, id)!.touchedAt!;
+    expect(opensAt(paused)).toEqual({ kind: 'paused', runId: id });
+    expect(opensAt(paused, { runId: id, touchedAt: at })).toEqual({ kind: 'home' });
+    // Touched since (resumed, paused again, Plan…): where it was left.
+    const again = ok(ok(paused, { kind: 'resume', runId: id }).data, { kind: 'pause', runId: id }).data;
+    expect(opensAt(again, { runId: id, touchedAt: at })).toEqual({ kind: 'paused', runId: id });
+    // Another run, or a running one: never home by this.
+    expect(opensAt(paused, { runId: 'other', touchedAt: at })).toEqual({ kind: 'paused', runId: id });
+    expect(opensAt(d, { runId: id, touchedAt: readRun(d, id)!.touchedAt! })).toEqual({ kind: 'runner', runId: id });
   });
 
   it('a run resting on a wait reads as waiting: for what (its words now) and since when', () => {

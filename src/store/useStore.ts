@@ -159,7 +159,7 @@ interface State {
    * are kept (`toVerb`) and applied by `verbMarked` once the data is back, if the run is unchanged;
    * the ones that carry typed text are refused (`reconnecting`) and the screen keeps the text.
    */
-  /** Start (a tile, a row, Plan's Start for a routine with no run). A routine with a run going: that run is resumed. Refused `running` (saying what) while another run is running; `empty` for a routine with no steps. Undo: the new run goes. */
+  /** Start (a tile, a row, Plan's Start for a routine with no run). A routine with a run going: that run is resumed. Refused `running` (saying what) while another run is running; `empty` for a routine with no steps. No Undo (P-95). */
   /** `keepUndo`: the press also kept words still open in Plan — that edit's notice and Undo stay (never a silent edit). */
   startRoutine: (routineId: Id, keepUndo?: boolean) => Did;
   /** "New: <words>", the New tile (P-90): makes the routine only — named, on home, open edge, no steps, NO run — and answers with `routineId` (for a name there is: that routine, nothing written). Undo removes it. */
@@ -181,14 +181,15 @@ interface State {
   setPauseReason: (runId: Id, text: string) => Did;
   /** Home, after "Stop <name>?": nothing is running; the run stays where it is. No Undo. */
   leaveRun: (runId: Id) => Did;
-  /** Next ("It's happened" on a wait). */
+  /** Next ("It's happened" on a wait). An Undo only when it ended the run (P-95). */
   nextStep: (runId: Id) => Did;
-  /** Done: leaves the level it is in; at the top ends the run. */
+  /** Done: leaves the level it is in; at the top ends the run. Undo. */
   doneLevel: (runId: Id) => Did;
+  /** Step in. No Undo (P-95). */
   stepIn: (runId: Id) => Did;
-  /** Jump to…: `{ level }` the start of a level it is in; `{ path }` a step (a Jump row's path). The run is running afterwards (out of Plan). */
+  /** Jump to…: `{ level }` the start of a level it is in; `{ path }` a step (a Jump row's path). The run is running afterwards (out of Plan). Undo: it can leave levels and reset the round (P-95 audit F4). */
   jumpTo: (runId: Id, to: JumpTo) => Did;
-  /** Back to <step>. */
+  /** Back to <step>. No Undo (P-95). */
   backTo: (runId: Id) => Did;
   /**
    * Every Plan edit (P-90): it changes the ROUTINE (`routineId` is the row's sequence — the routine,
@@ -240,10 +241,16 @@ function change(patch: Partial<State> | ((s: State) => Partial<State>)): true {
 
 /**
  * One run action (P-86): the engine's answer put in the store. `undo`: 'set' leaves an Undo and its
- * notice; 'clear' empties the Undo slot (Pause, Resume, Home: nothing stale to take back later);
- * 'keep' leaves it alone (the reason, typed; a Resume or Start whose press also kept words open in Plan). A quiet note (reconnecting) goes with any of the first two.
+ * notice; 'clear' empties the Undo slot (nothing stale to take back later); 'keep' leaves it alone
+ * (the reason, typed; a Resume or Start whose press also kept words open in Plan); 'ends' (Next) is
+ * 'set' only when it ended the run, else 'clear'. A quiet note (reconnecting) goes with any but 'keep'.
+ *
+ * P-95 (the owner: "Why would I want to undo an execution"): an Undo and its notice follow only what
+ * loses or reshapes something — a Plan edit, New, Done, Jump to (it can leave levels and reset the
+ * round), a run ended, this-run changes folded (by any verb). Moving through a run (Start, Next, Step
+ * in, Back to, Pause, Resume, Plan) leaves none.
  */
-function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdit }, mode: 'set' | 'clear' | 'keep'): Did {
+function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdit }, mode: 'set' | 'clear' | 'keep' | 'ends'): Did {
   let undo = mode;
   const s = useStore.getState();
   const env = { now: new Date().toISOString(), id: newId };
@@ -254,6 +261,10 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   const r: Result = verb.kind === 'editRoutine' ? editRoutine(s.data, verb.routineId, verb.edit, env) : runVerb(s.data, verb, env);
   // Plan leaves an Undo only when it folded this-run changes into the routine (ruling 3); otherwise, like Pause, it clears the slot.
   if (verb.kind === 'plan') undo = r.folded !== undefined ? 'set' : 'clear';
+  // Next leaves an Undo only when it finished the run (P-95): that loses the run's place.
+  if (undo === 'ends') undo = r.said?.kind === 'ended' ? 'set' : 'clear';
+  // Whatever the verb, a write that folded this-run changes into the routine is named, with its Undo (audit F1).
+  if (r.folded !== undefined) undo = 'set';
   if (!r.ok) {
     // One thing runs at a time: say what is running.
     if (r.running) useStore.setState({ runNotice: { verb: verb.kind, text: `${r.running.name} is running`, label: '' } });
@@ -365,7 +376,7 @@ export const useStore = create<State>()((set, get) => ({
     if (cur && isRunning(get().data, cur) && cur.routineId === routineId) return { ok: true, runId: cur.id };
     // A routine whose run was left: its Start is a Resume, and that needs nothing else running.
     const had = Object.keys(get().data.runs).map((id) => readRun(get().data, id)).find((r) => r && !r.endedAt && r.routineId === routineId);
-    return (had && busyWith(had.id)) ?? act({ kind: 'start', routineId }, keepUndo ? 'keep' : 'set');
+    return (had && busyWith(had.id)) ?? act({ kind: 'start', routineId }, keepUndo ? 'keep' : 'clear');
   }),
   createRoutine: gated<State['createRoutine']>(refused, (words) => act({ kind: 'new', words }, 'set')),
   resumeRun: gated<State['resumeRun']>(
@@ -390,7 +401,7 @@ export const useStore = create<State>()((set, get) => ({
   leaveRun: gated<State['leaveRun']>(refused, (runId) => act({ kind: 'home', runId }, 'clear')),
   nextStep: gated<State['nextStep']>(
     refused,
-    (runId) => act({ kind: 'next', runId }, 'set'),
+    (runId) => act({ kind: 'next', runId }, 'ends'),
     (runId) => keepPress('next', runId),
   ),
   doneLevel: gated<State['doneLevel']>(
@@ -400,12 +411,12 @@ export const useStore = create<State>()((set, get) => ({
   ),
   stepIn: gated<State['stepIn']>(
     refused,
-    (runId) => act({ kind: 'stepIn', runId }, 'set'),
+    (runId) => act({ kind: 'stepIn', runId }, 'clear'),
     (runId) => keepPress('stepIn', runId),
   ),
   // A jump makes its run the one that is running: like Resume, refused while a different run is (F7).
   jumpTo: gated<State['jumpTo']>(refused, (runId, to) => busyWith(runId) ?? act({ kind: 'jump', runId, to }, 'set')),
-  backTo: gated<State['backTo']>(refused, (runId) => act({ kind: 'back', runId }, 'set')),
+  backTo: gated<State['backTo']>(refused, (runId) => act({ kind: 'back', runId }, 'clear')),
   editRoutine: gated<State['editRoutine']>(refused, (routineId, edit) => act({ kind: 'editRoutine', routineId, edit }, 'set')),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
 

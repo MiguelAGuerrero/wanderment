@@ -78,8 +78,13 @@ set; no word is chosen for how it sounds alone. A paused run is "paused"; a run 
 - **Pause** says "I'm done with this for now" and may carry a reason. The paused screen shows the run
   with **Resume**, and beneath it whatever else can be resumed — siblings first, then up a level —
   each with its own Resume. There is no "Switch".
-- **Home** on the paused screen replaces "Stop". It asks first ("Stop <name>?"; the run stays where
-  it is; Cancel is the filled button).
+- **Home** *(built, P-95)* on the runner and on the paused screen pauses the run — no ask; it keeps
+  its place — and goes home, where that run is the first tile with **Resume** as the filled button
+  (the owner: "No way to unpause when you click 'home'"). Home never ends a run. Reopened after Home,
+  the app opens on home — where the person chose to go — not on the paused screen (a hint kept on the
+  device, not in the data; anything done to the run since makes it stale). (Before P-95 Home on
+  the paused screen asked "Stop <name>?" and left the run as no one's; runs stored that way still read
+  "at <step>" with Resume, in their place.)
 - **One wording per meaning:** a paused run reads "at <step>"; a waiting one "waiting for <words> ·
   since <day>"; a run with no blank reads "· since <day>"; a run in Plan reads "planning · at <step>"
   ("planning · nothing next yet" at the edge), on its tile, in Plan and on the paused screen.
@@ -92,15 +97,19 @@ set; no word is chosen for how it sounds alone. A paused run is "paused"; a run 
   Resume, or — for a run left in Plan, drawn dark like the Plan surface — "planning · …" with Plan;
   Start for a routine with nothing going. Every tile not in Plan also has **Plan** (a routine with no
   steps yet has Plan only). After the tiles comes a **New** tile. Tiles stay in a fixed order *(as built — a builder's ruling, not an owner decision)* (when each
-  was first made); nothing is ranked. The prompt **"I'm going to…"** searches the tiles as you type,
-  then routines and unnamed things, with **"New: <your words>"** last. **New makes the routine only**
-  — no run until Start — and opens its Plan with the name filled and the open row focused; the New
-  tile does the same with the words in the prompt (with none, it takes you to the prompt). Home is
-  titled "Running" when a run is running and "Nothing running" otherwise.
+  was first made); nothing is ranked — except that the run the app is on (running, paused or in Plan)
+  is the first tile *(P-95)*, and a running or paused one has its Resume filled. The prompt **"I'm
+  going to…"** only finds what exists *(P-95)*: the tiles as you type, then routines and unnamed
+  things; words that match nothing offer nothing. Making something is the **New** tile's (the owner:
+  "Creating a new stack is ambiguous because it shares the same entry as 'I am going to'"). **New
+  makes the routine only** — no run until Start — and opens its Plan with the name filled and the open
+  row focused: with words in the prompt they are its name, and the tile says so ("New: <words>"); with none, a sheet of its own asks for the
+  name ("New routine", a Name field, **Plan** filled). Home is titled "Running" when a run is running
+  and "Nothing running" otherwise.
 - **Nothing is created or started without a tap.** Typing starts nothing until a row is chosen
   (Return takes the first row, which is always visible and marked). The app never jumps by itself.
 - **The runner is the step and nothing else** *(built)*: a context line (the level and its parent,
-  in words — not a control) with Done; the step as a fixed, roughly square sticky note; three buttons
+  in words — not a control) with Home before it and Done after it (Home pauses, P-95); the step as a fixed, roughly square sticky note; three buttons
   in fixed places — Pause, Plan / Step in, Next (the one filled button, lowest). Nothing is planned
   or typed here. Nothing about repeating is on the surface except one small mark on **the last step
   of a round**. A repeating part comes round again silently; a counted loop ends by itself. There is
@@ -119,7 +128,14 @@ set; no word is chosen for how it sounds alone. A paused run is "paused"; a run 
   every Plan screen; the routine's name as the heading; "planning · at <step>"; the steps as outlined
   rows, the one you were on marked **HERE** (the white outline means HERE and nothing else); "Repeat
   from here" as a row of its own with visible Move up / Move down and its menu (until I'm done or a
-  number; remove it); an "Add a step" row. A step's menu is in words — Change the words, Add a step
+  number; remove it); an "Add a step" row. Every step row that can move has a **grip** at its left
+  edge *(P-95)* ("Reorder <words>", a full target): dragged by touch or mouse the row stays in place,
+  dashed, and a line shows where it will go (past an open routine: after its last step); nothing moves
+  until it is let go, so nothing is covered and nothing reflows with animation (Reduce Motion or not).
+  Let go, it is one move of as many rows as it crossed — "Repeat from here" counts as one and is
+  passed alone — with one Undo. Pressed, the grip opens the row's menu. In a window under 340 px wide
+  (a 320 px phone, or large text) there is no grip — the words keep the room — and Move up / Move down
+  on the menu remain the way to reorder. A step's menu is in words — Change the words, Add a step
   after, Break it down, Make it a wait (Make it a step), Move up, Move down, Remove this step, Close —
   and words are typed in place. One press moves one row: next to "Repeat from here" a step passes it
   and nothing else moves. The routine's own menu holds its name, "Ends here", adding "Repeat from
@@ -141,8 +157,8 @@ set; no word is chosen for how it sounds alone. A paused run is "paused"; a run 
   addresses land there). The break-down sheet, the runner's blank "next small step" note and the
   Keep sheet are gone with them.
 - **Not built in Plan yet** (B-12, each needs its own item): declaring a routine where you stand
-  ("Make a routine from here…"), "Also in" for a routine used elsewhere, inputs ("With"), reordering
-  by drag, more than one Undo, adding "Repeat from here" to a routine nested as a step from its
+  ("Make a routine from here…"), "Also in" for a routine used elsewhere, inputs ("With"), more than
+  one Undo, adding "Repeat from here" to a routine nested as a step from its
   parent's Plan.
 - **Designed, not built yet:** Your routines, Looking back ("a set, not a log": one line per ended
   run), the Map of a tile's contents, the leaving ask for things still waited on ("Still waiting" /
@@ -158,7 +174,12 @@ set; no word is chosen for how it sounds alone. A paused run is "paused"; a run 
 - **Borrow established conventions** from adjacent productivity apps for layout, spacing, icon and
   settings placement and component choice, so the app meets expectations before it asks anyone to
   learn.
-- **Safeguards.** Everything reversible gets an **Undo and no confirm**. A confirm appears only when
+- **Safeguards.** Everything that loses or reshapes something gets an **Undo and no confirm**: a Plan
+  edit, New, Done, Jump to (it can leave levels and reset the round), a run ended (by Done or by the
+  last Next of a routine that ends here), this-run changes folded (by whatever verb folds them).
+  Moving through a run — Start, Next, Step in, Back to, Pause, Resume, Plan, "It's happened" — has no
+  Undo and no notice (P-95; the owner: "Why would I want to undo an
+  execution of a stack"). A confirm appears only when
   an action reaches beyond what is on screen (other routines, open runs, all data), and every Remove
   names its reach.
 - **An ask and a confirm are different** (§9b). In an **ask** every choice goes forward and the
@@ -188,7 +209,7 @@ set; no word is chosen for how it sounds alone. A paused run is "paused"; a run 
 Dark. Pixel accents with a programmatic feel: a pixel font for screen titles only, chunky blocks,
 hard shadows. The person's words are in a clean sans face (IBM Plex Sans; the owner may overrule the
 font — B-11 §10). A routine's colour is the colour of its tile and its note. Menus and pickers are
-bottom sheets; a notice with Undo follows anything reversible; a centred dialog appears only when an
+bottom sheets; a notice with Undo follows what loses or reshapes something (see Safeguards); a centred dialog appears only when an
 action reaches beyond the screen.
 
 ## One copy at a time (web, P-29)

@@ -5,8 +5,9 @@ things — routines, in your words — and run them one small step at a time.
 
 Say what you're going to do, and run it: one step on screen, with Pause, Plan and Next. Planning has
 its own screen, Plan, which looks nothing like running: the whole sequence, where steps are added,
-reworded, moved, removed, broken into smaller ones and made to repeat — changes there change the
-routine, each with an Undo — and "Resume at <step>" takes you back exactly where you were. A routine
+reworded, moved (drag a row by its grip, or use its menu), removed, broken into smaller ones and made
+to repeat — changes there change the routine, each with an Undo — and "Resume at <step>" takes you back
+exactly where you were. Home pauses what you were running; it waits first on home, with Resume. A routine
 can repeat until you're done, or a set number of times; a run can wait on something outside your hands
 and be picked up later, where you left it, in the mode you left it in. Nothing counts what you did or shows how much is left; there are no deadlines, streaks or
 notifications.
