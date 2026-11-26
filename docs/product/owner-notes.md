@@ -18,6 +18,13 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — The queue holds leaves only, found depth-first
+"So ensure that this is depth-first. For deeply nested concurrent routines, we only queue up only the
+leafs."
+Interpretation (ours): ↑ queue on anything — a routine, a call, a block, an In any order part — resolves
+depth-first to the one step that would actually be done next, and only that leaf goes on the queue.
+Led to: canvas updated; batch order unchanged.
+
 ## 2026-11-26 — The work queue and In any order
 "So then how does the concept of a w[ork] queue collaborate with in any order blocks? Well, you'll be able
 to [en]queue work from any outstanding threads that are running in a given routine."
