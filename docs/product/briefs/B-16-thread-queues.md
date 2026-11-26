@@ -1,4 +1,4 @@
-# B-16 — Pursuits: open work that a process keeps moving
+# B-16 — A thread with its own queue: open work that a process keeps moving
 
 **Status:** draft for the owner (no decision entry yet) · **Theme:** Reuse; Written by running ·
 **Date:** 2026-11-26 · **Builds on:** B-14 slice 2 (threads that hold threads) · **Would reorder:**
@@ -25,14 +25,14 @@ The owner asked for an assessment and then described what is missing (2026-11-26
   progress over time without having to always think about the big picture … encode the idea of trust
   the process."
 
-Asked what is lost when hopping between pursuits, the owner chose "the next concrete action" and "what
+Asked what is lost when hopping between the things they work on, the owner chose "the next concrete action" and "what
 I'd decided or made". Asked what "discipline" means as an outcome: "staying oriented".
 
 Earlier notes say the same thing from other sides: "nothing really in the app represents a pursuit or
 goal right now" (2026-11-25); "a function generating a task on the queue with its own context"
 (MyStack, 2026-11-26).
 
-**Where the evidence is thin:** the owner has run the app only to test the app. No real pursuit has
+**Where the evidence is thin:** the owner has run the app only to test the app. Nothing real has
 been run through it. Everything below is reasoned from what the owner said, not from a session that
 went wrong.
 
@@ -56,28 +56,28 @@ never shown in the app (DESIGN.md: thread, stack and the rest are never words on
 | Programming idea | In the app | What it holds for the person |
 |---|---|---|
 | Function | A routine: a method, reusable anywhere (built) | How to engage |
-| Thread | A pursuit: a routine on home that keeps open items | What there is to do, across runs |
-| The thread's inbox | Its open items, each one line of the person's words | The next steps, as first-class things |
+| Thread | A routine on home that keeps open items | What there is to do, across runs |
+| The thread's queue | Its open items, each one line of the person's words | The next steps, as first-class things |
 | Dependency | An item is **for** the item above it (the owner's "blocked by", read upward) | Why this is being done |
-| The thread's loop | The pursuit's own steps with Repeat from here: its process | The same way in, every time |
+| The thread's loop | The thread's own steps with Repeat from here: its process | The same way in, every time |
 | Spawn | A step that **gives work** into the open items | What follows from what was just done |
 | Call | A method run on the chosen item | Methods applied where they fit |
-| Scheduler | The person, on home | Nothing; home shows each pursuit's next step |
+| Scheduler | The person, on home | Nothing; home shows each thread's next step |
 
-- **The next step** of a pursuit is its deepest open item, found depth-first (owner, 2026-11-26:
+- **The next step** of a thread is its deepest open item, found depth-first (owner, 2026-11-26:
   "depth-first … only the leafs").
 - **An item is cleared** when the person says so, and an item with smaller items under it is offered as
   cleared when they are all gone. Smaller items have no order: the person picks. This is the owner's
   "In any order", without a separate construct.
-- **A pursuit may be abstract** and never finish ("Become a better drawer"). One with a concrete outcome
-  ("Finish the character sheet") is done when nothing under it is open.
+- **A thread is open-ended** and never finishes ("Become a better drawer"). A concrete outcome ("Finish
+  the character sheet") is an open item inside it, done when nothing under it is open.
 - **Trust the process:** the open items are shown at one step of the loop ("Pick what to work on") and
   in the pull-up panel. Everywhere else the runner is one note, as now.
 
 ## Proposed experience
 `[Button]` is a button, `[[Button]]` the one filled button, `{focus}` a name chip.
 
-### Journey 1 — The process of a pursuit (Plan)
+### Journey 1 — The process of a thread (Plan)
 ```
 PLAN
 Become a better drawer
@@ -119,7 +119,7 @@ The path and the values row are the ones built today. The "for" is the why, one 
 ### Journey 4 — A step gives work
 The last step of "Reflect on a rep" is "Pick one point of improvement", set in Plan to **give work**.
 Under the note is its field, as a giving step has today. What is typed there becomes an open item of
-the pursuit, for the item that was the focus. Left empty, nothing is added. No notice (giving a value
+the thread, for the item that was the focus. Left empty, nothing is added. No notice (giving a value
 for the first time leaves none today).
 
 ### Journey 5 — Coming back (home)
@@ -127,11 +127,11 @@ for the first time leaves none today).
 Become a better drawer
 next: Forearm proportions · for Hands in perspective
 ```
-The tile's line is the pursuit's next step and what it is for. A routine with no open items reads as
+The tile's line is the thread's next step and what it is for. A routine with no open items reads as
 today ("at <step>").
 
 ### Journey 6 — Clearing and dropping
-In the pull-up panel on a pursuit: its open items, each with **Cleared** and **Drop**. Both remove the
+In the pull-up panel on a thread: its open items, each with **Cleared** and **Drop**. Both remove the
 item with one Undo. Dropping is as cheap as clearing, and nothing counts either.
 
 ### Edges
@@ -150,8 +150,8 @@ item with one Undo. Dropping is as cheap as clearing, and nothing counts either.
 - **"Stored data is never deleted or converted":** open items are a new kind of record on a routine.
 - **STRATEGY.md:** advances Reuse (methods applied to any item) and Written by running (the open work
   is written by reflection, not by planning ahead).
-- **Not doing:** a global queue across pursuits; due dates, priorities or ordering of items; an item
-  shared by two pursuits; items that start by themselves; conditional steps.
+- **Not doing:** a global queue across threads; due dates, priorities or ordering of items; an item
+  shared by two threads; items that start by themselves; conditional steps.
 
 ## Where this differs from what the owner has already said
 Raised by the implementation session, from owner-notes. Each is the owner's to settle.
@@ -160,14 +160,14 @@ Raised by the implementation session, from owner-notes. Each is the owner's to s
   brief replaces that with unordered items under an item. That is simpler and loses returned values
   and a part having its own steps and place. If parts need those, P-99 stays as designed and sits
   beside this.
-- **The work queue.** The owner asked for a queue across pursuits ("plan my day", "load up each stack
+- **The work queue.** The owner asked for a queue across threads ("plan my day", "load up each stack
   in order"), leaves only, and said Start may be retired in favour of enqueuing from each thread. Open
-  items per pursuit do not replace that. They are what such a queue would hold: P-100 comes after this
+  items per thread do not replace that. They are what such a queue would hold: P-100 comes after this
   brief, not instead of it.
 - **Capture.** The owner: "unless the results determine how to proceed … I don't think the app should
   be supporting capture." Open items stay inside that line only if they are work that drives what is
   next. They take no notes field and no long text.
-- **Rounds clear values.** Unchanged. An open item belongs to the pursuit, not to the run, so a new
+- **Rounds clear values.** Unchanged. An open item belongs to the thread, not to the run, so a new
   round does not clear it; `{focus}` is still asked again each round.
 - **Agreed already:** "a routine … generating a task on the queue with its own context" (MyStack) is
   Journey 4; gives / asks, hoisted gives and the call-stack trace (P-101) are used as they are.
@@ -176,7 +176,7 @@ Raised by the implementation session, from owner-notes. Each is the owner's to s
 Not run yet. It waits for P-101 to land so the panel sees the runner and home as they will be.
 
 ## Slices
-1. **A pursuit keeps open items** `[data]` M (Full tier). A routine can hold open items: added from the
+1. **A thread keeps open items** `[data]` M (Full tier). A routine can hold open items: added from the
    pull-up panel, Cleared or Dropped with Undo, kept across runs, in export and import. Home shows
    "next: <item>". *Done when:* an item added in one run is there in the next run and after a reload,
    an export and an import.
@@ -189,13 +189,13 @@ Not run yet. It waits for P-101 to land so the panel sees the runner and home as
 5. **Items for items** `[data]` M. An item can be added under another; the next step is the deepest
    open one; the path and tile say what it is for. *Done when:* clearing the last smaller item offers
    its parent as cleared.
-6. **Looking back for a pursuit** `[ux]` S. A list, in words, of what was cleared and given.
+6. **Looking back for a thread** `[ux]` S. A list, in words, of what was cleared and given.
 
 ## Data and risk
 - A new stored collection or field (open items per routine) that every storage path must carry:
   the journal, export, import and its preview, and the golden fixtures.
 - An item given by a run that is then undone (Undo on Done, Back to) must leave with it.
-- The backlog risk: if every run gives work, a pursuit grows a list the person feels behind on. Giving
+- The backlog risk: if every run gives work, a thread grows a list the person feels behind on. Giving
   work is one deliberate step, Drop is one tap, and nothing is counted. Real use will show whether
   that is enough.
 
@@ -205,21 +205,23 @@ Not run yet. It waits for P-101 to land so the panel sees the runner and home as
   open items, because each round clears what the last one gave. If it is not missed, slice 1 is not
   needed.
 - **The roadmap as it stands** (P-98 for each, P-99 In any order, P-100 the queue). It adds more
-  language before any pursuit has been run, and none of it keeps a method's result across runs.
+  language before anything real has been run, and none of it keeps a method's result across runs.
 - **Values that outlive a run.** Smaller, but a kept value is not something to do and has no "for".
 - **A global queue first (P-100).** It schedules next steps; this brief is where next steps come from.
 
 ## Answered by the owner (2026-11-26, in the session that drafted this)
-- **Order:** "Use it a week, then B-16." Nothing new after P-97 until one real pursuit has been run for
+- **Order:** "Use it a week, then B-16." Nothing new after P-97 until one real piece of work has been run for
   a week; then slices 1–4, with P-98 to P-100 after.
-- **In any order:** "Both, items first." This brief's unordered items first; P-99's threads that join
+- **In any order:** "Both, items first." This brief's unordered items first; P-99's child threads that join
   afterwards, for parts that need their own steps.
 - **Giving work:** "By itself." What is typed on the step becomes an open item at once.
-- Still open: question 1 below.
+- **Concrete outcomes and open-ended aims:** "join it as part of the pursuit." Read as: a concrete
+  outcome ("Finish the character sheet") is an open item inside an open-ended thread ("Become a better
+  drawer"), not a second kind of thing on home. The thread never finishes; its outcomes do.
+- **The word:** "pursuit" was a working term. This brief says thread and queue, the owner's own model
+  (a thread with its own state, work queued onto it); neither word is shown in the app.
 
-## Questions for the owner
-1. Does every pursuit start from a concrete outcome, or do open-ended ones ("Become a better drawer")
-   sit beside them? Proposed: both.
+## Questions asked (all answered above)
 2. When a step gives work, does the item appear by itself, or only when accepted at the end of the run?
    Proposed: by itself, since typing it was the choice.
 3. Do slices 1–4 go ahead of for each (the rest of P-98), In any order (P-99) and the queue (P-100)?
