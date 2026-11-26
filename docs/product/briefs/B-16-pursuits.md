@@ -209,6 +209,14 @@ Not run yet. It waits for P-101 to land so the panel sees the runner and home as
 - **Values that outlive a run.** Smaller, but a kept value is not something to do and has no "for".
 - **A global queue first (P-100).** It schedules next steps; this brief is where next steps come from.
 
+## Answered by the owner (2026-11-26, in the session that drafted this)
+- **Order:** "Use it a week, then B-16." Nothing new after P-97 until one real pursuit has been run for
+  a week; then slices 1–4, with P-98 to P-100 after.
+- **In any order:** "Both, items first." This brief's unordered items first; P-99's threads that join
+  afterwards, for parts that need their own steps.
+- **Giving work:** "By itself." What is typed on the step becomes an open item at once.
+- Still open: question 1 below.
+
 ## Questions for the owner
 1. Does every pursuit start from a concrete outcome, or do open-ended ones ("Become a better drawer")
    sit beside them? Proposed: both.
