@@ -18,6 +18,32 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — Values pass into routines by name (provide / inject); more friction from MyStack
+On the scope question: "One sounds like passing in values to functions, which makes sense … if I'm
+practicing drawing, and I have a thread ongoing that's making me work with different types of subject
+matter, and then later on in that same thread, I want to queue up practicing my studies … whatever I
+declared within that thread, the subject matter … can be passed into the routine without having that be
+specified, assuming that they accept input … routines that have input parameters … accept them from their
+parental context, or it's inferred and linked automatically, like provides, injects sort of pattern. So
+any routine that requires a feature, I can slot it in at any point in any ongoing thread. Redraw those 5
+frames, but only after you pull in the recent changes to the Notion page … They have other concerns to be
+batched."
+New items on the MyStack page (two images on the page could not be loaded here):
+6. "The quote 'nothing running' doesn't seem to be indicating anything because there's no corresponding
+   component that looks like it is running something … so that could be removed."
+7. "The 'I'm going to' search bar feels out of place. Because I haven't really need[ed] to use it once so
+   far the activities themselves are few enough … or just use a new button so there's a bit of a cold
+   start issue with that."
+8. "The Home and Done buttons are almost synonymous. Home is just a quick pause, while Pause is a pause
+   with access to context, and that's confusing because the Home view is just another view on resumable
+   routines or contexts … It seems like we can strip it out for clarity."
+9. "When done with a sequence or routine, it goes to the plan step, and I'm not sure if that's intuitive
+   because being done is finality, and planning isn't finality."
+Interpretation (ours): a routine's unset names are its parameters, injected by name from whatever runs it
+(provide / inject), shown at the call. Home loses "Nothing running" and the prompt; the runner keeps one
+way out (Pause → home); finishing the last step ends the run instead of opening Plan.
+Led to: P-96 mock-ups, second round (five frames redrawn plus the new concerns).
+
 ## 2026-11-26 — Go on values: a step's output, not an input
 "I think I need the values because I'm running into a workflow where the first step is to select
 something, and it really doesn't make sense to have the input define the selection, because it's an
