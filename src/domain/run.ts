@@ -22,6 +22,7 @@
  */
 import { normalizeName } from './model';
 import { Data, Id, Routine, Run } from './types';
+import { capValue, isEntry, isName, MAX_VALUES, nameKey, namesIn, readValues, renameIn, tidyName, ValueEntry } from './values';
 
 /** A level is one frame; nothing goes deeper than this (a routine that holds itself can't run away). */
 export const MAX_DEPTH = 64;
@@ -99,6 +100,8 @@ export interface RunState {
   /** When a verb last moved or touched it. */
   touchedAt?: string;
   endedBy?: 'done' | 'finished';
+  /** P-96: its values (what can be read of them: see `readValues`). Empty for every run from before P-96. */
+  values: ValueEntry[];
 }
 
 export interface Env {
@@ -139,7 +142,19 @@ export type RoutineEdit =
   /** true = the edge is open; false = "ends here". */
   | { kind: 'open'; open: boolean }
   | { kind: 'rename'; words: string }
-  | { kind: 'removeRoutine' };
+  | { kind: 'removeRoutine' }
+  /**
+   * P-96, Plan's "Gives…": the step gives this name (tidied; 1–40 characters, no brace); absent = it gives
+   * nothing. Only a plain step gives.
+   */
+  | { kind: 'gives'; item: Id; name?: string }
+  /**
+   * P-96: a name renamed in this routine — on the steps that give it and in every `{from}` its steps (and
+   * its smaller steps) read, and on its open runs' values of it, in one write. Other routines' words are
+   * left as they are (they then read it as unset and ask). Refused `same-name` for a name the routine
+   * already gives or reads.
+   */
+  | { kind: 'renameValue'; from: string; to: string };
 
 export type Verb =
   | { kind: 'start'; routineId: Id }
@@ -156,7 +171,14 @@ export type Verb =
   | { kind: 'done'; runId: Id }
   | { kind: 'stepIn'; runId: Id }
   | { kind: 'back'; runId: Id }
-  | { kind: 'jump'; runId: Id; to: JumpTo };
+  | { kind: 'jump'; runId: Id; to: JumpTo }
+  /**
+   * P-96: a value given, changed or cleared (blank text clears it). `item`: typed in the field of that
+   * step — the step the run is on, which gives the name or reads it — so it is that step's value (where it
+   * came from, unless it changes a value another step gave). No `item`: the value sheet, changing the
+   * value the run's step sees (refused `cannot` when there is none); it is marked changed.
+   */
+  | { kind: 'value'; runId: Id; name: string; text: string; item?: Id };
 
 /** What a verb has to say. `finished`: the levels left by themselves or by Done, innermost first. */
 export type Said = { kind: 'finished'; names: string[] } | { kind: 'ended'; name: string } | { kind: 'edge' } | { kind: 'jumped'; from: string };
@@ -206,6 +228,11 @@ export const isRef = (i: Item | undefined): i is { id: Id; ref: Id } => !!i && t
 export const isWait = (i: Item | undefined): i is { id: Id; wait: string } => !!i && !isRef(i) && text((i as { wait?: unknown }).wait);
 export const isStep = (i: Item | undefined): i is { id: Id; text: string } => !!i && !isRef(i) && !isWait(i);
 const tidy = (s: unknown) => (text(s) ? s.trim().replace(/\s+/g, ' ') : '');
+/** P-96: the name a step gives (as typed in Plan, tidied); undefined for a step that gives none, a wait or a routine. */
+export const outOf = (i: Item | undefined): string | undefined => {
+  const out = isStep(i) ? (i as { out?: unknown }).out : undefined;
+  return text(out) && tidyName(out) ? tidyName(out) : undefined;
+};
 /** `record` with `patch` on top; a field patched to undefined is left out (never stored as a key). */
 function patched<T extends object>(record: T, patch: Record<string, unknown>): T {
   const out = { ...record, ...patch } as Record<string, unknown>;
@@ -282,6 +309,7 @@ export function readRun(data: Data, id: Id): RunState | undefined {
     ...(text(r.reason) && r.reason.trim() && { reason: r.reason }),
     ...(text(r.touchedAt) && { touchedAt: r.touchedAt }),
     ...((r.endedBy === 'done' || r.endedBy === 'finished') && { endedBy: r.endedBy }),
+    values: readValues(r.values),
   };
   states.set(r, run);
   return run;
@@ -422,6 +450,108 @@ export function currentRun(data: Data): RunState | undefined {
   return best;
 }
 
+// ───────── values (P-96) ─────────
+
+/**
+ * The level a level's values belong to (contract ruling 2): the bottom one, or the nearest named routine
+ * entered as a step at or below it. A step broken down (an unnamed sequence) is part of the routine it is
+ * in, so what its smaller steps give is that routine's.
+ */
+export function scopeLevel(data: Data, run: RunState, frames: Frame[], i: number): number {
+  for (let j = Math.min(i, frames.length - 1); j > 0; j--) if (view(data, run, frames[j].seq)?.named) return j;
+  return 0;
+}
+const isScope = (data: Data, run: RunState, frames: Frame[], i: number) => i === 0 || view(data, run, frames[i].seq)?.named === true;
+
+/** A routine and its smaller steps (the unnamed sequences its steps were broken into), each once: what "inside it" means. */
+function bodyOf(read: (id: Id) => Seq | undefined, seqId: Id): Seq[] {
+  const out: Seq[] = [];
+  const seen = new Set<Id>();
+  const walk = (id: Id) => {
+    const s = seen.has(id) ? undefined : read(id);
+    seen.add(id);
+    if (!s) return;
+    out.push(s);
+    for (const i of s.items) if (isRef(i) && read(i.ref)?.named === false) walk(i.ref);
+  };
+  walk(seqId);
+  return out;
+}
+
+/** A routine and its smaller steps, as this run reads them (each once): where its values are given and read. */
+export const routineBody = (data: Data, run: RunState, seqId: Id): Seq[] => bodyOf((id) => view(data, run, id), seqId);
+
+/** The names a routine gives anywhere inside itself (key → name as given), as this run reads it. Local to it: never filled from outside. */
+export function givenIn(data: Data, run: RunState | undefined, seqId: Id): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const s of bodyOf((id) => (run ? view(data, run, id) : readRoutine(data, id)), seqId))
+    for (const i of s.items) {
+      const o = outOf(i);
+      if (o && !out.has(nameKey(o))) out.set(nameKey(o), o);
+    }
+  return out;
+}
+
+/** The index of the item of `s` that is `itemId`, or holds it among its smaller steps; -1 when it is not there. */
+function topIndexOf(data: Data, run: RunState, s: Seq, itemId: Id): number {
+  return s.items.findIndex((i) => i.id === itemId || (isRef(i) && view(data, run, i.ref)?.named === false && bodyOf((id) => view(data, run, id), i.ref).some((b) => b.items.some((x) => x.id === itemId))));
+}
+
+/** The run's values that can be read (`readValues`); visible or not. */
+export const valuesOf = (_data: Data, run: RunState): ValueEntry[] => run.values;
+
+/**
+ * The value of a name (its key) as the step the run is on sees it (ruling 2): its own routine's, if it
+ * has one; a name its routine gives is its own and never read from further down, even before its giving
+ * step has run; else the nearest level below that has it. Undefined: nothing — the step asks.
+ */
+export function visibleValue(data: Data, run: RunState, key: string, at: Frame[] | undefined = place(data, run)?.frames): ValueEntry | undefined {
+  if (!at?.length || !run.values.length) return undefined;
+  for (let j = scopeLevel(data, run, at, at.length - 1); ; j = scopeLevel(data, run, at, j - 1)) {
+    const e = run.values.find((v) => v.level === j && v.seq === at[j].seq && nameKey(v.name) === key);
+    if (e) return e;
+    if (j === 0 || givenIn(data, run, at[j].seq).has(key)) return undefined;
+  }
+}
+
+/** Every value the step the run is on can see — the values in play — the level below's first, each in the order it was given. */
+export function valuesInPlay(data: Data, run: RunState): ValueEntry[] {
+  const at = place(data, run)?.frames;
+  if (!at) return [];
+  return run.values.filter((e) => visibleValue(data, run, nameKey(e.name), at) === e).sort((a, b) => a.level - b.level);
+}
+
+/**
+ * After a move (contract rulings 2, 3): values of a level the run has left — or entered afresh — go; a new
+ * round of a level clears what its repeating part gave (from the Repeat divider on, the smaller steps in it
+ * too), so those steps ask again; what was given before the divider stays. What cannot be read is kept.
+ * Nothing is written when nothing goes.
+ */
+function settleValues(data: Data, runId: Id, before: Frame[]): Data {
+  const raw = own(data.runs, runId)!;
+  if (!Array.isArray(raw.values) || !raw.values.length) return data;
+  const run = readRun(data, runId)!;
+  const after = run.frames;
+  // How many levels, from the bottom, are the same time through: the same routine, entered from the same step.
+  let same = 0;
+  while (same < after.length && same < before.length && after[same].seq === before[same].seq && (same === 0 || after[same].from === before[same].from)) same++;
+  const kept = raw.values.filter((v) => {
+    if (!isEntry(v)) return true;
+    if (v.level >= same || after[v.level].seq !== v.seq || !isScope(data, run, after, v.level)) return false;
+    // P-96 audit F4: a value whose step is gone from its routine (removed in Plan) has no place before or
+    // after the divider any more: the next new round clears it, so its readers ask again.
+    let gone: boolean | undefined;
+    const isGone = () => (gone ??= !routineBody(data, run, after[v.level].seq).some((b) => b.items.some((i) => i.id === v.item)));
+    for (let i = v.level; i < same && (i === v.level || !isScope(data, run, after, i)); i++) {
+      if (after[i].round === before[i].round) continue;
+      const s = view(data, run, after[i].seq);
+      if (s?.repeatFrom !== undefined && (topIndexOf(data, run, s, v.item) >= s.repeatFrom || isGone())) return false;
+    }
+    return true;
+  });
+  return kept.length === raw.values.length ? data : putRun(data, patched(raw, { values: kept.length ? kept : undefined }));
+}
+
 // ───────── moving ─────────
 
 interface Advance {
@@ -557,6 +687,7 @@ function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; a
   const popped = to.popped ?? [];
   let next = putRun(data, patched(l.raw, { frames: to.frames, touchedAt: env.now, reason: undefined, ...(l.raw.status === 'running' && 'mode' in l.raw && { mode: undefined }) }));
   next = settleWait(next, l.run.id, l.at, env);
+  next = settleValues(next, l.run.id, l.run.frames);
   const names = popped.map((f) => view(data, l.run, f.seq)?.words ?? '');
   let folded: string | undefined;
   // The edge: nothing can run there, so the run is in Plan (and its old this-run changes are folded) in this same write.
@@ -676,7 +807,8 @@ function next(data: Data, runId: Id, env: Env): Result {
   if (l.at.repaired) return moved(data, l, { frames: l.at.frames }, env);
   if (l.at.frame.at === null) return refuse(data, 'asking');
   const a = advance(data, l.run, l.at.frames);
-  return a.ended ? end(data, l, 'finished', env) : moved(data, l, a, env);
+  // P-96 (ruling 7): finishing ends the run — nothing next, open goal or not, never opens Plan.
+  return a.ended || a.asking ? end(data, l, 'finished', env) : moved(data, l, a, env);
 }
 
 function doneWith(data: Data, runId: Id, env: Env): Result {
@@ -690,7 +822,7 @@ function doneWith(data: Data, runId: Id, env: Env): Result {
   const child = l.at.frame;
   if (below[below.length - 1].at !== child.from) return moved(data, l, { frames: below, popped: [child] }, env);
   const a = advance(data, l.run, below);
-  if (a.ended) return end(data, l, 'finished', env);
+  if (a.ended || a.asking) return end(data, l, 'finished', env);
   return moved(data, l, { ...a, popped: [child, ...a.popped] }, env);
 }
 
@@ -877,6 +1009,7 @@ function resettle(before: Data, after: Data, env: Env): Data {
     }
     if (wasAt && now && !wasAt.item !== !now.item) data = markPlan(data, id);
     data = settleWait(data, id, wasAt, env);
+    if (was) data = settleValues(data, id, was.frames);
   }
   return data;
 }
@@ -950,6 +1083,17 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     }
   } else if (edit.kind === 'breakDown') {
     return breakDown(data, routine, s, edit.item, edit.steps, env);
+  } else if (edit.kind === 'gives') {
+    const item = s.items.find((i) => i.id === edit.item);
+    if (!item) return refuse(data, 'no-such-step');
+    if (!isStep(item)) return refuse(data, 'not-a-step');
+    if (edit.name !== undefined && !isName(edit.name)) return refuse(data, String(edit.name).trim() ? 'cannot' : 'empty');
+    const name = edit.name === undefined ? undefined : tidyName(edit.name);
+    const { out: had, ...rest } = item as Item & { out?: unknown };
+    if (had === name) return done(data);
+    after = editItems(routine, s, { set: [item.id, name === undefined ? rest : { ...rest, out: name }] });
+  } else if (edit.kind === 'renameValue') {
+    return renameValue(data, routineId, edit.from, edit.to, env);
   } else if (edit.kind === 'divider') {
     if (edit.from !== undefined && dividerAt(edit.from, s.items.length) === undefined) return refuse(data, 'cannot');
     after = patched(routine, { repeatFrom: edit.from });
@@ -981,6 +1125,8 @@ function breakDown(data: Data, routine: Routine, s: Seq, itemId: Id, steps: stri
   const item = s.items.find((i) => i.id === itemId);
   if (!item) return refuse(data, 'no-such-step');
   if (!isStep(item)) return refuse(data, 'not-a-step');
+  // P-96 (scout row 20): a step that gives a name is not broken down — the runner never rests on a routine row, so its value would vanish.
+  if (outOf(item)) return refuse(data, 'cannot');
   const lines = (Array.isArray(steps) ? steps : []).map(tidy).filter(Boolean);
   if (!lines.length) return refuse(data, 'no-steps');
   const into: Routine = { id: env.id(), words: item.text, named: false, createdAt: env.now, items: lines.map((line) => ({ id: env.id(), text: line })) };
@@ -993,9 +1139,125 @@ function breakDown(data: Data, routine: Routine, s: Seq, itemId: Id, steps: stri
     const at = isOpen(run) ? place(next, run) : undefined;
     if (!at || at.frame.seq !== s.id || !isRef(at.item) || at.item.id !== item.id || at.item.ref !== into.id || at.frames.length >= MAX_DEPTH) continue;
     const frames = [...at.frames, { seq: into.id, at: (into.items as Item[])[0].id, round: 1, from: item.id }];
-    next = settleWait(putRun(next, patched(own(next.runs, id)!, { frames })), id, at, env);
+    next = settleValues(settleWait(putRun(next, patched(own(next.runs, id)!, { frames })), id, at, env), id, run!.frames);
   }
   return done(next);
+}
+
+/** P-96 (scout row 11): a name renamed inside one routine and on its open runs' values, in one write. */
+function renameValue(data: Data, routineId: Id, from: string, to: string, env: Env): Result {
+  if (!isName(to)) return refuse(data, String(to ?? '').trim() ? 'cannot' : 'empty');
+  const fromKey = nameKey(text(from) ? from : '');
+  const name = tidyName(to);
+  const body = bodyOf((id) => readRoutine(data, id), routineId);
+  const uses = new Set<string>();
+  for (const s of body)
+    for (const i of s.items) {
+      const o = outOf(i);
+      if (o) uses.add(nameKey(o));
+      if (!isRef(i)) for (const n of namesIn(isWait(i) ? i.wait : i.text)) uses.add(n.key);
+    }
+  if (!fromKey || !uses.has(fromKey)) return refuse(data, 'cannot');
+  if (nameKey(name) !== fromKey && uses.has(nameKey(name))) return refuse(data, 'same-name');
+  let next = data;
+  for (const s of body) {
+    const routine = own(data.routines, s.id)!;
+    const read = new Set<unknown>(s.items);
+    let changed = false;
+    const items = rawItems(routine).map((raw) => {
+      if (!read.has(raw)) return raw;
+      const i = raw as Item;
+      if (isRef(i)) return i;
+      const words = isWait(i) ? i.wait : i.text;
+      const now = renameIn(words, fromKey, name);
+      const o = outOf(i);
+      const out = o && nameKey(o) === fromKey ? name : undefined;
+      if (now === words && (out === undefined || out === (i as { out?: unknown }).out)) return i;
+      changed = true;
+      return { ...i, ...(isWait(i) ? { wait: now } : { text: now }), ...(out !== undefined && { out }) };
+    });
+    if (changed) next = putRoutine(next, patched(routine, { items }));
+  }
+  for (const id of Object.keys(data.runs)) {
+    const raw = own(data.runs, id)!;
+    const run = readRun(data, id);
+    if (!isOpen(run) || !Array.isArray(raw.values)) continue;
+    let changed = false;
+    const values = raw.values.map((v) => {
+      if (!isEntry(v) || v.seq !== routineId || run.frames[v.level]?.seq !== routineId || nameKey(v.name) !== fromKey || v.name === name) return v;
+      changed = true;
+      return { ...v, name };
+    });
+    if (changed) next = putRun(next, patched(raw, { values }));
+  }
+  return next === data ? done(data) : done(resettle(data, next, env));
+}
+
+/** P-96: a value given, changed or cleared at the run's place (see the `value` verb). Kept as typed, capped; blank clears it. */
+function setValue(data: Data, runId: Id, typedName: string, typed: string, itemId: Id | undefined, env: Env): Result {
+  const l = load(data, runId);
+  if (typeof l === 'string') return refuse(data, l);
+  // A name that is not one; or values stored in a shape this version cannot read (it is never written over).
+  if (!isName(typedName) || !text(typed) || (l.raw.values !== undefined && !Array.isArray(l.raw.values))) return refuse(data, 'cannot');
+  const key = nameKey(typedName);
+  const frames = l.at.frames;
+  const visible = visibleValue(data, l.run, key, frames);
+  let level: number;
+  let from: { item: Id; words: string; name: string } | undefined;
+  if (itemId !== undefined) {
+    const item = l.at.item;
+    if (!item || item.id !== itemId) return refuse(data, 'no-such-step');
+    const words = wordsOf(data, l.run, item);
+    const gives = outOf(item);
+    const reads = isRef(item) ? undefined : namesIn(words).find((x) => x.key === key);
+    if (!(gives && nameKey(gives) === key) && !reads) return refuse(data, 'cannot');
+    // The step that gives it, or asks for it (nothing visible): its own level's value, from it. A step reading a value there is: that value.
+    const own_ = (gives && nameKey(gives) === key) || !visible;
+    level = own_ ? scopeLevel(data, l.run, frames, frames.length - 1) : visible!.level;
+    if (own_) from = { item: item.id, words, name: gives && nameKey(gives) === key ? gives : reads!.name };
+  } else {
+    if (!visible) return refuse(data, 'cannot');
+    level = visible.level;
+  }
+  const stored: unknown[] = Array.isArray(l.raw.values) ? l.raw.values : [];
+  const mine = (v: unknown): v is ValueEntry => isEntry(v) && v.level === level && v.seq === frames[level].seq && nameKey(v.name) === key;
+  let had: ValueEntry | undefined;
+  for (const v of stored) if (mine(v)) had = v;
+  let values: unknown[];
+  if (!typed.trim()) {
+    if (!had) return done(data);
+    values = stored.filter((v) => !mine(v));
+  } else {
+    if (!had && readValues(stored).length >= MAX_VALUES) return refuse(data, 'cannot');
+    const items = [capValue(typed)];
+    const moves = !!had && !!from && had.item !== from.item;
+    const changedAt = itemId === undefined ? env.now : moves ? undefined : had?.changedAt;
+    const { changedAt: _c, words: _w, ...base } = had ?? ({} as Partial<ValueEntry>);
+    const words = from ? from.words : had?.words;
+    const entry: ValueEntry = {
+      ...base,
+      name: from?.name ?? had!.name,
+      items,
+      level,
+      seq: frames[level].seq,
+      item: from?.item ?? had!.item,
+      ...(words !== undefined && { words }),
+      at: had && !moves ? had.at : env.now,
+      ...(changedAt !== undefined && { changedAt }),
+    };
+    if (had && had.items.length === 1 && had.items[0] === items[0] && had.item === entry.item && had.name === entry.name) return done(data);
+    let put = false;
+    values = [];
+    for (const v of stored) {
+      if (!mine(v)) values.push(v);
+      else if (v === had) {
+        values.push(entry);
+        put = true;
+      }
+    }
+    if (!put) values.push(entry);
+  }
+  return done(putRun(data, patched(l.raw, { values: values.length ? values : undefined })));
 }
 
 /** The engine: the data after a verb. Pure; never throws on damaged data (it refuses instead). */
@@ -1025,6 +1287,8 @@ export function runVerb(data: Data, verb: Verb, env: Env): Result {
       return back(data, verb.runId, env);
     case 'jump':
       return jump(data, verb.runId, verb.to, env);
+    case 'value':
+      return setValue(data, verb.runId, verb.name, verb.text, verb.item, env);
     default:
       return refuse(data, 'cannot');
   }

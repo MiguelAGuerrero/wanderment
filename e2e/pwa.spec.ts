@@ -58,7 +58,9 @@ test('a new version shows a reload banner and never reloads by itself once the p
   await openGo(page);
   await waitForServiceWorkerControl(page);
   // P-30: right after a load, untouched, a new version applies by itself; typing means it waits.
-  await home(page).prompt.fill('typing');
+  // (P-96: home has no prompt — the New sheet's name field is where one types on home.)
+  await home(page).newBtn.click();
+  await page.getByTestId('go-new-name').fill('typing');
 
   // Pretend a new build was deployed: the next sw.js differs by a comment (see e2e/serve.mjs).
   await request.post('/__e2e/bump-sw');

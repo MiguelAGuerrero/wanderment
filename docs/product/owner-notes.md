@@ -18,6 +18,23 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — Persona panel for blind spots, and the navigation buttons
+"I want you to run through the user panels and see if there's any blind spots in terms of quality of life
+adjustments and interpretation of the UI or UX of these user journeys that turn this batch. And let's
+ensure that we also address the concern of the buttons being not quite co-located correctly when
+navigating routines."
+Interpretation (ours): one navigation scheme for every screen (top = context; bottom = the one filled
+button; one row above = side doors, left leaves, right switches mode; the rest in the pull-up panel);
+the panel's contradictions in the canvas fixed.
+Led to: panel report .polish/product/panel-values-nav.md; P-96 contract amended; canvas updated.
+
+## 2026-11-26 — Tags and A–Z on a My routines page
+"Not sure if grouping is the right concept but maybe tags and alphabetical sorting might be good start
+in a 'my routines' page"
+Interpretation (ours): definitions leave home for a My routines page, sorted A–Z, with tags to filter;
+home shows only what is in motion (Up next · Ongoing · Finishing, told apart by structure).
+Led to: canvas row 8; roadmap P-97 to P-100.
+
 ## 2026-11-26 — Home mixes things of very different size
 "There's still an open issue of the home screen being populated with a whole bunch of disparate types of
 routines, each with various levels of complexity. Something as grandiose as becoming a better drawer

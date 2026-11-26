@@ -26,7 +26,6 @@ const TEXT = rgb('#F4F1E8');
 test('from the home: the Settings control opens it, the title has the focus, and Back returns to the home as it was', async ({ page }) => {
   await seedGo(page, MAYA);
   await openGo(page);
-  await home(page).prompt.fill('app');
   await home(page).screen.getByRole('button', { name: 'Settings', exact: true }).click();
   const s = settings(page);
   await expect(s.getByRole('heading', { level: 1 })).toHaveText('Settings');
@@ -56,11 +55,12 @@ test('with a run going, Settings is still one step from the home, and leaves the
   await openGo(page);
   await startRun(page, 'Bake bread');
   await page.goBack();
-  await expect(home(page).title).toHaveText('Running');
+  // (P-96: no "Running" title — the running run's Resume is the filled button.)
+  await expect(home(page).resume).toHaveText('Resume Bake bread');
   await home(page).screen.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(settings(page)).toBeVisible();
   await settings(page).getByRole('button', { name: 'Back', exact: true }).click();
-  await expect(home(page).title).toHaveText('Running');
+  await expect(home(page).resume).toHaveText('Resume Bake bread');
   await expect(home(page).tiles).toHaveCount(1);
 });
 

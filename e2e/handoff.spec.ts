@@ -2,7 +2,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { addStep, anotherTab, arrived, exported, home, paused, plan, runner, saved, setVisibility, settled, startGo, turn } from './goFixture';
+import { addStep, anotherTab, arrived, exported, home, plan, RoutineSpec, runner, saved, setVisibility, settled, startGo, turn } from './goFixture';
 
 /**
  * P-29 part B: a page holds the data only while it's visible. Headless Chromium keeps every page
@@ -16,7 +16,9 @@ import { addStep, anotherTab, arrived, exported, home, paused, plan, runner, sav
 
 /** A run at the edge of its goal (it opens in Plan, on the open row): words can be typed there. */
 const AT_EDGE = [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' as const }];
-const PAUSED = [{ id: 'r1', routine: 'apply', at: 1, status: 'paused' as const }];
+/** P-96: the field that saves as you type is now a value's, on the runner's giving step (the paused screen and its reason are gone). */
+const GIVING: RoutineSpec[] = [{ id: 'give', name: 'Wrap a present', steps: [{ text: 'Choose the gift', gives: 'gift' }, 'Wrap {gift}'] }];
+const ON_GIVING = [{ id: 'g1', routine: 'give', at: 0, status: 'running' as const }];
 const NOTE = 'Just a moment — reconnecting.';
 
 /**
@@ -178,7 +180,7 @@ test('update reloads with another page in the background never lock the page out
 // ───────── Rework after the audit: a page that doesn't hold the data can't change it ─────────
 
 /** Two pages: A (`page`) holds the data, B waits; A goes to the background, so B takes it and opens where A left off. */
-async function handTo(page: Page, b: Page, lands: 'home' | 'runner' | 'paused' | 'plan') {
+async function handTo(page: Page, b: Page, lands: 'home' | 'runner' | 'plan') {
   await b.goto('./go');
   await expect(anotherTab(b)).toBeVisible({ timeout: 20_000 });
   await turn(page, 'hidden');
@@ -251,18 +253,18 @@ test('a save that keeps failing, then a tab switch and back: nothing vanishes, a
   expect(await spanishSteps(page)).toEqual(['alpha', 'unsaved', 'saved again']);
 });
 
-test('a field that saves as you type (a pause’s reason) shows what another page changed once it takes the data back, and typing adds to that (audit 2 F2, P-29)', async ({ page, context }) => {
-  await startGo(page, PAUSED, 'paused');
-  // A was writing the reason when it went to the background (the field keeps focus).
-  const reason = paused(page).reason;
+test('a field that saves as you type (P-96: a value’s, on the runner; was: a pause’s reason) shows what another page changed once it takes the data back, and typing adds to that (audit 2 F2, P-29)', async ({ page, context }) => {
+  await startGo(page, ON_GIVING, 'runner', GIVING);
+  // A was typing the value when it went to the background (the field keeps focus).
+  const reason = runner(page).field('gift');
   await reason.fill('from A');
   await saved(page);
   const b = await context.newPage();
-  await handTo(page, b, 'paused');
+  await handTo(page, b, 'runner');
 
-  // B edits the same reason.
-  await expect(paused(b).reason).toHaveValue('from A');
-  await paused(b).reason.fill('from B');
+  // B edits the same value.
+  await expect(runner(b).field('gift')).toHaveValue('from A');
+  await runner(b).field('gift').fill('from B');
   await saved(b);
 
   // A comes back: its field shows B's words, not what it had.
@@ -279,18 +281,18 @@ test('a field that saves as you type (a pause’s reason) shows what another pag
   // Saved that way: B, shown again, reads it.
   await setVisibility(page, 'hidden');
   await turn(b, 'visible');
-  await expect(paused(b).reason).toHaveValue('from B and A', { timeout: 15_000 });
+  await expect(runner(b).field('gift')).toHaveValue('from B and A', { timeout: 15_000 });
 });
 
-test('a reason ending in a space (as phone keyboards leave it) still shows another page’s edit once the data is back, so typing adds to it (audit 3 D2, P-29)', async ({ page, context }) => {
-  await startGo(page, PAUSED, 'paused');
-  const reason = paused(page).reason;
+test('a value ending in a space (as phone keyboards leave it; P-96: was a reason) still shows another page’s edit once the data is back, so typing adds to it (audit 3 D2, P-29)', async ({ page, context }) => {
+  await startGo(page, ON_GIVING, 'runner', GIVING);
+  const reason = runner(page).field('gift');
   await reason.fill('went well ');
   await saved(page);
   const b = await context.newPage();
-  await handTo(page, b, 'paused');
-  await expect(paused(b).reason).toHaveValue(/^went well ?$/);
-  await paused(b).reason.fill('B wrote a long careful reason');
+  await handTo(page, b, 'runner');
+  await expect(runner(b).field('gift')).toHaveValue(/^went well ?$/);
+  await runner(b).field('gift').fill('B wrote a long careful reason');
   await saved(b);
 
   await setVisibility(b, 'hidden');
@@ -302,7 +304,7 @@ test('a reason ending in a space (as phone keyboards leave it) still shows anoth
   await saved(page);
   await setVisibility(page, 'hidden');
   await turn(b, 'visible');
-  await expect(paused(b).reason).toHaveValue('B wrote a long careful reason, and A', { timeout: 15_000 });
+  await expect(runner(b).field('gift')).toHaveValue('B wrote a long careful reason, and A', { timeout: 15_000 });
 });
 
 test('a name emptied in one page doesn’t put back its old text over another page’s edit when it’s left (audit 3 D3, P-29)', async ({ page, context }) => {
@@ -421,13 +423,14 @@ test.describe('without the service worker (the wasm comes from the network)', ()
 });
 
 test('the waiting screen is drawn over the app: the screen beneath, the route and focus survive it (P-29)', async ({ page, context }) => {
-  await startGo(page, PAUSED, 'paused');
-  const reason = paused(page).reason;
+  // (P-96: the field is a value's on the runner; was the paused screen's reason.)
+  await startGo(page, ON_GIVING, 'runner', GIVING);
+  const reason = runner(page).field('gift');
   await reason.fill('need the job ad');
   await reason.focus();
   const url = page.url();
   const b = await context.newPage();
-  await handTo(page, b, 'paused');
+  await handTo(page, b, 'runner');
 
   await turn(page, 'visible');
   await expect(anotherTab(page)).toBeVisible({ timeout: 10_000 });

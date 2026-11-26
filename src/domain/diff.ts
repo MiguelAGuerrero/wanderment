@@ -1,4 +1,5 @@
 import { Collection, COLLECTIONS, Data, Id, RecordOf } from './types';
+import { isEntry, nameKey } from './values';
 
 /**
  * What to write: per collection, the records to put and the ids to remove. This is also the
@@ -96,6 +97,33 @@ export function undoEntry(prev: Data, next: Data): UndoEntry {
 
 const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
 
+/**
+ * P-96 audit F1: a run's `values` is one field holding every value, so a value typed after an action
+ * would stop that action's Undo from touching it at all (or, reverted whole, drop what was typed).
+ * Undone entry by entry instead (an entry is one name at one level): what the action added goes if it
+ * is still as the action left it; what it changed goes back if untouched since; what it removed comes
+ * back unless that name at that level was typed again since — a value typed since is never dropped.
+ * Anything that is not an entry is left as it is now.
+ */
+function revertValues(current: unknown[], before: unknown[], after: unknown[]): unknown[] {
+  const key = (e: unknown) => (isEntry(e) ? `${e.level}|${nameKey(e.name)}` : `raw:${JSON.stringify(e)}`);
+  const byKey = (list: unknown[]) => new Map(list.map((e) => [key(e), e] as const));
+  const b = byKey(before);
+  const a = byKey(after);
+  const now = new Set(current.map(key));
+  const out: unknown[] = [];
+  for (const e of current) {
+    const k = key(e);
+    const was = b.get(k);
+    const left = a.get(k);
+    if (isEntry(e) && left !== undefined && same(e, left) && !same(left, was)) {
+      if (was !== undefined) out.push(was);
+    } else out.push(e);
+  }
+  for (const [k, e] of b) if (isEntry(e) && !a.has(k) && !now.has(k)) out.push(e);
+  return out;
+}
+
 /** Reverts one record: created → removed, removed → back, changed → only untouched-since fields. */
 function revert<T extends object>(current: T | undefined, before: T | null, after: T | null): T | undefined {
   if (!before) return undefined; // the action created it
@@ -104,7 +132,12 @@ function revert<T extends object>(current: T | undefined, before: T | null, afte
   const b = before as Record<string, unknown>;
   const a = after as Record<string, unknown>;
   for (const key of new Set([...Object.keys(b), ...Object.keys(a)])) {
-    if (!same(b[key], a[key]) && same(out[key], a[key])) out[key] = b[key];
+    if (same(b[key], a[key])) continue;
+    if (same(out[key], a[key])) out[key] = b[key];
+    else if (key === 'values' && Array.isArray(out[key]) && (Array.isArray(b[key]) || b[key] === undefined) && (Array.isArray(a[key]) || a[key] === undefined)) {
+      const merged = revertValues(out[key] as unknown[], (b[key] as unknown[] | undefined) ?? [], (a[key] as unknown[] | undefined) ?? []);
+      out[key] = merged.length ? merged : undefined;
+    }
   }
   return out as T;
 }

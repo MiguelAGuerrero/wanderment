@@ -280,11 +280,11 @@ describe('the runner’s view, without planning', () => {
 });
 
 describe('where a run’s screen is (routes follow the data and write nothing)', () => {
-  it('Plan for a run in Plan or at the edge; the runner for one running or left on a step; the paused screen for the one paused; home for an ended one or none', () => {
+  it('Plan for a run in Plan or at the edge; the runner for one running or left on a step; home for the one paused (P-96, ruling 7; was: the paused screen), for an ended one or none', () => {
     expect(runRoute(running(), 'A')).toBe('runner');
     expect(runRoute(inPlan(), 'A')).toBe('plan');
     const paused = ok(running(), { kind: 'pause', runId: 'A' }).data;
-    expect(runRoute(paused, 'A')).toBe('paused');
+    expect(runRoute(paused, 'A')).toBe('home');
     expect(runRoute(ok(paused, { kind: 'home', runId: 'A' }).data, 'A')).toBe('runner');
     expect(runRoute(ok(inPlan(), { kind: 'home', runId: 'A' }).data, 'A')).toBe('plan');
     expect(runRoute(ok(inPlan(), { kind: 'resume', runId: 'A' }).data, 'A')).toBe('runner');
@@ -297,7 +297,8 @@ describe('where a run’s screen is (routes follow the data and write nothing)',
   it('reopening the app returns to the mode you were in: Plan for the run the app is on when it is in Plan; home for a run left in Plan from a tile', () => {
     expect(leftOff(running())).toEqual({ kind: 'runner', runId: 'A' });
     expect(leftOff(inPlan())).toEqual({ kind: 'plan', runId: 'A' });
-    expect(leftOff(ok(running(), { kind: 'pause', runId: 'A' }).data)).toEqual({ kind: 'paused', runId: 'A' });
+    // P-96 (ruling 7; was: the paused screen): a paused run reopens home.
+    expect(leftOff(ok(running(), { kind: 'pause', runId: 'A' }).data)).toEqual({ kind: 'home' });
     expect(leftOff(ok(inPlan(), { kind: 'home', runId: 'A' }).data)).toEqual({ kind: 'home' });
     const edge = world([seq('g', 'Goal', [], { open: true })], [aRun('A', 'g', [{ seq: 'g', at: null, round: 1 }], { status: 'running' })]);
     expect(leftOff(edge)).toEqual({ kind: 'plan', runId: 'A' });

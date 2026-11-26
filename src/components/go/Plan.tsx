@@ -1,12 +1,14 @@
 /**
- * B-12 (P-90): Plan — the sequence, not the step. Its own surface, unmistakably not the runner: a light
- * band pinned at the top with the word and Home in one fixed place; the routine's name as the heading;
+ * B-12 (P-90), P-96: Plan — the sequence, not the step. Its own surface, unmistakably not the runner: a
+ * light band pinned at the top with the word PLAN and nothing else (P-96: Home is the bottom-left side
+ * door, Done — at the edge only — the right one); the routine's name as the heading;
  * "planning · at <step>"; the steps as outlined rows with the one you were on marked HERE; "Repeat
  * from here" as a row with visible Move up / Move down; "Add a step". Everything structural is here
  * and only here, and a change made here changes the routine (the owner's decision), with an Undo that
  * stays until the next action. The ONE filled button is "Resume at <step>" (Start for something never
  * run), which goes back exactly where you were. Nothing here says Next; Done exists only at the edge,
- * in its own slot beside Home.
+ * in its own slot beside Home. P-96: a step's menu has Gives… (a name later steps use as {name}); names
+ * in words are chips; while words are typed, a bar above the keyboard offers the names given above.
  *
  * P-95: every step row has a grip at its left edge ("Reorder <words>"): dragged (touch or mouse) it
  * moves the row among its siblings — the row stays in place, dashed, and a line shows where it will go
@@ -28,9 +30,11 @@ import { ComponentRef, useEffect, useLayoutEffect, useRef, useState } from 'reac
 import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { RoutineEdit } from '@/domain/run';
-import { PlanDivider, PlanRow, planView, runRoute } from '@/domain/runView';
+import { namesOffered, PlanDivider, PlanRow, planView, runRoute } from '@/domain/runView';
+import { isName, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
 import { useStore } from '@/store/useStore';
 
+import { decorative } from '../a11y';
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
 import { Repeat } from './Repeat';
@@ -38,6 +42,7 @@ import { goHome } from './Runner';
 import { readDraft, writeDraft } from './session';
 import { G, SP, TARGET } from './tokens';
 import { Btn, caretToEnd, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
+import { NameChip } from './Values';
 
 const WEB = Platform.OS === 'web';
 /** The focus ring: its own colour, with a gap (never the white of HERE). */
@@ -69,7 +74,7 @@ function readTyping(key: string): Typing | null {
   }
 }
 
-type Menu = { row: string } | { divider: string } | { routine: true };
+type Menu = { row: string } | { divider: string } | { routine: true } | { gives: string };
 
 export function Plan({ runId, routineId }: { runId?: string; routineId?: string }) {
   const data = useStore((s) => s.data);
@@ -105,6 +110,8 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
   };
   const [nameTaken, setNameTaken] = useState(false);
   const [addFocused, setAddFocused] = useState(false);
+  /** P-96 audit F6: the field the names bar was entered from (by the keyboard), so a chip inserts there. */
+  const lastField = useRef<HTMLInputElement | null>(null);
   /** Routines opened or closed by hand (by row key); the rest follow `opened`. */
   const [folds, setFolds] = useState<Record<string, boolean>>({});
   /** A row being dragged by its grip (P-95): its key and how far the pointer has moved. */
@@ -133,7 +140,7 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
     if (!focused || here) return;
     if (gone || !runOf || route === 'home' || undone) goHome();
     else if (route === 'runner') router.replace(`/go/run/${runOf}`);
-    else if (route === 'paused') router.replace(`/go/run/${runOf}/paused`);
+    // P-96: `runRoute` has no paused screen any more (a paused run is home).
     else router.replace(`/go/run/${runOf}/plan`);
   }, [focused, here, gone, runOf, route, undone]);
 
@@ -346,6 +353,7 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
 
   const close = () => setMenu(null);
   const menuRow = menu && 'row' in menu ? rowAt(menu.row) : undefined;
+  const givesRow = menu && 'gives' in menu ? rowAt(menu.gives) : undefined;
   const menuDivider = menu && 'divider' in menu ? (menu.divider === '' ? v.divider : v.rows.find((r) => r.divider && parentOf(keyOf(r.path)) === menu.divider)?.divider) : undefined;
   const startTyping = (t: Typing) => {
     close();
@@ -353,11 +361,44 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
     setTyping(t);
   };
 
+  // P-96 (ruling 5, journey 2): the bar above the keyboard — names given above where the words will stand.
+  const typingIndex = typing && typing.mode !== 'name' ? v.rows.findIndex((r) => keyOf(r.path) === typing.path) : -1;
+  const offered = typing && typing.mode !== 'name' ? (typingIndex >= 0 ? namesOffered(v.rows, { mode: typing.mode, index: typingIndex }) : []) : addFocused ? namesOffered(v.rows, { mode: 'end' }) : [];
+  /**
+   * A name from the bar, at the caret of the field being typed in. A pointer press never takes the focus
+   * from the field; from the keyboard (a chip reached by Alt+↓ or Tab) the focus goes back to the field.
+   */
+  const insertName = (name: string) => {
+    const token = `{${name}}`;
+    const now = live.current ? live.current.text : adding;
+    const el = (WEB && typeof document !== 'undefined' ? document.activeElement : null) as HTMLInputElement | null;
+    const isField = (x: HTMLInputElement | null) => !!x && (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') && typeof x.selectionStart === 'number';
+    const field = isField(el) ? el : isField(lastField.current) && lastField.current!.isConnected ? lastField.current : null;
+    const from = field ? Math.min(field.selectionStart ?? now.length, now.length) : now.length;
+    const to = field ? Math.min(field.selectionEnd ?? from, now.length) : from;
+    const text = now.slice(0, from) + token + now.slice(to);
+    if (live.current) type(text);
+    else setAdding(text);
+    if (field)
+      requestAnimationFrame(() => {
+        if (document.activeElement !== field) field.focus();
+        field.setSelectionRange(from + token.length, from + token.length);
+      });
+  };
+  /** The focus left the bar for somewhere that is not the field it came from: the typing is over, as if the field had been left. */
+  const leftBar = () => {
+    if (live.current) keep(false);
+    setAddFocused(false);
+  };
+
   const layer = menuRow ? (
     <Sheet title={menuRow.words} onClose={close} testID="go-plan-menu" fallback={title}>
       {(menuRow.kind !== 'routine' || menuRow.broken) && <Btn kind="plain" label="Change the words" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
       <Btn kind="plain" label="Add a step after" onPress={() => startTyping({ mode: 'after', path: keyOf(menuRow.path), text: '' })} />
-      {menuRow.kind === 'step' && <Btn kind="plain" label="Break it down" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
+      {/* P-96: a step that gives a name is not broken down (its value would have nowhere to be typed). */}
+      {menuRow.canBreakDown && <Btn kind="plain" label="Break it down" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
+      {/* P-96 (journey 1): what this step gives — a name later steps use as {name}. */}
+      {menuRow.kind === 'step' && <Btn kind="plain" label="Gives…" onPress={() => setMenu({ gives: keyOf(menuRow.path) })} />}
       {menuRow.kind === 'step' && (
         <Btn
           kind="plain"
@@ -419,6 +460,8 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
       />
       <Btn label="Close" onPress={close} />
     </Sheet>
+  ) : givesRow ? (
+    <GivesSheet row={givesRow} edit={edit} onClose={close} fallback={title} />
   ) : menu && 'routine' in menu ? (
     <Sheet title={v.name} onClose={close} testID="go-plan-routine" fallback={title}>
       <Btn kind="plain" label="Change the name" onPress={() => startTyping({ mode: 'name', path: '', text: v.name })} />
@@ -432,7 +475,7 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
           }}
         />
       )}
-      <Btn kind="plain" label={`Ends here: ${v.open ? 'Off' : 'On'}`} pressed={!v.open} onPress={() => edit(v.routineId, { kind: 'open', open: !v.open })} />
+      {/* P-96: no "Ends here" — finishing never opens Plan, so it would mean nothing (the stored field is kept and read). */}
       {!v.runId && (
         <Btn
           kind="plain"
@@ -467,8 +510,16 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
   const foot = (
     <>
       <Notice onUndone={() => focusOn(title)} reserve={!floor} />
-      {forward && (
-        <View style={styles.foot}>
+      {/* P-96 (the amendment): the side doors — left, Home (the run stays in Plan); right, Done at the edge only. */}
+      <View style={styles.doors} testID="go-side-doors">
+        <View style={styles.door}>
+          <Btn mark="home" label="Home" onPress={goHome} testID="go-plan-home" />
+        </View>
+        <View style={styles.door}>{v.canDone && <Btn label="Done" spoken={`Done with ${v.name}`} onPress={() => v.runId && act().doneLevel(v.runId)} testID="go-plan-done" />}</View>
+      </View>
+      {/* The filled button's slot is kept when there is nothing forward (P-96): the side doors never move. */}
+      <View style={styles.foot}>
+        {forward ? (
           <Btn
             kind="filled"
             label={forward.label}
@@ -487,8 +538,10 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
               else act().startRoutine(forward.routineId, kept);
             }}
           />
-        </View>
-      )}
+        ) : (
+          <View style={styles.emptySlot} />
+        )}
+      </View>
     </>
   );
 
@@ -498,8 +551,6 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
         <T title ink size={20} style={styles.word} testID="go-plan-word">
           PLAN
         </T>
-        {v.canDone && <Btn ink label="Done" spoken={`Done with ${v.name}`} onPress={() => v.runId && act().doneLevel(v.runId)} testID="go-plan-done" />}
-        <Btn ink label="Home" onPress={goHome} testID="go-plan-home" />
       </View>
       {/* Web: the heading ("Plan: <name>") takes the focus and is read, unless the open row has it. Native: focus is not moved, so it is always said. */}
       {(openFirst || !WEB) && <Said text={`Plan: ${v.name}`} />}
@@ -581,10 +632,18 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
                             </T>
                           </View>
                         )}
-                        <T style={narrow ? styles.wordsNarrow : styles.words} testID="go-plan-words">
-                          {row.kind === 'wait' && <T dim>Wait for </T>}
-                          {row.words}
-                        </T>
+                        <View style={narrow ? styles.wordsNarrow : styles.words}>
+                          <T testID="go-plan-words">
+                            {row.kind === 'wait' && <T dim>Wait for </T>}
+                            <Chips words={row.words} />
+                          </T>
+                          {!!row.gives && (
+                            <T dim testID="go-plan-gives">
+                              {'gives '}
+                              <NameChip name={row.gives} />
+                            </T>
+                          )}
+                        </View>
                       </View>
                       <Btn kind="plain" mark="more" spoken={`More for ${row.words}`} onPress={() => setMenu({ row: key })} dataSet={{ more: key }} style={styles.sq} />
                     </View>
@@ -611,7 +670,7 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
               value={adding}
               onChangeText={setAdding}
               onFocus={() => setAddFocused(true)}
-              onBlur={() => setAddFocused(false)}
+              onBlur={(e) => !toBar(e) && setAddFocused(false)}
               placeholder="Add a step"
               accessibilityLabel="Add a step"
               keepFocus
@@ -624,6 +683,7 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
         </View>
         {floor && foot}
       </ScrollView>
+      {offered.length > 0 && <NamesBar names={offered} onPick={insertName} lastField={lastField} onLeave={leftBar} />}
       {!floor && foot}
     </GoScreen>
   );
@@ -784,8 +844,158 @@ function Typed({ value, label, placeholder, onChange, onSubmit, onBlur }: { valu
   }, []);
   return (
     <View ref={box} {...{ dataSet: { typing: '' } }}>
-      <GrowField value={value} onChangeText={onChange} onSubmit={onSubmit} onBlur={() => !gone.current && onBlur()} accessibilityLabel={label} placeholder={placeholder} autoFocus={!WEB} testID="go-plan-typed" />
+      <GrowField value={value} onChangeText={onChange} onSubmit={onSubmit} onBlur={(e) => !gone.current && !toBar(e) && onBlur()} accessibilityLabel={label} placeholder={placeholder} autoFocus={!WEB} testID="go-plan-typed" />
     </View>
+  );
+}
+
+/** P-96: a row's words, each `{name}` in them a chip. */
+function Chips({ words }: { words: string }) {
+  const parts = parseWords(words);
+  if (!parts.some((p) => p.kind === 'name')) return <>{words}</>;
+  return <>{parts.map((p, i) => (p.kind === 'text' ? p.text : <NameChip key={i} name={p.name} />))}</>;
+}
+
+/** P-96 audit F6: the focus is going into the names bar (a field left for it is not left). */
+function toBar(e: unknown): boolean {
+  const ev = e as { relatedTarget?: unknown; nativeEvent?: { relatedTarget?: unknown } } | undefined;
+  const t = (ev?.relatedTarget ?? ev?.nativeEvent?.relatedTarget) as Element | null | undefined;
+  return !!t && typeof t.closest === 'function' && !!t.closest('[data-testid="go-names-bar"]');
+}
+
+/**
+ * P-96 (ruling 5, journey 2): the bar above the keyboard while words are typed — the names given above,
+ * each inserting `{name}` at the caret. A pointer press never takes the focus from the field. From the
+ * keyboard (audit F6): Alt+↓ in the field goes to the first name (Tab reaches them too); ←/→ move
+ * between them; Return or Space inserts and goes back to the field; Esc goes back without inserting.
+ */
+function NamesBar({ names, onPick, lastField, onLeave }: { names: string[]; onPick: (name: string) => void; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
+  const box = useRef<ViewRef>(null);
+  const leave = useRef(onLeave);
+  useEffect(() => {
+    leave.current = onLeave;
+  });
+  useEffect(() => {
+    const el = box.current as unknown as HTMLElement | null;
+    if (!WEB || !el || typeof el.addEventListener !== 'function') return;
+    const isField = (t: EventTarget | null): t is HTMLInputElement => !!t && ((t as Element).tagName === 'INPUT' || (t as Element).tagName === 'TEXTAREA');
+    const chips = () => Array.from(el.querySelectorAll<HTMLElement>('[data-testid="go-names-chip"]'));
+    const keep = (e: Event) => e.preventDefault();
+    const into = (e: FocusEvent) => {
+      if (isField(e.relatedTarget)) lastField.current = e.relatedTarget;
+    };
+    const out = (e: FocusEvent) => {
+      const next = e.relatedTarget as Node | null;
+      if (next && (el.contains(next) || next === lastField.current)) return;
+      leave.current();
+    };
+    const key = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.altKey && e.key === 'ArrowDown' && isField(t) && !el.contains(t)) {
+        lastField.current = t;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        chips()[0]?.focus();
+        return;
+      }
+      if (!t || !el.contains(t)) return;
+      const list = chips();
+      const i = list.indexOf(t);
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        lastField.current?.focus();
+      } else if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && i >= 0) {
+        e.preventDefault();
+        list[(i + (e.key === 'ArrowRight' ? 1 : list.length - 1)) % list.length]?.focus();
+      }
+    };
+    el.addEventListener('mousedown', keep);
+    el.addEventListener('focusin', into);
+    el.addEventListener('focusout', out);
+    window.addEventListener('keydown', key, true);
+    return () => {
+      el.removeEventListener('mousedown', keep);
+      el.removeEventListener('focusin', into);
+      el.removeEventListener('focusout', out);
+      window.removeEventListener('keydown', key, true);
+    };
+  }, [lastField]);
+  return (
+    <View ref={box} style={styles.bar} testID="go-names-bar" role="toolbar" aria-label="Names">
+      {names.map((n) => (
+        <Pressable key={n} onPress={() => onPick(n)} accessibilityRole="button" accessibilityLabel={`Insert {${n}}`} style={(state) => [styles.chip, (state as { focused?: boolean }).focused && RING]} testID="go-names-chip">
+          <T bold>
+            <T dim {...decorative}>
+              {'{'}
+            </T>
+            {n}
+            <T dim {...decorative}>
+              {'}'}
+            </T>
+          </T>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+/**
+ * P-96 (journey 1): "Gives…" — one thing, the name (suggested from the step's words, editable). Gives
+ * <name> keeps it; on a step that gives one already, a new name renames it in this routine's steps and
+ * in open runs (one write), and "Gives nothing" takes it off (readers keep their words: they ask when
+ * run). Every one has its notice and Undo. Close leaves it as it was.
+ */
+function GivesSheet({ row, edit, onClose, fallback }: { row: PlanRow; edit: (seq: string, e: RoutineEdit) => { ok: boolean; reason?: string }; onClose: () => void; fallback: { current: unknown } }) {
+  const [name, setName] = useState(() => row.gives ?? suggestName(row.words));
+  const [taken, setTaken] = useState(false);
+  const good = isName(name);
+  const shown = tidyName(name);
+  const apply = () => {
+    if (!good) return;
+    if (row.gives && shown === row.gives) return onClose();
+    const did = row.gives && nameKey(row.gives) ? edit(row.scope, { kind: 'renameValue', from: row.gives, to: name }) : edit(row.seq, { kind: 'gives', item: row.itemId, name });
+    setTaken(!did.ok && did.reason === 'same-name');
+    if (did.ok) onClose();
+  };
+  return (
+    <Sheet title={row.words} onClose={onClose} testID="go-gives-sheet" fallback={fallback}>
+      <T dim nativeID="go-gives-label">
+        Gives
+      </T>
+      <Field
+        value={name}
+        onChangeText={(t) => {
+          setName(t);
+          setTaken(false);
+        }}
+        accessibilityLabel="Gives"
+        maxLength={MAX_NAME}
+        autoCapitalize="none"
+        autoCorrect={false}
+        submitBehavior="submit"
+        returnKeyType="done"
+        onSubmitEditing={apply}
+        testID="go-gives-name"
+        {...{ dataSet: { first: 'true' } }}
+      />
+      {taken && (
+        <T color={G.err} accessibilityRole="alert" testID="go-gives-error">
+          ! This routine already uses that name
+        </T>
+      )}
+      <Btn kind="filled" label={good ? `Gives ${shown}` : 'Gives'} disabled={!good} onPress={apply} size={18} testID="go-gives-apply" />
+      {!!row.gives && (
+        <Btn
+          kind="plain"
+          label="Gives nothing"
+          onPress={() => {
+            if (edit(row.seq, { kind: 'gives', item: row.itemId }).ok) onClose();
+          }}
+        />
+      )}
+      <Btn label="Close" onPress={onClose} />
+    </Sheet>
   );
 }
 
@@ -894,5 +1104,12 @@ const styles = StyleSheet.create({
   addBtn: { minWidth: TARGET + SP.s3, justifyContent: 'center', marginLeft: 'auto' },
   addField: { flex: 1, minWidth: 96, paddingHorizontal: SP.s2 },
   foot: { paddingHorizontal: SP.s3, paddingBottom: SP.s3, paddingTop: SP.s1 },
+  // The side doors: two halves, left and right, always in the same places (P-96).
+  doors: { flexDirection: 'row', gap: SP.s2, paddingHorizontal: SP.s3, paddingTop: SP.s1, paddingBottom: SP.s2 },
+  door: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
+  bar: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2, paddingHorizontal: SP.s3, paddingVertical: SP.s2, backgroundColor: G.surf, borderTopWidth: 2, borderTopColor: G.line },
+  chip: { minHeight: TARGET, minWidth: TARGET, justifyContent: 'center', paddingHorizontal: SP.s3, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf2 },
   forward: { minHeight: 56 },
+  // As tall as the filled button and the room its shadow keeps.
+  emptySlot: { minHeight: 60 },
 });

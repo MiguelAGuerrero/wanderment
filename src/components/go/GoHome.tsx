@@ -1,113 +1,101 @@
 /**
- * B-11 slice 1 (P-86), B-12 (P-90): home (B-11 §9b; B-12 v8) — everything you have open is a tile in
- * its routine's colour (the name, where it is and in which mode — "at <step>" with Resume, or
- * "planning · …" with Plan, drawn as the Plan surface is — or Start), in a fixed order, then a New
- * tile, and the prompt "I'm going to…" at the bottom, in thumb reach. Typing filters the tiles, then
- * lists other routines and things done before. Nothing starts until a row is chosen; Return takes the
- * first, which is always marked. `/go` opens where you left off — the mode you were in — once per load.
+ * B-11 slice 1 (P-86), B-12 (P-90), P-96: home (B-11 §9b; B-12 v8) — everything you have open is a
+ * tile in its routine's colour (the name, where it is and in which mode — "at <step>" with the run's
+ * values in place, or "planning · …", drawn as the Plan surface is), in a fixed order. `/go` opens
+ * where you left off — the mode you were in — once per load.
  *
- * P-95: the prompt only finds what exists (no "New: <words>" row); making something is the New tile's
- * — the prompt's words, if any, are its name, else it asks for one in a sheet of its own. The run the
- * app is on (paused by Home, say) is the first tile, and its Resume is the screen's one filled button.
+ * P-96 (one navigation scheme): no title in words (no "Nothing running") and no prompt. The run the
+ * app is on (paused by Pause, say) is the first tile, marked; its tile carries only what is about it
+ * (Plan) and the one filled button, lowest, is "Resume <name>". Above it the side doors: + New (its
+ * own sheet asks for the name). The notice has its own row above them, never over a tile.
  */
 import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { tileLine } from '@/domain/goText';
+import { currentRun, isPlanning, place } from '@/domain/run';
 import { homeShown, leftOff, opensAt, Tile } from '@/domain/runView';
-import { searchStarts, StartRow } from '@/domain/starts';
 import { useStore } from '@/store/useStore';
 
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
 import { decideWhere, wentHome, whereDecided } from './session';
 import { G, hueOf, SP, TARGET } from './tokens';
-import { Btn, Field, focusOn, focusSoon, GoScreen, H1, hard, InputRef, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
-
-const WEB = Platform.OS === 'web';
+import { Btn, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
+import { Parts } from './Values';
 
 export function GoHome() {
   const data = useStore((s) => s.data);
   const focused = useIsFocused();
   const act = useStore.getState;
-  const [query, setQuery] = useState('');
-  const field = useRef<InputRef>(null);
   const { width } = useWindowDimensions();
 
-  // Where you left off, decided once per load: the runner, Plan, the paused screen, or here.
-  // (Home put the run down: home, audit F3.)
+  // Where you left off, decided once per load: the runner, Plan, or here (a paused run is here, first).
   const [first] = useState(() => (whereDecided() ? { kind: 'home' as const, runId: undefined } : opensAt(data, wentHome())));
   useEffect(() => {
     decideWhere();
     if (first.kind === 'runner') router.push(`/go/run/${first.runId}`);
     else if (first.kind === 'plan') router.push(`/go/run/${first.runId}/plan`);
-    else if (first.kind === 'paused') router.push(`/go/run/${first.runId}/paused`);
   }, [first]);
   // Until it has gone there (and come back), this screen shows nothing: no flash of tiles on the way to a run.
   const [back, setBack] = useState(false);
   useFocusEffect(useCallback(() => () => setBack(true), []));
   const here = first.kind === 'home' || back;
-  // On every arrival the title has the focus (never nothing; not the prompt: that would raise the keyboard).
+  // On every arrival the heading has the focus (never nothing).
   const title = useRef<TextRef>(null);
   useEffect(() => {
     if (focused && here) focusSoon(title);
   }, [focused, here]);
 
-  const typed = query.trim();
-  const rows = searchStarts(data, query);
-  const found = rows.filter((r): r is StartRow & { tile: Tile } => r.kind === 'tile' && !!r.tile);
-  // Nothing typed: the run the app is on first (P-95); typed, the order the search found them in.
-  const tiles = typed ? found : homeShown(data, found.map((r) => r.tile)).map((t) => found.find((r) => r.tile === t)!);
-  const others = typed ? rows.filter((r) => r.kind !== 'tile') : [];
-  // One thing at a time: while a run is running it is the only thing home lets you resume or start
-  // (its tile's Resume, filled). Every other Resume and Start is shown, unavailable, until you pause
-  // it — never a silent switch. Plan and New run nothing (New makes the routine only), so they stay.
+  const tiles = homeShown(data);
+  // One thing at a time: while a run is running it is the only thing home lets you resume or start.
+  // Every other Resume and Start is shown, unavailable, until you pause it — never a silent switch.
+  // Plan and New run nothing (New makes the routine only), so they stay.
   const now = leftOff(data);
   const runningId = now.kind === 'runner' ? now.runId : undefined;
   const running = !!runningId;
-  // The run the app is on, running or paused: its Resume is the one filled button (P-95: Home from the runner leaves it paused, first).
-  const onIt = now.kind === 'runner' || now.kind === 'paused' ? now.runId : undefined;
-  const busy = (row: StartRow) => running && row.runId !== runningId && (row.action === 'resume' || row.action === 'start');
+  // The run the app is on, running or paused (not in Plan): the bottom bar resumes it (P-96).
+  const cur = currentRun(data);
+  const onIt = now.kind === 'runner' ? now.runId : cur && cur.status === 'paused' && !!place(data, cur) && !isPlanning(data, cur) ? cur.id : undefined;
+  const onTile = onIt ? tiles.find((t) => t.runId === onIt && t.action === 'resume') : undefined;
+  const busy = (t: Tile) => running && t.runId !== runningId && (t.action === 'resume' || t.action === 'start');
 
   /** A routine's Plan: its run's (the run is put in Plan first: one write), or — with no run — the routine's own. */
   const toPlan = (routineId: string, runId?: string) => {
     if (runId && !act().planRun(runId).ok) return;
-    setQuery('');
     router.push(runId ? `/go/run/${runId}/plan` : `/go/routine/${routineId}`);
   };
-  /** New: the routine only (named, on home, no run), then its Plan with the open row focused. Nothing typed: its own sheet asks for the name. */
+  /** New: its own sheet asks for the name; the routine only (named, on home, no run), then its Plan with the open row focused. */
   const [naming, setNaming] = useState(false);
-  const newTile = useRef<ViewRef>(null);
+  const newBtn = useRef<ViewRef>(null);
   const create = (words: string) => {
-    if (!words.trim()) return setNaming(true);
     const did = act().createRoutine(words);
     if (!did.ok || !did.routineId) return;
     setNaming(false);
     toPlan(did.routineId);
   };
-  /** A row is chosen: only now does anything start. Refused: nothing changes, the words stay. */
-  const choose = (row: StartRow) => {
+  /** A tile's own button: only now does anything start. Refused: nothing changes. */
+  const choose = (t: Tile) => {
     const s = act();
-    if (row.action === 'plan') return row.routineId && toPlan(row.routineId, row.runId);
+    if (t.action === 'plan') return toPlan(t.routineId, t.runId);
     // Nothing to start yet (no steps): its Plan is where the first is added.
-    if (row.tile?.empty && row.routineId) return toPlan(row.routineId);
-    const did = row.action === 'resume' && row.runId ? s.resumeRun(row.runId) : row.routineId ? s.startRoutine(row.routineId) : undefined;
-    if (did && !did.ok && did.reason === 'empty' && row.routineId) return toPlan(row.routineId);
-    if (!did?.ok || !did.runId) return;
-    setQuery('');
+    if (t.empty) return toPlan(t.routineId);
+    const did = t.action === 'resume' && t.runId ? s.resumeRun(t.runId) : s.startRoutine(t.routineId);
+    if (!did.ok && did.reason === 'empty') return toPlan(t.routineId);
+    if (!did.ok || !did.runId) return;
     router.push(`/go/run/${did.runId}`);
   };
 
   const can = useRunUndo();
-  /** After Undo here: what came back (a run that had ended is running again: its runner; one ended at the edge: its Plan). */
+  /** After Undo here: what came back (a run that had ended is running again: its runner; one in Plan: its Plan). */
   const undone = () => {
     const back = leftOff(useStore.getState().data);
     // Only what the Undo brought back: a run that was here all along (left in Plan, say) is not gone to.
     const came = back.kind !== now.kind || back.runId !== now.runId;
     if (came && back.kind === 'runner') router.push(`/go/run/${back.runId}`);
     else if (came && back.kind === 'plan') router.push(`/go/run/${back.runId}/plan`);
-    else focusOn(field);
+    else focusOn(title);
   };
   useKeys(
     focused && !naming,
@@ -117,85 +105,38 @@ export function GoHome() {
         can.undo();
         undone();
       },
-      Escape: () => setQuery(''),
     },
     true,
   );
 
   const columns = width >= 340 ? 2 : 1;
   return (
-    <GoScreen testID="go-home" settled={here} layer={naming ? <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newTile} /> : null}>
+    <GoScreen testID="go-home" settled={here} layer={naming ? <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newBtn} /> : null}>
       <View style={[styles.flex, !here && styles.away]}>
+      {/* The top is context only (P-96): no title in words; ⚙ top right. The heading is for a screen reader and for focus. */}
+      <HiddenH1 ref={title}>Home</HiddenH1>
       <View style={styles.bar}>
-        <H1 ref={title} style={styles.title}>{running ? 'Running' : 'Nothing running'}</H1>
         <Btn kind="plain" mark="gear" spoken="Settings" onPress={() => router.push('/go/settings')} style={styles.settings} testID="go-settings-btn" />
       </View>
       <ScrollView style={styles.flex} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" testID="go-tiles">
         <View style={styles.grid}>
-          {tiles.map((r) => (
-            <TileBox key={r.tile.routineId} tile={r.tile} first={!!typed && r.first} wide={columns === 1} onPress={() => choose(r)} onPlan={() => toPlan(r.tile.routineId, r.tile.runId)} only={!!onIt && r.runId === onIt && r.tile.action === 'resume'} unavailable={busy(r)} />
+          {tiles.map((t) => (
+            <TileBox key={t.routineId} tile={t} wide={columns === 1} onPress={() => choose(t)} onPlan={() => toPlan(t.routineId, t.runId)} resumed={t === onTile} unavailable={busy(t)} />
           ))}
-          <Pressable
-            ref={newTile}
-            onPress={() => create(typed)}
-            accessibilityRole="button"
-            accessibilityLabel={typed ? `New: ${typed}` : 'New'}
-            testID="go-new"
-            style={(state) => [styles.tile, styles.newTile, columns === 1 ? styles.tileWide : [styles.tileHalf, styles.newHalf], (state as { focused?: boolean }).focused && RING]}>
-            {/* With words in the prompt it says it will use them (audit F5). */}
-            <T bold size={18} style={styles.newWords}>
-              {typed ? `New: ${typed}` : 'New'}
-            </T>
-          </Pressable>
         </View>
-        {others.length > 0 && (
-          <View style={styles.rows} testID="go-rows">
-            {others.map((r) => (
-              <Pressable
-                key={`${r.kind}:${r.routineId ?? r.words}`}
-                onPress={() => choose(r)}
-                disabled={busy(r)}
-                accessibilityRole="button"
-                accessibilityState={{ disabled: busy(r) }}
-                accessibilityLabel={`Start ${r.words}`}
-                testID={`go-row-${r.kind}`}
-                {...{ dataSet: { first: r.first ? 'true' : 'false' } }}
-                style={(state) => [styles.row, r.first && styles.rowFirst, busy(r) && styles.rowOff, (state as { focused?: boolean }).focused && RING]}>
-                <Mark name={r.kind === 'routine' ? 'routine' : 'lines'} color={busy(r) ? G.dim : G.text} />
-                <T style={styles.rowWords} dim={busy(r)}>
-                  <T dim>Start </T>
-                  {r.words}
-                </T>
-                {r.first && <Mark name="return" color={G.text} />}
-              </Pressable>
-            ))}
-          </View>
-        )}
       </ScrollView>
+      {/* Its own row, in the flow above the side doors: never over a tile (ruling 8). */}
       <Notice onUndone={undone} />
-      <View style={styles.prompt}>
-        <T dim style={styles.lead} accessible={false} aria-hidden>
-          I’m going to
-        </T>
-        <Field
-          ref={field}
-          bare
-          value={query}
-          onChangeText={setQuery}
-          placeholder="…"
-          accessibilityLabel="I’m going to…"
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="go"
-          submitBehavior="submit"
-          onSubmitEditing={() => {
-            // Return takes the first, marked row; with nothing typed it takes nothing.
-            const top = typed ? rows.find((r) => r.first) : undefined;
-            if (top) choose(top);
-          }}
-          style={styles.promptField}
-          testID="go-prompt"
-        />
+      <View style={styles.doors} testID="go-side-doors">
+        {/* Left: another place (My routines, once it exists). Right: + New. */}
+        <View style={styles.door} />
+        <View style={styles.door}>
+          <Btn ref={newBtn} mark="add" label="New" onPress={() => setNaming(true)} testID="go-new" />
+        </View>
+      </View>
+      {/* The one filled button, lowest — or its slot, empty (never filled by something else). */}
+      <View style={styles.foot}>
+        {onTile ? <Btn kind="filled" label={`Resume ${onTile.name}`} onPress={() => choose(onTile)} size={18} style={styles.forward} testID="go-resume" /> : <View style={styles.emptySlot} />}
       </View>
       </View>
     </GoScreen>
@@ -203,8 +144,8 @@ export function GoHome() {
 }
 
 /**
- * New with nothing in the prompt (P-95): its own sheet, never the prompt — the name, then Plan (the
- * routine is made only now, and its Plan opens). Return in the field is the same as Plan.
+ * New (P-95, P-96): its own sheet — the name, then Plan (the routine is made only now, and its Plan
+ * opens). Return in the field is the same as Plan.
  */
 function NewSheet({ onMake, onClose, fallback }: { onMake: (words: string) => void; onClose: () => void; fallback: { current: unknown } }) {
   const [name, setName] = useState('');
@@ -218,28 +159,26 @@ function NewSheet({ onMake, onClose, fallback }: { onMake: (words: string) => vo
   );
 }
 
-const RING = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: G.focus, outlineOffset: 3 } as object) : null;
-
 interface TileProps {
   tile: Tile;
-  first: boolean;
   wide: boolean;
   /** Its one button: Resume, Start, or — left in Plan — Plan. */
   onPress: () => void;
   /** Its Plan (the word, on a tile that is not in Plan already). */
   onPlan: () => void;
-  /** It is the run that is running: its Resume is the one filled action. */
-  only: boolean;
+  /** P-96: it is the run the bottom bar resumes: the tile marks it, and carries no Resume of its own. */
+  resumed: boolean;
   /** Something else is running: its Resume or Start is shown, not available until that is paused. */
   unavailable: boolean;
 }
 
 /**
- * A tile: the routine's colour, its name, where its run is, and Resume or Start (in words, outlined:
- * never the filled button) with Plan beside it. A run left in Plan is drawn as the Plan surface is —
- * dark, outlined in its colour — and says "planning · …" with Plan as its one button (B-12 v8).
+ * A tile: the routine's colour, its name, where its run is (P-96: with its values in place, marked as
+ * values — inverted), and Resume or Start (in words, outlined: never the filled button) with Plan beside
+ * it. A run left in Plan is drawn as the Plan surface is — dark, outlined in its colour — and says
+ * "planning · …" with Plan as its one button (B-12 v8).
  */
-function TileBox({ tile, first, wide, onPress, onPlan, only, unavailable }: TileProps) {
+function TileBox({ tile, wide, onPress, onPlan, resumed, unavailable }: TileProps) {
   const hue = hueOf(tile.hue);
   const l = tileLine(tile);
   const planning = tile.state === 'planning';
@@ -252,7 +191,7 @@ function TileBox({ tile, first, wide, onPress, onPlan, only, unavailable }: Tile
       role="group"
       aria-label={l.says}
       accessibilityLabel={l.says}
-      {...{ dataSet: { state: tile.state, current: tile.current ? 'true' : 'false', first: first ? 'true' : 'false', routine: tile.routineId } }}>
+      {...{ dataSet: { state: tile.state, current: tile.current ? 'true' : 'false', resumed: resumed ? 'true' : 'false', routine: tile.routineId } }}>
       <View style={styles.tileHead}>
         {tile.current && (
           <View role="img" aria-label="You are here" accessibilityLabel="You are here" style={styles.hereMark}>
@@ -262,14 +201,13 @@ function TileBox({ tile, first, wide, onPress, onPlan, only, unavailable }: Tile
         <T ink={ink} bold size={18} style={styles.tileName}>
           {tile.name}
         </T>
-        {first && <Mark name="return" color={color} />}
       </View>
       {(!!l.line || !!l.mark) && (
         <View style={styles.tileLine}>
           {l.mark && <Mark name={l.mark === 'wait' ? 'wait' : 'pause'} size={20} color={color} />}
           {!!l.line && (
             <T ink={ink} style={styles.tileName} testID="go-tile-line">
-              {l.line}
+              {l.parts ? <Parts parts={l.parts} ink={color} on={planning ? G.surf : hue.c} /> : l.line}
             </T>
           )}
         </View>
@@ -280,9 +218,9 @@ function TileBox({ tile, first, wide, onPress, onPlan, only, unavailable }: Tile
         </T>
       )}
       <View style={styles.tileFoot}>
-        {/* Nothing to start yet (no steps): no Start, dimmed or otherwise — Plan is where the first step is added. */}
-        {!tile.empty && <Btn ink={ink} kind={only ? 'filled' : 'outline'} disabled={unavailable} label={l.button} spoken={l.spoken} onPress={onPress} style={styles.tileBtn} />}
-        {!planning && <Btn ink kind="outline" label="Plan" spoken={`Plan ${tile.name}`} onPress={onPlan} style={tile.empty ? styles.tileBtn : styles.tilePlanBtn} />}
+        {/* Nothing to start yet (no steps): no Start — Plan is where the first step is added. Resumed by the bottom bar: no Resume here. */}
+        {!tile.empty && !resumed && <Btn ink={ink} kind="outline" disabled={unavailable} label={l.button} spoken={l.spoken} onPress={onPress} style={styles.tileBtn} />}
+        {!planning && <Btn ink kind="outline" label="Plan" spoken={`Plan ${tile.name}`} onPress={onPlan} style={tile.empty || resumed ? styles.tileBtn : styles.tilePlanBtn} />}
       </View>
     </View>
   );
@@ -291,10 +229,9 @@ function TileBox({ tile, first, wide, onPress, onPlan, only, unavailable }: Tile
 const styles = StyleSheet.create({
   flex: { flex: 1, minHeight: 0 },
   away: { opacity: 0 },
-  bar: { minHeight: 56, flexDirection: 'row', alignItems: 'center', paddingLeft: SP.s3, paddingRight: SP.s2, gap: SP.s1 },
+  bar: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingLeft: SP.s3, paddingRight: SP.s2, gap: SP.s1 },
   settings: { width: TARGET, paddingHorizontal: 0, justifyContent: 'center' },
-  title: { flex: 1, minWidth: 0 },
-  list: { paddingHorizontal: SP.s3, paddingTop: SP.s2, paddingBottom: SP.s3, gap: SP.s3 },
+  list: { paddingHorizontal: SP.s3, paddingTop: SP.s1, paddingBottom: SP.s3, gap: SP.s3 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s3 - 2 },
   tile: { padding: SP.s3 - 4, gap: SP.s1, minHeight: 132, marginRight: 6, marginBottom: 6 },
   tileHalf: { flexGrow: 1, flexShrink: 1, flexBasis: '40%', maxWidth: '100%' },
@@ -308,28 +245,10 @@ const styles = StyleSheet.create({
   tileBtn: { flexGrow: 2, flexShrink: 0, flexBasis: 'auto', paddingHorizontal: SP.s2 },
   tilePlanBtn: { flexGrow: 1, flexShrink: 0, flexBasis: 'auto', paddingHorizontal: SP.s2 },
   tilePlan: { backgroundColor: G.surf, borderWidth: 2 },
-  // Tile-shaped, outlined (it has no colour of its own yet); never wider than a tile.
-  newTile: { alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: G.line },
-  newHalf: { flexGrow: 0, flexBasis: '47%' },
-  newWords: { textAlign: 'center', maxWidth: '100%' },
-  rows: { borderWidth: 2, borderColor: G.line, backgroundColor: G.surf },
-  row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: SP.s3, paddingHorizontal: SP.s3, paddingVertical: SP.s2, borderBottomWidth: 1, borderBottomColor: G.line },
-  rowFirst: { backgroundColor: G.surf2, borderLeftWidth: 4, borderLeftColor: G.text },
-  rowWords: { flex: 1, minWidth: 0 },
-  rowOff: { borderStyle: 'dashed', borderWidth: 2, borderColor: G.line },
-  prompt: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    marginHorizontal: SP.s3,
-    marginBottom: SP.s3 + 4,
-    marginRight: SP.s3 + 4,
-    borderWidth: 2,
-    borderColor: G.text,
-    backgroundColor: G.surf,
-    paddingHorizontal: SP.s3,
-    ...hard(4, G.line),
-  },
-  lead: { paddingRight: SP.s2 },
-  promptField: { flex: 1, minWidth: 96 },
+  // The side doors: a row of two halves, left and right, always in the same places.
+  doors: { flexDirection: 'row', gap: SP.s2, paddingHorizontal: SP.s3, paddingTop: SP.s1, paddingBottom: SP.s2 },
+  door: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
+  foot: { paddingHorizontal: SP.s3, paddingBottom: SP.s3 },
+  forward: { minHeight: 56 },
+  emptySlot: { minHeight: 60 },
 });

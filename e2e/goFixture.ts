@@ -8,7 +8,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-export type StepSpec = string | { wait: string } | { routine: string };
+/** A step; a wait; another routine; P-96: a step that gives a name (`{ text, gives }`). */
+export type StepSpec = string | { wait: string } | { routine: string } | { text: string; gives: string };
 
 export interface RoutineSpec {
   id: string;
@@ -46,6 +47,8 @@ export interface RunSpec {
   startedDaysAgo?: number;
   /** Minutes ago it was last touched (the order of "what else can be resumed"). */
   touchedMinutesAgo?: number;
+  /** P-96: values, as stored (raw `ValueEntry` records). */
+  values?: unknown[];
 }
 
 const DAY = 864e5;
@@ -71,7 +74,9 @@ export function goBackup(routines: RoutineSpec[], runs: RunSpec[] = [], now = Da
       words: r.name,
       named: true,
       createdAt: iso(now - (r.madeDaysAgo ?? 100 - i) * DAY),
-      items: r.steps.map((s, k) => (typeof s === 'string' ? { id: stepId(r.id, k), text: s } : 'wait' in s ? { id: stepId(r.id, k), wait: s.wait } : { id: stepId(r.id, k), ref: s.routine })),
+      items: r.steps.map((s, k) =>
+        typeof s === 'string' ? { id: stepId(r.id, k), text: s } : 'wait' in s ? { id: stepId(r.id, k), wait: s.wait } : 'gives' in s ? { id: stepId(r.id, k), text: s.text, out: s.gives } : { id: stepId(r.id, k), ref: s.routine },
+      ),
       ...(r.repeatFrom !== undefined && { repeatFrom: r.repeatFrom }),
       ...(r.repeat !== undefined && { repeat: r.repeat }),
       open: r.open ?? true,
@@ -95,6 +100,7 @@ export function goBackup(routines: RoutineSpec[], runs: RunSpec[] = [], now = Da
       ...(run.status && { status: run.status }),
       ...(run.mode && { mode: run.mode }),
       ...(run.reason && { reason: run.reason }),
+      ...(run.values && { values: run.values }),
       touchedAt: iso(now - (run.touchedMinutesAgo ?? 5) * 60_000),
     };
   }
@@ -172,7 +178,7 @@ export interface Stored {
   threads: Record<string, { id: string; name: string; hidden: boolean; next?: string; declaredAt?: string }>;
   activities: Record<string, { id: string; text: string; note?: string; doingId?: string; toIds: string[]; lit?: true; settledAt?: string }>;
   routines: Record<string, { id: string; words: string; named?: boolean; items?: { id: string; text?: string; wait?: string; ref?: string }[]; repeatFrom?: number; repeat?: number; open?: boolean }>;
-  runs: Record<string, { id: string; routineId: string; status?: string; mode?: string; endedAt?: string; frames?: { seq: string; at: string | null; round: number }[]; changes?: unknown[] }>;
+  runs: Record<string, { id: string; routineId: string; status?: string; mode?: string; endedAt?: string; frames?: { seq: string; at: string | null; round: number }[]; changes?: unknown[]; values?: { name: string; items: string[]; level: number; seq: string; item: string; words?: string; at: string; changedAt?: string }[] }>;
 }
 
 /**
@@ -200,16 +206,16 @@ export async function storedNames(page: Page) {
 }
 
 /**
- * Says what you're going to do: the words in the prompt, then the New tile (P-95: the prompt only finds
- * what exists; New carries its words into the name). Plan opens on the new routine — its name as the
- * heading, no steps, the open row focused. It makes a routine and no run (P-90): something stored, to
- * read back.
+ * Makes a routine: + New on home, its name in New's own sheet, Plan (P-96: home has no prompt). Plan
+ * opens on the new routine — its name as the heading, no steps, the open row focused. It makes a
+ * routine and no run (P-90): something stored, to read back.
  */
 export async function startThing(page: Page, words: string) {
   const h = home(page);
-  await h.prompt.fill(words);
-  await expect(h.screen.getByTestId('go-new')).toHaveAccessibleName(`New: ${words}`);
-  await h.screen.getByTestId('go-new').click();
+  await h.newBtn.click();
+  const sheet = await arrived(page, 'go-new-sheet');
+  await sheet.getByTestId('go-new-name').fill(words);
+  await sheet.getByTestId('go-new-plan').click();
   const p = plan(page);
   await expect(p.title).toHaveText(words);
   await expect(page.getByRole('button', { name: 'Undo New', exact: true })).toBeVisible();
@@ -240,16 +246,16 @@ export async function openAndRun(page: Page, words: string, step?: string) {
 }
 
 /** A `/go` screen by its test id, once it has nothing left to load or move. */
-export const settled = (page: Page, screen: 'home' | 'runner' | 'paused' | 'plan' | 'jump' | 'settings'): Locator => page.locator(`[data-testid="go-${screen}"][data-settled="true"]`).filter({ visible: true });
+export const settled = (page: Page, screen: 'home' | 'runner' | 'plan' | 'jump' | 'settings'): Locator => page.locator(`[data-testid="go-${screen}"][data-settled="true"]`).filter({ visible: true });
 
 /** Opens `/go` (it goes where you left off) and waits for the screen it lands on. */
-export async function openGo(page: Page, lands: 'home' | 'runner' | 'paused' | 'plan' = 'home', path = './go') {
+export async function openGo(page: Page, lands: 'home' | 'runner' | 'plan' = 'home', path = './go') {
   await page.goto(path);
   await expect(settled(page, lands)).toBeVisible();
 }
 
 /** Seeds, then opens `/go`. */
-export async function startGo(page: Page, runs: RunSpec[] = [], lands: 'home' | 'runner' | 'paused' | 'plan' = 'home', routines: RoutineSpec[] = MAYA) {
+export async function startGo(page: Page, runs: RunSpec[] = [], lands: 'home' | 'runner' | 'plan' = 'home', routines: RoutineSpec[] = MAYA) {
   await seedGo(page, routines, runs);
   await openGo(page, lands);
 }
@@ -263,11 +269,19 @@ export const runner = (page: Page) => {
     words: screen.getByTestId('go-note-words'),
     next: screen.getByTestId('go-next'),
     middle: screen.getByTestId('go-middle'),
-    pause: screen.getByRole('button', { name: 'Pause', exact: true }),
-    done: screen.getByTestId('go-done'),
-    /** P-95: Home pauses the run and goes home. */
-    home: screen.getByTestId('go-runner-home'),
+    /** P-96: ❚❚, bottom left — the run paused, and home. */
+    pause: screen.getByTestId('go-pause'),
+    /** P-96: the side doors' row (Pause · Plan / Step in). */
+    doors: screen.getByTestId('go-side-doors'),
     context: screen.getByTestId('go-context'),
+    /** P-96: the values row (under the top line) and its values. */
+    values: screen.getByTestId('go-value'),
+    /** P-96: the step's value fields (the giving step's; a step that asks). */
+    fields: screen.getByTestId('go-value-field'),
+    field: (name: string) => screen.locator(`[data-testid="go-value-field"][data-name="${name}"]`),
+    inPlace: screen.getByTestId('go-value-in-place'),
+    /** P-96: the panel's "Finish <level> now". */
+    finish: screen.getByTestId('go-finish'),
     handle: screen.getByTestId('go-handle'),
     panel: screen.getByTestId('go-panel'),
     notice: screen.getByTestId('go-notice'),
@@ -301,6 +315,11 @@ export const plan = (page: Page) => {
     add: screen.getByTestId('go-plan-add'),
     typed: screen.getByTestId('go-plan-typed'),
     forward: screen.getByTestId('go-plan-forward'),
+    /** P-96: the side doors' row (⌂ Home · Done at the edge). */
+    doors: screen.getByTestId('go-side-doors'),
+    /** P-96: the bar above the keyboard, and its names. */
+    namesBar: screen.getByTestId('go-names-bar'),
+    names: screen.getByTestId('go-names-chip'),
     notice: screen.getByTestId('go-notice'),
     undo: screen.getByTestId('go-notice').getByRole('button', { name: /^Undo/ }),
     more,
@@ -334,31 +353,20 @@ export const home = (page: Page) => {
   const screen = settled(page, 'home');
   return {
     screen,
+    /** P-96: a heading for a screen reader and for focus (no title in words). */
     title: screen.getByRole('heading', { level: 1 }),
     tiles: screen.getByTestId('go-tile'),
-    prompt: screen.getByTestId('go-prompt'),
-    rows: screen.getByTestId('go-rows').getByRole('button'),
     notice: screen.getByTestId('go-notice'),
-  };
-};
-
-/** The paused (or waiting) screen's parts. */
-export const paused = (page: Page) => {
-  const screen = settled(page, 'paused');
-  return {
-    screen,
-    title: screen.getByRole('heading', { level: 1 }),
-    run: screen.getByTestId('go-paused-run'),
-    line: screen.getByTestId('go-paused-line'),
-    reason: screen.getByTestId('go-reason'),
+    /** P-96: + New, a side door (right). */
+    newBtn: screen.getByTestId('go-new'),
+    doors: screen.getByTestId('go-side-doors'),
+    /** P-96: the one filled button, lowest: "Resume <name>" for the run the app is on. */
     resume: screen.getByTestId('go-resume'),
-    home: screen.getByTestId('go-home-btn'),
-    others: screen.getByTestId('go-other'),
   };
 };
 
 /** A sheet or confirm, once it has arrived (it slides in unless Reduce Motion is on). */
-export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-new-sheet'): Promise<Locator> {
+export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-new-sheet' | 'go-gives-sheet' | 'go-value-sheet'): Promise<Locator> {
   const sheet = page.getByTestId(testId);
   await expect(sheet).toHaveAttribute('data-moving', 'false');
   return sheet;
@@ -440,4 +448,67 @@ export async function expectInside(page: Page, locators: Locator[]) {
     expect(b.y + b.height, 'bottom edge').toBeLessThanOrEqual(size.height + 0.5);
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width);
+}
+
+/**
+ * P-93, P-96: from now on (this page load), a phone keyboard takes `share` of the height while a field
+ * has the focus — as a phone's browser does it: the layout viewport keeps its height and
+ * `visualViewport` shrinks (copied from go-plan-keyboard.spec.ts, which keeps its own).
+ */
+export async function phoneKeyboard(page: Page, share = 0.45) {
+  await page.evaluate((share) => {
+    const target = new EventTarget();
+    let up = false;
+    const vv = {
+      get width() {
+        return innerWidth;
+      },
+      get height() {
+        return Math.round(innerHeight * (up ? 1 - share : 1));
+      },
+      offsetTop: 0,
+      offsetLeft: 0,
+      pageTop: 0,
+      pageLeft: 0,
+      scale: 1,
+      addEventListener: target.addEventListener.bind(target),
+      removeEventListener: target.removeEventListener.bind(target),
+    };
+    Object.defineProperty(window, 'visualViewport', { configurable: true, get: () => vv });
+    const typing = () => {
+      const el = document.activeElement;
+      return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
+    };
+    const set = (now: boolean) => {
+      if (now === up) return;
+      up = now;
+      target.dispatchEvent(new Event('resize'));
+      window.dispatchEvent(new Event('resize'));
+    };
+    let pressing = false;
+    const later = () => setTimeout(() => !pressing && set(typing()), 50);
+    document.addEventListener('pointerdown', () => (pressing = true), true);
+    document.addEventListener('pointerup', () => ((pressing = false), later()), true);
+    document.addEventListener('focusin', () => typing() && set(true));
+    document.addEventListener('focusout', later);
+    set(typing());
+  }, share);
+}
+
+/** P-96: no two of these overlap (each pair's boxes are apart), and each is inside the window. */
+export async function expectApart(page: Page, parts: Record<string, Locator>) {
+  const boxes: [string, { x: number; y: number; width: number; height: number }][] = [];
+  for (const [name, l] of Object.entries(parts)) {
+    if ((await l.count()) === 0) continue;
+    const b = await l.first().boundingBox();
+    if (b && b.width > 0 && b.height > 0) boxes.push([name, b]);
+  }
+  for (let i = 0; i < boxes.length; i++)
+    for (let j = i + 1; j < boxes.length; j++) {
+      const [an, a] = boxes[i];
+      const [bn, b] = boxes[j];
+      const apart = a.x + a.width <= b.x + 0.5 || b.x + b.width <= a.x + 0.5 || a.y + a.height <= b.y + 0.5 || b.y + b.height <= a.y + 0.5;
+      expect(apart, `${an} and ${bn} overlap: ${JSON.stringify(a)} ${JSON.stringify(b)}`).toBe(true);
+    }
+  return boxes.map(([name]) => name);
 }

@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { applyUndo, undoEntry } from './diff';
-import { editRoutine, Env, isPlanning, isRef, isRunning, MAX_DEPTH, place, readRoutine, readRun, Result, RoutineEdit, runVerb, RunState, Verb, view, wordsOf } from './run';
+import { editRoutine, Env, Frame, givenIn, isPlanning, isRef, isRunning, MAX_DEPTH, place, readRoutine, readRun, Result, RoutineEdit, routineBody, runVerb, RunState, scopeLevel, Verb, view, visibleValue, wordsOf } from './run';
 import { Data, emptyData, Id, Routine, Run } from './types';
 
 const NOW = '2026-11-24T10:00:00.000Z';
@@ -75,6 +75,48 @@ function invariants(d: Data, label: string) {
   expect(runs.filter((r) => isRunning(d, r)).map((r) => r.id), `${label}: running as the engine defines it is running as stored`).toEqual(Object.values(d.runs).filter((r) => r.status === 'running' && !r.endedAt).map((r) => r.id));
 }
 
+/**
+ * P-96: values. Every value of an open run is in scope (its level is there, is that routine, and is a level
+ * values belong to); no collision — a name a routine gives is never seen from below it; no value outlives
+ * its round — a level that went to another round keeps nothing its repeating part gave.
+ */
+function valueInvariants(prev: Data, d: Data, label: string) {
+  for (const id of Object.keys(d.runs)) {
+    const r = readRun(d, id)!;
+    if (r.endedAt) continue;
+    const frames = r.frames;
+    for (const e of r.values) {
+      expect(e.level < frames.length && frames[e.level].seq === e.seq, `${label}: ${id} value ${e.name}@${e.level} in scope`).toBe(true);
+      expect(scopeLevel(d, r, frames, e.level), `${label}: ${id} value ${e.name} at a routine's level`).toBe(e.level);
+    }
+    for (let top = 0; top < frames.length; top++) {
+      const base = scopeLevel(d, r, frames, top);
+      for (const key of givenIn(d, r, frames[base].seq).keys()) {
+        const seen = visibleValue(d, r, key, frames.slice(0, top + 1));
+        if (seen) expect(seen.level, `${label}: ${id} {${key}} given by level ${base} is never read from below it`).toBe(base);
+      }
+    }
+    const was = readRun(prev, id);
+    if (!was || was.endedAt) continue;
+    const continuing = (i: number) => frames.slice(0, i + 1).every((f, j) => was.frames[j]?.seq === f.seq && (j === 0 || was.frames[j].from === f.from));
+    // A level left, or entered afresh (from another step), is a new time through: nothing it had is carried in.
+    const had = new Set(was.values.map((e) => JSON.stringify(e)));
+    for (const e of r.values) if (!continuing(e.level)) expect(had.has(JSON.stringify(e)), `${label}: ${id} {${e.name}} carried into a new time through level ${e.level}`).toBe(false);
+    frames.forEach((f: Frame, i) => {
+      if (!continuing(i) || was.frames[i].round === f.round) return;
+      const s = view(d, r, f.seq);
+      if (s?.repeatFrom === undefined) return;
+      const looped = new Set<Id>();
+      for (const item of s.items.slice(s.repeatFrom)) {
+        looped.add(item.id);
+        if (isRef(item) && readRoutine(d, item.ref)?.named === false) for (const b of routineBody(d, r, item.ref)) for (const x of b.items) looped.add(x.id);
+      }
+      const base = scopeLevel(d, r, frames, i);
+      for (const e of r.values) if (e.level === base) expect(looped.has(e.item), `${label}: ${id} {${e.name}} outlived round ${was.frames[i].round} of level ${i}`).toBe(false);
+    });
+  }
+}
+
 /** Rounds never skip: a level that is still there after Next or Done is in the same round or the next one. */
 function roundsDidNotSkip(before: RunState, after: RunState, label: string) {
   after.frames.forEach((f, i) => {
@@ -101,12 +143,16 @@ describe('random walks', () => {
     let endings = 0;
     for (let w = 0; w < 400; w++) {
       seed = w + 1;
-      const items = Array.from({ length: 1 + rnd(5) }, (_, i) => (rnd(4) === 0 ? { id: `w${i}`, wait: `w${i}` } : { id: `s${i}`, text: `s${i}` }));
+      const NAMES = ['a', 'b', 'c'];
+      // P-96: some steps give a name, some read one.
+      const items = Array.from({ length: 1 + rnd(5) }, (_, i) => (rnd(4) === 0 ? { id: `w${i}`, wait: `w${i}` } : { id: `s${i}`, text: `s${i}${rnd(3) === 0 ? ` {${NAMES[rnd(3)]}}` : ''}`, ...(rnd(3) === 0 && { out: NAMES[rnd(2)] }) }));
       const R: Routine = { id: 'R', words: 'R', named: true, createdAt: NOW, items, ...(rnd(2) ? { repeatFrom: rnd(items.length) } : {}), ...(rnd(2) ? { repeat: 1 + rnd(3) } : {}), ...(rnd(2) ? { open: true } : {}), home: true };
       // S holds R as a step: a run of S can be inside R (a sequence shared by two runs).
-      const S: Routine = { id: 'S', words: 'S', named: true, createdAt: NOW, items: [{ id: 'q', text: 'q' }, { id: 'v', wait: 'v' }, { id: 'in', ref: 'R' }], repeatFrom: 0 };
+      // (S gives {a} and reads {b}: R inside it may give {a} too — the collision the owner ruled out.)
+      // (And it holds R twice: a Jump can leave R and enter it again from the other step, a new time through.)
+      const S: Routine = { id: 'S', words: 'S', named: true, createdAt: NOW, items: [{ id: 'q', text: 'q {b}', out: 'a' }, { id: 'v', wait: 'v' }, { id: 'in', ref: 'R' }, { id: 'in2', ref: 'R' }], repeatFrom: 0 };
       let d: Data = { ...emptyData(), routines: { R, S } };
-      const first = runVerb(d, { kind: 'start', routineId: 'R' }, env());
+      const first = runVerb(d, { kind: 'start', routineId: rnd(2) ? 'R' : 'S' }, env());
       d = first.data;
       let id: Id = first.runId!;
       // A second open run of the same routine (the app never makes one; an import can): left on a step, in some round.
@@ -123,6 +169,14 @@ describe('random walks', () => {
         const top = run.frames[run.frames.length - 1];
         const seen = view(d, run, top.seq)!;
         const anyItem = (s = seen) => s.items[rnd(s.items.length || 1)]?.id ?? 'none';
+        // A Jump two levels down: a step of the routine one of the first layer's steps is.
+        const deepPath = (): Id[] => {
+          const root = view(d, run, run.routineId)!;
+          const it = root.items[rnd(root.items.length || 1)];
+          const inner = isRef(it) ? view(d, run, it.ref) : undefined;
+          const x = inner?.items[rnd(inner.items.length || 1)];
+          return !it ? ['none'] : x ? [it.id, x.id] : [it.id];
+        };
         // Any sequence there is: the routines, and the unnamed ones steps were broken into.
         const seqIds = Object.keys(d.routines);
         const target = rnd(3) ? top.seq : seqIds[rnd(seqIds.length)];
@@ -192,6 +246,15 @@ describe('random walks', () => {
           { kind: 'jump', runId: id, to: { path: [anyItem(view(d, run, run.routineId)!)] } },
           { kind: 'start', routineId: rnd(2) ? 'S' : 'R' },
           { kind: 'new', words: `goal ${rnd(3)}` },
+          // P-96: typed at the step (its own field), and the value sheet.
+          { kind: 'value', runId: id, name: NAMES[rnd(3)], text: rnd(4) ? `v${rnd(9)}` : '', item: top.at ?? 'none' },
+          { kind: 'value', runId: id, name: NAMES[rnd(3)], text: rnd(4) ? `v${rnd(9)}` : '', item: top.at ?? 'none' },
+          { kind: 'value', runId: id, name: NAMES[rnd(3)], text: rnd(4) ? `v${rnd(9)}` : '' },
+          { kind: 'value', runId: id, name: NAMES[rnd(3)], text: `v${rnd(9)}`, item: top.at ?? 'none' },
+          { kind: 'value', runId: id, name: NAMES[rnd(3)], text: `v${rnd(9)}`, item: top.at ?? 'none' },
+          { kind: 'stepIn', runId: id },
+          { kind: 'jump', runId: id, to: { path: deepPath() } },
+          { kind: 'jump', runId: id, to: { path: deepPath() } },
         ];
         const edits: RoutineEdit[] = [
           { kind: 'remove', item: anyItem(targetSeq) },
@@ -208,12 +271,17 @@ describe('random walks', () => {
           { kind: 'toWait', item: anyItem(targetSeq) },
           { kind: 'toStep', item: anyItem(targetSeq) },
           { kind: 'rename', words: `name ${rnd(50)}` },
+          { kind: 'gives', item: anyItem(targetSeq), ...(rnd(3) ? { name: NAMES[rnd(3)] } : {}) },
+          { kind: 'renameValue', from: NAMES[rnd(3)], to: ['a', 'b', 'c', 'd'][rnd(4)] },
+          // P-96: the step the bottom level is on (a routine the run may be inside) removed from the bottom routine.
+          { kind: 'remove', item: run.frames[0]?.at ?? 'none' },
         ];
         const k = rnd(verbs.length + edits.length);
         const verb = verbs[k];
         const edit = edits[k - verbs.length];
-        const out: Result = verb ? runVerb(d, verb, env()) : editRoutine(d, target, edit, env());
-        const label = `${label0} ${JSON.stringify(verb ?? { on: target, ...edit })}`;
+        const onBottom = edit === edits[edits.length - 1];
+        const out: Result = verb ? runVerb(d, verb, env()) : editRoutine(d, onBottom ? run.routineId : target, edit, env());
+        const label = `${label0} ${JSON.stringify(verb ?? { on: onBottom ? run.routineId : target, ...edit })}`;
         if (!out.ok) {
           expect(out.data, `${label}: refused, so untouched`).toBe(prev);
           // One thing at a time: refused as "running" only by a run that IS running (never by one in Plan), and it is named.
@@ -226,6 +294,20 @@ describe('random walks', () => {
         deepest = Math.max(deepest, ...openRuns(d).map((r) => r.frames.length));
         if (readRun(d, id)!.endedAt) endings++;
         invariants(d, label);
+        valueInvariants(prev, d, label);
+        // P-96: nothing but the value verb and a rename touches a run's values unless the run moved (or ended).
+        for (const r of Object.keys(prev.runs)) {
+          const touched = (verb?.kind === 'value' && verb.runId === r) || edit?.kind === 'renameValue';
+          if (!touched && d.runs[r] && JSON.stringify(d.runs[r].frames) === JSON.stringify(prev.runs[r].frames)) expect(d.runs[r].values, `${label}: ${r} values untouched`).toEqual(prev.runs[r].values);
+        }
+        if (verb?.kind === 'value') count(verb.item === undefined ? 'value:sheet' : 'value:field');
+        if (readRun(d, id)!.values.length) count('a run with values');
+        for (const r of openRuns(d)) {
+          if (r.values.some((e) => e.level > 0)) count('a value inside a routine entered as a step');
+          // The collision the owner ruled out: inside R (from S), S has {a}, and R gives {a} itself.
+          if (r.frames.length > 1 && r.frames[1].seq === 'R' && r.values.some((e) => e.level === 0 && e.name === 'a') && givenIn(d, r, 'R').has('a')) count('a name given both above and inside');
+        }
+        if (verb?.kind === 'jump' && 'path' in verb.to && verb.to.path.length > 1) count('jump:deep');
         if (verb && (verb.kind === 'next' || verb.kind === 'done')) roundsDidNotSkip(run, readRun(d, id)!, label);
         // P-90: an edit never changes a round — every level a run was in and is still in is in the round it was in.
         if (!verb) {
@@ -279,9 +361,9 @@ describe('random walks', () => {
       }
     }
     const kinds = ['next', 'done', 'stepIn', 'back', 'pause', 'resume', 'home', 'reason', 'plan', 'jump:level', 'jump:path', 'start', 'new'];
-    const routineEdits = ['remove', 'addStep', 'addWait', 'move', 'divider', 'repeat', 'open', 'reword', 'breakDown', 'toWait', 'toStep', 'rename'].map((e) => `routine:${e}`);
+    const routineEdits = ['remove', 'addStep', 'addWait', 'move', 'divider', 'repeat', 'open', 'reword', 'breakDown', 'toWait', 'toStep', 'rename', 'gives', 'renameValue'].map((e) => `routine:${e}`);
     const legacy = ['reword', 'add', 'remove', 'repeat', 'running at the edge'].map((e) => `legacy:${e}`);
-    for (const what of [...kinds, ...routineEdits, ...legacy, 'the fold', 'a second run of the routine']) expect(accepted[what] ?? 0, `accepted ${what} (of ${JSON.stringify(accepted)})`).toBeGreaterThanOrEqual(10);
+    for (const what of [...kinds, ...routineEdits, ...legacy, 'the fold', 'a second run of the routine', 'value:field', 'value:sheet', 'a run with values', 'a value inside a routine entered as a step', 'a name given both above and inside', 'jump:deep']) expect(accepted[what] ?? 0, `accepted ${what} (of ${JSON.stringify(accepted)})`).toBeGreaterThanOrEqual(10);
     expect(deepest, JSON.stringify(accepted)).toBeGreaterThanOrEqual(4);
     expect(endings).toBeGreaterThan(100);
     // About 4 s alone on this machine; with the whole suite running beside it, more than vitest's default 5 s.

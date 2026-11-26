@@ -2,8 +2,10 @@
  * P-90 (B-12): Plan — its own surface, where the sequence is shaped. These specs drive the built app:
  * plan ↔ run and back to the same step; every Plan edit with its Undo; "Repeat from here" moved and
  * counted; breaking a step down and resuming on the first small step; the edge of a goal; creating
- * (the prompt, the New tile); the mode on home, on the paused screen and after a reload; a run from
- * the build before with this-run changes; removing the HERE step; two tabs; old addresses.
+ * (+ New); the mode on home and after a reload; a run from the build before with this-run changes;
+ * removing the HERE step; two tabs; old addresses. P-96: the band holds only PLAN — Home and (at the
+ * edge) Done are the bottom side doors; no "Ends here"; Next with nothing next ends the run (it never
+ * opens Plan); the paused screen is gone; home has no title in words and no prompt.
  * Expected values come from B-12 (frames v1, v2, v4, v5, v8), the contract's rulings and DESIGN.md.
  */
 import { expect, test } from './fixtures';
@@ -18,7 +20,6 @@ import {
   importBackup,
   MAYA,
   openGo,
-  paused,
   place,
   plan,
   planMenu,
@@ -129,14 +130,14 @@ test.describe('plan ↔ run', () => {
     await expect(plan(page).forward).toHaveText('Resume at a reply from Acme');
   });
 
-  test('Home from Plan writes nothing: home says "Nothing running" and the tile says planning with Plan; reopening the app returns to Plan', async ({ page }) => {
+  test('Home from Plan writes nothing: the tile says planning with Plan (P-96: no "Nothing running" title); reopening the app returns to Plan', async ({ page }) => {
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
     await expect(p.line).toHaveText('planning · at Vibe check');
     const before = await page.evaluate(() => localStorage.getItem('wanderment:journal'));
     await p.home.click();
     const h = home(page);
-    await expect(h.title).toHaveText('Nothing running');
+    await expect(h.screen).toBeVisible();
     expect(await page.evaluate(() => localStorage.getItem('wanderment:journal'))).toBe(before);
     const t = tile(page, 'Test out the app');
     await expect(t).toHaveAttribute('data-state', 'planning');
@@ -198,29 +199,25 @@ test.describe('plan ↔ run', () => {
     await expect(home(page).screen).toBeVisible();
   });
 
-  test('the paused screen: a run left in Plan is "Planning", never paused, with Plan as its filled action; a paused run has Plan in place of See it all', async ({ page }) => {
+  test('P-96 (was: the paused screen showed a run left in Plan as "Planning"): its old address lands on /go (here: its Plan, where it was left); home shows each open run in its own mode, with its own control', async ({ page }) => {
     await startGo(page, [...PLANNING, { id: 'r2', routine: 'apply', at: 1, mode: 'plan', touchedMinutesAgo: 20 }, { id: 'r3', routine: 'drawing', at: 0, touchedMinutesAgo: 40 }], 'plan', ROUTINES);
+    // (/go opens where you left off once per load — this run's Plan; home is behind it.)
     await page.goto('./go/run/r1/paused');
-    const s = paused(page);
-    await expect(s.title).toHaveText('Planning');
-    await expect(s.line).toHaveText('planning · at Vibe check');
-    await expect(s.screen.getByText(/paused/i)).toHaveCount(0);
-    await expect(s.resume).toHaveCount(0);
-    // What else is open says its own mode, with its own control.
-    await expect(s.others).toHaveCount(2);
-    await expect(s.others.nth(0)).toContainText('planning · at Tailor the CV');
-    await expect(s.others.nth(0).getByRole('button')).toHaveAccessibleName('Plan Apply to Initech');
-    await expect(s.others.nth(1).getByRole('button')).toHaveAccessibleName('Resume Practise drawing');
-    await s.screen.getByRole('button', { name: 'Plan Test out the app', exact: true }).click();
-    await expect(plan(page).forward).toHaveText('Resume at Vibe check');
-
-    await startGo(page, [{ id: 'r1', routine: 'test', at: 1, status: 'paused' }], 'paused', ROUTINES);
-    await expect(paused(page).title).toHaveText('Paused');
-    await expect(paused(page).screen.getByRole('button', { name: 'See it all' })).toHaveCount(0);
-    await paused(page).screen.getByRole('button', { name: 'Plan', exact: true }).click();
     await expect(plan(page).line).toHaveText('planning · at Vibe check');
     await plan(page).home.click();
-    await expect(home(page).screen).toBeVisible();
+    const h = home(page);
+    await expect(h.screen).toBeVisible();
+    const t = tile(page, 'Test out the app');
+    await expect(t.getByTestId('go-tile-line')).toHaveText('planning · at Vibe check');
+    await expect(t).not.toContainText(/paused/i);
+    await expect(t.getByRole('button')).toHaveText(['Plan']);
+    await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-line')).toHaveText('planning · at Tailor the CV');
+    await expect(tile(page, 'Apply to Initech').getByRole('button')).toHaveAccessibleName('Plan Apply to Initech');
+    await expect(h.screen.getByRole('button', { name: 'Resume Practise drawing', exact: true })).toBeVisible();
+    // A run in Plan is not resumed by the bottom bar: it is Plan's (its tile's Plan).
+    await expect(h.resume).toHaveCount(0);
+    await t.getByRole('button', { name: 'Plan Test out the app', exact: true }).click();
+    await expect(plan(page).forward).toHaveText('Resume at Vibe check');
   });
 
   test('old addresses land on Plan: See it all’s (a run in Plan), and the editor’s (the routine’s Plan — its run’s, when it has one)', async ({ page }) => {
@@ -278,14 +275,14 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     expect((await stepsOf(page)).steps).toEqual(['Select a feature to test', 'Vibe check', 'Write down concerns', 'Write it up']);
   });
 
-  test('the step menu, in words: Change the words · Add a step after · Break it down · Make it a wait · Move up · Move down · Remove this step · Close', async ({ page }) => {
+  test('the step menu, in words: Change the words · Add a step after · Break it down · Gives… (P-96) · Make it a wait · Move up · Move down · Remove this step · Close', async ({ page }) => {
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
     await p.more('Vibe check').click();
     const sheet = await arrived(page, 'go-plan-menu');
     await expect(sheet.getByRole('heading', { level: 2 })).toHaveText('Vibe check');
     // (The sheet's handle is a Close too: the last, in words, is the menu's own.)
-    await expect(sheet.getByRole('button')).toHaveText(['', 'Change the words', 'Add a step after', 'Break it down', 'Make it a wait', 'Move up', 'Move down', 'Remove this step', 'Close']);
+    await expect(sheet.getByRole('button')).toHaveText(['', 'Change the words', 'Add a step after', 'Break it down', 'Gives…', 'Make it a wait', 'Move up', 'Move down', 'Remove this step', 'Close']);
     await sheet.getByRole('button', { name: 'Close', exact: true }).last().click();
     await expect(page.getByTestId('go-plan-menu')).toHaveCount(0);
     await expect(p.more('Vibe check')).toBeFocused();
@@ -668,13 +665,13 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     expect(stored).toMatchObject({ frames: [{ seq: 'test', at: null, round: 2 }] });
   });
 
-  test('the routine’s own menu: Change the name (in place; a taken name is refused, in words), Ends here, and — with no run — Remove', async ({ page }) => {
+  test('the routine’s own menu: Change the name (in place; a taken name is refused, in words) and — with no run — Remove (P-96: no "Ends here")', async ({ page }) => {
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
     await p.more('Test out the app').click();
     let sheet = await arrived(page, 'go-plan-routine');
     // A routine with a run going can't be removed: it is not offered.
-    await expect(sheet.getByRole('button')).toHaveText(['', 'Change the name', 'Ends here: Off', 'Close']);
+    await expect(sheet.getByRole('button')).toHaveText(['', 'Change the name', 'Close']);
     await sheet.getByRole('button', { name: 'Change the name', exact: true }).click();
     await expect(p.typed).toHaveValue('Test out the app');
     await p.typed.fill('Apply to Acme');
@@ -690,9 +687,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await page.goto('./go/routine/apply');
     await p.more('Apply to Initech').click();
     sheet = await arrived(page, 'go-plan-routine');
-    await expect(sheet.getByRole('button')).toHaveText(['', 'Change the name', 'Add Repeat from here', 'Ends here: On', 'Remove Apply to Initech', 'Close']);
-    await sheet.getByRole('button', { name: 'Ends here: On', exact: true }).click();
-    await expect(sheet.getByRole('button', { name: 'Ends here: Off', exact: true })).toHaveAttribute('aria-pressed', 'false');
+    await expect(sheet.getByRole('button')).toHaveText(['', 'Change the name', 'Add Repeat from here', 'Remove Apply to Initech', 'Close']);
     await sheet.getByRole('button', { name: 'Remove Apply to Initech', exact: true }).click();
     // The screen goes with the routine; its Undo is on home.
     const h = home(page);
@@ -787,7 +782,7 @@ test.describe('Break it down', () => {
     await p.forward.click();
     const r = runner(page);
     await expect(r.words).toHaveText('Open the feature');
-    await expect(r.context).toHaveText('Test out the appVibe check');
+    await expect(r.context).toHaveText('Test out the app ›Vibe check');
     await r.next.click();
     await expect(r.words).toHaveText('Poke at it');
     // The last small step done: on with the routine, in the round it was in.
@@ -834,12 +829,13 @@ test.describe('Break it down', () => {
     await expect(r.panel).toContainText('Round 2');
     await expect(r.panel).toContainText('Last step of the round');
     await expect(r.panel).toContainText('then: Vibe check');
-    await expect(r.panel.getByRole('button')).toHaveText(['Back to Vibe check', 'Jump to…']);
+    await expect(r.panel.getByRole('button')).toHaveText(['Back to Vibe check', 'Jump to…', 'Finish Test out the app now']);
     await page.keyboard.press('Escape');
     await expect(r.screen.getByRole('button', { name: /Break it down|See it all|Change the words|Keep/ })).toHaveCount(0);
     await expect(page.getByRole('dialog')).toHaveCount(0);
-    // Done leaves; nothing is asked.
-    await r.done.click();
+    // Finish <name> now leaves (P-96: the panel's); nothing is asked.
+    await r.handle.click();
+    await r.finish.click();
     await expect(home(page).screen).toBeVisible();
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
@@ -848,29 +844,39 @@ test.describe('Break it down', () => {
 test.describe('the edge of a goal', () => {
   const LAST = [{ id: 'r3', routine: 'drawing', at: 2, status: 'running' as const }];
 
-  test('Next on the last step of an open goal puts you in Plan — never on a blank note: "planning · nothing next yet", the open row focused, Done in its own slot beside Home, no filled button', async ({ page }) => {
+  test('P-96 (ruling 7; was: Next on the last step of an open goal put you in Plan): Next reads Done there and ends the run — home, "Done with <name>", with Undo; never Plan', async ({ page }) => {
     await startGo(page, LAST, 'runner');
     const r = runner(page);
     await expect(r.words).toHaveText('Gesture drawing');
+    await expect(r.next).toHaveText('Done');
     await r.next.click();
+    const h = home(page);
+    await expect(h.screen).toBeVisible();
+    await expect(page).not.toHaveURL(/plan/);
+    await expect(h.notice).toContainText('Done with Practise drawing');
+    await expect(tile(page, 'Practise drawing')).toHaveAttribute('data-state', 'idle');
+    await h.notice.getByRole('button', { name: /^Undo/ }).click();
+    await expect(r.words).toHaveText('Gesture drawing');
+  });
+
+  const EDGE = [{ id: 'r3', routine: 'drawing', at: null, status: 'paused' as const, mode: 'plan' as const }];
+
+  test('a run at the edge (left there by the build before): Plan — "planning · nothing next yet", the open row focused, Done the right side door beside Home, no filled button; a step typed there is where the run stands', async ({ page }) => {
+    await startGo(page, EDGE, 'plan');
     const p = plan(page);
-    await expect(p.screen).toBeVisible();
     await expect(page).toHaveURL(/\/go\/run\/r3\/plan$/);
     await expect(p.title).toHaveText('Practise drawing');
     await expect(p.line).toHaveText('planning · nothing next yet');
     await expect(p.add).toBeFocused();
-    await expect(p.said).toHaveText('Plan: Practise drawing');
     await expect(p.here).toHaveCount(0);
     await expect(p.forward).toHaveCount(0);
     await expect(p.screen.getByRole('button', { name: /^(Next|Resume|Start)/ })).toHaveCount(0);
     await expect(p.done).toHaveText('Done');
     await expect(p.done).toHaveAccessibleName('Done with Practise drawing');
-    // Done never takes Home's place: Home is where it is on every Plan screen.
+    // Done never takes Home's place: Home is the left side door on every Plan screen.
     const homeAtEdge = await place(p.home);
     const doneAtEdge = await place(p.done);
-    expect(doneAtEdge.x + doneAtEdge.width).toBeLessThanOrEqual(homeAtEdge.x);
-    // P-95: the Next that got here leaves no Undo.
-    await expect(p.notice).toHaveCount(0);
+    expect(homeAtEdge.x + homeAtEdge.width).toBeLessThanOrEqual(doneAtEdge.x);
 
     // Plan, execute: a step typed there is where the run stands; Resume runs it.
     await addStep(page, 'Shade the forms');
@@ -881,17 +887,16 @@ test.describe('the edge of a goal', () => {
     await expect(p.done).toHaveCount(0);
     expect(await place(p.home)).toEqual(homeAtEdge);
     await p.forward.click();
+    const r = runner(page);
     await expect(r.words).toHaveText('Shade the forms');
-    // …and execute, plan: the same again.
-    await r.next.click();
-    await expect(p.line).toHaveText('planning · nothing next yet');
+    // Its Next ends the run now (ruling 7).
+    await expect(r.next).toHaveText('Done');
     await saved(page);
     expect((await exported(page)).routines.drawing.items!.map((i) => i.text ?? i.ref)).toEqual(['Warm-up lines', 'hands', 'Gesture drawing', 'Shade the forms']);
   });
 
   test('Done at the edge ends the run, with an Undo on home that brings it back to its Plan', async ({ page }) => {
-    await startGo(page, LAST, 'runner');
-    await runner(page).next.click();
+    await startGo(page, EDGE, 'plan');
     const p = plan(page);
     await p.done.click();
     const h = home(page);
@@ -903,15 +908,6 @@ test.describe('the edge of a goal', () => {
     await expect(p.done).toBeVisible();
   });
 
-  test('P-95 (3): the Next that reached the edge leaves no Undo and no notice (the run is not ended: it is in Plan, at the edge)', async ({ page }) => {
-    await startGo(page, LAST, 'runner');
-    await runner(page).next.click();
-    const p = plan(page);
-    await expect(p.line).toHaveText('planning · nothing next yet');
-    await expect(p.notice).toHaveCount(0);
-    await expect(p.screen.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
-  });
-
   test('a run stored at the edge (as the build before left it, "running") opens in Plan; home shows it as planning', async ({ page }) => {
     await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'plan');
     const p = plan(page);
@@ -919,7 +915,7 @@ test.describe('the edge of a goal', () => {
     await expect(p.line).toHaveText('planning · nothing next yet');
     await expect(p.add).toBeFocused();
     await p.home.click();
-    await expect(home(page).title).toHaveText('Nothing running');
+    await expect(home(page).screen).toBeVisible();
     const t = tile(page, 'Feel at home in Spanish');
     // One wording per meaning (DESIGN.md; frame v8): the tile reads as Plan does.
     await expect(t.getByTestId('go-tile-line')).toHaveText('planning · nothing next yet');
@@ -938,7 +934,7 @@ test.describe('the edge of a goal', () => {
     await expect(p.line).toHaveText('planning · nothing next yet');
     await p.home.click();
     const h = home(page);
-    await expect(h.title).toHaveText('Nothing running');
+    await expect(h.screen).toBeVisible();
     await expect(tile(page, 'Gym').getByTestId('go-tile-line')).toHaveText('planning · nothing next yet');
     const start = tile(page, 'House').getByRole('button', { name: 'Start House', exact: true });
     await expect(start).toBeEnabled();
@@ -985,7 +981,7 @@ test.describe('the edge of a goal', () => {
 });
 
 test.describe('creating', () => {
-  test('New (with the prompt’s words; P-95: no "New: <words>" row) makes the routine only and opens its Plan: the name filled, the open row focused, no Start until there is a step; Start runs the first', async ({ page }) => {
+  test('New (P-96: + New and its own sheet; was: the prompt’s words) makes the routine only and opens its Plan: the name filled, the open row focused, no Start until there is a step; Start runs the first', async ({ page }) => {
     await startGo(page, []);
     await startThing(page, 'Learn to bake bread');
     const p = plan(page);
@@ -1016,7 +1012,7 @@ test.describe('creating', () => {
     await expect(r.said).toHaveText('Running: Find a simple recipe');
     await openGo(page, 'runner');
     await page.goBack();
-    await expect(home(page).title).toHaveText('Running');
+    await expect(home(page).resume).toHaveText('Resume Learn to bake bread');
     await expect(tile(page, 'Learn to bake bread')).toHaveAttribute('data-state', 'running');
   });
 
@@ -1038,34 +1034,31 @@ test.describe('creating', () => {
     await expect(tile(page, 'Learn to bake bread')).toHaveCount(0);
   });
 
-  test('the New tile: on home with tiles and with none; with nothing typed it asks for the name in its own sheet, not the prompt (P-95); with words typed it makes that routine and opens its Plan', async ({ page }) => {
+  test('+ New (P-96: a side door, right; was: the New tile, carrying the prompt’s words): on home with tiles and with none it asks for the name in its own sheet; a name makes that routine and opens its Plan', async ({ page }) => {
     await startGo(page, [], 'home', []);
     const h = home(page);
-    const make = h.screen.getByTestId('go-new');
+    const make = h.newBtn;
     await expect(make).toHaveText('New');
     await expect(make).toHaveAccessibleName('New');
     await make.click();
-    const sheet = await arrived(page, 'go-new-sheet');
+    let sheet = await arrived(page, 'go-new-sheet');
     await expect(sheet.getByTestId('go-new-name')).toBeFocused();
-    await expect(h.prompt).not.toBeFocused();
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('go-new-sheet')).toHaveCount(0);
     // Nothing was made.
     await expect(h.tiles).toHaveCount(0);
-    await h.prompt.fill('Learn to bake bread');
-    // It shows the words it will use (audit F5).
-    await expect(make).toHaveText('New: Learn to bake bread');
-    await expect(make).toHaveAccessibleName('New: Learn to bake bread');
     await make.click();
+    sheet = await arrived(page, 'go-new-sheet');
+    await sheet.getByTestId('go-new-name').fill('Learn to bake bread');
+    await sheet.getByTestId('go-new-plan').click();
     const p = plan(page);
     await expect(p.title).toHaveText('Learn to bake bread');
     await expect(p.add).toBeFocused();
     await p.home.click();
     await expect(h.tiles).toHaveCount(1);
-    // The New tile comes after the tiles.
+    // + New comes after the tiles.
     const order = await h.screen.evaluate((root) => [...root.querySelectorAll('[data-testid="go-tile"], [data-testid="go-new"]')].map((e) => (e as HTMLElement).dataset.testid));
     expect(order).toEqual(['go-tile', 'go-new']);
-    await expect(h.prompt).toHaveValue('');
   });
 });
 
@@ -1135,7 +1128,7 @@ test.describe('must handle', () => {
     await expect(p.forward).toHaveText('Resume at Check your proportions');
     await p.forward.click();
     await expect(runner(page).words).toHaveText('Check your proportions');
-    await expect(runner(page).context).toHaveText('Practise drawingHand studies of my left hand');
+    await expect(runner(page).context).toHaveText('Practise drawing ›Hand studies of my left hand');
   });
 
   test('an empty routine: its Plan has the open row focused and no Start; a step typed there is kept across a reload before it is added (and words being changed in place too)', async ({ page }) => {
@@ -1206,8 +1199,8 @@ test.describe('data written by the build before', () => {
     expect(before.routines['p90-007'].repeat).toBe(3);
     expect(before.runs['p90-008'].changes).toHaveLength(7);
 
-    await openGo(page, 'paused');
-    await page.goBack();
+    // (P-96: the paused run opens home — was its paused screen, then Back.)
+    await openGo(page);
     const t = tile(page, 'Apply for jobs');
     await t.getByRole('button', { name: 'Plan Apply for jobs', exact: true }).click();
     const p = plan(page);
@@ -1232,8 +1225,8 @@ test.describe('data written by the build before', () => {
 
   test('the fold’s own Undo puts everything back and takes the run out of Plan: the screen follows the data', async ({ page }) => {
     await importBackup(page, PREVIOUS_BUILD_BACKUP);
-    await openGo(page, 'paused');
-    await page.goBack();
+    // (P-96: the paused run opens home — was its paused screen, then Back.)
+    await openGo(page);
     await tile(page, 'Apply for jobs').getByRole('button', { name: 'Plan Apply for jobs', exact: true }).click();
     const p = plan(page);
     await expect(p.notice).toContainText('Kept this run’s changes in Apply for jobs');
@@ -1397,24 +1390,25 @@ test('two tabs: Plan pressed in one — the other, on the runner, follows the da
 });
 
 test.describe('P-95 audit F1', () => {
-  test('a run from the build before, with this-run changes: the Next that reaches the edge folds them — and says so, with an Undo that takes it all back to the runner', async ({ page }) => {
+  test('a run from the build before, with this-run changes: P-96 (ruling 7; was: the Next that reached the edge folded them into Plan) — the last Next ends the run and goes home, "Done with <name>", the changes not folded (an ended run keeps them as history); its Undo brings the run back to the runner, changes and all', async ({ page }) => {
     test.setTimeout(60_000);
     await importBackup(page, PREVIOUS_BUILD_BACKUP);
-    await openGo(page, 'paused');
-    await page.goBack();
+    // (P-96: the paused run opens home — was its paused screen, then Back.)
+    await openGo(page);
     await tile(page, 'Apply for jobs').getByRole('button', { name: 'Resume Apply for jobs', exact: true }).click();
     await expect(page).toHaveURL(/\/go\/run\/p90-008$/);
     const r = runner(page);
     await expect(r.screen).toBeVisible();
-    for (let i = 0; i < 40 && !/\/plan$/.test(page.url()); i++) {
+    for (let i = 0; i < 40 && !/\/go$/.test(page.url()); i++) {
       await r.next.click();
       await page.waitForTimeout(50);
     }
-    const p = plan(page);
-    await expect(page).toHaveURL(/\/go\/run\/p90-008\/plan$/);
-    await expect(p.line).toHaveText('planning · nothing next yet');
-    await expect(p.notice).toContainText('Kept this run’s changes in Apply for jobs');
-    await p.undo.click();
+    const h = home(page);
+    await expect(page).toHaveURL(/\/go$/);
+    await expect(page).not.toHaveURL(/plan/);
+    await expect(h.notice).toContainText('Done with Apply for jobs');
+    await expect(h.notice).not.toContainText('Kept this run’s changes');
+    await h.notice.getByRole('button', { name: /^Undo/ }).click();
     await expect(runner(page).screen).toBeVisible();
     await saved(page);
     expect((await exported(page)).runs['p90-008'].changes).toHaveLength(7);

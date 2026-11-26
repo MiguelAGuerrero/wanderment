@@ -177,28 +177,29 @@ describe('mode: derived at the edge (nothing next)', () => {
     }
   });
 
-  it('Next reaching the edge of an open goal: the move, paused and in Plan in the SAME write; it says "edge"; one Undo takes all of it back', () => {
+  it('P-96 (ruling 7; was P-90: "Next reaching the edge … paused and in Plan"): Next on the last step of an open goal ENDS the run in one write — never Plan, no mode; it says "ended"; one Undo takes all of it back', () => {
     const d = goal('running');
     const r = ok(d, { kind: 'next', runId: 'A' });
-    expect(at(r.data, 'A')).toEqual(['E:null:1']);
-    expect(r.data.runs.A).toMatchObject({ status: 'paused', mode: 'plan' });
-    expect(r.said).toEqual({ kind: 'edge' });
-    expect(run(r.data, 'A').endedAt).toBeUndefined();
+    expect(at(r.data, 'A')).toEqual(['E:a:1']);
+    expect(run(r.data, 'A')).toMatchObject({ endedAt: expect.any(String), endedBy: 'finished' });
+    expect(Object.keys(r.data.runs.A).filter((k) => k === 'mode' || k === 'status')).toEqual([]);
+    expect(r.said).toEqual({ kind: 'ended', name: 'Learn Spanish' });
     expect(undone(d, r.data)).toEqual(json(d));
   });
 
-  it('Next reaching the edge on a run that is not the one the app is on: in Plan, and still not the one the app is on', () => {
+  it('P-96 (ruling 7; was: "in Plan, and still not the one the app is on"): on a run that is not the one the app is on, the same — it ends, never in Plan', () => {
     const r = ok(goal(), { kind: 'next', runId: 'A' });
-    expect(r.data.runs.A.mode).toBe('plan');
+    expect('mode' in r.data.runs.A).toBe(false);
     expect('status' in r.data.runs.A).toBe(false);
+    expect(run(r.data, 'A').endedBy).toBe('finished');
   });
 
-  it('Done on an inner level that finishes the goal’s last step reaches the edge the same way', () => {
+  it('P-96 (ruling 7; was: "reaches the edge the same way"): Done on an inner level that finishes the goal’s last step ends the run the same way', () => {
     const d = world([seq('E', 'Goal', [ref('lp', 'L')], { open: true }), seq('L', 'Inner', [step('a'), step('b')])], [aRun('A', 'E', [{ seq: 'E', at: 'lp', round: 1 }, { seq: 'L', at: 'a', round: 1, from: 'lp' }], { status: 'running' })]);
     const r = ok(d, { kind: 'done', runId: 'A' });
-    expect(at(r.data, 'A')).toEqual(['E:null:1']);
-    expect(r.data.runs.A).toMatchObject({ status: 'paused', mode: 'plan' });
-    expect(r.said).toEqual({ kind: 'finished', names: ['Inner'] });
+    expect(run(r.data, 'A')).toMatchObject({ endedAt: expect.any(String), endedBy: 'finished' });
+    expect('mode' in r.data.runs.A).toBe(false);
+    expect(r.said).toEqual({ kind: 'ended', name: 'Goal' });
   });
 
   it('a run stored at the edge as running by the build before: Plan normalises it (paused, in Plan); so does the first Plan edit, in the edit’s own write', () => {
@@ -616,8 +617,8 @@ describe('Plan edits under live runs: the repair table', () => {
     const one = edit(d, 'G', { kind: 'repeat', times: 1 });
     const onD = ok(one, { kind: 'next', runId: 'B' }).data;
     expect(at(onD, 'B')).toEqual(['G:d:2']);
-    // d is the last step and round 2 is past the number: the level is finished (an open goal: the edge).
-    expect(at(ok(onD, { kind: 'next', runId: 'B' }).data, 'B')).toEqual(['G:null:2']);
+    // d is the last step and round 2 is past the number: the level is finished (an open goal: since P-96, ruling 7, the run ends — it used to reach the edge).
+    expect(run(ok(onD, { kind: 'next', runId: 'B' }).data, 'B')).toMatchObject({ endedBy: 'finished', frames: [{ seq: 'G', at: 'd', round: 2 }] });
   });
 
   it('rename: places unchanged; the runs are the same objects', () => {
@@ -810,13 +811,12 @@ describe('runs that carry this-run changes from the build before: folded into th
     expect(texts(d, DESK)).toEqual(['Clear the cups']);
   });
 
-  it('reaching the edge is opening Plan: Next onto the edge folds the run’s changes in that same write, says so, and Undo takes back the Next and the fold together', () => {
+  it('P-96 (ruling 7; was: "reaching the edge is opening Plan … folds"): Next off an open goal’s last step ENDS the run instead — and an ended run’s changes are never folded: the routine keeps its words; Undo takes the Next back', () => {
     const d = world([seq('E', 'Goal', [step('a', 'Write')], { open: true })], [aRun('A', 'E', [{ seq: 'E', at: 'a', round: 1 }], { status: 'running', changes: [{ id: 'c1', kind: 'reword', seq: 'E', item: 'a', text: 'Draft' }] })]);
     const r = ok(d, { kind: 'next', runId: 'A' });
-    expect(at(r.data, 'A')).toEqual(['E:null:1']);
-    expect(texts(r.data, 'E')).toEqual(['Draft']);
-    expect(r.data.runs.A).toMatchObject({ status: 'paused', mode: 'plan', changes: [] });
-    expect(r.folded).toBe('Goal');
+    expect(run(r.data, 'A')).toMatchObject({ endedBy: 'finished', changes: [expect.objectContaining({ id: 'c1' })] });
+    expect(texts(r.data, 'E')).toEqual(['Write']);
+    expect(r.folded).toBeUndefined();
     expect(undone(d, r.data)).toEqual(json(d));
   });
 

@@ -1,0 +1,211 @@
+/**
+ * P-96 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE values (fad64c6: schema 4, data format 2, no
+ * `out` on any step, no `values` on any run, no brace in any words). Run once, in that commit, with P96_OUT
+ * set; never part of the suite. It starts from `p94-schema4.sqlite` (the retired app's wanders and
+ * activities, runs with this-run changes from before P-90, every kind of run P-94 froze) and then uses that
+ * build's own store actions.
+ */
+import { copyFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const OUT = process.env.P96_OUT!;
+
+const env = vi.hoisted(() => {
+  const ls = new Map<string, string>();
+  const state = { dbPath: '', openError: undefined as Error | undefined, hangWrites: false };
+  const localStorage = {
+    get length() {
+      return ls.size;
+    },
+    key: (i: number) => [...ls.keys()][i] ?? null,
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => void ls.set(k, String(v)),
+    removeItem: (k: string) => void ls.delete(k),
+  };
+  (globalThis as { localStorage?: unknown }).localStorage = localStorage;
+  return { ls, state, localStorage };
+});
+
+vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => env.localStorage.getItem(k),
+    setItem: async (k: string, v: string) => env.localStorage.setItem(k, v),
+    removeItem: async (k: string) => env.localStorage.removeItem(k),
+  },
+}));
+vi.mock('./expoDb', async () => {
+  const { nodeDb } = await import('./nodeDb');
+  return {
+    openExpoDb: async () => {
+      if (env.state.openError) throw env.state.openError;
+      const db = nodeDb(env.state.dbPath);
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+    },
+  };
+});
+vi.mock('./nativeBackup', () => ({ scheduleBackup: () => {} }));
+
+const settle = () => new Promise((r) => setTimeout(r, 40));
+
+async function load() {
+  vi.resetModules();
+  const { startPersistence } = await import('./persistence');
+  const { useStore } = await import('@/store/useStore');
+  await startPersistence();
+  return useStore;
+}
+type Store = Awaited<ReturnType<typeof load>>;
+
+/** Ids are a counter and the clock is fixed and stepped, so every session makes the same records. */
+let n = 0;
+let clock = 0;
+const T0 = Date.parse('2026-11-26T08:00:00.000Z');
+const tick = (minutes = 3) => vi.setSystemTime(new Date((clock += minutes * 60000)));
+
+beforeEach(() => {
+  env.ls.clear();
+  env.state.openError = undefined;
+  env.state.hangWrites = false;
+  env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-freeze96-')), 'db.sqlite');
+  n = 0;
+  clock = T0;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(T0));
+  vi.stubGlobal('crypto', { randomUUID: () => `p96-${String(++n).padStart(3, '0')}` });
+});
+afterEach(async () => {
+  (await import('./persistence')).stopPersistence();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+/** What a person did with the build before values, through its own actions. */
+async function drive(store: Store) {
+  const s = () => store.getState();
+  const ok = (d: { ok: boolean; runId?: string; routineId?: string }) => {
+    expect(d).toMatchObject({ ok: true });
+    s().dismissRunNotice();
+    tick();
+    return (d.runId ?? d.routineId)!;
+  };
+  const items = (routineId: string) => s().data.routines[routineId].items as { id: string; text?: string; wait?: string }[];
+  const item = (routineId: string, words: string) => items(routineId).find((i) => (i.text ?? i.wait) === words)!.id;
+  const make = (name: string, steps: (string | { wait: string })[], open = false) => {
+    const id = ok(s().createRoutine(name));
+    for (const st of steps) ok(s().editRoutine(id, typeof st === 'string' ? { kind: 'addStep', text: st } : { kind: 'addWait', wait: st.wait }));
+    if (!open) ok(s().editRoutine(id, { kind: 'open', open: false }));
+    return id;
+  };
+  const p = (runId: string) => ok(s().pauseRun(runId));
+
+  // A counted loop [Pick a feature | Try it, Note what broke] x 3, "Try it" broken down; a run left in
+  // round 2 one level deep, inside the breakdown (paused, then left by the starts after it).
+  const loop = make('Feature loop', ['Pick a feature', 'Try it', 'Note what broke']);
+  ok(s().editRoutine(loop, { kind: 'divider', from: 1 }));
+  ok(s().editRoutine(loop, { kind: 'repeat', times: 3 }));
+  ok(s().editRoutine(loop, { kind: 'breakDown', item: item(loop, 'Try it'), steps: ['Open the app', 'Tap through'] }));
+  const loopRun = ok(s().startRoutine(loop));
+  for (const v of ['next', 'stepIn', 'next', 'next', 'next', 'stepIn', 'next'] as const) ok(v === 'next' ? s().nextStep(loopRun) : s().stepIn(loopRun));
+  p(loopRun);
+  // An until-done loop [Warm up | Play the scale], left in round 3 on its first repeating step.
+  const scales = make('Scales', ['Warm up', 'Play the scale']);
+  ok(s().editRoutine(scales, { kind: 'divider', from: 1 }));
+  const scalesRun = ok(s().startRoutine(scales));
+  for (let i = 0; i < 3; i++) ok(s().nextStep(scalesRun));
+  p(scalesRun);
+  // Two levels deep: a breakdown inside a breakdown, the run on the innermost step.
+  const move = make('Move house', ['Pack', 'Clean']);
+  ok(s().editRoutine(move, { kind: 'breakDown', item: item(move, 'Pack'), steps: ['Kitchen', 'Books'] }));
+  const kitchenSeq = (s().data.routines[move].items as { ref?: string }[])[0].ref!;
+  ok(s().editRoutine(kitchenSeq, { kind: 'breakDown', item: item(kitchenSeq, 'Kitchen'), steps: ['Wrap the plates', 'Box the pans'] }));
+  const moveRun = ok(s().startRoutine(move));
+  ok(s().stepIn(moveRun));
+  ok(s().stepIn(moveRun));
+  ok(s().nextStep(moveRun));
+  p(moveRun);
+  // A run left in Plan (from the runner).
+  const garden = make('Garden', ['Weed', 'Water']);
+  const gardenRun = ok(s().startRoutine(garden));
+  ok(s().planRun(gardenRun));
+  // A run resting on a wait step, paused with a reason.
+  const parcel = make('Return the parcel', ['Print the label', { wait: 'the courier' }, 'Keep the receipt']);
+  const parcelRun = ok(s().startRoutine(parcel));
+  ok(s().nextStep(parcelRun));
+  ok(s().pauseRun(parcelRun, 'out until five'));
+  // A run at the edge of an open goal: Next past its last step lands in Plan.
+  const guitar = make('Learn guitar', ['Buy strings'], true);
+  const guitarRun = ok(s().startRoutine(guitar));
+  ok(s().nextStep(guitarRun));
+  // Two ended runs: one finished by Next off the end (in round 2 of a counted loop), one by Done one level down.
+  const tidyUp = make('Tidy up', ['Desk', 'Floor']);
+  ok(s().editRoutine(tidyUp, { kind: 'divider', from: 0 }));
+  ok(s().editRoutine(tidyUp, { kind: 'repeat', times: 2 }));
+  const tidyRun = ok(s().startRoutine(tidyUp));
+  for (let i = 0; i < 4; i++) ok(s().nextStep(tidyRun));
+  const bake = make('Bake bread', ['Mix', 'Prove']);
+  ok(s().editRoutine(bake, { kind: 'breakDown', item: item(bake, 'Mix'), steps: ['Flour', 'Water'] }));
+  const bakeRun = ok(s().startRoutine(bake));
+  ok(s().stepIn(bakeRun));
+  ok(s().doneLevel(bakeRun));
+  ok(s().doneLevel(bakeRun));
+  // Last: the run the app is on, running, on its second step.
+  const read = make('Read a chapter', ['Find the page', 'Read', 'Note one idea']);
+  const readRun = ok(s().startRoutine(read));
+  ok(s().nextStep(readRun));
+  await settle();
+  return { loop, loopRun, scales, scalesRun, move, moveRun, garden, gardenRun, parcel, parcelRun, guitar, guitarRun, tidyUp, tidyRun, bake, bakeRun, read, readRun };
+}
+
+const settingsOf = (store: Store) => {
+  const s = store.getState();
+  return { showShading: s.showShading, recentSearches: s.recentSearches, leftAsIs: s.leftAsIs, whyOfferOff: s.whyOfferOff, firstRunDone: s.firstRunDone };
+};
+const snapshot = (store: Store) => JSON.parse(JSON.stringify({ data: store.getState().data, settings: settingsOf(store) }));
+let expected: { data: import('@/domain/types').Data; settings: ReturnType<typeof settingsOf> };
+
+it('1. the database (schema 4), the backup and what the store held', async () => {
+  // From the data the build before the queue left (the retired app's wanders and activities, every kind of run P-94 froze).
+  copyFileSync(join(__dirname, 'fixtures/golden/p94-schema4.sqlite'), env.state.dbPath);
+  let store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+  await drive(store);
+  await settle();
+  expected = snapshot(store);
+  expect(env.ls.has('wanderment:journal')).toBe(false);
+  store = await load();
+  expect(snapshot(store)).toEqual(expected);
+  const { nodeDb } = await import('./nodeDb');
+  const db = nodeDb(env.state.dbPath);
+  expect(await db.all('PRAGMA user_version')).toEqual([{ user_version: 4 }]);
+  await db.exec('VACUUM');
+  db.close();
+  copyFileSync(env.state.dbPath, join(OUT, 'p96-schema4.sqlite'));
+  writeFileSync(join(OUT, 'p96-expected.json'), JSON.stringify(expected, null, 2) + '\n');
+  const { toBackup } = await import('@/domain/backup');
+  writeFileSync(join(OUT, 'p96-backup.json'), toBackup(store.getState().data, new Date('2026-11-26T09:30:00.000Z')));
+});
+
+it('2. the pending journal (eight keys): everything, never committed', async () => {
+  const store = await load();
+  env.state.hangWrites = true;
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  // (Replace brings the data only: the settings stay this page's.)
+  expect(snapshot(store).data).toEqual(expected.data);
+  const raw = env.ls.get('wanderment:journal')!;
+  expect(Object.keys(JSON.parse(raw).changes).sort()).toEqual(['deleteActivities', 'deleteRoutines', 'deleteRuns', 'deleteThreads', 'upsertActivities', 'upsertRoutines', 'upsertRuns', 'upsertThreads']);
+  writeFileSync(join(OUT, 'p96-journal.json'), raw);
+});
+
+it('3. the fallback blob (a browser that can’t run SQLite)', async () => {
+  env.state.openError = new Error('no OPFS');
+  const store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  writeFileSync(join(OUT, 'p96-fallback.json'), env.ls.get('wanderment')!);
+});

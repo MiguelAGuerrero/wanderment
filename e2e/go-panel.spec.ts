@@ -22,7 +22,8 @@ test('J04-h, J38-a: over a step in a loop — the round, then, and the actions, 
   await expect(where).toContainText('Round 2 of 3');
   await expect(where).toContainText('then: Add the shadows');
   await expect(where.getByText('Last step of the round')).toHaveCount(0);
-  await expect(r.panel.getByRole('button')).toHaveText(['Back to Block in the big shapes', 'Jump to…']);
+  // (P-96: and Finish <level> now, last — finishing early is the panel's.)
+  await expect(r.panel.getByRole('button')).toHaveText(['Back to Block in the big shapes', 'Jump to…', 'Finish Hand studies of my left hand now']);
   // Read first on opening: where you are.
   await expect(where).toBeFocused();
   expect({ pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), handle: await place(r.handle) }).toEqual(fixed);

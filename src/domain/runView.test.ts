@@ -84,17 +84,15 @@ describe('home: tiles', () => {
     expect(homeTiles(paused).map((x) => x.name)).toEqual(['Practise drawing', 'Feel at home in Spanish', 'Apply to Acme']);
   });
 
-  it('P-95 audit F3: where the app opens — home when the run it is on was left by Home and has not been touched since; else where it was left', () => {
+  it('P-96 (ruling 7; was P-95 audit F3: "home when … left by Home …; else where it was left" — the paused screen): a paused run opens home whatever the hint says; a running one, the runner', () => {
     const { d, id } = start(home(), 'acme');
     const paused = ok(d, { kind: 'pause', runId: id }).data;
     const at = readRun(paused, id)!.touchedAt!;
-    expect(opensAt(paused)).toEqual({ kind: 'paused', runId: id });
+    expect(opensAt(paused)).toEqual({ kind: 'home' });
     expect(opensAt(paused, { runId: id, touchedAt: at })).toEqual({ kind: 'home' });
-    // Touched since (resumed, paused again, Plan…): where it was left.
     const again = ok(ok(paused, { kind: 'resume', runId: id }).data, { kind: 'pause', runId: id }).data;
-    expect(opensAt(again, { runId: id, touchedAt: at })).toEqual({ kind: 'paused', runId: id });
-    // Another run, or a running one: never home by this.
-    expect(opensAt(paused, { runId: 'other', touchedAt: at })).toEqual({ kind: 'paused', runId: id });
+    expect(opensAt(again, { runId: id, touchedAt: at })).toEqual({ kind: 'home' });
+    expect(opensAt(paused, { runId: 'other', touchedAt: at })).toEqual({ kind: 'home' });
     expect(opensAt(d, { runId: id, touchedAt: readRun(d, id)!.touchedAt! })).toEqual({ kind: 'runner', runId: id });
   });
 
@@ -142,12 +140,13 @@ describe('home: tiles', () => {
     expect(homeTiles(d).map((x) => x.hue)).toEqual(tiles.map((x) => x.hue));
   });
 
-  it('where you left off: the runner while one runs, the paused screen while the one the app is on is paused, home otherwise', () => {
+  it('where you left off: the runner while one runs, home otherwise — P-96 (ruling 7; was: "the paused screen while the one the app is on is paused"): a paused run is home, first there', () => {
     expect(leftOff(emptyData())).toEqual({ kind: 'home' });
     const { d, id } = start(home(), 'acme');
     expect(leftOff(d)).toEqual({ kind: 'runner', runId: id });
     const paused = ok(d, { kind: 'pause', runId: id }).data;
-    expect(leftOff(paused)).toEqual({ kind: 'paused', runId: id });
+    expect(leftOff(paused)).toEqual({ kind: 'home' });
+    expect(homeShown(paused)[0].runId).toBe(id);
     expect(leftOff(ok(paused, { kind: 'home', runId: id }).data)).toEqual({ kind: 'home' });
     expect(leftOff(ok(d, { kind: 'done', runId: id }).data)).toEqual({ kind: 'home' });
   });
@@ -224,7 +223,8 @@ describe('the runner', () => {
 
   it('the edge of a goal: no step; it is in Plan (the runner does not show it); the level is still named', () => {
     const g = start(world(seq('G', 'Learn Spanish', [step('a')], { open: true })), 'G');
-    const edge = walk(g.d, g.id, 'next');
+    // P-96 (ruling 7): Next off the last step ends the run now; a run at the edge is one the build before left there.
+    const edge: Data = { ...g.d, runs: { ...g.d.runs, [g.id]: { ...g.d.runs[g.id], frames: [{ seq: 'G', at: null, round: 1 }], status: 'paused', mode: 'plan' } } };
     expect(runnerView(edge, g.id)).toMatchObject({ level: 'Learn Spanish', planning: true, status: 'paused', step: { kind: 'edge', words: '' }, middle: 'plan', next: 'edge', lastOfRound: false, canBack: true });
   });
 
@@ -410,9 +410,9 @@ describe('the plain routine editor reads', () => {
 });
 
 describe('the notice after an action', () => {
-  it('"Finished <name>" for what finished by itself (the largest thing just completed), "Done with <name>" for what Done left, "Jumped from <step>"; otherwise the step speaks for itself', () => {
+  it('"Finished <name>" for what finished by itself (the largest thing just completed), "Done with <name>" for what Done left, "Jumped from <step>"; otherwise the step speaks for itself — P-96 (ruling 7; was "Finished <name>" / "Undo Next"): a Next that ends the run says "Done with <name>", its Undo Done’s', () => {
     expect(noticeFor('next', { kind: 'finished', names: ['Inner', 'Middle'] })).toEqual({ text: 'Finished Middle', label: 'Next' });
-    expect(noticeFor('next', { kind: 'ended', name: 'Apply to Initech' })).toEqual({ text: 'Finished Apply to Initech', label: 'Next' });
+    expect(noticeFor('next', { kind: 'ended', name: 'Apply to Initech' })).toEqual({ text: 'Done with Apply to Initech', label: 'Done' });
     expect(noticeFor('done', { kind: 'finished', names: ['Inner', 'Middle'] })).toEqual({ text: 'Done with Inner', label: 'Done' });
     expect(noticeFor('done', { kind: 'ended', name: 'Job hunt' })).toEqual({ text: 'Done with Job hunt', label: 'Done' });
     expect(noticeFor('jump', { kind: 'jumped', from: 'Tailor the CV' })).toEqual({ text: 'Jumped from Tailor the CV', label: 'Jump' });

@@ -55,3 +55,20 @@ last touched first) without writing anything; these files must stay readable for
 | `p94-expected.json` | that build's store | what those four must read as |
 
 `freeze-p94.ts.txt` is the script that wrote them.
+
+## P-96 (frozen 2026-11-26, before values)
+
+Written the same way by the build before P-96 (`fad64c6`), which had no `out` on any step, no `values` on
+any run and no brace in any words. It started from `p94-schema4.sqlite` (so everything above is in it) and
+was then used through its own store actions. P-96 reads `{name}` from words and values from a run's body;
+this data has neither, so it must load and behave exactly as before, for good.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p96-schema4.sqlite` | that build, ordinary saves, over `p94-schema4.sqlite` | everything in `p94-schema4.sqlite`, plus 9 named routines (and 4 unnamed breakdowns) and 9 runs: a counted loop `[Pick a feature \| Try it (broken down), Note what broke] × 3` left in round 2 one level deep; an until-done loop left in round 3; a run two levels deep (a breakdown inside a breakdown); a run left in Plan; a run resting on a wait, paused with a reason; a run at the edge of an open goal (in Plan); a run finished by Next off the end of round 2; a run ended by Done one level down then at the top; and the run the app is on, running on its second step |
+| `p96-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p96-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p96-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p96-expected.json` | that build's store | what those four must read as |
+
+`freeze-p96.ts.txt` is the script that wrote them.

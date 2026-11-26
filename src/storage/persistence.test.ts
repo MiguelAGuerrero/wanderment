@@ -1552,6 +1552,16 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       jumpTo: { args: ['n1', { path: ['b'] }], setup: going() },
       backTo: { args: ['n1'], setup: going({ frames: [{ seq: 'g1', at: 'b', round: 1 }] }) },
       editRoutine: { args: ['g1', { kind: 'addStep', text: 'File it' }], setup: going() },
+      // P-96: typed in the field of the step that gives a name, and the value sheet changing a value there is.
+      typeValue: {
+        args: ['n1', 'a', 'topic', 'the ad'],
+        setup: (store) => {
+          going()(store);
+          const g1 = store.getState().data.routines.g1;
+          if (g1) store.setState((st) => ({ data: { ...st.data, routines: { ...st.data.routines, g1: { ...g1, items: (g1.items as { id: string }[]).map((i) => (i.id === 'a' ? { ...i, out: 'topic' } : i)) } } } }));
+        },
+      },
+      changeValue: { args: ['n1', 'topic', 'another ad'], setup: going({ values: [{ name: 'topic', items: ['the ad'], level: 0, seq: 'g1', item: 'a', at }] }) },
     };
     /** What's only on screen this session: these never change the data. */
     const NOT_DATA: Record<string, unknown[]> = {
@@ -1563,6 +1573,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       // nothing until the page holds the data again.
       dismissRunNotice: [],
       verbMarked: [],
+      // P-96 audit F3: names an edit already written by `typeValue` and makes it undoable (the Undo slot and the notice only).
+      typedOver: ['n1', 'a', 'topic', 'the ad'],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>
@@ -3280,6 +3292,228 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         expect((store.getState().data.routines[routineId].items as unknown[]).length).toBe(4);
         expect(store.getState().data.runs[runId].status).toBe('running');
       });
+    });
+  });
+
+  // ───────── P-96: values ─────────
+  describe('P-96: values survive reload, journal replay, the fallback, hand-over, export and import; so do the names steps give', () => {
+    type Ids = { runId: string; routineId: string; seqId: string; sel: string; pencil: string };
+    type Entry = { name: string; items: string[]; level: number; seq: string; item: string; words?: string; at: string; changedAt?: string };
+    const valuesOf = (data: { runs: Record<string, Record<string, unknown>> }, runId: string) => data.runs[runId].values as Entry[];
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * Through the store's actions, as a person would: "Drawing practice" with a step that gives {subject},
+     * one broken down whose smaller step gives {tool}, a step reading both and one that asks for {mood},
+     * Repeat from there × 3; Start; typed at the giving step; Next; Step in; typed there; Next; the value
+     * sheet changes {subject}; Pause.
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const made = g().createRoutine('Drawing practice');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      const routineId = made.routineId;
+      const items = () => store.getState().data.routines[routineId].items as { id: string; text?: string; ref?: string }[];
+      const all = [g().editRoutine(routineId, { kind: 'addStep', text: 'Select the subject matter' })];
+      const sel = items()[0].id;
+      all.push(
+        g().editRoutine(routineId, { kind: 'gives', item: sel, name: 'subject' }),
+        g().editRoutine(routineId, { kind: 'addStep', text: 'Get ready' }),
+        g().editRoutine(routineId, { kind: 'breakDown', item: items()[1].id, steps: ['Pick a pencil'] }),
+      );
+      const seqId = items()[1].ref!;
+      const pencil = (store.getState().data.routines[seqId].items as { id: string }[])[0].id;
+      all.push(
+        g().editRoutine(seqId, { kind: 'gives', item: pencil, name: 'tool' }),
+        g().editRoutine(routineId, { kind: 'addStep', text: 'Find photos of {subject} to draw with {tool}' }),
+        g().editRoutine(routineId, { kind: 'addStep', text: 'Note how {mood} it felt' }),
+        g().editRoutine(routineId, { kind: 'divider', from: 2 }),
+        g().editRoutine(routineId, { kind: 'repeat', times: 3 }),
+      );
+      const started = g().startRoutine(routineId);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      const runId = started.runId;
+      all.push(g().typeValue(runId, sel, 'subject', 'figures in motion'), g().nextStep(runId), g().stepIn(runId), g().typeValue(runId, pencil, 'tool', '2B'), g().nextStep(runId), g().changeValue(runId, 'subject', 'hands 🖐 “quick”'), g().pauseRun(runId));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { runId, routineId, seqId, sel, pencil };
+    }
+    /** What the contract names: the giving names on the steps, two values at the routine's level with where they came from, one changed; the reader shows them; the asking step asks. */
+    async function isAsBuilt(data: Store extends { getState(): { data: infer D } } ? D : never, ids: Ids) {
+      const { runnerView, valueDetail } = await import('@/domain/runView');
+      expect((data.routines[ids.routineId].items as { out?: string }[])[0].out).toBe('subject');
+      expect((data.routines[ids.seqId].items as { out?: string }[])[0].out).toBe('tool');
+      const values = valuesOf(data as never, ids.runId);
+      expect(values.map((e) => [e.name, e.items, e.level, e.seq, e.item, e.words])).toEqual([
+        ['subject', ['hands 🖐 “quick”'], 0, ids.routineId, ids.sel, 'Select the subject matter'],
+        ['tool', ['2B'], 0, ids.routineId, ids.pencil, 'Pick a pencil'],
+      ]);
+      expect(typeof values[0].changedAt).toBe('string');
+      expect('changedAt' in values[1]).toBe(false);
+      expect(runnerView(data, ids.runId)).toMatchObject({
+        status: 'paused',
+        step: { parts: [{ kind: 'text', text: 'Find photos of ' }, { kind: 'value', name: 'subject', text: 'hands 🖐 “quick”' }, { kind: 'text', text: ' to draw with ' }, { kind: 'value', name: 'tool', text: '2B' }] },
+      });
+      expect(valueDetail(data, ids.runId, 'tool')).toMatchObject({ from: 'Pick a pencil', text: '2B' });
+    }
+
+    it('reload: saved to SQLite as it is made, the same after a reload; a value typed writes the run’s row and nothing else; the next round asks again, and that too is saved', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      await isAsBuilt(shown, ids);
+      expect(await onDisk()).toEqual(shown);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      await isAsBuilt(store.getState().data, ids);
+
+      env.p29.writes = [];
+      expect(store.getState().resumeRun(ids.runId).ok).toBe(true);
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true); // onto the step that asks
+      expect(store.getState().typeValue(ids.runId, (shown.routines[ids.routineId].items as { id: string }[])[3].id, 'mood', 'calm').ok).toBe(true);
+      await tick(30);
+      expect(env.p29.writes.filter((q) => /INTO routines|FROM routines/.test(q))).toEqual([]);
+      expect(valuesOf(await onDisk(), ids.runId).map((e) => e.name)).toEqual(['subject', 'tool', 'mood']);
+      // Next: round 2 — what the repeating part gave ({mood}, asked there) is cleared; what was given before it stays.
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(valuesOf(store.getState().data, ids.runId).map((e) => e.name)).toEqual(['subject', 'tool']);
+      expect(await onDisk()).toEqual(store.getState().data);
+    });
+
+    it('journal replay: made while no write commits (the tab dies), all of it is there after a reload; so is a value being typed when it dies, as typed', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {}, runs: {} });
+      const shown = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      await isAsBuilt(store.getState().data, ids);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+
+      env.state.hangWrites = true;
+      store.getState().resumeRun(ids.runId);
+      store.getState().jumpTo(ids.runId, { path: [ids.sel] });
+      for (const typed of ['c', 'ca', 'cats, mid-wo']) expect(store.getState().typeValue(ids.runId, ids.sel, 'subject', typed).ok).toBe(true);
+      await tick(30);
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(valuesOf(store.getState().data, ids.runId)[0].items).toEqual(['cats, mid-wo']);
+      expect(valuesOf(await onDisk(), ids.runId)[0].items).toEqual(['cats, mid-wo']);
+    });
+
+    it('the localStorage fallback keeps all of it, and moves it into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      expect(JSON.parse(env.ls.get('wanderment')!).state.data.runs[ids.runId].values).toEqual(JSON.parse(JSON.stringify(shown.runs[ids.runId].values)));
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      expect(store.getState().data).toEqual(shown);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(shown);
+      expect(await onDisk()).toEqual(shown);
+      await isAsBuilt((await reload()).getState().data, ids);
+    });
+
+    it('hand-over with a take-back: a value typed here, still only in the journal when the page is hidden, stays on top of another page’s change to the routine', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      writeGate = deferred();
+      expect(store.getState().changeValue(ids.runId, 'tool', 'charcoal').ok).toBe(true);
+      await tick(0);
+      expect(store.getState().changeValue(ids.runId, 'subject', 'feet').ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRuns.map((r: { id: string }) => r.id)).toEqual([ids.runId]);
+      const mine = store.getState().data;
+
+      // The other page rewords the step that gives {subject}.
+      const { editRoutine } = await import('@/domain/run');
+      const other = editRoutine(await onDisk(), ids.routineId, { kind: 'reword', item: ids.sel, text: 'Choose a subject' }, { now: '2026-11-01T12:00:00.000Z', id: () => 'other-page-id' });
+      expect(other.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [other.data.routines[ids.routineId]] } as never);
+      db.close();
+
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.runs[ids.runId]).toEqual(mine.runs[ids.runId]);
+      expect(valuesOf(store.getState().data, ids.runId).map((e) => e.items[0])).toEqual(['feet', 'charcoal']);
+      expect(store.getState().data.routines[ids.routineId]).toEqual(other.data.routines[ids.routineId]);
+      const { valueDetail } = await import('@/domain/runView');
+      expect(valueDetail(store.getState().data, ids.runId, 'subject')).toMatchObject({ text: 'feet', from: 'Choose a subject' });
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('undo of a value changed from the sheet is taken back on screen and on disk', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const before = store.getState().data;
+      expect(store.getState().changeValue(ids.runId, 'subject', '').ok).toBe(true);
+      await tick(30);
+      expect(valuesOf(await onDisk(), ids.runId).map((e) => e.name)).toEqual(['tool']);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      store = await reload();
+      await isAsBuilt(store.getState().data, ids);
+    });
+
+    it('export → import: values and given names are in the backup; the same file is identical; one whose value differs replaces it and survives a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      const file = JSON.parse(json);
+      expect(file.data.runs[ids.runId].values).toEqual(JSON.parse(JSON.stringify(exported.runs[ids.runId].values)));
+      expect(file.data.routines[ids.routineId].items[0].out).toBe('subject');
+      const same = previewImport(json);
+      expect(same.plan).toMatchObject({ identical: true });
+      expect(same.incoming).toEqual(exported);
+      await isAsBuilt(same.incoming, ids);
+
+      file.data.runs[ids.runId].values[1].items = ['ink'];
+      const differs = previewImport(JSON.stringify(file));
+      expect(differs.plan).toMatchObject({ identical: false, runs: { changed: 1 }, routines: { unchanged: 2 } });
+      expect(confirmImport(differs).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      const { valueDetail } = await import('@/domain/runView');
+      expect(valueDetail(store.getState().data, ids.runId, 'tool')).toMatchObject({ text: 'ink' });
     });
   });
 });

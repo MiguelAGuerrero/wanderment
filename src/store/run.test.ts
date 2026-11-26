@@ -134,13 +134,13 @@ describe('Undo after every reversible action, and never a stale one', () => {
     }
   });
 
-  it('P-95: Next that ends the run (a routine that ends here, its last step) leaves an Undo with "Finished <name>": the run comes back where it was', () => {
+  it('P-95: Next that ends the run (a routine that ends here, its last step) leaves an Undo — P-96 (ruling 7; was "Finished <name>", "Undo Next"): with "Done with <name>", Done’s Undo; the run comes back where it was', () => {
     const id = started('report'); // (Report ends here: it has no open edge)
     st().jumpTo(id, { path: ['b'] });
     const before = st().data;
     expect(st().nextStep(id).ok).toBe(true);
     expect(readRun(st().data, id)!.endedAt).toBeDefined();
-    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Finished Report', label: 'Next' });
+    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Report', label: 'Done' });
     expect(st().runNotice!.entry).toBe(st().undo);
     st().undoLast();
     expect(json(st().data)).toEqual(json(before));
@@ -255,7 +255,7 @@ describe('Undo after every reversible action, and never a stale one', () => {
 });
 
 describe('what the notice says', () => {
-  it('a run that finishes says "Finished <name>"; Done says "Done with <name>"; a jump says where from (P-95: Next and "It’s happened" say nothing — no notice)', () => {
+  it('a run that finishes says "Done with <name>" (P-96, ruling 7; was "Finished <name>"); Done says "Done with <name>"; a jump says where from (P-95: Next and "It’s happened" say nothing — no notice)', () => {
     const id = started('report');
     st().nextStep(id);
     expect(st().runNotice).toBeUndefined();
@@ -268,7 +268,7 @@ describe('what the notice says', () => {
     expect(st().runNotice).toMatchObject({ verb: 'done', text: 'Done with Write report', label: 'Done' });
     st().jumpTo(id, { path: ['b'] });
     st().nextStep(id);
-    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Finished Report' });
+    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Report' });
     expect(readRun(st().data, id)!.endedAt).toBeDefined();
     st().undoLast();
     expect(readRun(st().data, id)!.endedAt).toBeUndefined();
@@ -436,12 +436,20 @@ describe('Plan (P-90)', () => {
     expect('mode' in st().data.runs[first]).toBe(false);
   });
 
-  it('the edge: Next on the last step of an open goal lands in Plan (paused, nothing next); a step added there is where Resume goes; Done ends it from there, with Undo', () => {
+  it('P-96 (ruling 7; was: "Next on the last step of an open goal lands in Plan"): that Next ENDS the run and goes home, "Done with <name>" with Undo; the edge the build before left a run at is still Plan — a step added there is where Resume goes; Done ends it from there, with Undo', () => {
     const goal = st().createRoutine('Learn Spanish');
     if (!goal.ok || !goal.routineId) throw new Error('not made');
     st().editRoutine(goal.routineId, { kind: 'addStep', text: 'Find a tutor' });
     const id = started(goal.routineId);
-    expect(st().nextStep(id)).toEqual({ ok: true, runId: id });
+    const running = st().data;
+    expect(st().nextStep(id)).toEqual({ ok: true, runId: id, home: true });
+    expect(readRun(st().data, id)).toMatchObject({ endedBy: 'finished' });
+    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Learn Spanish', label: 'Done' });
+    st().undoLast();
+    expect(json(st().data)).toEqual(json(running));
+    // A run at the edge, as the build before left it (Next off the last step).
+    const f = readRun(st().data, id)!.frames[0];
+    useStore.setState({ data: { ...st().data, runs: { ...st().data.runs, [id]: { ...st().data.runs[id], frames: [{ ...f, at: null }], status: 'paused', mode: 'plan' } } }, undo: undefined, runNotice: undefined });
     expect(st().data.runs[id]).toMatchObject({ status: 'paused', mode: 'plan' });
     expect(planView(st().data, { runId: id })).toMatchObject({ planning: true, edge: true, canDone: true, line: 'planning · nothing next yet' });
     expect(planView(st().data, { runId: id })!.forward).toBeUndefined();
@@ -452,7 +460,7 @@ describe('Plan (P-90)', () => {
     expect(planView(st().data, { runId: id })).toMatchObject({ planning: true, edge: false, forward: { label: 'Resume at Book a lesson' } });
     st().undoLast();
     expect(json(st().data)).toEqual(json(edge));
-    expect(st().doneLevel(id)).toEqual({ ok: true, runId: id });
+    expect(st().doneLevel(id)).toEqual({ ok: true, runId: id, home: true });
     expect(readRun(st().data, id)!.endedAt).toBeDefined();
     expect(st().runNotice).toMatchObject({ verb: 'done', text: 'Done with Learn Spanish', label: 'Done' });
     st().undoLast();
@@ -472,22 +480,23 @@ describe('Plan (P-90)', () => {
     const A = 'p90-008';
     const frozen = () => useStore.setState({ data: json(BEFORE), undo: undefined, runNotice: undefined });
 
-    it('P-95 audit F1: a Next that reaches the edge folds them too — and keeps the fold’s notice and Undo (it is not a plain Next); the Undo puts every record back', () => {
+    it('P-96 (ruling 7; was P-95 audit F1: "a Next that reaches the edge folds them too"): Next no longer reaches the edge — the Next that finishes the run ends it, its changes stay on the ended record unfolded (an ended run’s are never folded), with "Done with <name>" and an Undo that puts every record back', () => {
       frozen();
       expect(st().resumeRun(A).ok).toBe(true);
       let before = st().data;
       let n = 0;
-      while (!isPlanning(st().data, readRun(st().data, A)!) && n++ < 60) {
+      while (!readRun(st().data, A)!.endedAt && n++ < 60) {
         before = st().data;
         expect(st().nextStep(A).ok).toBe(true);
+        expect(isPlanning(st().data, readRun(st().data, A)!)).toBe(false);
       }
-      expect(readRun(st().data, A)!.changes).toEqual([]);
-      expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Kept this run’s changes in Apply for jobs' });
+      expect(readRun(st().data, A)!.changes).toHaveLength(7);
+      expect(st().data.routines).toEqual(before.routines);
+      expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Apply for jobs' });
       expect(st().runNotice!.entry).toBeDefined();
       expect(st().runNotice!.entry).toBe(st().undo);
       st().undoLast();
       expect(json(st().data)).toEqual(json(before));
-      expect(readRun(st().data, A)!.changes).toHaveLength(7);
     });
 
     it('P-95 audit F1/F4: a Jump that lands where the run reaches the edge, folding them, keeps its notice and Undo too', () => {

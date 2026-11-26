@@ -6,7 +6,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { exported, home, MAYA, paused, runner, seedGo, settled } from './goFixture';
+import { exported, home, MAYA, runner, seedGo, settled } from './goFixture';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const AT_GO = /\/wanderment\/go$/;
@@ -33,23 +33,22 @@ test.describe('the app’s address opens the new home', () => {
     const h = home(page);
     await expect(h.screen).toBeVisible();
     await expect(page).toHaveURL(AT_GO);
-    await expect(h.title).toHaveText('Nothing running');
-    await expect(h.prompt).toBeVisible();
+    // (P-96: no "Nothing running" title and no prompt; + New is there.)
+    await expect(h.newBtn).toBeVisible();
     await expect(h.tiles).toHaveCount(0);
     // Nothing of the old home is here.
     await expect(oldField(page)).toHaveCount(0);
     await expect(page.getByTestId('home-sheet-handle')).toHaveCount(0);
   });
 
-  test('with routines it shows their tiles and the prompt; a reload stays on the new home', async ({ page }) => {
+  test('with routines it shows their tiles (P-96: and + New; was: the prompt); a reload stays on the new home', async ({ page }) => {
     await seedGo(page, MAYA);
     await page.goto('./');
     const h = home(page);
     await expect(h.screen).toBeVisible();
     await expect(page).toHaveURL(AT_GO);
-    await expect(h.title).toHaveText('Nothing running');
     await expect(h.tiles).toHaveCount(MAYA.filter((r) => r.home !== false).length);
-    await expect(h.prompt).toBeVisible();
+    await expect(h.newBtn).toBeVisible();
     await page.reload();
     await expect(home(page).screen).toBeVisible();
     await expect(page).toHaveURL(AT_GO);
@@ -66,11 +65,12 @@ test.describe('the app’s address opens the new home', () => {
     await expect(page).toHaveURL(AT_GO);
   });
 
-  test('with a paused run it opens its paused screen', async ({ page }) => {
+  test('with a paused run it opens home, the run first with its Resume (P-96; was: its paused screen)', async ({ page }) => {
     await seedGo(page, MAYA, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused' }]);
     await page.goto('./');
-    await expect(paused(page).screen).toBeVisible();
-    await expect(page).toHaveURL(/\/wanderment\/go\/run\/r1\/paused$/);
+    await expect(home(page).screen).toBeVisible();
+    await expect(page).toHaveURL(AT_GO);
+    await expect(home(page).resume).toHaveText('Resume Apply to Initech');
   });
 
   test('the address replaces itself: one history entry, so Back never loops through it', async ({ page }) => {
@@ -94,7 +94,7 @@ test.describe('the app’s address opens the new home', () => {
     await page.goto(manifest.start_url);
     await expect(home(page).screen).toBeVisible();
     await expect(page).toHaveURL(AT_GO);
-    await expect(home(page).title).toHaveText('Nothing running');
+    await expect(home(page).newBtn).toBeVisible();
     // An old address opens offline too (the navigation fallback, then the redirect): the home.
     await page.goto('./old');
     await expect(home(page).screen).toBeVisible();
@@ -119,8 +119,7 @@ test.describe('the old app is retired: its addresses land on the home (P-89)', (
       const h = home(page);
       await expect(h.screen).toBeVisible();
       await expect(page).toHaveURL(AT_GO);
-      await expect(h.title).toHaveText('Nothing running');
-      await expect(h.prompt).toBeVisible();
+      await expect(h.newBtn).toBeVisible();
       // Nothing of the old app is drawn on the way or after.
       await expect(oldField(page)).toHaveCount(0);
       await expect(page.getByTestId('home-sheet-handle')).toHaveCount(0);
@@ -137,11 +136,12 @@ test.describe('the old app is retired: its addresses land on the home (P-89)', (
   });
 
   test('a deep link to an old line or wander, with a run in progress: the home, never a redirect into the run, and the run is as it was', async ({ page }) => {
-    await seedGo(page, MAYA, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused' }]);
+    await seedGo(page, MAYA, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }]);
     // Once per load `/go` opens where you left off: an old address is the same as the app's own.
+    // (P-96: a paused run opens home; a running one, its runner — as here.)
     await page.goto('./trail/draw');
-    await expect(paused(page).screen).toBeVisible();
-    await expect(page).toHaveURL(/\/wanderment\/go\/run\/r1\/paused$/);
+    await expect(runner(page).words).toHaveText('Tailor the CV');
+    await expect(page).toHaveURL(/\/wanderment\/go\/run\/r1$/);
     await page.goBack();
     await expect(settled(page, 'home')).toBeVisible();
     await expect(page).toHaveURL(AT_GO);

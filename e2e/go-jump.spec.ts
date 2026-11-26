@@ -1,18 +1,19 @@
 /**
  * P-86 (B-11 slice 1), P-90: moving within a run. Journeys J39 (Jump to…: the start of a level you are
- * in, or a step — from the runner's panel and from the paused screen), J37 (a counted repeat whose
- * number is set below the round a run is on) and "Ends here". (P-90: See it all and the plain editor
- * are folded into Plan — e2e/go-plan.spec.ts; what is planned changes the routine.)
+ * in, or a step — from the runner's panel), J37 (a counted repeat whose number is set below the round
+ * a run is on). (P-90: See it all and the plain editor are folded into Plan — e2e/go-plan.spec.ts;
+ * what is planned changes the routine. P-96: the paused screen and "Ends here" are gone — the tests of
+ * Jump from Paused and of the toggle are rewritten below.)
  */
 import { expect, test } from './fixtures';
-import { arrived, home, paused, plan, RoutineSpec, runner, settled, startGo } from './goFixture';
+import { arrived, home, plan, RoutineSpec, runner, settled, startGo } from './goFixture';
 
 const IN_LOOP = [{ id: 'r3', routine: 'drawing', at: 1, inner: [{ routine: 'hands', at: 2, round: 2 }], status: 'running' as const }];
 
 test('J29-a: a Jump moves the run and says where from, with one Undo that puts it back in the level and the round it was in', async ({ page }) => {
   await startGo(page, IN_LOOP, 'runner');
   const r = runner(page);
-  await expect(r.context).toHaveText('Practise drawingHand studies of my left hand');
+  await expect(r.context).toHaveText('Practise drawing ›Hand studies of my left hand');
   await r.handle.click();
   await r.panel.getByRole('button', { name: 'Jump to…', exact: true }).click();
   const j = settled(page, 'jump');
@@ -28,7 +29,7 @@ test('J29-a: a Jump moves the run and says where from, with one Undo that puts i
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await r.notice.getByRole('button', { name: 'Undo Jump', exact: true }).click();
   await expect(r.words).toHaveText('Check your proportions');
-  await expect(r.context).toHaveText('Practise drawingHand studies of my left hand');
+  await expect(r.context).toHaveText('Practise drawing ›Hand studies of my left hand');
   await r.handle.click();
   await expect(r.panel.getByTestId('go-where')).toContainText('Round 2 of 3');
 });
@@ -88,8 +89,9 @@ test('J39-c, J39-d, J39-g: picking a particular step keeps the round; a step ins
   await r.handle.click();
   await expect(r.panel.getByTestId('go-where')).toContainText('Round 2 of 3');
   await page.keyboard.press('Escape');
-  // From a level above, into a routine you are not in.
-  await r.done.click();
+  // From a level above, into a routine you are not in. (P-96: Finish <level> now is the panel's.)
+  await r.handle.click();
+  await r.finish.click();
   await expect(r.words).toHaveText('Gesture drawing');
   await r.handle.click();
   await r.panel.getByRole('button', { name: 'Jump to…', exact: true }).click();
@@ -97,12 +99,14 @@ test('J39-c, J39-d, J39-g: picking a particular step keeps the round; a step ins
   await j.getByRole('radio', { name: 'Block in the big shapes', exact: true }).click();
   await j.getByTestId('go-jump-here').click();
   await expect(r.words).toHaveText('Block in the big shapes');
-  await expect(r.context).toHaveText('Practise drawingHand studies of my left hand');
+  await expect(r.context).toHaveText('Practise drawing ›Hand studies of my left hand');
 });
 
-test('J39-a: Jump to… from Paused — the run is running at the new place afterwards', async ({ page }) => {
-  await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused' }], 'paused');
-  await paused(page).screen.getByRole('button', { name: 'Jump to…', exact: true }).click();
+test('J39-a (P-96; was: from the paused screen): a paused run, resumed from home, Jumps from the panel — running at the new place afterwards', async ({ page }) => {
+  await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused' }], 'home');
+  await home(page).resume.click();
+  await runner(page).handle.click();
+  await runner(page).panel.getByRole('button', { name: 'Jump to…', exact: true }).click();
   const j = settled(page, 'jump');
   await j.getByRole('radio', { name: 'Send the application', exact: true }).click();
   await j.getByTestId('go-jump-here').click();
@@ -164,18 +168,18 @@ test('J37-a, J37-b: the number of a counted repeat is set in Plan; set below the
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('"Ends here" (set in Plan, mid-run) is what makes the last Next finish; a routine with a run going is not offered Remove', async ({ page }) => {
+test('P-96 (ruling 7; was: "Ends here" set in Plan makes the last Next finish): the last Next of an open routine finishes it — there is no "Ends here" to set; a routine with a run going is not offered Remove', async ({ page }) => {
   await startGo(page, [{ id: 'r3', routine: 'drawing', at: 2, status: 'running' }], 'runner');
   await runner(page).middle.click();
   const p = plan(page);
   await p.more('Practise drawing').click();
   const sheet = await arrived(page, 'go-plan-routine');
   await expect(sheet.getByRole('button', { name: /^Remove/ })).toHaveCount(0);
-  await sheet.getByRole('button', { name: 'Ends here: Off', exact: true }).click();
-  await expect(sheet.getByRole('button', { name: 'Ends here: On', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(sheet.getByRole('button', { name: /Ends here/ })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await p.forward.click();
   await expect(runner(page).words).toHaveText('Gesture drawing');
+  await expect(runner(page).next).toHaveText('Done');
   await runner(page).next.click();
-  await expect(home(page).notice).toContainText('Finished Practise drawing');
+  await expect(home(page).notice).toContainText('Done with Practise drawing');
 });

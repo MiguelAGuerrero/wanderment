@@ -3,7 +3,7 @@
  * type size for its words, and how a tile's run reads. No React, no measuring: both are decided from
  * the words, so the same words always look the same and a spec can assert them.
  */
-import { sinceWords, Tile } from './runView';
+import { partsText, sinceWords, StepPart, Tile } from './runView';
 
 /** The note's type sizes, largest first (B-11 §3.1; the mockups' tokens). */
 export const NOTE_SIZES = [32, 26, 22, 18] as const;
@@ -69,6 +69,8 @@ export interface TileLine {
   spoken: string;
   /** The tile as a screen reader says it. */
   says: string;
+  /** P-96 (ruling 8): `line` in parts — its values in place, marked as values. Absent when the line holds no value (or blank): then it is `line`. */
+  parts?: StepPart[];
 }
 
 /** How a tile reads (B-11 §9b, B-12 v8): the name, where it is — and in which mode — and Resume, Start or Plan. Never a count. */
@@ -76,16 +78,22 @@ export function tileLine(tile: Tile, now = new Date()): TileLine {
   const button = tile.action === 'resume' ? 'Resume' : tile.action === 'plan' ? 'Plan' : 'Start';
   const spoken = `${button} ${tile.name}`;
   if (tile.state === 'idle') return { line: '', button, spoken, says: tile.name };
+  // P-96: the step's words with the run's values in place (with none, exactly its words).
+  const atParts: StepPart[] = tile.atParts ?? (tile.at ? [{ kind: 'text', text: tile.at }] : []);
+  const at = tile.at === undefined ? undefined : partsText(atParts);
+  const valued = atParts.some((p) => p.kind !== 'text');
+  const parts = (before: string, after = ''): { parts?: StepPart[] } => (valued ? { parts: [{ kind: 'text', text: before }, ...atParts, ...(after ? [{ kind: 'text' as const, text: after }] : [])] } : {});
   // Left in Plan: it says planning, never paused or waiting, and has no mark of theirs.
   // At the edge it reads as Plan and the paused screen do (one wording per meaning): "planning · nothing next yet".
-  if (tile.state === 'planning') return { line: `planning · ${tile.at ? `at ${tile.at}` : 'nothing next yet'}`, button, spoken, says: [tile.name, 'planning', tile.at ? `at ${tile.at}` : 'nothing next yet'].join(', ') };
+  if (tile.state === 'planning') return { line: `planning · ${at ? `at ${at}` : 'nothing next yet'}`, button, spoken, says: [tile.name, 'planning', at ? `at ${at}` : 'nothing next yet'].join(', '), ...(at && parts('planning · at ')) };
   if (tile.state === 'waiting') {
     // A date that is not one is left out (never "since undefined").
     const since = tile.since ? sinceWords(tile.since, now) : '';
-    const line = `waiting for ${tile.waitingFor ?? tile.at ?? ''}${since ? ` · since ${since}` : ''}`;
-    return { mark: 'wait', line, ...(tile.reason && { reason: tile.reason }), button, spoken, says: [tile.name, line, tile.reason].filter(Boolean).join(', ') };
+    const tail = since ? ` · since ${since}` : '';
+    const line = `waiting for ${at ?? tile.waitingFor ?? ''}${tail}`;
+    return { mark: 'wait', line, ...(tile.reason && { reason: tile.reason }), button, spoken, says: [tile.name, line, tile.reason].filter(Boolean).join(', '), ...parts('waiting for ', tail) };
   }
-  const line = tile.at ? `at ${tile.at}` : '';
+  const line = at ? `at ${at}` : '';
   const paused = tile.state === 'paused';
   return {
     ...(paused && { mark: 'paused' as const }),
@@ -95,5 +103,6 @@ export function tileLine(tile: Tile, now = new Date()): TileLine {
     spoken,
     // The one that is running says so (the others say paused, or waiting).
     says: [tile.name, paused ? `paused${line ? ` ${line}` : ''}` : ['running', line].filter(Boolean).join(', '), tile.reason].filter(Boolean).join(', '),
+    ...(line && parts('at ')),
   };
 }

@@ -1,9 +1,9 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Redirect } from 'expo-router';
 
-import { Paused } from '@/components/go/Paused';
-
-/** B-11 slice 1 (P-86): the paused (or waiting) screen for one run. */
+/**
+ * P-96 (ruling 7): the paused screen is gone — Pause goes home, where the paused run is first with
+ * Resume. Its old address lands home (in its place: Back never loops).
+ */
 export default function GoPaused() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  return <Paused runId={String(id)} key={String(id)} />;
+  return <Redirect href="/go" />;
 }

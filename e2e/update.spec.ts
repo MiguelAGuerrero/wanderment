@@ -186,7 +186,9 @@ test('Settings shows the build’s version, and “Check for updates” finds a 
 test('the update banner, at 390 px, has a 44 px “Update now” and no serious accessibility violations', async ({ page, request }) => {
   await openGo(page);
   await waitForServiceWorkerControl(page);
-  await home(page).prompt.fill('typed');
+  // (P-96: home has no prompt — the New sheet's name field is where one types on home.)
+  await home(page).newBtn.click();
+  await page.getByTestId('go-new-name').fill('typed');
   await request.post('/__e2e/bump-sw');
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());
   await expect(banner(page)).toBeVisible();

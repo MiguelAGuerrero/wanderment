@@ -20,8 +20,8 @@ test('data saved by the first release (localStorage) moves into SQLite once — 
     }
   }, legacy);
   await openGo(page);
-  // An existing person with only old data: the home, empty, with its prompt.
-  await expect(home(page).title).toHaveText('Nothing running');
+  // An existing person with only old data: the home, empty, with + New (P-96: no title in words, no prompt).
+  await expect(home(page).newBtn).toBeVisible();
   await expect(home(page).tiles).toHaveCount(0);
   const before = await exported(page);
   await expect(page.getByText('Saved in a database in this browser.')).toBeVisible();

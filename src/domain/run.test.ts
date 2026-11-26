@@ -50,6 +50,16 @@ const json = (v: unknown) => JSON.parse(JSON.stringify(v));
 const undone = (before: Data, after: Data) => json(applyUndo(after, undoEntry(before, after)));
 /** A run as the build before P-90 could have stored it (hand-made: nothing writes these any more). */
 const stored = (d: Data, id: Id, patch: Record<string, unknown>): Data => ({ ...d, runs: { ...d.runs, [id]: { ...d.runs[id], ...patch } as Run } });
+/**
+ * P-96 (ruling 7): Next and Done no longer reach the edge — finishing ends the run. A run at the edge is
+ * one the build before left there (Next off an open goal's last step: nothing to stand on, round kept,
+ * paused, in Plan), put in by hand as it stored it.
+ */
+const leftAtEdge = (d: Data, id: Id): Data => {
+  const f = run(d, id).frames[0];
+  const { waitingSince: _w, reason: _r, ...rest } = d.runs[id];
+  return { ...d, runs: { ...d.runs, [id]: { ...rest, frames: [{ seq: f.seq, at: null, round: f.round }], status: 'paused', mode: 'plan' } as Run } };
+};
 
 describe('Start', () => {
   it('a routine with nothing open: a new run on its first step, round 1, running, started and touched now, no changes', () => {
@@ -266,13 +276,14 @@ describe('Next', () => {
     expect(r.said).toEqual({ kind: 'ended', name: 'Parent' });
   });
 
-  it('finishing the bottom level of an open goal: the run does NOT end; there is nothing next (at: null, round kept) — which is Plan: paused, in Plan, in that write (P-90)', () => {
+  it('P-96 (ruling 7; was P-90: "the run does NOT end … which is Plan"): finishing the bottom level of an open goal ENDS the run by "finished", like an "ends here" one — it never opens Plan; the place left as it was', () => {
     const { d, id } = start(world(seq('G', 'Goal', [step('a')], { open: true })), 'G');
     const r = ok(d, { kind: 'next', runId: id });
-    expect(run(r.data, id).endedAt).toBeUndefined();
-    expect(at(r.data, id)).toEqual(['G:null:1']);
-    expect(run(r.data, id)).toMatchObject({ status: 'paused', mode: 'plan' });
-    expect(r.said).toEqual({ kind: 'edge' });
+    expect(run(r.data, id)).toMatchObject({ endedAt: expect.any(String), endedBy: 'finished' });
+    expect(at(r.data, id)).toEqual(['G:a:1']);
+    expect('mode' in r.data.runs[id]).toBe(false);
+    expect(r.said).toEqual({ kind: 'ended', name: 'Goal' });
+    expect(undone(d, r.data)).toEqual(json(d));
   });
 
   it('finishing the bottom level of an "ends here" routine: ended now by "finished"; status, waiting-since and reason gone; the place left as it was; "Finished <name>"', () => {
@@ -294,7 +305,7 @@ describe('Next', () => {
 
   it('at the edge (asking): Next is refused, there is no step to move past', () => {
     const s = start(world(seq('G', 'G', [step('a')], { open: true })), 'G');
-    const d = walk(s.d, s.id, 'next');
+    const d = leftAtEdge(s.d, s.id);
     const r = go(d, { kind: 'next', runId: s.id });
     expect([r.ok, r.reason]).toEqual([false, 'asking']);
     expect(r.data).toBe(d);
@@ -320,9 +331,9 @@ describe('Next', () => {
 });
 
 describe('The edge of a goal: the next step is added in Plan (P-90: `editRoutine`, not a verb of the run)', () => {
-  it('at the edge: the tidied step is appended to the ROUTINE and is where the run stands, round kept, still in Plan; one Undo reverts both; Resume, and finishing it reaches the edge again', () => {
+  it('at the edge: the tidied step is appended to the ROUTINE and is where the run stands, round kept, still in Plan; one Undo reverts both; Resume, and finishing it ends the run (P-96, ruling 7; was: reaches the edge again)', () => {
     let { d, id } = start(world(seq('G', 'Goal', [step('a')], { open: true })), 'G');
-    d = walk(d, id, 'next');
+    d = leftAtEdge(d, id);
     const e = editRoutine(d, 'G', { kind: 'addStep', text: '  call   Ana ' }, env());
     expect(e.ok).toBe(true);
     expect(texts(e.data, 'G')).toEqual(['a', 'call Ana']);
@@ -331,10 +342,10 @@ describe('The edge of a goal: the next step is added in Plan (P-90: `editRoutine
     expect(run(e.data, id).changes).toEqual([]);
     expect(run(e.data, id)).toMatchObject({ status: 'paused', mode: 'plan' });
     expect(undone(d, e.data)).toEqual(json(d));
-    // Finishing it reaches the edge again: the path is laid one step at a time.
+    // Finishing it ends the run (P-96, ruling 7): finishing is final, never Plan.
     const again = ok(ok(e.data, { kind: 'resume', runId: id }).data, { kind: 'next', runId: id });
-    expect(at(again.data, id)).toEqual(['G:null:1']);
-    expect(again.said).toEqual({ kind: 'edge' });
+    expect(run(again.data, id).endedBy).toBe('finished');
+    expect(again.said).toEqual({ kind: 'ended', name: 'Goal' });
   });
 
   it('a first step on something new: the empty goal gets its first item in its Plan, and Start runs it', () => {
@@ -345,21 +356,23 @@ describe('The edge of a goal: the next step is added in Plan (P-90: `editRoutine
     expect(here(s.d, s.id)).toBe('Find a tutor');
   });
 
-  it('in a goal with a counted loop already complete: the step is appended in the looped part, runs once, and finishing it reaches the edge again', () => {
+  it('in a goal with a counted loop already complete: the step is appended in the looped part, runs once, and finishing it ends the run (P-96, ruling 7; was: reaches the edge again)', () => {
     let { d, id } = start(world(seq('G', 'Goal', [step('a')], { open: true, repeatFrom: 0, repeat: 1 })), 'G');
-    d = walk(d, id, 'next');
+    expect(go(d, { kind: 'next', runId: id }).said?.kind).toBe('ended');
+    d = leftAtEdge(d, id);
     expect(at(d, id)).toEqual(['G:null:1']);
     d = editRoutine(d, 'G', { kind: 'addStep', text: 'b' }, env()).data;
     expect(texts(d, 'G')).toEqual(['a', 'b']);
     expect(readRoutine(d, 'G')!.repeatFrom).toBe(0);
     expect(run(d, id).frames[0].round).toBe(1);
     d = ok(d, { kind: 'resume', runId: id }).data;
-    expect(at(walk(d, id, 'next'), id)).toEqual(['G:null:1']);
+    expect(at(d, id)).toEqual([`G:${readRoutine(d, 'G')!.items[1].id}:1`]);
+    expect(run(walk(d, id, 'next'), id).endedBy).toBe('finished');
   });
 
   it('a step appended to the routine while a run is at its edge: the run moves to that step; one inserted anywhere else does not move it', () => {
     let { d, id } = start(world(seq('G', 'G', [step('a')], { open: true })), 'G');
-    d = walk(d, id, 'next');
+    d = leftAtEdge(d, id);
     const e = editRoutine(d, 'G', { kind: 'addStep', text: 'new' }, env());
     expect(e.ok).toBe(true);
     const added = readRoutine(e.data, 'G')!.items[1];
@@ -416,13 +429,13 @@ describe('Done', () => {
     expect(undone(d, r.data)).toEqual(json(d));
   });
 
-  it('on an inner level whose parent is on its last item: the parent finishes as Next would (cascade; here the bottom is an open goal, so it asks)', () => {
+  it('on an inner level whose parent is on its last item: the parent finishes as Next would (cascade; here the bottom is an open goal, and since P-96 (ruling 7) finishing it ends the run — it used to ask)', () => {
     const g = world(seq('G', 'Goal', [ref('lp', 'L')], { open: true }), seq('L', 'Inner', [step('a'), step('b')]));
     let { d, id } = start(g, 'G');
     d = walk(d, id, 'stepIn');
     const r = ok(d, { kind: 'done', runId: id });
-    expect(at(r.data, id)).toEqual(['G:null:1']);
-    expect(r.said).toEqual({ kind: 'finished', names: ['Inner'] });
+    expect(run(r.data, id)).toMatchObject({ endedAt: expect.any(String), endedBy: 'finished' });
+    expect(r.said).toEqual({ kind: 'ended', name: 'Goal' });
   });
 
   it('a parent that is no longer on the step the level was entered from (stored so by the build before P-90) is not advanced again: Done lands where the parent is', () => {
@@ -447,9 +460,9 @@ describe('Done', () => {
     const back = undone(d, r.data);
     expect(back).toEqual(json(d));
     expect(back.runs[id]).toMatchObject({ status: 'paused', reason: 'lunch', waitingSince: new Date(T0 + 1000).toISOString() });
-    // At an open edge too.
+    // At an open edge too (one the build before left there: P-96).
     const e = start(world(seq('E', 'E', [step('a')], { open: true })), 'E');
-    const edge = walk(e.d, e.id, 'next');
+    const edge = leftAtEdge(e.d, e.id);
     expect(at(edge, e.id)).toEqual(['E:null:1']);
     expect(run(ok(edge, { kind: 'done', runId: e.id }).data, e.id).endedBy).toBe('done');
   });
@@ -661,7 +674,8 @@ describe('Jump to… / Back to <step>', () => {
     expect(at(r.data, id)).toEqual(['G:w:1']);
     expect(run(r.data, id).waitingSince).toBe(new Date(T0 + 4000).toISOString());
     expect(run(r.data, id).reason).toBeUndefined();
-    const edge = walk(ok(d, { kind: 'resume', runId: id }).data, id, 'next');
+    // (The build before left a run there by Next off the last step; since P-96 that Next ends the run.)
+    const edge = leftAtEdge(ok(d, { kind: 'resume', runId: id }).data, id);
     expect(at(edge, id)).toEqual(['G:null:1']);
     expect(previous(edge, run(edge, id))).toEqual({ at: 'b', round: 1 });
     expect(go(edge, { kind: 'back', runId: id })).toMatchObject({ ok: false, reason: 'planning', data: edge });

@@ -1,7 +1,7 @@
 /**
  * B-11 slice 1 (P-86): Jump to… (B-11 §3.5) — sets the run to where the person really is: the start of
  * a level they are in, or a particular step. (P-90: See it all, which shared this file, is folded into
- * Plan; Jump stays with the runner's panel and the paused screen: it moves you, it does not plan.)
+ * Plan; Jump stays with the runner's panel: it moves you, it does not plan.)
  */
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';

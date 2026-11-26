@@ -30,7 +30,11 @@ export type MarkName =
   | 'lines'
   | 'gear'
   /** P-95: the drag handle of a Plan row — six blocks in two columns, the conventional grip. */
-  | 'grip';
+  | 'grip'
+  /** P-96: Home, a side door on Plan (the conventional house, in blocks). */
+  | 'home'
+  /** P-96: a value — the braces of `{name}` (a name, a field that gives it, the values row). */
+  | 'braces';
 
 const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corner' | 'grip'>, string> = {
   wait: 'M6 3h12M6 21h12M7 3v4l5 5-5 5v4M17 3v4l-5 5 5 5v4',
@@ -50,6 +54,8 @@ const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corne
   split: 'M4 5h16M4 12h10M4 19h10',
   lines: 'M4 6h16M4 12h16M4 18h11',
   // Settings: the conventional cog, in blocks (eight teeth, a square hub).
+  home: 'M3 11l9-8 9 8M6 9v11h12V9M10 20v-6h4v6',
+  braces: 'M9 4H7v6l-2 2 2 2v6h2M15 4h2v6l2 2-2 2v6h-2',
   gear: 'M10 3h4v3h1l2-2 3 3-2 2v1h3v4h-3v1l2 2-3 3-2-2h-1v3h-4v-3H9l-2 2-3-3 2-2v-1H3v-4h3V9L4 7l3-3 2 2h1zM10 10h4v4h-4z',
 };
 

@@ -6,6 +6,7 @@ import { LogInput, logActivity, newId } from '@/domain/model';
 import { currentRun, editRoutine, isRunning, JumpTo, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
 import { Acted, noticeFor, runnerView, whatChanged } from '@/domain/runView';
 import { Data, emptyData, Id, Run } from '@/domain/types';
+import { nameKey, tidyName } from '@/domain/values';
 
 /**
  * What was in the old app's log box (P-89: the box is gone). Kept only because a page of the old app
@@ -81,7 +82,10 @@ export interface ToLog {
  * hold the data; the screen keeps what was typed), and for a start refused because something is
  * running, what.
  */
-export type Did = { ok: true; runId?: Id; routineId?: Id } | { ok: false; reason: Refusal | 'reconnecting'; running?: { runId: Id; name: string } };
+export type Did =
+  /** `home` (P-96, ruling 7): the screen goes home — the press ended the run (finishing never opens Plan), or paused it. */
+  | { ok: true; runId?: Id; routineId?: Id; home?: true }
+  | { ok: false; reason: Refusal | 'reconnecting'; running?: { runId: Id; name: string } };
 
 /**
  * The notice after a run action (one at a time, until the next action). `text` may be '' (the step
@@ -197,6 +201,24 @@ interface State {
    * Undo restores the routine and every run together; the notice names the edit.
    */
   editRoutine: (routineId: Id, edit: RoutineEdit) => Did;
+  /**
+   * P-96: typed in a field of the runner's step (`RunnerView.fields`): `itemId` is the step the run is on,
+   * which gives the name or asks for it. Kept as typed, keystroke by keystroke; blank clears it. No notice,
+   * and the Undo slot is left alone (ruling 4). Refused while reconnecting: the screen keeps the text.
+   */
+  typeValue: (runId: Id, itemId: Id, name: string, text: string) => Did;
+  /**
+   * P-96: the value sheet — call once, on Close, with what is in its field. Replacing or clearing the value
+   * the run's step sees leaves "Changed {name}" / "Cleared {name}" with an Undo (ruling 4); the same text
+   * writes nothing. Refused `cannot` when there is no such value.
+   */
+  changeValue: (runId: Id, name: string, text: string) => Did;
+  /**
+   * P-96 audit F3: the step's own field was left after an edit that began with the value `was` (the
+   * keystrokes were kept by `typeValue`). Replaced or cleared: "Changed / Cleared {name}" with Undo, once.
+   * First giving (`was` empty) and an edit that ends where it began leave nothing.
+   */
+  typedOver: (runId: Id, itemId: Id, name: string, was: string) => Did;
   /** The notice was put away. Session only. */
   dismissRunNotice: () => void;
   /** The data is back: applies the press kept while reconnecting, once, if its run is as it was. */
@@ -265,12 +287,20 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   if (undo === 'ends') undo = r.said?.kind === 'ended' ? 'set' : 'clear';
   // Whatever the verb, a write that folded this-run changes into the routine is named, with its Undo (audit F1).
   if (r.folded !== undefined) undo = 'set';
+  // P-96 audit F2: Back to across a round boundary can clear values typed in the round it leaves — never
+  // silently: it is named, with an Undo.
+  const cleared = verb.kind === 'back' && r.ok ? clearedNames(s.data, r.data, verb.runId) : [];
+  if (cleared.length) undo = 'set';
+  // P-96 audit F3: a value typed over in the step's own field keeps its Undo through the move that follows.
+  if (undo === 'clear' && (verb.kind === 'next' || verb.kind === 'stepIn') && s.runNotice?.verb === 'value' && s.runNotice.entry && s.runNotice.entry === s.undo) undo = 'keep';
   if (!r.ok) {
     // One thing runs at a time: say what is running.
     if (r.running) useStore.setState({ runNotice: { verb: verb.kind, text: `${r.running.name} is running`, label: '' } });
     return { ok: false, reason: r.reason ?? 'cannot', ...(r.running && { running: r.running }) };
   }
-  const did: Did = { ok: true, ...((r.runId ?? runId) !== undefined && { runId: r.runId ?? runId }), ...(r.routineId !== undefined && { routineId: r.routineId }) };
+  // P-96 (ruling 7): finishing ends the run and Pause puts it down — either way the screen goes home.
+  const home = r.said?.kind === 'ended' || verb.kind === 'pause';
+  const did: Did = { ok: true, ...((r.runId ?? runId) !== undefined && { runId: r.runId ?? runId }), ...(r.routineId !== undefined && { routineId: r.routineId }), ...(home && { home: true as const }) };
   if (r.data === s.data) return did;
   if (undo === 'keep') {
     useStore.setState({ data: r.data });
@@ -281,11 +311,38 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   useStore.setState({
     data: r.data,
     undo: entry,
-    runNotice: entry ? { verb: verb.kind, ...said(noticeFor(verb.kind, r.said, onWait, r.folded), what), entry } : undefined,
+    runNotice: entry ? { verb: verb.kind, ...said(noticeFor(verb.kind, r.said, onWait, r.folded), cleared.length ? `Cleared ${cleared.map((n) => `{${n}}`).join(', ')}` : what), entry } : undefined,
     toVerb: undefined,
     toast: undefined,
   });
   return did;
+}
+
+/** P-96 audit F2: the names of the run's values a write took away (one name at one level each, as given). */
+function clearedNames(before: Data, after: Data, runId: Id): string[] {
+  const was = readRun(before, runId)?.values ?? [];
+  const now = readRun(after, runId)?.values ?? [];
+  const has = new Set(now.map((e) => `${e.level}|${nameKey(e.name)}`));
+  return was.filter((e) => !has.has(`${e.level}|${nameKey(e.name)}`)).map((e) => e.name);
+}
+
+/**
+ * P-96 audit F3 (ruling 4): the step's own field was left after typing over a value it opened with
+ * (`was`): one notice, "Changed {x}" / "Cleared {x}", with an Undo that puts `was` back. The keystrokes
+ * themselves wrote as they went ('keep'); this only names the edit and makes it undoable, once.
+ */
+function typedOverValue(runId: Id, itemId: Id, name: string, was: string): Did {
+  const s = useStore.getState();
+  const now = runnerView(s.data, runId)?.fields.find((f) => nameKey(f.name) === nameKey(name));
+  const run = readRun(s.data, runId);
+  if (!run || !was.trim()) return { ok: true, runId };
+  const current = now?.text ?? '';
+  if (current === was) return { ok: true, runId };
+  const back = runVerb(s.data, { kind: 'value', runId, name, text: was, item: itemId }, { now: new Date().toISOString(), id: newId });
+  if (!back.ok || back.data === s.data) return { ok: true, runId };
+  const entry = undoEntry(back.data, s.data);
+  useStore.setState({ undo: entry, runNotice: { verb: 'value', text: `${current.trim() ? 'Changed' : 'Cleared'} {${tidyName(name)}}`, label: 'Change', entry } });
+  return { ok: true, runId };
 }
 
 /** The notice's words: what the engine says happened ("Finished …"), else the thing the action was done to. */
@@ -418,6 +475,9 @@ export const useStore = create<State>()((set, get) => ({
   jumpTo: gated<State['jumpTo']>(refused, (runId, to) => busyWith(runId) ?? act({ kind: 'jump', runId, to }, 'set')),
   backTo: gated<State['backTo']>(refused, (runId) => act({ kind: 'back', runId }, 'clear')),
   editRoutine: gated<State['editRoutine']>(refused, (routineId, edit) => act({ kind: 'editRoutine', routineId, edit }, 'set')),
+  typeValue: gated<State['typeValue']>(refused, (runId, itemId, name, text) => act({ kind: 'value', runId, name, text, item: itemId }, 'keep')),
+  changeValue: gated<State['changeValue']>(refused, (runId, name, text) => act({ kind: 'value', runId, name, text }, 'set')),
+  typedOver: gated<State['typedOver']>(refused, typedOverValue),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
 
   verbMarked: () => {

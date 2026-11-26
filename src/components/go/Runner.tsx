@@ -1,29 +1,30 @@
 /**
- * B-11 slice 1 (P-86), B-12 (P-90): the runner — the step and nothing else (B-11 §3.1, §9b; B-12 v1).
+ * B-11 slice 1 (P-86), B-12 (P-90), P-96: the runner — the step and nothing else (B-11 §3.1, §9b; B-12 v1).
  *
- * A column exactly as tall as what is visible: the context line (the level, its parent, Done) · the
- * note, centred in whatever room is left and never larger than it · the notice · the handle · Pause,
- * Plan / Step in, and Next. Nothing is positioned over anything else but the pull-up panel (over the
- * note only). The three buttons never move. Nothing is planned here: Plan is its own surface, and a
- * run with nothing next is there, not here.
+ * A column exactly as tall as what is visible. P-96 (one navigation scheme): the TOP is context only —
+ * the path (the level, after its parent), then the values in play (a row of their own, each opening its
+ * sheet) · the note, centred in whatever room is left and never larger than it, the values it reads in
+ * place · the step's value fields · the notice, in its own row · the handle · the side doors (❚❚ Pause,
+ * which goes home; Plan / Step in) · Next, the one filled button, lowest — Done only when that press
+ * ends the whole run. Finishing early, Back to and Jump to are the pull-up panel's. Nothing is
+ * positioned over anything else but the pull-up panel (over the note only) and the value sheet.
  *
- * The route follows the run: in Plan → its Plan; paused → the paused screen; ended, left or gone → home.
- * P-95: Home, at the start of the context line, pauses the run (no ask; it keeps its place) and goes
- * home, where it is the first tile, with Resume.
+ * The route follows the run: in Plan → its Plan; paused, ended, left or gone → home (there is no
+ * paused screen: the paused run is first on home, with Resume).
  */
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { NOTE_PAD, NOTE_SIZES, noteType } from '@/domain/goText';
-import { readRun } from '@/domain/run';
-import { panelView, routineHue, runnerView, RunnerView, sinceWords } from '@/domain/runView';
+import { panelView, partsText, routineHue, runnerView, RunnerView, sinceWords, StepPart, wordsShown } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
-import { decideWhere, markWentHome } from './session';
+import { decideWhere } from './session';
 import { face, G, hueOf, SP, TARGET } from './tokens';
+import { Parts, ValueFields, ValueSheet, ValuesRow } from './Values';
 import { Btn, focusOn, focusSoon, GoScreen, hard, HiddenH1, Said, T, useBackCloses, useKeys, useVisibleHeight, ViewRef } from './ui';
 
 const WEB = Platform.OS === 'web';
@@ -49,32 +50,34 @@ export function Runner({ runId }: { runId: string }) {
   const focused = useIsFocused();
 
   const [panel, setPanel] = useState(false);
-  // Home was pressed (P-95): the run is paused and this screen is on its way home, not to the paused screen.
-  const [leaving, setLeaving] = useState(false);
+  /** P-96: the value sheet open on this name. */
+  const [sheet, setSheet] = useState<string | null>(null);
   const note = useRef<ViewRef>(null);
   const handle = useRef<ViewRef>(null);
+  const nextBtn = useRef<ViewRef>(null);
 
   // The route follows the run. Whatever is open is put away first (it would hold the screen).
   const status = v?.status;
   const planning = !!v?.planning;
   useEffect(() => {
     // Only the screen in front moves (one beneath another would move that one instead).
-    if ((running && !planning) || !focused || leaving) return;
-    // In Plan (the Plan button, the edge of a goal, another tab): its Plan, in this screen's place.
+    if ((running && !planning) || !focused) return;
+    // In Plan (the Plan button, another tab): its Plan, in this screen's place.
     if (planning && status !== 'ended') router.replace(`/go/run/${runId}/plan`);
-    else if (status === 'paused') router.replace(`/go/run/${runId}/paused`);
+    // P-96 (ruling 7): paused (Pause), ended (the last Next, Finish now), left or gone: home — where the
+    // paused run is first, or the notice says what finished, with Undo.
     else goHome();
-  }, [running, planning, focused, status, runId, leaving]);
+  }, [running, planning, focused, status, runId]);
 
   const closePanel = () => {
     setPanel(false);
     focusOn(handle);
   };
   // Open things hold the screen only while the run is running here (else the route is about to follow it).
-  useBackCloses(focused && running && panel, closePanel);
+  useBackCloses(focused && running && panel && !sheet, closePanel);
 
   const toNote = () => later(note);
-  // On arrival (a start, Resume from Plan or the paused screen, a Jump, Undo from home, a reload): the note.
+  // On arrival (a start, Resume from Plan or home, a Jump, Undo from home, a reload): the note.
   useEffect(() => {
     if (focused) later(note);
   }, [focused]);
@@ -88,21 +91,16 @@ export function Runner({ runId }: { runId: string }) {
     // One write: the run is paused and in Plan. The route then follows it (above).
     act().planRun(runId);
   };
-  const done = () => {
+  const finish = () => {
     setPanel(false);
+    // The level the run is in ends; the whole run, if that was its first layer (the route goes home).
     act().doneLevel(runId);
     toNote();
   };
+  // P-96 (ruling 7, the amendment): Pause puts the run down where it is and goes home (the route follows it).
   const pause = () => {
     setPanel(false);
     act().pauseRun(runId);
-  };
-  // Home: paused where it is, and home — not the paused screen the route would follow it to.
-  const toHome = () => {
-    setLeaving(true);
-    setPanel(false);
-    if (act().pauseRun(runId).ok) markWentHome(runId, readRun(useStore.getState().data, runId)?.touchedAt);
-    goHome();
   };
   // Little room (the keyboard up, large text): everything but the note gives a little, so the note keeps more.
   const seen = useVisibleHeight();
@@ -116,7 +114,7 @@ export function Runner({ runId }: { runId: string }) {
   };
 
   useKeys(
-    focused && running,
+    focused && running && !sheet,
     {
       // Return while the note has the focus is Next. No letter is a shortcut (see `useKeys`).
       Enter: next,
@@ -131,25 +129,27 @@ export function Runner({ runId }: { runId: string }) {
   if (!v || !running || planning) return <GoScreen testID="go-runner" settled={false}>{null}</GoScreen>;
 
   const hue = hueOf(routineHue(data, v.routineId));
+  const shown = partsText(v.step.parts) || v.step.words;
+  const done = v.next === 'done';
+  const valueSheet = sheet ? <ValueSheet runId={runId} name={sheet} onClose={() => setSheet(null)} fallback={note} /> : null;
 
   return (
-    <GoScreen testID="go-runner">
+    <GoScreen testID="go-runner" layer={valueSheet}>
       <HiddenH1>{v.level}</HiddenH1>
       {/* Said once on arriving (from Plan, a start, a reload): running, and the step. */}
-      {focused && <Said text={`Running: ${v.step.kind === 'wait' ? `Wait for: ${v.step.words}` : v.step.words}`} />}
+      {focused && <Said text={`Running: ${v.step.kind === 'wait' ? `Wait for: ${shown}` : shown}`} />}
       {/* With almost no room (large text AND the keyboard up) the column scrolls before anything goes: the note keeps a least size. */}
       <ScrollView style={styles.column} contentContainerStyle={styles.columnBody} keyboardShouldPersistTaps="handled" testID="go-column">
+      {/* P-96 (the amendment): the top is context only — the path, in words. Not a control. */}
       <View style={styles.context}>
-        <Btn label="Home" spoken={`Home, pausing ${v.name}`} onPress={toHome} style={styles.home} testID="go-runner-home" />
-        {/* The level and its parent, in words. Not a control: the runner is the step and nothing else (the sequence is Plan's). */}
         <View style={styles.contextWords} testID="go-context">
-          {!!v.parent && <T dim numberOfLines={1}>{v.parent}</T>}
+          {!!v.parent && <T dim numberOfLines={1}>{`${v.parent} ›`}</T>}
           <T bold size={18} numberOfLines={tight || v.parent ? 1 : 2}>
             {v.level}
           </T>
         </View>
-        <Btn label="Done" spoken={`Done with ${v.level}`} onPress={done} style={styles.done} testID="go-done" />
       </View>
+      <ValuesRow values={v.values} onOpen={(name) => { setPanel(false); setSheet(name); }} />
 
       <NoteArea
         view={v}
@@ -161,6 +161,8 @@ export function Runner({ runId }: { runId: string }) {
           panel ? (
             <Panel
               runId={runId}
+              finish={v.finish}
+              onFinish={finish}
               onClose={closePanel}
               onUndo={undo}
               onMoved={() => {
@@ -170,17 +172,19 @@ export function Runner({ runId }: { runId: string }) {
             />
           ) : null
         }
+        fields={v.step.itemId ? <ValueFields runId={runId} itemId={v.step.itemId} fields={v.fields} onDone={() => focusOn(nextBtn)} /> : null}
         notice={<Notice onUndone={toNote} reserve />}
         tray={(full) => (
           <>
             <Handle ref={handle} open={panel} onToggle={() => (panel ? closePanel() : setPanel(true))} onSwipe={(up) => (up ? setPanel(true) : closePanel())} />
             <View style={[styles.tray, tight && styles.trayTight]}>
-              <View style={styles.trayRow}>
-                <Btn mark="pause" spoken="Pause" onPress={pause} testID="go-pause" />
+              {/* The side doors (the amendment): left leaves for another place (home, the run paused); right is the other mode. */}
+              <View style={styles.trayRow} testID="go-side-doors">
+                <Btn mark="pause" spoken="Pause and go home" onPress={pause} testID="go-pause" />
                 {v.middle === 'stepIn' ? (
                   <Btn
                     label="Step in"
-                    spoken={`Step in: ${v.step.words}`}
+                    spoken={`Step in: ${shown}`}
                     style={styles.grow}
                     testID="go-middle"
                     onPress={() => {
@@ -208,15 +212,18 @@ export function Runner({ runId }: { runId: string }) {
                   </View>
                 )}
               </View>
+              {/* The one filled button, lowest: Next — Done only when this press ends the whole run (ruling 7). */}
               <Btn
                 kind="filled"
-                label={v.next === 'itsHappened' ? 'It’s happened' : 'Next'}
-                spoken={v.next === 'itsHappened' ? `It’s happened: ${v.step.words}` : undefined}
-                markAfter={v.next === 'itsHappened' ? undefined : 'forward'}
+                ref={nextBtn}
+                label={v.next === 'itsHappened' ? 'It’s happened' : done ? 'Done' : 'Next'}
+                spoken={v.next === 'itsHappened' ? `It’s happened: ${shown}` : done ? `Done with ${v.name}` : undefined}
+                markAfter={v.next === 'itsHappened' || done ? undefined : 'forward'}
                 onPress={next}
                 size={18}
                 style={styles.next}
                 testID="go-next"
+                dataSet={{ ends: v.ends ? 'true' : 'false' }}
               />
             </View>
           </>
@@ -301,6 +308,8 @@ interface NoteAreaProps {
   panelOpen: boolean;
   onPanel: (open: boolean) => void;
   panel: React.ReactNode;
+  /** P-96: the step's value fields, under its words (in the flow, above the notice). */
+  fields: React.ReactNode;
   /** The notice's slot: in the flow under the note (the panel, when open, is over both). */
   notice: React.ReactNode;
   /** What stands under the note; it is told whether the note is full. */
@@ -313,10 +322,11 @@ interface NoteAreaProps {
  * than the note the type steps down again, to "full": edge to edge, scrolling inside, never clipped.
  * It is never a field: words are typed in Plan.
  */
-function NoteArea({ view: v, hue, noteRef, panelOpen, onPanel, panel, notice, tray }: NoteAreaProps) {
+function NoteArea({ view: v, hue, noteRef, panelOpen, onPanel, panel, fields, notice, tray }: NoteAreaProps) {
   const { fontScale } = useWindowDimensions();
   const [room, setRoom] = useState<{ w: number; h: number } | undefined>();
-  const words = v.step.words;
+  // What is shown: the words with the values the step reads in place (P-96).
+  const words = partsText(v.step.parts) || v.step.words;
 
   // A margin above and below, as much as the room affords (the keyboard up, large text: less, never none).
   const margin = !room || room.h >= 300 ? SP.s4 : room.h >= 180 ? SP.s3 - 4 : SP.s1;
@@ -348,7 +358,7 @@ function NoteArea({ view: v, hue, noteRef, panelOpen, onPanel, panel, notice, tr
     full ? (
       // It scrolls, so it can be reached and scrolled from the keyboard; Return there is still Next.
       <ScrollView style={{ maxHeight: inner - head }} testID="go-note-scroll" {...(WEB && ({ tabIndex: 0, dataSet: { return: 'true' } } as object))}>
-        <NoteWords style={text} selectable>
+        <NoteWords style={text} selectable parts={v.step.parts} hue={hue.c} ink={color}>
           {v.step.words}
         </NoteWords>
       </ScrollView>
@@ -359,7 +369,9 @@ function NoteArea({ view: v, hue, noteRef, panelOpen, onPanel, panel, notice, tr
           // Taller than the room inside the note: step the type down (bounded: at most to "full").
           if (inner > 0 && e.nativeEvent.layout.height > inner - head + 1) setBump({ key, n: n + 1 });
         }}>
-        <NoteWords style={text}>{v.step.words}</NoteWords>
+        <NoteWords style={text} parts={v.step.parts} hue={wait ? G.bg : hue.c} ink={color}>
+          {v.step.words}
+        </NoteWords>
       </View>
     );
 
@@ -368,7 +380,7 @@ function NoteArea({ view: v, hue, noteRef, panelOpen, onPanel, panel, notice, tr
       ref={noteRef}
       testID="go-note"
       role="group"
-      aria-label={wait ? `Wait for: ${v.step.words}` : v.step.words}
+      aria-label={wait ? `Wait for: ${words}` : words}
       {...(WEB && ({ tabIndex: 0, onClick: tap } as object))}
       {...{ dataSet: { size: String(size), full: full ? 'true' : 'false', kind: v.step.kind, moving: 'false', return: 'true' } }}
       style={[
@@ -408,6 +420,7 @@ function NoteArea({ view: v, hue, noteRef, panelOpen, onPanel, panel, notice, tr
         <View style={[styles.area, floor && styles.areaFloor]} onLayout={(e) => setRoom({ w: Math.round(e.nativeEvent.layout.width), h: Math.round(e.nativeEvent.layout.height) })} testID="go-note-area" {...swipe.handlers}>
           {room && side > 0 && (WEB ? noteBox : <Pressable onPress={() => tap()} accessible={false}>{noteBox}</Pressable>)}
         </View>
+        {fields}
         {notice}
         {panel && (
           <>
@@ -421,17 +434,24 @@ function NoteArea({ view: v, hue, noteRef, panelOpen, onPanel, panel, notice, tr
   );
 }
 
-/** The step's words. Not selectable unless the note scrolls: a drag over them is the swipe that opens the panel. */
-function NoteWords({ children, style, selectable = false }: { children: string; style: object; selectable?: boolean }) {
+/**
+ * The step's words — P-96: with the values it reads in place, inverted (display only: the note keeps its
+ * own tap). Not selectable unless the note scrolls: a drag over them is the swipe that opens the panel.
+ */
+function NoteWords({ children, style, selectable = false, parts, hue, ink }: { children: string; style: object; selectable?: boolean; parts: StepPart[]; hue: string; ink: string }) {
+  const valued = parts.some((p) => p.kind !== 'text');
   return (
     <Text selectable={selectable} style={[styles.words, style, WEB && ({ overflowWrap: 'anywhere' } as object)]} testID="go-note-words">
-      {children}
+      {valued ? <Parts parts={parts} ink={ink} on={hue} /> : children}
     </Text>
   );
 }
 
 interface PanelProps {
   runId: string;
+  /** P-96 (ruling 7): "Finish <name> now" — the level the run is in. */
+  finish?: { name: string; ends: boolean };
+  onFinish: () => void;
   onClose: () => void;
   onUndo: () => void;
   /** The run moved (Back to): the panel goes, the note has the focus. */
@@ -443,7 +463,7 @@ interface PanelProps {
  * then Back to <step> and Jump to… (they move you; they do not plan). Over the note only; the three buttons stay where they are and
  * keep working. The round is said here and nowhere else.
  */
-function Panel({ runId, onClose, onUndo, onMoved }: PanelProps) {
+function Panel({ runId, finish, onFinish, onClose, onUndo, onMoved }: PanelProps) {
   const data = useStore((s) => s.data);
   const p = panelView(data, runId);
   // The notice (and its Undo) is under the panel while it is open: the same Undo is a row here.
@@ -453,8 +473,12 @@ function Panel({ runId, onClose, onUndo, onMoved }: PanelProps) {
     setTimeout(() => focusOn(first), 0);
   }, []);
   if (!p) return null;
+  // P-96: the steps named here read with the run's values in place.
+  const said = (words: string) => partsText(wordsShown(data, runId, words)) || words;
+  const then = p.then && said(p.then);
+  const backTo = p.backTo !== undefined ? said(p.backTo) : undefined;
   const round = p.round ? `Round ${p.round.n}${p.round.of ? ` of ${p.round.of}` : ''}` : undefined;
-  const where = [round, p.lastOfRound && 'Last step of the round', p.then && `then: ${p.then}`].filter(Boolean);
+  const where = [round, p.lastOfRound && 'Last step of the round', then && `then: ${then}`].filter(Boolean);
   return (
     <View style={styles.panel} role="region" aria-label="More about this step" testID="go-panel" {...{ dataSet: { moving: 'false' } }}>
       <ScrollView contentContainerStyle={styles.panelBody} keyboardShouldPersistTaps="handled">
@@ -477,12 +501,12 @@ function Panel({ runId, onClose, onUndo, onMoved }: PanelProps) {
               <T>Last step of the round</T>
             </View>
           )}
-          {!!p.then && (
+          {!!then && (
             <View style={styles.line}>
               <Mark name="forward" color={G.dim} />
               <T style={styles.shrink}>
                 <T dim>then: </T>
-                {p.then}
+                {then}
               </T>
             </View>
           )}
@@ -499,11 +523,11 @@ function Panel({ runId, onClose, onUndo, onMoved }: PanelProps) {
           {where.length === 0 && !p.wait && <View style={styles.rule} />}
         </View>
         {can && <Btn kind="plain" mark="undo" label={`Undo ${can.label}`} onPress={onUndo} />}
-        {p.backTo !== undefined && (
+        {backTo !== undefined && (
           <Btn
             kind="plain"
             mark="backStep"
-            label={`Back to ${p.backTo}`}
+            label={`Back to ${backTo}`}
             onPress={() => {
               useStore.getState().backTo(runId);
               onMoved();
@@ -519,6 +543,8 @@ function Panel({ runId, onClose, onUndo, onMoved }: PanelProps) {
             router.push(`/go/run/${runId}/jump`);
           }}
         />
+        {/* P-96 (ruling 7, the amendment): finishing early lives here, never on the runner's surface. */}
+        {finish && <Btn kind="plain" mark="close" label={`Finish ${finish.name} now`} onPress={onFinish} testID="go-finish" />}
       </ScrollView>
     </View>
   );
@@ -530,13 +556,13 @@ const styles = StyleSheet.create({
   context: { flexDirection: 'row', alignItems: 'stretch', marginHorizontal: GUTTER, marginTop: SP.s2, borderWidth: 2, borderColor: G.line },
   // Tall enough for a parent and a level, always: the note does not move when a level is entered.
   contextWords: { flex: 1, minWidth: 0, minHeight: 56, justifyContent: 'center', paddingHorizontal: SP.s3 - 4, paddingVertical: SP.s1 },
-  done: { borderWidth: 0, borderLeftWidth: 2, minWidth: 64 },
-  home: { borderWidth: 0, borderRightWidth: 2, minWidth: 64 },
   // …below that (large text AND the keyboard up) the note keeps a 96 px floor and the column scrolls instead.
   areaFloor: { minHeight: NOTE_FLOOR + SHADOW + SP.s1 * 2 },
   column: { flex: 1, minHeight: 0 },
   columnBody: { flexGrow: 1 },
-  upper: { flex: 1 },
+  // It grows into the room left, and never shrinks below what it holds (the note's least room, the
+  // fields, the notice): with too little room the column scrolls — the notice never slides under the tray.
+  upper: { flexGrow: 1, flexShrink: 0, flexBasis: 'auto' },
   // Down to a 195×422 window everything fits without scrolling and the note takes what is left (never nothing)…
   area: { flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   note: { justifyContent: 'center', marginRight: SHADOW, marginBottom: SHADOW },

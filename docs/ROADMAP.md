@@ -43,48 +43,38 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-96 Values: a step's output, used by later steps, shown on the way back in `[feature]` `[data]` `[ux]` `[a11y]` L
-*Status:* in-progress
-*Why:* owner, 2026-11-26: "the first step is to select something … it's an output of the step, not an
-input into the step." Friction 1 (resuming gave a place with no context). D-22 go on B-14 slice 1.
-*Design:* B-14 §"Making context explicit" (amended) and §"Waiting, inferred". Part A (this item): in Plan
-a step can produce a named value ("Select a feature to test → {feature}"); a step's words can contain
-`{name}`; on the runner a producing step shows a field for its value with its words; Next keeps the value
-(it may be left empty — then the step's words show the name and the next step that reads it asks again);
-later steps show the value in place; a routine run inside another reads values set above it (lexical
-scope); values belong to the run (this time through), never to the routine; tapping a value shows where it
-came from (the step and when); changing a value later is possible from the same place; the runner's
-context line shows the values in play and the path; reopening the app shows them. Plan offers an output
-only where something reads it or is about to (adding `{name}` to a later step offers it). Part B (next
-item, not this one): values that come later and waiting inferred from them; Pause without a reason.
-*Done when:* values survive reload, journal replay, the fallback, hand-over, export and import; data from
-the previous build loads unchanged; Plan edits that rename or remove a value keep runs valid; Undo
-covers every value change; e2e for producing, reading, scope, provenance, changing, reload, two tabs;
-DESIGN.md §6 met; DESIGN.md describes what is built.
+### P-97 My routines: A–Z and tags; home shows only what is in motion `[feature]` `[data]` `[ux]` M
+*Status:* todo
+*Why:* owner, 2026-11-26: home mixes "something as grandiose as becoming a better drawer" with "research a
+question"; "maybe tags and alphabetical sorting might be good start in a 'my routines' page".
+*Done when:* a My routines page lists every named routine A–Z with Find and tags (typed on a routine,
+tap to filter); home shows only runs in motion, split by structure into Ongoing (no end) and Finishing
+(has an end), with My routines and + New at the bottom; tags survive every storage path. Canvas row 8.
 
-### P-94 Home is one standing queue: line up work and run it `[feature]` `[data]` `[ux]` `[a11y]` L
-*Status:* blocked — halted 2026-11-25 before any engine code: the owner made the queue recursive (every item its own thread, at any level); three questions are with the owner (owner-notes). Kept: a golden fixture written by the build at 0e98cf3.
-*Why:* owner (owner-notes 2026-11-25): home "just start[s] a whole bunch of things … It's just a search
-box … I'm going to queue up work and run it." D-20 go.
-*Design:* Home is one standing queue (owner, 2026-11-25: "I'm going to queue up work and run it"; proposal
-accepted with "Implement"). One queue, always there, no session start or end, nothing expires. The top
-row is what is running or next, with the one filled button (Resume / Start <name>); below, up next in
-order; a wait keeps its place and reads "waiting for …". "+ Add to the queue" at the bottom searches
-routines or makes a new one and adds it at the bottom. Done on the top item brings up the next; nothing
-starts by itself. Pause keeps the item where it is; tapping another row brings it to the top and the one
-you left sits directly under it. Taking an item off asks first and has Undo; the routine stays. No name
-on the queue. The tile grid becomes "Your routines", reached from the add row. Plan is unchanged; a
-queued routine not yet started has Plan on its menu. Move up / Move down on a row's menu (no drag).
-Existing paused runs enter the queue, most recent first; the retired app's data is untouched. **One-off
-tasks** (owner, same day): words that match no routine offer first "Add: <words>" — one unnamed step,
-queued at the bottom, Return's default — then "New routine: <words>"; a one-off leaves the queue when
-done and never shows in Your routines; Plan on it can add steps; naming it keeps it as a routine.
-*Done when:* the queue's order is stored (Full tier: survives reload, journal replay, the fallback,
-hand-over, export and import; data from the previous build loads, its paused runs queued most recent
-first, nothing lost or converted); home shows the queue as above with one filled button; add, take off
-(with Undo), move up / down, switch (the left one directly under), Done → next shown not started; Your
-routines lists every routine with Start / Plan / Add to the queue; the e2e go-* specs cover each; DESIGN.md
-§6 met; DESIGN.md and README describe what is built.
+### P-98 Routines as steps, and for each `[feature]` `[data]` `[ux]` L
+*Status:* todo
+*Why:* owner, 2026-11-26: "blocks and steps should be able to reference other routines … Just as any thread
+would allow, statements or function calls"; for each "should just be treated like a regular for loop".
+*Done when:* Add offers a step, a routine (search), For each…, Repeat and Wait for…; a call row shows
+`with {x}`, `with {y} as x` or `asks {x}` and what it gives; for each is a loop block over a list, its
+giving step shows a list editor, inside reads "photo 2 of 3", a value given inside is collected after it.
+Canvas rows 3–4.
+
+### P-99 In any order: parts as threads, joined `[feature]` `[data]` `[ux]` L
+*Status:* todo
+*Why:* owner, 2026-11-26: "I choose which activity suits my mood and energy … independent activities, but
+ultimately joined together"; "a thread has managed its own state … done once that single thread returns".
+*Done when:* an In any order block starts one child run per part, each with its own place and values;
+the runner offers the parts to choose; a part returns what it gives; the block finishes when every part
+has returned or been stopped; parts cannot outlive the block. Canvas row 6.
+
+### P-100 The work queue: leaves only, depth-first `[feature]` `[data]` `[ux]` L
+*Status:* todo
+*Why:* (replaces P-94, the flat queue halted on 2026-11-25) owner, 2026-11-25/26: queue up work across routines; "ensure that this is depth-first … we only
+queue up only the leafs."
+*Done when:* ↑ Queue on any routine, call, block or part puts its depth-first next step on Up next with
+its path; running it resumes that thread in place; finishing pops it; a waiting thread is not queued;
+taking an entry off never stops its thread. Canvas row 7.
 
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
@@ -354,6 +344,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-26 · P-96 — values, and one way to move on the runner: a step gives a named value (Plan: Gives…, a names bar above the keyboard, chips); later steps show it in place; a values row opens a sheet with where it came from, what reads it, Keep and Close; a routine's own given names never collide with its parent's; a reading step with no value asks; a new round clears values given after the divider so they ask again; values stored as lists from the start (no migration). One navigation scheme: top = context only, the filled button lowest, side doors one row above (Pause and go home · Plan / Step in; ⌂ Home on Plan), Finish now in the pull-up panel; Next reads Done only when it ends the whole run and finishing goes home with Undo, never Plan; the paused screen and "Ends here" are gone; home has no title or prompt, the paused run carries its values and Resume is the bottom bar; notices in their own row. evidence: golden fixture p96-* frozen before the engine, 795 unit tests (values, scope, rounds, Undo value by value, persistence on every path, fuzz), go-values / go-nav / go-pause specs red on the old build, `verify.sh --full`; not tried on a real phone. audit: 7 reported · 5 reproduced · 7 fixed · 0 deferred.
 - 2026-11-25 · P-95 — friction batch from the owner's first real use: the runner has a Home that pauses (no "Stop?" ask; it used to clear every run's status so the way back was lost), home shows the paused run first with Resume and reopening lands on home; the prompt only finds what exists and New ("New: <words>") makes; Undo only after something is lost or reshaped (kept for Jump to, ending a run and any fold of old this-run changes); Plan rows have a drag handle (one drag, one Undo; hidden below 340 px, Move up / down kept). No stored-data change. evidence: new and rewritten go-* specs (each red on the base build), the p90 golden fixture through the store for the fold, 686 unit tests, `verify.sh --full`; drag not tried on a real iPhone. audit: 7 reported · 6 reproduced · 7 fixed · 0 deferred.
 - 2026-11-25 · P-93 — Plan on a phone: while the keyboard is up, the notice and Resume / Start move below the rows instead of sitting over them, and after every add or edit the list scrolls so the field and the step just added are in view; the add row has a leading + and "Add a step", and its ↵ became the word Add (shown when there are words). evidence: `e2e/go-plan-keyboard.spec.ts` (keyboard at 45 % of the height, 390×844 and 200 % text, adding and rewording mid-list; 5 of 5 red before, green after), go-plan, go-a11y, go-home specs, `verify.sh`; not checked on a real iPhone. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred.
 - 2026-11-25 · P-90 — the Plan surface: planning and running are two surfaces. The runner's middle button is Plan (Step in on a routine); Plan is a light pinned band with PLAN and Home, the routine's name, "planning · at <step>", rows with HERE, a movable "Repeat from here" (one press, one row), Add a step, a step menu in words, Undo after every edit, and one filled button Resume at <step> / Start; the edge of a goal is Plan with Done; a change made in Plan changes the routine and repairs every open run in the same write; home tiles show the mode and a New tile; creating makes a routine and no run; See it all, the plain editor, the break-down sheet, Keep and this-run-only edits are gone; runs from the previous build with this-run changes are folded into the routine on first opening Plan, with Undo; an engine bug that could leave a run inside a removed step fixed; no migration, backup format unchanged. evidence: golden fixture written by the previous build, 674 unit tests (mode table, repair table, fold, fuzz), 76 mutation checks, `e2e/go-plan.spec.ts` and the rewritten go-* specs, the auditor's byte-equal check of the retired app's data, `verify.sh --full`. audit: 10 reported · 5 reproduced · 7 fixed · 3 deferred.

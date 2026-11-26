@@ -10,15 +10,13 @@ import { expectInside, focused, goBackup, home, importBackup, MAYA, openGo, plac
 const LONG =
   'Write to the landlord about the boiler, the window latch and the stair light, attach the three photographs from Sunday, say which days someone is in, and ask for a date in writing before the end of the month, then copy the letting agent and put a note in the calendar to chase it';
 
-test('J04-a, J04-b: a plain step — the context line with Home and Done, the note, Pause · Plan · Next in fixed places; Next goes on (P-95: with no Undo and no notice)', async ({ page }) => {
+test('J04-a, J04-b: a plain step — the context line (P-96: the path only; was: with Home and Done), the note, Pause · Plan · Next in fixed places; Next goes on (P-95: with no Undo and no notice)', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 0, status: 'running' }], 'runner');
   const r = runner(page);
   await expect(r.words).toHaveText('Read the job ad twice');
   await expect(r.context).toHaveText('Apply to Initech');
   // The context line is words, not a control (P-90: the sequence is Plan's, reached by the Plan button).
-  await expect(r.screen.getByRole('button')).toHaveText(['Home', 'Done', '', '', 'Plan', 'Next']);
-  await expect(r.done).toHaveText('Done');
-  await expect(r.done).toHaveAccessibleName('Done with Apply to Initech');
+  await expect(r.screen.getByRole('button')).toHaveText(['', '', 'Plan', 'Next']);
   await expect(r.pause).toBeVisible();
   await expect(r.middle).toHaveText('Plan');
   await expect(r.middle).toBeEnabled();
@@ -30,7 +28,7 @@ test('J04-a, J04-b: a plain step — the context line with Home and Done, the no
   // Next is THE filled button; nothing else on the screen is.
   const paper = 'rgb(244, 241, 232)';
   expect(await r.next.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(paper);
-  for (const b of [r.pause, r.middle, r.done, r.home]) expect(await b.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(paper);
+  for (const b of [r.pause, r.middle]) expect(await b.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(paper);
   // No notice yet, and nothing about what comes next or repeats on the surface.
   await expect(r.screen.getByTestId('go-last')).toHaveCount(0);
 
@@ -48,7 +46,7 @@ test('J04-a, J04-b: a plain step — the context line with Home and Done, the no
   await expect(r.panel.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
 });
 
-test('J04-c, J04-d: a routine as the step reads Step in, in the same slot; Done leaves the level for the parent’s next step, with Undo', async ({ page }) => {
+test('J04-c, J04-d: a routine as the step reads Step in, in the same slot; Finish <level> now (P-96: in the panel; was: Done on the context line) leaves the level for the parent’s next step, with Undo', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 2, status: 'running' }], 'runner');
   const r = runner(page);
   const slot = await place(r.middle);
@@ -64,28 +62,29 @@ test('J04-c, J04-d: a routine as the step reads Step in, in the same slot; Done 
   // P-95: Step in leaves no Undo.
   await expect(r.notice).toHaveCount(0);
   // The level and its parent, in words.
-  await expect(r.context).toHaveText('Apply to InitechProofread out loud');
-  await expect(r.done).toHaveAccessibleName('Done with Proofread out loud');
+  await expect(r.context).toHaveText('Apply to Initech ›Proofread out loud');
   await expect(r.middle).toHaveText('Plan');
   await expect(r.note).toBeFocused();
 
-  await r.done.click();
+  await r.handle.click();
+  await expect(r.finish).toHaveText('Finish Proofread out loud now');
+  await r.finish.click();
   await expect(r.words).toHaveText('Send the application');
   await expect(r.context).toHaveText('Apply to Initech');
   await expect(r.notice).toContainText('Done with Proofread out loud');
   await expect(r.note).toBeFocused();
   await r.notice.getByRole('button', { name: 'Undo Done', exact: true }).click();
   await expect(r.words).toHaveText('Read it aloud once');
-  await expect(r.done).toHaveAccessibleName('Done with Proofread out loud');
+  await expect(r.context).toHaveText('Apply to Initech ›Proofread out loud');
 });
 
-test('J04-e: Done at the top ends the run — home, with Undo, which brings the run back where it was', async ({ page }) => {
+test('J04-e: Finish <name> now at the top (P-96: in the panel) ends the run — home, with Undo, which brings the run back where it was', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-  await runner(page).done.click();
+  await runner(page).handle.click();
+  await runner(page).finish.click();
   const h = home(page);
   await expect(h.notice).toContainText('Done with Apply to Initech');
   await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'idle');
-  await expect(h.title).toHaveText('Nothing running');
   await expect(h.title).toBeFocused();
   await h.notice.getByRole('button', { name: 'Undo Done', exact: true }).click();
   await expect(runner(page).words).toHaveText('Tailor the CV');
@@ -169,13 +168,14 @@ test('J04-i, J25-b: a long step fills the note and scrolls inside it, with Plan 
   await expect(r.screen.getByText(/\d+ ?(\/|of|characters|left)/)).toHaveCount(0);
 });
 
-test('J04-j, §3.6: a routine that ends here finishes on its last Next — home, "Finished <name>", with Undo', async ({ page }) => {
+test('J04-j, §3.6, P-96 (ruling 7; was: Next, then "Finished <name>"): on the last step Next reads Done; it finishes the run — home, "Done with <name>", with Undo', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 4, status: 'running' }], 'runner');
   await expect(runner(page).words).toHaveText('Send the application');
+  await expect(runner(page).next).toHaveText('Done');
   await runner(page).next.click();
-  await expect(home(page).notice).toContainText('Finished Apply to Initech');
+  await expect(home(page).notice).toContainText('Done with Apply to Initech');
   await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'idle');
-  await home(page).notice.getByRole('button', { name: 'Undo Next', exact: true }).click();
+  await home(page).notice.getByRole('button', { name: /^Undo/ }).click();
   await expect(runner(page).words).toHaveText('Send the application');
 });
 
@@ -227,9 +227,8 @@ test('must-handle: a frame ten deep and a thirty-step routine — the context li
   await openGo(page, 'runner');
   const r = runner(page);
   await expect(r.words).toHaveText('Bottom step 13');
-  await expect(r.context).toHaveText('Level 9 of the deep thingLevel 10 of the deep thing');
-  await expect(r.done).toHaveAccessibleName('Done with Level 10 of the deep thing');
-  await expectInside(page, [r.context, r.done, r.note, r.pause, r.middle, r.next]);
+  await expect(r.context).toHaveText('Level 9 of the deep thing ›Level 10 of the deep thing');
+  await expectInside(page, [r.context, r.note, r.pause, r.middle, r.next]);
   // Its Plan: every level it is inside is open, down to HERE — in view, and nothing wider than the window.
   await r.middle.click();
   const p = plan(page);
