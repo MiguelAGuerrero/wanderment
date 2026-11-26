@@ -18,6 +18,18 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — Are threads routines?
+"So at that point, you could argue that those are concurrent tasks, each with their own context that has
+to be resolved. And at that point, it's a different thread, and a thread has managed its own state. So
+effectively, that would imply if they are threads, they should have their own stack for which there are
+instructions, call functions, etc. And you can truly ever be done once that single thread returns,
+right? And all of them return with whatever value they suppose they have. And so would it be wise then
+to still consider them routines, or are threads just routines with how it's implemented in this app?"
+Interpretation (ours): a routine is the definition (a function); a run is a thread (its own stack, place
+and values) executing one. "In any order" starts one child run per part and joins when every one has
+returned (or been stopped); each returns what it gives.
+Led to: answer in conversation.
+
 ## 2026-11-26 — For each like a for loop; a new round re-asks; "asks"; concurrency inside a routine?
 "For each starts from the step [that feeds it?] … it should just be treated like a regular for loop. And
 a new round should reinitialize and reset any variables being declared within the routine, just as it
