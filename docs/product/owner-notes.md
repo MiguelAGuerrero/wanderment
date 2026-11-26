@@ -18,6 +18,14 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — Go on values: a step's output, not an input
+"I think I need the values because I'm running into a workflow where the first step is to select
+something, and it really doesn't make sense to have the input define the selection, because it's an
+output of the step, not an input into the step."
+Interpretation (ours): go on B-14 slice 1, led by step outputs: "Select a feature → {feature}" asked on
+the note when the step is done, read by later steps; shown on the way back in.
+Led to: D-22 go on slice 1 → P-96
+
 ## 2026-11-25 — Friction list (the owner's MyStack page, published in Notion)
 1. "When I opened the app, I was resumed from where I left off. I was confused because I don't remember
    the context …" (recorded above; with a screenshot of Plan for "test out wonderment").

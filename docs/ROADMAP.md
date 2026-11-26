@@ -43,6 +43,25 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### P-96 Values: a step's output, used by later steps, shown on the way back in `[feature]` `[data]` `[ux]` `[a11y]` L
+*Status:* in-progress
+*Why:* owner, 2026-11-26: "the first step is to select something … it's an output of the step, not an
+input into the step." Friction 1 (resuming gave a place with no context). D-22 go on B-14 slice 1.
+*Design:* B-14 §"Making context explicit" (amended) and §"Waiting, inferred". Part A (this item): in Plan
+a step can produce a named value ("Select a feature to test → {feature}"); a step's words can contain
+`{name}`; on the runner a producing step shows a field for its value with its words; Next keeps the value
+(it may be left empty — then the step's words show the name and the next step that reads it asks again);
+later steps show the value in place; a routine run inside another reads values set above it (lexical
+scope); values belong to the run (this time through), never to the routine; tapping a value shows where it
+came from (the step and when); changing a value later is possible from the same place; the runner's
+context line shows the values in play and the path; reopening the app shows them. Plan offers an output
+only where something reads it or is about to (adding `{name}` to a later step offers it). Part B (next
+item, not this one): values that come later and waiting inferred from them; Pause without a reason.
+*Done when:* values survive reload, journal replay, the fallback, hand-over, export and import; data from
+the previous build loads unchanged; Plan edits that rename or remove a value keep runs valid; Undo
+covers every value change; e2e for producing, reading, scope, provenance, changing, reload, two tabs;
+DESIGN.md §6 met; DESIGN.md describes what is built.
+
 ### P-94 Home is one standing queue: line up work and run it `[feature]` `[data]` `[ux]` `[a11y]` L
 *Status:* blocked — halted 2026-11-25 before any engine code: the owner made the queue recursive (every item its own thread, at any level); three questions are with the owner (owner-notes). Kept: a golden fixture written by the build at 0e98cf3.
 *Why:* owner (owner-notes 2026-11-25): home "just start[s] a whole bunch of things … It's just a search
@@ -288,7 +307,8 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
 - **D-17 B-10: fewer parts — a calm journal in a playful world** — superseded 2026-11-24 by B-11
   before a decision. Brief: `docs/product/briefs/B-10-refined-home.md`.
-- **D-22 B-14: context first** — a tree of threads under one main thread, a run queue that holds each
+- **D-22 B-14: context first** — **answered 2026-11-26 by the owner: go on slice 1, led by step outputs**
+  (owner-notes) → P-96. Slices 2–3 still wait. Was: a tree of threads under one main thread, a run queue that holds each
   thread's depth-first next item with its path, routines as functions with parameters, and a way back in
   (path, values, last step on the note). Supersedes D-21 / B-13. Brief:
   `docs/product/briefs/B-14-context-first.md`. Recommended: **go**, slice 1 first.
