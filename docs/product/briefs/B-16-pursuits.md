@@ -153,6 +153,25 @@ item with one Undo. Dropping is as cheap as clearing, and nothing counts either.
 - **Not doing:** a global queue across pursuits; due dates, priorities or ordering of items; an item
   shared by two pursuits; items that start by themselves; conditional steps.
 
+## Where this differs from what the owner has already said
+Raised by the implementation session, from owner-notes. Each is the owner's to settle.
+- **In any order.** The owner framed its parts as threads with their own stack, "done once that single
+  thread returns", each returning a value, then joined (2026-11-26, "Are threads routines?"). This
+  brief replaces that with unordered items under an item. That is simpler and loses returned values
+  and a part having its own steps and place. If parts need those, P-99 stays as designed and sits
+  beside this.
+- **The work queue.** The owner asked for a queue across pursuits ("plan my day", "load up each stack
+  in order"), leaves only, and said Start may be retired in favour of enqueuing from each thread. Open
+  items per pursuit do not replace that. They are what such a queue would hold: P-100 comes after this
+  brief, not instead of it.
+- **Capture.** The owner: "unless the results determine how to proceed … I don't think the app should
+  be supporting capture." Open items stay inside that line only if they are work that drives what is
+  next. They take no notes field and no long text.
+- **Rounds clear values.** Unchanged. An open item belongs to the pursuit, not to the run, so a new
+  round does not clear it; `{focus}` is still asked again each round.
+- **Agreed already:** "a routine … generating a task on the queue with its own context" (MyStack) is
+  Journey 4; gives / asks, hoisted gives and the call-stack trace (P-101) are used as they are.
+
 ## Persona panel
 Not run yet. It waits for P-101 to land so the panel sees the runner and home as they will be.
 
