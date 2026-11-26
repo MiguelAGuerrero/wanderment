@@ -18,6 +18,15 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — The work queue and In any order
+"So then how does the concept of a w[ork] queue collaborate with in any order blocks? Well, you'll be able
+to [en]queue work from any outstanding threads that are running in a given routine."
+Interpretation (ours): In any order starts threads; the work queue schedules them. Any running thread at
+any depth can put its next step on the queue, shown with its path; running it resumes that thread in
+place; finishing returns there, and the block joins when all its parts have returned.
+Led to: answer in conversation; four batches proposed (values → calls and for each → In any order → the
+work queue).
+
 ## 2026-11-26 — Are threads routines?
 "So at that point, you could argue that those are concurrent tasks, each with their own context that has
 to be resolved. And at that point, it's a different thread, and a thread has managed its own state. So
