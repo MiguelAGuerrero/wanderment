@@ -18,6 +18,51 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — MyStack, the later entries (read in full from the published page)
+The owner's page had many more entries than the published render showed (it loads lazily; read through
+Notion's public page API). Verbatim where short, closely paraphrased where long:
+- Adding a step: "I'm brought immediately to add another one, and it brings up the keyboard while
+  simultaneously getting a notification that I added a step … very cluttered … I should only ever see the
+  notification to show that, hey, you're done." "The notification banner doesn't go away when I interact
+  with other controls." "Undo is persisting across screens noisily" (screenshot: "Removed … · Undo" on Plan).
+- "The add box doesn't show the complete step when it's not fully added."
+- The add loop "hidden underneath the more" menu; expected the Add row to add constructs where you add
+  them, not insert-then-drag.
+- Done "can exit out of the routine, or … out of a loop … confusing … a step out should be a debug move to
+  abort early, and that should be co-located with Next … each button is a move throughout the routine, the
+  tree, the loops."
+- Enumerating observations: "for each of those things you listed, do this"; without the routine's roots in
+  view it is hard to track "what value I am assessing, how I am assessing it, and where I'm at".
+- Screenshot of the value field with the keyboard up: "The screen is getting very cluttered … a pop-up
+  drawer or dialogue … especially for a one line entry like this."
+- Tempting to support long-form text, but rather allow meta information about how I was working (e.g. a
+  reference to a Notion document) "to ease the burden of remembering where and how I was working".
+- Interpolation is intuitive once known, but "there's really no way to discover that feature".
+- A routine could generate follow-up work from its outcome: "if I determine … I'm unsatisfied, I would want
+  that work queued onto the context for follow-up … effectively a function generating a task on the queue
+  with its own context."
+- Breaking a step down drifted into writing questions; "a statement is an execution of work so it should
+  really read as answer the question" … "unless the results determine how to proceed … I don't think the
+  app should be supporting capture."
+- The value sheet's "from <step>" loses context; "a quick button to see the call stack instead, and all the
+  values in between … Same thing by read-by."
+- Hoisting: a substep that gives a value the user never steps into leaves readers blocked; "any step with
+  the substep is a function, and if that function is providing values, then so too must the parental
+  context … hoisted up to the parent" — the outputs then describe how to implement the step.
+- "The home button doesn't feel right at the bottom of the plan screen. I'd expected it in like a header."
+- A minimised runner overlay for debugging routines while in the app.
+- "I do think a pause with a reason would be helpful … a confirmation step … to park any thoughts …
+  relevant to the time at which you are leaving a thread of work."
+- "The fact that you can't resume from the home screen is bugging me when you're paused."
+- "planning" status is confusing; two plan cards look different but lead to the same place; the home
+  screen reordering after a pause is non-intuitive ("more akin to picking up where you left off when you
+  close and open the app again"); the big Resume call to action is "jarring" — prefer a simple "last run"
+  indicator.
+- "Start" may be retired with the work queue: enqueue a task from each ongoing thread instead.
+- Redundant nesting (a routine that only calls another) — an optimise / clean-up button.
+Interpretation (ours): see the discussion in conversation; nothing decided yet.
+Led to: discussion; next friction batch to be agreed.
+
 ## 2026-11-26 — Persona panel for blind spots, and the navigation buttons
 "I want you to run through the user panels and see if there's any blind spots in terms of quality of life
 adjustments and interpretation of the UI or UX of these user journeys that turn this batch. And let's
