@@ -32,9 +32,12 @@ Earlier notes say the same thing from other sides: "nothing really in the app re
 goal right now" (2026-11-25); "a function generating a task on the queue with its own context"
 (MyStack, 2026-11-26).
 
-**Where the evidence is thin:** the owner has run the app only to test the app. Nothing real has
-been run through it. Everything below is reasoned from what the owner said, not from a session that
-went wrong.
+**Where the evidence stands** (corrected after the owner's objection, 2026-11-26: "I have been using
+the app … deliberately against itself as a means to help hone my ability to develop a product. So there
+is real use"): the owner has run a product-iteration routine on the app itself, and it produced the
+MyStack page. Each pass of that routine ends in concerns the owner carries by hand into Notion because
+the app has nowhere to keep them. That is direct evidence for slices 1 and 2. Not yet tested: several
+threads at once, and coming back after days to work whose subject is not the app.
 
 ## Evidence
 - Owner notes: 2026-11-25 ("A routine is a function; a pursuit holds the goal"; "The pain point";
