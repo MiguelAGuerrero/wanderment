@@ -18,6 +18,29 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — For each like a for loop; a new round re-asks; "asks"; concurrency inside a routine?
+"For each starts from the step [that feeds it?] … it should just be treated like a regular for loop. And
+a new round should reinitialize and reset any variables being declared within the routine, just as it
+would a normal function. So if a particular step has an output, that output will change values … if I
+have a simple routine that selects an activity or selects an option, every iteration of that loop will
+prompt for a new activity … I have a basic routine for iteration over a product feature … I would select
+a user journey, run through the loop, and when I circle back again, I'll select another one … I said
+asks. Just because needs … sounds a little bit hard. And asks is in parallel with gives in terms of
+terminology. Also, I noticed that the idea of concurrency isn't necessarily being modeled right now … in
+becoming a better drawer … I could define a routine that sequentially walks me through study and
+practice, but I think that's not … always the way I intuitively think about improving in a skill. I
+choose which activity suits my mood and energy, and always running through a sequence of study,
+practice … while it has its place as a discipline building activity. The idea of having different
+contexts to switch between and choosing might be more intuitive for certain types of problems that are
+asking for independent activities, but ultimately joined together to form a conclusion or decision …
+Should multi-threading be serialized as a discipline, or should there be room for concurrency in a
+routine?"
+Interpretation (ours): decided — for each is a loop block (header + body), made from Add; each round
+clears the values given inside it, so their steps ask again; the word is "asks". Open — concurrency
+inside a routine; proposed: an "In any order" block whose parts keep their own places, are chosen by
+mood, and join when finished, so a later step can read what they gave.
+Led to: answer in conversation; canvas to be updated after the owner decides.
+
 ## 2026-11-26 — Design canvas is the baseline; no collisions between a routine's own values and its parent's
 "These look more in line with what I expect, and they serve as a good baseline. There's an edge case …
 there needs to be a way to ensure that there's no collision between inputs and outputs, because if a
