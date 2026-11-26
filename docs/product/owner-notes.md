@@ -18,6 +18,23 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — For each: one notation, the type inferred, correctness enforced by structure
+(After sharing a routine "Drawing practice": Select the subject matter · Find three reference photos ·
+For each reference photo, spend 3 minutes drawing it out · Repeat from here · Rank your drawings ·
+Justify your rankings and pick one point of improvement · For each of the three drawings, perform the
+same sketch, but focus on that one point of improvement.)
+"So what are your opinions on the enumeration feature? I think that's really necessary because it holds
+context that would be hard to keep track of otherwise." Then: "We can use one notation for variables and
+just have the type be inferred. So any value that's entered in commas might be interpreted as a list where
+it's needed. Otherwise, it's going to be a literal string with commas … if a for each is being used, it
+expects the input value to be of a comma separated list or something, but we should ensure that there's
+really no way to make that wrong … we have to structurally enforce correctness, or else we're going to get
+into an issue of routines being actual programming constructs and failing type safety."
+Interpretation (ours): every value is a list of text items (one item is the common case); a for-each
+reader makes its giving field a list editor (one row per item), so no parsing can go wrong; a plain reader
+shows the items joined; Plan only offers names that exist. No type can fail.
+Led to: P-96 mock-ups, final redraw (with for-each).
+
 ## 2026-11-26 — Values pass into routines by name (provide / inject); more friction from MyStack
 On the scope question: "One sounds like passing in values to functions, which makes sense … if I'm
 practicing drawing, and I have a thread ongoing that's making me work with different types of subject
