@@ -18,6 +18,19 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — The for-each sheet made no sense; steps must call routines; journeys in a document, not PNGs
+(Screenshot of mock-up frame 19, the "For each…" sheet: "in [photos | subject] · each [photo] · For each
+photo in photos · Close".) "This above screen makes no sense to me. I wasn't sure what I was looking at.
+Also, blocks and steps should be able to reference other routines as well. Otherwise, it's going to get
+very verbose. So, for example, if I have a sketch routine I want to … use, I should be able to reference
+it here. Just as any thread would allow, statements or function calls. Also, these PNG mockups are low
+resolution. I really can't see anything. It might be best to just output the specific journeys in a
+design document rather than these PNGs and specific to the feature under development."
+Interpretation (ours): the for-each sheet becomes a list of ready-made sentences; adding a routine as a
+step in Plan (a call, with its needs filled from names above) joins P-97; mock-ups are now written
+journeys with text screens.
+Led to: B-15 (values, routines inside routines and for each: the journeys).
+
 ## 2026-11-26 — For each: one notation, the type inferred, correctness enforced by structure
 (After sharing a routine "Drawing practice": Select the subject matter · Find three reference photos ·
 For each reference photo, spend 3 minutes drawing it out · Repeat from here · Rank your drawings ·
