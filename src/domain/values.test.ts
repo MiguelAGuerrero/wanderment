@@ -242,12 +242,14 @@ describe('changing a value later (rows 3, 3b, 4)', () => {
 });
 
 describe('moving keeps values in their round (rows 5, 6, 7, 8, 10)', () => {
-  it('row 5: Back to before the giving step: the value stays (the step’s field shows it)', () => {
+  // (P-110, rewritten: was "the value stays (the step’s field shows it)"; the owner — moving the place back clears the
+  // values given at or below it: Back onto the giving step clears its value, and it asks again there.)
+  it('row 5: Back to the giving step: its value is cleared (the step asks again)', () => {
     let { d, id } = start(feature(), 'R');
     d = typed(d, id, 'feature', 'login');
     d = walk(d, id, 'next', 'back');
     expect(here(d, id)).toBe('pick');
-    expect(seen(d, id, 'feature')).toBe('login');
+    expect(seen(d, id, 'feature')).toBe('');
   });
 
   it('row 6: Jump to a step of the same round keeps it; Jump to the start of a level that resets its round clears what the repeating part gave', () => {
@@ -258,14 +260,17 @@ describe('moving keeps values in their round (rows 5, 6, 7, 8, 10)', () => {
     d = typed(d, id, 'feature', 'login');
     d = walk(d, id, 'next');
     d = ok(d, { kind: 'jump', runId: id, to: { path: ['pick'] } });
-    expect([seen(d, id, 'feature'), seen(d, id, 'base')]).toEqual(['login', 'web']);
+    // (P-110, rewritten: was ['login', 'web'] — a Jump back onto the step that gives {feature} clears it; {base}, given above, stays.)
+    expect([seen(d, id, 'feature'), seen(d, id, 'base')]).toEqual(['', 'web']);
     // Round 2, then the start of the level: round 1 again — a new time through the repeating part.
     d = walk(d, id, 'next', 'next');
     expect(run(d, id).frames[0].round).toBe(2);
     d = typed(d, id, 'feature', 'signup');
     d = ok(d, { kind: 'jump', runId: id, to: { level: 0 } });
     expect(run(d, id).frames[0].round).toBe(1);
-    expect([seen(d, id, 'feature'), seen(d, id, 'base')]).toEqual(['', 'web']);
+    // (P-110, rewritten: was ['', 'web'] — the start of the level is "Setup", the step that gives {base}: moving the
+    // place back onto it clears {base} too.)
+    expect([seen(d, id, 'feature'), seen(d, id, 'base')]).toEqual(['', '']);
   });
 
   // P-98 (rewritten; was: what it gave goes with it): Step out of a call hands back what its row gives.
@@ -506,14 +511,14 @@ describe('scope: no collision, asks (ruling 2)', () => {
     expect(seen(d, id, 'subject')).toBe('a pear');
   });
 
-  it('asks: a name the routine gives further down, read before it is given — the reading step asks, and the giving step then shows it', () => {
+  // (P-110, rewritten: was "the reading step asks, and the giving step then shows it"; the owner — a value is asked only
+  // at its giving step, never ahead: the reader does not ask, and the giving step does.)
+  it('asks: a name the routine gives further down, read before it is given — the reading step does not ask; the giving step does', () => {
     const d0 = world(seq('R', 'R', [step('r', 'Plan {feature}'), step('g', 'Pick >feature')]));
     let { d, id } = start(d0, 'R');
-    d = typed(d, id, 'feature', 'login');
-    expect(entries(d, id)).toEqual(['0:feature=login@r']);
+    expect(go(d, { kind: 'value', runId: id, name: 'feature', text: 'login', item: 'r' }).reason).toBe('cannot');
+    expect(entries(d, id)).toEqual([]);
     d = walk(d, id, 'next');
-    expect(seen(d, id, 'feature')).toBe('login');
-    // Typed at the giving step: the value is replaced, and it is from there now.
     d = typed(d, id, 'feature', 'signup');
     expect(entries(d, id)).toEqual(['0:feature=signup@g']);
   });

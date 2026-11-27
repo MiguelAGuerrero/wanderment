@@ -3,7 +3,7 @@
  * thread or routine, especially if you edited it … there's no way to supply that value where I was".
  * (9) Start over — the whole run, or the level it is in and below — from the runner's pull-up panel, a
  * paused tile's ··· and Plan's routine ···, asked first, with Undo. (10) A name a passed step gives, with no
- * value, is "not given yet" in the values row and can be given now. (11) Removing a giving step that has
+ * value, is "not given yet" in the values row and can be given now (P-110: no placeholder — the step reading it asks). (11) Removing a giving step that has
  * readers asks first, naming them; afterwards they show a dashed "asks {x}" in Plan and ask when run;
  * Gives… on another step turns them back; one Undo restores the step and its gives.
  */
@@ -25,7 +25,10 @@ for (const size of [
       await page.setViewportSize({ width: size.width, height: size.height });
     });
 
-    test('(10) the owner’s case: paused past a step, Gives… added to it in Plan, back in — "subject: not given yet", given now from its sheet (keyboard up), read where it is read, "given at" where it was given', async ({ page }) => {
+    // (P-110, rewritten: was "subject: not given yet" in the values row, given from its sheet there — the owner: "not
+    // displaying placeholders if those values aren't supplied". Nothing stands in for it; the step that reads it asks
+    // for it where it is read, and it is given there — keyboard up, read in place, "from" the step it was given at.)
+    test('(10) the owner’s case: paused past a step, Gives… added to it in Plan, back in — no placeholder; the step that reads {subject} asks for it there (keyboard up), read where it is read, "from" where it was given', async ({ page }) => {
       await startGo(page, [{ id: 'r', routine: 'draw', at: 1, status: 'paused' }], 'home', ROUTINES);
       await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
       await planMenu(page, 'Select the subject matter', 'Gives…');
@@ -35,12 +38,14 @@ for (const size of [
       await plan(page).forward.click();
       const r = runner(page);
       await expect(r.words).toHaveText('Warm up');
-      const missing = r.screen.getByTestId('go-value-missing');
-      await expect(missing).toHaveAccessibleName('subject: not given yet');
-      await expect(missing).toContainText('not given yet');
-      expect((await box(missing)).height).toBeGreaterThanOrEqual(48);
+      await expect(r.screen.getByTestId('go-value-missing')).toHaveCount(0);
+      await expect(r.values).toHaveCount(0);
+      await r.next.click();
+      await expect(r.words).toHaveText('Find photos of {subject}');
+      const asks = r.field('subject');
+      expect((await box(asks)).height).toBeGreaterThanOrEqual(48);
       await phoneKeyboard(page);
-      await missing.click();
+      await asks.click();
       const sheet = await arrived(page, 'go-entry-sheet');
       await expect(sheet.getByTestId('go-entry-field')).toBeFocused();
       await sheet.getByTestId('go-entry-field').fill('hands');
@@ -49,16 +54,14 @@ for (const size of [
       const k = await box(keep);
       expect(k.y + k.height).toBeLessThanOrEqual((await seen(page)) + 0.5);
       await keep.click();
-      await expect(missing).toHaveCount(0);
+      await expect(r.words).toHaveText('Find photos of hands');
       await expect(r.values.first()).toHaveAccessibleName('subject: hands');
       await r.values.first().click();
       const vs = await arrived(page, 'go-value-sheet');
-      await expect(vs.getByTestId('go-value-from')).toHaveText(/^given at Warm up · today \d{1,2}:\d\d$/);
+      await expect(vs.getByTestId('go-value-from')).toHaveText(/^from Find photos of hands · today \d{1,2}:\d\d$/);
       await vs.getByTestId('go-value-close').click();
-      await r.next.click();
-      await expect(r.words).toHaveText('Find photos of hands');
       await saved(page);
-      expect((await exported(page)).runs.r.values).toMatchObject([{ name: 'subject', items: ['hands'], level: 0, item: 'draw-0', words: 'Warm up' }]);
+      expect((await exported(page)).runs.r.values).toMatchObject([{ name: 'subject', items: ['hands'], level: 0, item: 'draw-2', words: 'Find photos of {subject}' }]);
     });
 
     test('(9) Start over from the runner’s panel — the level it is in, then the whole run — asked first, with Undo', async ({ page }) => {
@@ -215,12 +218,14 @@ test.describe('after the audit', () => {
     await expect(p.rows.filter({ hasText: 'Sign it' })).toHaveCount(0);
   });
 
-  test('F6: at 195×422 inside a call, with "not given yet" and a notice, the note keeps a usable size and the moves and Next are whole on screen — the values area scrolls instead', async ({ page }) => {
+  // (P-110, rewritten: was with "not given yet" in the values row — gone (no placeholders); the values row holds a value
+  // given instead, so the squeeze it checks is the same.)
+  test('F6: at 195×422 inside a call, with a value in the values row and a notice, the note keeps a usable size and the moves and Next are whole on screen — the values area scrolls instead', async ({ page }) => {
     await page.setViewportSize({ width: 195, height: 422 });
     const GIVING: RoutineSpec = { ...DRAWING, steps: [{ text: 'Select the subject matter', gives: 'subject' }, 'Warm up', 'Find photos of {subject}', { routine: 'sketch' }, 'Rank your drawings'] };
-    await startGo(page, [{ id: 'r', routine: 'draw', at: 3, inner: [{ routine: 'sketch', at: 0 }], status: 'running' }], 'runner', [GIVING, SKETCH, { id: 'x', name: 'Other', steps: ['x'] }]);
+    await startGo(page, [{ id: 'r', routine: 'draw', at: 3, inner: [{ routine: 'sketch', at: 0 }], status: 'running', values: [{ name: 'subject', items: ['hands'], level: 0, seq: 'draw', item: 'draw-0', words: 'Select the subject matter', at: new Date().toISOString() }] }], 'runner', [GIVING, SKETCH, { id: 'x', name: 'Other', steps: ['x'] }]);
     const r = runner(page);
-    await expect(r.screen.getByTestId('go-value-missing')).toHaveCount(1);
+    await expect(r.values).toHaveCount(1);
     await setVisibility(page, 'hidden');
     await r.next.click();
     await expect(r.notice).toHaveText('Just a moment — reconnecting.');

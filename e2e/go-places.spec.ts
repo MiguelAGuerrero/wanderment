@@ -300,13 +300,16 @@ for (const size of [
       ]);
       await vs.getByTestId('go-value-close').click();
       // Back a step: the address typed in the step's words gets its row.
+      // (P-110, rewritten: was ['Open notion.so'], then ['Open docs.google.com', 'Open notion.so'] — Back onto "Pick the
+      // page to work in", the step that gives {page}, clears it (the owner: "moving the place back clears the values given
+      // at or below it"), so the value's address goes with it; the step's own typed address still gets its row.)
       await r.handle.click();
       await r.panel.getByRole('button', { name: /^Back to/ }).click();
       await r.handle.click();
-      await expect(r.panel.getByTestId('go-open-address')).toHaveText(['Open notion.so']);
+      await expect(r.panel.getByTestId('go-open-address')).toHaveCount(0);
       await r.panel.getByRole('button', { name: /^Back to/ }).click();
       await r.handle.click();
-      await expect(r.panel.getByTestId('go-open-address')).toHaveText(['Open docs.google.com', 'Open notion.so']);
+      await expect(r.panel.getByTestId('go-open-address')).toHaveText(['Open docs.google.com']);
     });
 
     test('SAFETY: from an import, javascript:, data:, file:, vbscript:, other schemes and relative paths show as words and open nothing — in Plan, on the tile, in the panel; the preview counts the places', async ({ page }) => {

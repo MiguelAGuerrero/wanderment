@@ -18,6 +18,42 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — Defer full end-to-end testing to the end
+"It seems like P1-10 is taking a long time, and I suspect this is because of testing. So please batch all
+implementation work once and then defer testing at the end so that there's no redundancy here. At most,
+run any unit or integration test, but full end-to-end tests can be deferred. Only run the tests that are
+touched or implicated in a feature, implementation, or fix to at least ensure that we're not rolling up
+bugs between iterations, or minimize the rolling of bugs between iterations."
+Interpretation (ours): until the last batch, each batch runs unit/integration tests, typecheck, lint and
+only the e2e specs it touches or implicates, and lands with plain `verify.sh` (changed specs + smoke), not
+`--full`; no E2E_SLOW repeat proofs. The whole suite (`verify.sh --full`) runs once at the end, before the
+final review. CI still runs the full suite on each push and goes red if something breaks.
+Led to: process change for P-110 onward.
+
+## 2026-11-27 — P-112: a condensed outline
+Relayed from the second session, the owner's second reaction to the mock-up: "let's make it condensed, as in
+like an actual outline or list view, so that the screen space can be optimized for more steps if needed.
+Think of it like a very simplified form without the needs for all the paddings or margins or even the big
+text. Maybe at most 16 pixels. And this could be a responsive thing. As you include more and more steps,
+the view shrinks in a way where it's compact but doesn't lose visual information."
+Interpretation (second session's, mock-up v3): with See ahead on, one condensed list: rows at 16 px text, a
+field on one line beside its name, thin rules, insides indented; spacing tightens in three steps as rows
+are added; text stays 16 px; longer lists scroll. Open: at the tightest step targets are 32 px, under
+DESIGN.md's 48 px — an exception or stop tightening sooner (asked of the owner).
+Led to: P-112 (amended), B-16.
+- In chat, 2026-11-27, answering the 32 px question: "Let's have it though the list stops tightening and
+  just allow a scroll at that point." → targets stay at least 48 px; the list tightens only as far as that
+  allows, then scrolls. No exception to DESIGN.md.
+
+## 2026-11-27 — P-112 chunks are a toggled view
+Relayed from the second session, on the P-112 mock-up: "I want that to be a toggled view. It looks like
+there's going to be a persistent then, and I don't want that. I just want that to be like a button you
+click, and then it offers the controls to add steps into view."
+Interpretation (second session's, mock-up v2): the runner is one step by default; one button ("See ahead",
+pressed/unpressed) turns the view on, and only then the "then: <next step>" row, "Fewer" and Open/Close
+appear. Designer's rulings not yet reacted to: the button's words and place; the view stays on after Next.
+Led to: P-112 (amended), B-16.
+
 ## 2026-11-27 — Home as one queue, values follow the place, a breakdown's own view, "@" names, chunks
 Read from Notion (MyStack › Home › plan › 2026-11-27, and Home › Observations), the owner's answers in chat,
 and two notes relayed from the second session:

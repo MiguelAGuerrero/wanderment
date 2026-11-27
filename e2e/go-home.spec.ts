@@ -246,7 +246,7 @@ test('P-95 (5), P-96 (was: Home on the runner): Pause pauses the run and home sh
   const first = h.tiles.first();
   await expect(first).toHaveAccessibleName('Apply to Initech, paused at Tailor the CV');
   await expect(first).toHaveAttribute('data-state', 'paused');
-  await expect(first.getByTestId('go-tile-last')).toHaveText('last');
+  await expect(first.getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
   const resume = tileBody(page, 'Apply to Initech');
   await expect(resume).toHaveAccessibleName(/^Resume Apply to Initech/);
   const filled = await h.screen.getByRole('button').evaluateAll((els) => els.filter((e) => getComputedStyle(e).backgroundColor === 'rgb(244, 241, 232)').length);

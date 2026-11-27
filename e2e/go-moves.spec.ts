@@ -154,7 +154,7 @@ for (const size of SIZES) {
       const order = await names();
       expect(order).toEqual(['other', 'stack']);
       await expect(page.getByTestId('go-resume')).toHaveCount(0);
-      await expect(tile(page, 'Practise drawing').getByTestId('go-tile-last')).toHaveText('last');
+      await expect(tile(page, 'Practise drawing').getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
       await expect(tile(page, 'MyStack').getByTestId('go-tile-last')).toHaveCount(0);
       // The body is a button: "Resume <name>", with what it shows. Its Plan stays.
       await expect(tileBody(page, 'MyStack')).toHaveAccessibleName(/^Resume MyStack, at Vibe check/);
@@ -174,7 +174,7 @@ for (const size of SIZES) {
       await pauseRun(page);
       await expect(home(page).screen).not.toContainText('planning');
       expect(await names()).toEqual(order);
-      await expect(tile(page, 'MyStack').getByTestId('go-tile-last')).toHaveText('last');
+      await expect(tile(page, 'MyStack').getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
       await expect(tile(page, 'Practise drawing').getByTestId('go-tile-last')).toHaveCount(0);
       await expect(tile(page, 'MyStack').getByTestId('go-tile-line')).toHaveText('at Vibe check');
       expect((await exported(page)).runs.s.mode).toBeUndefined();

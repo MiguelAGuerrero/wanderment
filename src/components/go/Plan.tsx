@@ -42,8 +42,9 @@ import { ComponentRef, useEffect, useLayoutEffect, useRef, useState } from 'reac
 import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { callersOf, Refusal, routineNamed, RoutineEdit } from '@/domain/run';
+import { atPick, routineInWords } from '@/domain/atPick';
 import { myRoutines } from '@/domain/routines';
-import { namesOffered, PlanDivider, PlanRow, planView, readersOf, rowMoves } from '@/domain/runView';
+import { namesOffered, PlanDivider, PlanRow, planView, readersOf, rowMoves, StepPart } from '@/domain/runView';
 import { placesShown, placesWritable } from '@/domain/places';
 import { tagsOf, tagsWritable } from '@/domain/tags';
 import { isName, itemNameFor, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
@@ -61,7 +62,7 @@ import { PlacesLine, PlacesSheet } from './Places';
 import { TagsSheet, tagWords } from './Tags';
 import { G, SP, TARGET } from './tokens';
 import { Btn, caretToEnd, Confirm, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Menu, MenuItem, MenuSep, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
-import { Gives, KeptSheet, NameChip } from './Values';
+import { Gives, KeptSheet, NameChip, ValueText } from './Values';
 
 const WEB = Platform.OS === 'web';
 /** The focus ring: its own colour, with a gap (never the white of HERE). */
@@ -179,14 +180,18 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     const el = WEB ? lastField.current : null;
     const caret = el && typeof el.selectionStart === 'number' ? Math.min(el.selectionStart, text.length) : text.length;
     // P-103 audit F3: only at a word's start (after a space, or first), and only while what follows is a name's
-    // letters — "me@co", "x@y.z" and a lone "{" at a word's end never insert by themselves.
-    const m = /(?:^|\s)([@{])([\p{L}\p{N}_-]*)$/u.exec(text.slice(0, caret));
+    // letters — "me@co", "x@y.z" and a lone "{" at a word's end never insert by themselves. P-110: after "@", across
+    // spaces too, while what is typed still matches a routine's name ("@Document It").
+    const m = atPick(text, caret, myRoutines(useStore.getState().data).map((r) => r.name));
     setLit(-1);
-    if (!m) return setPicking(null);
-    const start = caret - m[2].length - 1;
-    if (start === shutAt.current) return setPicking(null);
+    // (P-110: the "@" put away with Esc is gone — the next one opens again.)
+    if (!m) {
+      shutAt.current = -1;
+      return setPicking(null);
+    }
+    if (m.start === shutAt.current) return setPicking(null);
     shutAt.current = -1;
-    setPicking({ start, query: m[2] });
+    setPicking(m);
   };
   /** Routines opened or closed by hand (by row key); the rest follow `opened`. */
   const [folds, setFolds] = useState<Record<string, boolean>>({});
@@ -391,8 +396,18 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     // Left (not Return), and that made an edit: the press on Resume / Start that caused it must not make it a silent one.
     if (!stay && act().undo && act().undo !== was) leftEdit.current = act().undo;
   };
+  /** P-110: the routine words name when they are exactly "@<routine name>" (case and spacing aside) — added, they are a call to it. */
+  const calledBy = (words: string) => routineInWords(words, myRoutines(act().data).map((r) => ({ routineId: r.routineId, name: r.name })));
+  /** P-110: a call refused (itself, gone): said in words; the words stay where they were typed. */
+  const refusedCall = (did: { ok: boolean; reason?: Refusal | 'reconnecting' }, target: string) => {
+    if (did.ok) return false;
+    const words = callRefused(did.reason, myRoutines(act().data).find((r) => r.routineId === target)?.name ?? '', v.name);
+    if (words) act().say(words);
+    return true;
+  };
   const keepTyped = (t: Typing, stay: boolean) => {
     const words = tidy(t.text);
+    const target = t.mode === 'name' ? undefined : calledBy(words);
     const leave = (to?: string) => {
       setTyping(null);
       if (stay && to !== undefined) toRow(list, to, title);
@@ -410,6 +425,11 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     const row = rowAt(t.path);
     if (!row) return leave();
     if (t.mode === 'words') {
+      // P-110: changed to "@<routine name>" — a plain step that gives nothing becomes the call.
+      if (target && row.kind === 'step' && !row.gives && !row.slot) {
+        if (!refusedCall(edit(row.seq, { kind: 'toCall', item: row.itemId, routine: target }), target)) leave(t.path);
+        return;
+      }
       if (!words || words === row.words) return leave(t.path);
       // A step broken down: its words are its own sequence's.
       const did = row.broken && row.ref ? edit(row.ref, { kind: 'rename', words }) : edit(row.seq, { kind: 'reword', item: row.itemId, text: words });
@@ -418,12 +438,18 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     }
     if (!words) return leave(t.path);
     if (t.mode === 'into') {
+      // P-110: "@<routine name>" put into a for each is a call there.
+      if (target && row.each && row.ref) {
+        if (!refusedCall(edit(row.ref, { kind: 'addCall', routine: target }), target)) setTyping(stay ? { ...t, text: '' } : null);
+        return;
+      }
       // The first makes the step a sequence of its own; the rest join it.
       const did = row.kind === 'step' ? edit(row.seq, { kind: 'breakDown', item: row.itemId, steps: [words] }) : row.ref ? edit(row.ref, { kind: 'addStep', text: words }) : undefined;
       if (did?.ok) setTyping(stay ? { ...t, text: '' } : null);
       return;
     }
-    if (!edit(row.seq, { kind: 'addStep', text: words, after: row.itemId }).ok) return;
+    // P-110: a step added as "@<routine name>" is a call to it.
+    if (target ? refusedCall(edit(row.seq, { kind: 'addCall', routine: target, after: row.itemId }), target) : !edit(row.seq, { kind: 'addStep', text: words, after: row.itemId }).ok) return;
     if (!stay) return setTyping(null);
     // The next one goes after the one just added.
     const now = planView(act().data, v.runId ? { runId: v.runId } : { routineId: v.routineId });
@@ -438,8 +464,13 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     if (chosen >= 0) return choose(chosen);
     setPicking(null);
     if (!adding.trim()) return;
+    // P-110: a step added as "@<routine name>" is a call to it.
+    const target = calledBy(adding);
     // Refused (reconnecting): the words stay in the field.
-    if (edit(v.routineId, { kind: 'addStep', text: adding }).ok) setAdding('');
+    if (target ? !refusedCall(edit(v.routineId, { kind: 'addCall', routine: target }), target) : edit(v.routineId, { kind: 'addStep', text: adding }).ok) {
+      setAdding('');
+      shutAt.current = -1;
+    }
     addField.current?.focus();
   };
 
@@ -459,6 +490,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   const menuDivider = menu && 'divider' in menu ? (menu.divider === '' ? v.divider : v.rows.find((r) => r.divider && parentOf(keyOf(r.path)) === menu.divider)?.divider) : undefined;
   const startTyping = (t: Typing) => {
     close();
+    // (P-110: a new field — an "@" put away in another one does not keep this one's closed.)
+    shutAt.current = -1;
     setNameTaken(false);
     setTyping(t);
   };
@@ -470,10 +503,12 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   // P-98: "@" at a word's start in Add a step (or a step added after a row) lists the person's routines too — only when summoned.
   const typedNow = typing ? typing.text : adding;
   // (P-107: and a step put into a for each — a routine called for each item.)
-  const atSign = !!picking && typedNow.charAt(picking.start) === '@' && (typing ? typing.mode === 'after' || (typing.mode === 'into' && !!rowAt(typing.path)?.each) : addFocused);
+  // (P-110: and while changing a plain step's words — the step becomes the call, or the call comes after it.)
+  const wordsAt = !!typing && typing.mode === 'words' && rowAt(typing.path)?.kind === 'step' && !rowAt(typing.path)?.gives && !rowAt(typing.path)?.slot;
+  const atSign = !!picking && typedNow.charAt(picking.start) === '@' && (typing ? typing.mode === 'after' || (typing.mode === 'into' && !!rowAt(typing.path)?.each) || wordsAt : addFocused);
   const routineMatches = atSign ? myRoutines(data).filter((r) => nameKey(r.name).includes(nameKey(picking!.query))).slice(0, 6) : [];
   // P-108: after "@", the names given above as routine rows too (`▤ {name}`), before the person's routines.
-  const slotMatches = atSign ? matching : [];
+  const slotMatches = atSign && !wordsAt ? matching : [];
   const picks = matching.length + slotMatches.length + routineMatches.length;
   const picked = !!picking && picks > 0;
   /** The name (or routine) Return puts in: one the person chose (↑/↓), or — once part of one is typed — the first match. */
@@ -518,6 +553,20 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     const rest = picking ? (now.slice(0, picking.start) + now.slice(picking.start + 1 + picking.query.length)).replace(/\s+$/, '') : now;
     setPicking(null);
     const t = live.current;
+    // P-110: while changing a step's words — the step becomes the call (what else was typed stays as its words, the call after it).
+    if (t && t.mode === 'words' && !slot) {
+      const step = rowAt(t.path);
+      const did = step ? edit(step.seq, { kind: 'toCall', item: step.itemId, routine: target, ...(rest.trim() && { words: rest }) }) : undefined;
+      if (did && !did.ok) {
+        const words = callRefused(did.reason, myRoutines(data).find((r) => r.routineId === target)?.name ?? '', v.name);
+        if (words) act().say(words);
+        setTyping({ ...t, text: rest });
+        return;
+      }
+      setTyping(null);
+      if (step) toRow(list, t.path, title);
+      return;
+    }
     const row = t && t.mode === 'after' ? rowAt(t.path) : undefined;
     // P-107: into a for each — at the end of its steps; the field stays open there for the next.
     const into = t && t.mode === 'into' ? rowAt(t.path) : undefined;
@@ -562,6 +611,22 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   const layer = menuRow ? (
     <Menu anchor={() => mores[keyOf(menuRow.path)]} label={menuRow.words} onClose={close} testID="go-plan-menu" fallback={title}>
       {(menuRow.kind !== 'routine' || menuRow.broken) && !menuRow.each && !menuRow.slot && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
+      {/* P-110: a step whose words are "@<routine name>" — offered as a call to it (never made one by itself). */}
+      {!!menuRow.asCall && (
+        <MenuItem
+          label="Make it a call"
+          spoken={`Make it a call to ${menuRow.asCall.name}`}
+          testID="go-plan-make-call"
+          onPress={() => {
+            const did = edit(menuRow.seq, { kind: 'toCall', item: menuRow.itemId, routine: menuRow.asCall!.routine });
+            if (!did.ok) {
+              const words = callRefused(did.reason, menuRow.asCall!.name, v.name);
+              if (words) act().say(words);
+            }
+            close();
+          }}
+        />
+      )}
       {/* P-107: a for each — its steps are added inside it. */}
       {!!menuRow.each && <MenuItem label="Add a step inside" spoken={`Add a step inside ${menuRow.words}`} testID="go-plan-add-inside" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
       {/* P-98: a call — Open (that routine's Plan), Edit inputs. */}
@@ -945,7 +1010,9 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
             if (row.divider) repeating.add(parent);
             const rail = repeating.has(parent);
             const open = row.kind === 'routine' && opened(row);
-            const says = `${row.here ? 'Here, ' : row.within ? 'You are in this, ' : ''}${row.kind === 'wait' ? `Wait for: ${row.words}` : row.words}`;
+            // (P-110: Plan of a run says the words as shown — the values held at its place in them.)
+            const shownWords = row.shown ?? row.words;
+            const says = `${row.here ? 'Here, ' : row.within ? 'You are in this, ' : ''}${row.kind === 'wait' ? `Wait for: ${shownWords}` : shownWords}`;
             const moves = rowMoves(row);
             return (
               <View
@@ -1012,7 +1079,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
                             )}
                             <T testID="go-plan-words" style={styles.shrink}>
                               {row.kind === 'wait' && <T dim>Wait for </T>}
-                              <Chips words={row.words} asks={row.asks} />
+                              <Chips words={row.words} asks={row.asks} parts={row.parts} />
                             </T>
                           </View>
                           {!!row.call && <CallLines name={row.words} call={row.call} onInput={(input) => setMenu({ bind: key, input })} />}
@@ -1114,7 +1181,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
         </View>
         {floor && foot}
       </ScrollView>
-      {(offered.length > 0 || routineMatches.length > 0) && <NamesBar names={picked ? matching : offered} slots={picked ? slotMatches : []} routines={picked ? routineMatches.map((r) => ({ id: r.routineId, name: r.name })) : []} picking={picked} lit={chosen} onMove={(by) => setLit(chosen < 0 ? (by > 0 ? 0 : picks - 1) : (chosen + by + picks) % picks)} onPick={insertName} onSlot={(n) => addRoutineHere(n, true)} onRoutine={(id) => addRoutineHere(id)} lastField={lastField} onLeave={leftBar} />}
+      {(offered.length > 0 || routineMatches.length > 0) && <NamesBar names={picked ? matching : offered} slots={picked ? slotMatches : []} routines={picked ? routineMatches.map((r) => ({ id: r.routineId, name: r.name })) : []} picking={picked} lit={chosen} onMove={(by) => setLit(chosen < 0 ? (by > 0 ? 0 : picks - 1) : (chosen + by + picks) % picks)} onPick={insertName} onSlot={(n) => addRoutineHere(n, true)} onRoutine={(id) => addRoutineHere(id)} asCall={wordsAt} lastField={lastField} onLeave={leftBar} />}
       {!floor && foot}
     </GoScreen>
   );
@@ -1310,12 +1377,31 @@ function Typed({ value, label, placeholder, onChange, onSubmit, onBlur, onField,
   );
 }
 
-/** P-96: a row's words, each `{name}` in them a chip. */
-function Chips({ words, asks = [] }: { words: string; asks?: string[] }) {
-  const parts = parseWords(words);
-  if (!parts.some((p) => p.kind === 'name')) return <>{words}</>;
+/**
+ * P-96: a row's words, each `{name}` in them a chip. P-110: Plan of a run — a value held at the run's place in place of
+ * its `{name}` (inverted, as on the runner); a name not given stays as written (its chip).
+ */
+function Chips({ words, asks = [], parts: shown }: { words: string; asks?: string[]; parts?: StepPart[] }) {
   // P-101 amendment (ruling 11): a name no step here gives — dashed, "asks {name}" (it asks when run).
   const asking = new Set(asks.map((n) => nameKey(n)));
+  if (shown)
+    return (
+      <>
+        {shown.map((p, i) =>
+          p.kind === 'text' ? (
+            p.text
+          ) : p.kind === 'value' ? (
+            <T key={i} style={styles.valueInPlace} testID="go-plan-value" {...{ dataSet: { name: p.name } }}>
+              {p.shown ? <ValueText shown={p.shown} color={G.ink} /> : p.text}
+            </T>
+          ) : (
+            <NameChip key={i} name={p.name} asks={asking.has(nameKey(p.name))} />
+          ),
+        )}
+      </>
+    );
+  const parts = parseWords(words);
+  if (!parts.some((p) => p.kind === 'name')) return <>{words}</>;
   return <>{parts.map((p, i) => (p.kind === 'text' ? p.text : <NameChip key={i} name={p.name} asks={asking.has(nameKey(p.name))} />))}</>;
 }
 
@@ -1372,7 +1458,7 @@ function InsertBtn({ lastField, onLeave }: { lastField: { current: HTMLInputElem
  * keyboard (audit F6): Alt+↓ in the field goes to the first name (Tab reaches them too); ←/→ move
  * between them; Return or Space inserts and goes back to the field; Esc goes back without inserting.
  */
-function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove, onPick, onSlot, onRoutine, lastField, onLeave }: { names: string[]; slots?: string[]; routines?: { id: string; name: string }[]; picking?: boolean; lit?: number; onMove?: (by: 1 | -1) => void; onPick: (name: string) => void; onSlot?: (name: string) => void; onRoutine?: (routineId: string) => void; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
+function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove, onPick, onSlot, onRoutine, asCall = false, lastField, onLeave }: { names: string[]; slots?: string[]; routines?: { id: string; name: string }[]; picking?: boolean; lit?: number; onMove?: (by: 1 | -1) => void; onPick: (name: string) => void; onSlot?: (name: string) => void; onRoutine?: (routineId: string) => void; /** P-110: typed while changing a step's words — a routine chosen makes the step a call to it. */ asCall?: boolean; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
   const box = useRef<ViewRef>(null);
   const leave = useRef(onLeave);
   const move = useRef<{ picking?: boolean; onMove?: (by: 1 | -1) => void }>({});
@@ -1468,7 +1554,7 @@ function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove,
       ))}
       {/* P-98: after "@", the person's routines that match — a tap adds one as a step. */}
       {routines.map((r, j) => (
-        <Pressable key={r.id} onPress={() => onRoutine?.(r.id)} accessibilityRole="button" accessibilityLabel={`Add ${r.name} as a step`} style={(state) => [styles.chip, styles.routineChip, picking && names.length + slots.length + j === lit && styles.chipFirst, (state as { focused?: boolean }).focused && RING]} testID="go-names-routine" {...{ dataSet: { lit: picking && names.length + slots.length + j === lit ? 'true' : 'false', routine: r.id } }}>
+        <Pressable key={r.id} onPress={() => onRoutine?.(r.id)} accessibilityRole="button" accessibilityLabel={asCall ? `Make it a call to ${r.name}` : `Add ${r.name} as a step`} style={(state) => [styles.chip, styles.routineChip, picking && names.length + slots.length + j === lit && styles.chipFirst, (state as { focused?: boolean }).focused && RING]} testID="go-names-routine" {...{ dataSet: { lit: picking && names.length + slots.length + j === lit ? 'true' : 'false', routine: r.id } }}>
           <View {...decorative}>
             <Mark name="routine" color={G.dim} />
           </View>
@@ -1605,6 +1691,8 @@ function toRow(list: { current: unknown }, key: string, title: { current: unknow
 }
 
 const styles = StyleSheet.create({
+  // P-110: a value held at the run's place, in a Plan row's words — inverted, as on the runner's note.
+  valueInPlace: { backgroundColor: G.text, color: G.ink, paddingHorizontal: 2 },
   // P-109: the notice's room kept while the Places sheet holds the notice (nothing beneath moves).
   noticeRoom: { minHeight: 64 },
   flex: { flex: 1, minHeight: 0 },

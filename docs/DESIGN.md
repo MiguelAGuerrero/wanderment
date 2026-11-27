@@ -48,7 +48,18 @@ routines in their own words — and runs them with the person, one small step at
   itself is its own — never filled from outside, never overwriting the outer value. A step reading a
   name nothing gave asks for it in place. A new round after "Repeat from here" clears the values given
   after the divider (those steps ask again) — and a value whose giving step was removed in Plan; starting
-  a routine again starts empty. A value is at most
+  a routine again starts empty. **Values follow the place** *(P-110; the owner: "the place where you are … establishes
+  this as the intended or expected state at that point in terms of values declared")*: a value is held only while the
+  step that gives it is above the place (or is the place: its own field). **Moving the place back** — Back, Jump to,
+  Start over, a new round — **clears the values given at or below where it lands**, said ("Cleared {name}"; after a
+  Jump, "Jumped from … · Cleared {name}") with the move's one Undo, which brings place and values back. **A value is
+  asked only at its giving step, never ahead**: a step reading a name a later step of its routine gives does not ask
+  for it (its words show `{name}` as written); a step reading a name whose giving step was passed and left empty
+  still asks (the giving step is above). A for each's rounds, its collected lists, kept lists and a call's own copies
+  keep their rules; a list given again from inside a loop is held across its rounds. Values a run stored before
+  P-110 that break the rule are **corrected on read** — not shown, not read, never deleted by reading — and a move
+  settles them: a Next that reaches their giving step shows them there, in its own field; a Jump past that step
+  without reaching it clears them (said, with Undo). What cannot be read is kept. A value is at most
   2,000 characters. *(P-98, built: values passed to a routine used as a step — see **Calls**.)* *(P-107, built:
   for each — see **For each**.)* (Designed, not built yet: values that arrive later.)
 - **For each** *(built, P-107; B-15 journeys 6–7, B-16; the owner: "For each … regular for loop")*: a **loop block**
@@ -270,7 +281,7 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   only inside a step). A routine with nothing going is **not** on home: it is on My routines (its stored
   `home` mark is kept and written as before, and no longer read). Order never changes because of a pause
   *(P-101, ruling 5)*: in each group the runs by when each was started; the run touched last carries a small
-  **"last"** (in words). A run's tile **body** is its way back in — a button, "Resume <name>" (at the edge, "Plan
+  **"Last ran"** (in words; *P-110, the owner: "last is relative"* — was "last"). A run's tile **body** is its way back in — a button, "Resume <name>" (at the edge, "Plan
   <name>") — and *(P-103)* a visible **Resume** in words, where Start sits on an idle tile, with **Plan** beside
   it and, on a paused run, **···** (Start over · a line · End this run, red). A paused tile has no ❚❚ (that mark
   is the runner's Pause alone); a waiting one keeps ⧗. *(P-103)* With no routines at all, home says one line,
@@ -306,9 +317,10 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   not this one> · <when>" ("given at <step>" for one given late), the **trace** *(P-101, ruling 7)* —
   routine › step from the run's root to the giving step, each routine's values under it — then "read
   by" the steps that read it, **Keep** filled (a change that replaces or clears the value has an Undo),
-  **Close** lowest. *(P-101 amendment, ruling 10)* Then, dashed, **"{ } name: not given yet"** for each
-  name a step already passed gives with no value (Gives… added later in Plan, or left empty): it opens
-  the entry sheet and gives it now, from the step the run is on. The pause note, if any, under the row.
+  **Close** lowest. *(P-110; was P-101 amendment, ruling 10: a dashed "{ } name: not given yet" for each name a passed
+  step gives with no value)* **Nothing stands in for a value not given** — the row lists only the values held at the
+  place (the owner: "It should only show the active state of declaration at that point"); a step that reads such a
+  name asks for it where it is read. The pause note, if any, under the row.
   *(P-103)* The pause note under the path has its own mark, a note (never ❚❚).
   The step as a fixed, roughly square sticky note, with the values it reads **in place, inverted**.
   Under the note, the step's value fields *(P-101, ruling 7)*: each reads its label and its value — the
@@ -359,7 +371,15 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   person's routines, A–Z with what each asks and gives *(P-108: after the names given above, each a routine row
   `▤ {name}`)* — and *(P-107)* **For each…** beside it *(P-108: always; was once the routine gives a name)* (see **For
   each**); and **"@"** at a word's start there lists the routines
-  that match after the names — only when summoned; typed words alone list none. Its placeholder is one string. **Move up / Move down are not on the step menu** where there is a grip: the grip,
+  that match after the names — only when summoned; typed words alone list none. *(P-110, the owner's "@Document
+  Iteration")* After "@" the list **stays open across spaces** while what is typed still matches a routine's name;
+  a step added whose words are exactly **"@<routine name>"** (case and spacing aside — from Add a step, Add a step
+  after, inside a for each, with the list open or put away) **is a call to it**; "@" works **while changing a step's
+  words** too (a plain step that gives nothing): a routine chosen there makes the step a call to it — other words
+  typed stay as the step's, with the call right after it — one edit, one Undo; a refusal (itself) is said in words.
+  A step stored as the words "@<routine name>" is **offered, never made**, a call: its ··· has **Make it a call**
+  ("Make it a call to <name>") after Edit, one edit with its Undo (not offered for the routine itself, or one that
+  uses it). Its placeholder is one string. **Move up / Move down are not on the step menu** where there is a grip: the grip,
   pressed, opens its own small menu, **Move up · Move down** (each unavailable at its end) — the way to
   reorder without a drag *(P-102 audit: nothing by gesture alone)*; under 340 px, with no grip, they are on
   the step menu, before the line. They are also a row's screen-reader actions (on its ···) and, on the web,
@@ -396,7 +416,10 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   inside it changes that routine. **Every change changes the routine** — with no notice *(P-101, ruling
   6)*, its Undo in the routine's menu until the next action — and repairs any run it touches: removing
   the HERE step puts HERE on the next step, else the one before, else at the edge — a run is never ended
-  by an edit. The ONE filled button is **Resume at <step>**, which goes back exactly where you were
+  by an edit. *(P-110)* **Plan of a run shows the values held at its place** in the steps' words, in place of
+  `{name}` (inverted, as on the runner; the row's name says the words as shown), and in "at <step>" and **Resume at
+  <step>**; a name not given there stays as written (its chip). A routine's Plan with no run shows the words as
+  written. The ONE filled button is **Resume at <step>**, which goes back exactly where you were
   (Start for a routine with no run, once it has a step); with nothing forward there is none. Nothing in
   Plan says Next. Home from Plan changes nothing: the run is paused, and its tile says so. A screen
   reader hears "Plan: <routine>" on arriving (focus on the heading) and "Running: <step>" on returning
@@ -433,7 +456,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   edit (Gives…, renaming a name and "Gives nothing" included), New, Jump to (it can leave levels
   and reset the round), Step out, Start over *(asked first — P-101 amendment, the owner's ruling)*, a value replaced or cleared
   — from the value sheet, or from a step's own field's entry sheet *(P-101)* — Back to when it clears a value given in the round it leaves
-  ("Cleared {name}"), this-run changes folded (by whatever verb folds them). Giving a value for the
+  ("Cleared {name}") *(P-110: and any move that clears values given at or below where it lands — Back, Jump to,
+  Start over)*, this-run changes folded (by whatever verb folds them). Giving a value for the
   first time leaves no notice. An Undo puts values back name by name: it never drops a value typed
   after the action it undoes.
   *(P-102, the owner: "You should not undo a 'Done'")* **Finishing a run** (Done, or the last Next) is the

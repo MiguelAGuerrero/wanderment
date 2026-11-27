@@ -299,7 +299,7 @@ test.describe('home shows only what is in motion', () => {
       await expect(d.getByTestId('go-tile-resume')).toBeDisabled();
       await expect(d.getByRole('button', { name: 'Plan Drawing practice', exact: true })).toBeVisible();
       await expect(d.getByTestId('go-tile-more')).toBeVisible();
-      await expect(tile(page, 'Gesture drawing').getByTestId('go-tile-last')).toHaveText('last');
+      await expect(tile(page, 'Gesture drawing').getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
       // The side doors, lowest: My routines at the left, + New at the right — nothing filled.
       const left = await box(h.routinesBtn);
       const right = await box(h.newBtn);

@@ -53,7 +53,9 @@ describe('F1: Undo never drops a typed value, and brings back what the action cl
     st().nextStep(id);
     st().typeValue(id, 'pick', 'feature', 'signup');
     st().jumpTo(id, { level: 0 } as never);
-    expect(vals(id)).toEqual(['0:base=web']);
+    // (P-110, rewritten: was ['0:base=web'] — the start of the level is "Setup", which gives {base}: moving the place
+    // back onto it clears {base} too. The rest of F1 stands: the Undo keeps what was typed since.)
+    expect(vals(id)).toEqual([]);
     st().typeValue(id, 's', 'base', 'mobile');
     expect(st().undoLast()).toBe(true);
     expect([here(id), round(id)]).toEqual(['pick', 2]);
@@ -93,22 +95,26 @@ describe('F2: Back to across a round boundary', () => {
     expect(vals(id)).toEqual(['0:base=web', '0:feature=signup']);
   });
 
+  // (P-110, rewritten: was Next then Back to "Setup" — Back onto the step that gives {base} now clears it (said, with
+  // Undo). A Back that clears nothing: from "Test" to "Pick", which was given nothing.)
   it('Back to that clears nothing still leaves no notice and no Undo (P-95)', () => {
     const id = started('R');
     st().typeValue(id, 's', 'base', 'web');
     st().nextStep(id);
+    st().nextStep(id);
     st().backTo(id);
+    expect(here(id)).toBe('pick');
     expect(st().runNotice).toBeUndefined();
     expect(st().undo).toBeUndefined();
   });
 });
 
 describe('F3: typing over a filled value in the step’s own field (ruling 4)', () => {
+  // (P-110, rewritten: was Next then Back to "Setup" before reopening its field — Back onto the giving step now clears
+  // the value itself; the field is reopened where the run stands.)
   it('cleared: "Cleared {base}" with Undo, once; Undo brings it back', () => {
     const id = started('R');
     st().typeValue(id, 's', 'base', 'web');
-    st().nextStep(id);
-    st().backTo(id);
     for (const t of ['we', 'w', '']) st().typeValue(id, 's', 'base', t);
     // Per keystroke: nothing. Once the edit is over (the field is left): one notice.
     expect(st().runNotice).toBeUndefined();

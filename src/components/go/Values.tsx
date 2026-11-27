@@ -85,12 +85,12 @@ export function ValueText({ shown, color = G.text }: { shown: ShownItem[]; color
 }
 
 /**
- * The values in play, under the runner's top line: each opens its sheet. P-101 amendment (ruling 10): then
- * each name a step already passed gives with no value yet — "{ } name: not given yet" — giving it now
- * (`onGive`, the entry sheet). Nothing of either: no row.
+ * The values in play, under the runner's top line: each opens its sheet. None: no row. P-110 (the owner: "not
+ * displaying placeholders if those values aren't supplied … It should only show the active state of declaration at
+ * that point"): only the values held at the place — P-101's "{ } name: not given yet" is gone.
  */
-export function ValuesRow({ values, missing = [], onOpen, onGive }: { values: ValueShown[]; missing?: string[]; onOpen: (name: string) => void; onGive?: (name: string) => void }) {
-  if (!values.length && !missing.length) return null;
+export function ValuesRow({ values, onOpen }: { values: ValueShown[]; onOpen: (name: string) => void }) {
+  if (!values.length) return null;
   return (
     <View style={styles.row} testID="go-values">
       {values.map((v) => {
@@ -115,22 +115,6 @@ export function ValuesRow({ values, missing = [], onOpen, onGive }: { values: Va
         </Pressable>
         );
       })}
-      {missing.map((name) => (
-        <Pressable
-          key={`missing:${name}`}
-          onPress={() => onGive?.(name)}
-          accessibilityRole="button"
-          accessibilityLabel={`${name}: not given yet`}
-          testID="go-value-missing"
-          {...{ dataSet: { name } }}
-          style={(state) => [styles.value, styles.missing, (state as { focused?: boolean }).focused && RING]}>
-          <Mark name="braces" size={20} color={G.dim} />
-          <T style={styles.shrink}>
-            <T dim>{`${name}: `}</T>
-            not given yet
-          </T>
-        </Pressable>
-      ))}
     </View>
   );
 }
@@ -543,7 +527,6 @@ export function NameChip({ name, asks = false }: { name: string; asks?: boolean 
 const styles = StyleSheet.create({
   shrink: { flexShrink: 1, minWidth: 0 },
   inverted: { paddingHorizontal: 2 },
-  missing: { borderStyle: 'dashed' },
   blank: { borderBottomWidth: 2, borderStyle: 'dashed' },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2, marginHorizontal: 16, marginTop: SP.s2 },
   value: { minHeight: TARGET, maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: SP.s1, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf, paddingHorizontal: SP.s2, paddingVertical: SP.s1 },

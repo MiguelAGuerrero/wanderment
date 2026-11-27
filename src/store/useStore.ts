@@ -334,7 +334,9 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   if (r.folded !== undefined) undo = 'set';
   // P-96 audit F2: Back to across a round boundary can clear values typed in the round it leaves — never
   // silently: it is named, with an Undo.
-  const cleared = verb.kind === 'back' && r.ok ? clearedNames(s.data, r.data, verb.runId) : [];
+  // P-110: and any move that clears values whose giving step is no longer above the place (Back, Jump, Start over;
+  // a value an earlier build let a step give ahead) — named, with the move's Undo.
+  const cleared = r.ok ? namesOnce([...(verb.kind === 'back' ? clearedNames(s.data, r.data, verb.runId) : []), ...(r.cleared ?? [])]) : [];
   if (cleared.length) undo = 'set';
   // P-96 audit F3: a value typed over in the step's own field keeps its Undo through the move that follows.
   if (undo === 'clear' && (verb.kind === 'next' || verb.kind === 'stepIn') && s.runNotice?.verb === 'value' && s.runNotice.entry && s.runNotice.entry === s.undo) undo = 'keep';
@@ -366,7 +368,7 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
       : entry
       ? {
           verb: verb.kind,
-          ...said(noticeFor(verb.kind, r.said, onWait, r.folded), cleared.length ? `Cleared ${cleared.map((n) => `{${n}}`).join(', ')}` : what),
+          ...clearedSaid(noticeFor(verb.kind, r.said, onWait, r.folded), what, cleared),
           entry,
           // P-101 (ruling 6): Plan's edits say nothing. What changes the screen itself (the run ended: home; New, and
           // Plan's fold of an earlier build's changes: its Plan; Jump to…: the runner; the routine removed: home)
@@ -419,6 +421,12 @@ function typedOverValue(runId: Id, itemId: Id, name: string, was: string, wasIte
   useStore.setState({ undo: entry, runNotice: { verb: 'value', text: `${current.trim() ? 'Changed' : 'Cleared'} {${tidyName(name)}}`, label: 'Change', entry } });
   return { ok: true, runId };
 }
+
+/** P-110: each name once (compared as names are). */
+const namesOnce = (names: string[]): string[] => names.filter((n, i) => names.findIndex((m) => nameKey(m) === nameKey(n)) === i);
+/** P-110: the notice's words, with what the move cleared after them ("Jumped from … · Cleared {feature}"). */
+const clearedSaid = (n: { text: string; label: string }, what: string, cleared: string[]) =>
+  cleared.length ? { text: [n.text, `Cleared ${cleared.map((c) => `{${c}}`).join(', ')}`].filter(Boolean).join(' · '), label: n.label } : said(n, what);
 
 /** The notice's words: what the engine says happened ("Finished …"), else the thing the action was done to. */
 const said = (n: { text: string; label: string }, what: string) => ({ text: n.text || what, label: n.label });

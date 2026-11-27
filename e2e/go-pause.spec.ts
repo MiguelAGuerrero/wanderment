@@ -32,7 +32,7 @@ test('J10-a (P-96; was: Pause opens the paused screen): Pause goes home — P-10
   await expect(h.screen).toBeVisible();
   await expect(page).toHaveURL(/\/go$/);
   await expect(h.tiles.first()).toHaveAccessibleName('Apply to Initech, paused at Tailor the CV');
-  await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-last')).toHaveText('last');
+  await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
   await expect(page.getByTestId('go-resume')).toHaveCount(0);
   await expect(tile(page, 'Apply to Acme').getByTestId('go-tile-line')).toHaveText(`waiting for a reply from Acme · since ${SINCE}`);
   for (const name of ['Apply to Initech', 'Practise drawing', 'Apply to Acme']) {

@@ -43,23 +43,8 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-110 Values follow the place; Plan shows given values; "Last ran"; "@" across spaces `[data]` `[ux]` M
-*Status:* todo
-*Why:* owner, 2026-11-27 (Notion › Home › plan, and in chat): "Feature isn't interpolated when a value is
-supplied during a run"; "the place where you are … establishes this as the intended or expected state at
-that point in terms of values declared"; "not displaying placeholders if those values aren't supplied … It
-should only show the active state of declaration at that point"; "the word last" → "last ran"; "I tried
-to reference a routine but it didn't work".
-*Done when:* a value is held only while the step that gives it is above the place; moving the place back
-(Jump, Resume at, Repeat, Back) clears values given at or below it, with Undo; a value is asked only at
-its giving step, never ahead; nothing stands in for a value not given (the values row lists only what is
-held); Plan opened from a run, and "Resume at …", show given values in place of `{name}`; home's "last"
-reads "Last ran"; after "@" the list stays open across spaces while the words still match a routine, a
-step added as "@<routine name>" becomes a call, and "@" works while changing a step's words; an existing
-"@<name>" row is offered (never silently made) as a call; persistence; no stored data converted.
-
 ### P-111 A breakdown opens its own view in Plan `[ux]` M
-*Status:* todo
+*Status:* in-progress
 *Why:* owner, 2026-11-27: "it's more intuitive to have the breakdown step be its own view so that you can
 modify or develop the substeps with more screen space"; answered "Opens its own view".
 *Done when:* tapping a breakdown (or for each block) in Plan opens it full-screen with its own steps, its
@@ -84,7 +69,7 @@ on the next steps as you see fit … they're expandable, and effectively it just
 And operates as a skip … It just has to be a quality of life UI affordance"; "Ensure that we have a
 mock-up … there has to be a way for simple provision of values." Mock-up (second session):
 https://claude.ai/artifact/LA7yH557zSxLrVc38JGbTf — waits on the owner's reaction.
-*Done when:* as B-16: the step in view can be extended with the next, again and again; a step with
+*Done when:* as B-16: a toggled view (owner: "I want that to be a toggled view … like a button you click") — off, the runner is one step as now; on (one button), the runner is a condensed list (16 px text, a field on one line beside its name, thin rules) that tightens as rows are added but never below 48 px targets, then scrolls (owner: "the list stops tightening and just allow a scroll"); the step in view can be extended with the next, again and again; a step with
 insides opens in place as an outline; a giving step in the chunk has its field there; Next takes the
 chunk as done (one move, Undo) and goes past it; nothing stored; DESIGN.md's runner rule reworded.
 
@@ -418,6 +403,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-27 · P-110 — values follow the place: a value is held only while its giving step is above the place (or is the place); every move clears values given below it, a move back also clears the step it lands on, with a notice and one Undo; no "not given yet" chips; Plan during a run and "Resume at …" show held values; "Last ran" on home; "@" stays open across spaces, "@<routine>" becomes a call, works while changing a step, and an existing "@<name>" row offers Make it a call. Runs stored before are corrected on read, nothing deleted. Also fixes three P-108 repros (kept-list reorder dropping items, duplicate kept refs, Step in on a self-held routine). evidence: golden p110-* frozen from 1b005ac, 26 domain + 4 store + 10 golden + 6 persistence tests, go-place-values spec at 390×844 and 195×422, 1102 unit tests, `verify.sh` (changed specs; full suite deferred to the end, owner 2026-11-27). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-108 — kept lists, a for each's own list, and values that are routines: a for each over a list kept in the routine (rows under the block, items stay across runs; one added comes round next sitting) or its own list asked on arrival (local to the block); a step can give a list held at its level or above; a value can be a routine held by reference (`▤ {name}` rows, Step in on the runner; a removed one reads "(removed)"); lists of routines; "@" lists names given above. Also fixes P-107's place-keeping (duplicate or renamed items no longer skip or repeat: the loop compares the list it last saw). No migration. evidence: golden p108-* frozen from ee66a65 (with what the old build shows), 32 domain + 10 golden + 6 persistence tests, go-kept-lists spec at 390×844 and 195×422, E2E_SLOW repeat-each=5, 1056 unit tests, `verify.sh --full` (397 e2e). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-107 — for each over a list given above: Plan's For each… (once a name is given) adds a loop block from sentences "item in {list}", with "@" to call a routine per item; the giving step's list sheet (one row per item, + Add another, paste offers to split, never at commas); inside, "item 2 of 3: <item>"; each round clears values given inside; what each item gives is collected into one list after the block; giving the list again keeps the loop's place, carries on to added items, ends past the last; an empty list passes through; Undo. Stored as a breakdown with `each` (older builds read it as one; no migration). evidence: golden p107-* frozen from 6f4afea (with what the old build shows), 22 domain + 5 store + 9 golden + 6 persistence tests, mutation checks, go-foreach spec at 390×844 and 195×422, E2E_SLOW repeat-each=5, 1008 unit tests, `verify.sh --full`. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-109 — Places: named links on a routine (B-18 slice 1): Places… in Plan's routine menu (add, change, reorder, remove, with Undo); the names under Plan's heading; the list in the runner's pull-up panel; a door on a home tile only when the routine has places; "Open <host>" rows for addresses typed in steps, values and the pause note; only http(s) opens — any other scheme, including from an import, shows as words; `places` stored on the routine body (old data reads as none, unknown shapes kept). evidence: golden p109-* frozen from 173867e, 22 domain + 2 store + 6 persistence tests, go-places spec at 390×844 and 200 % text, 966 unit tests, `verify.sh --full` (387 e2e); the owner's iPhone check is pending. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
