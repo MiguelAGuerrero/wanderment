@@ -97,6 +97,21 @@ export interface RunNotice {
   text: string;
   label: string;
   entry?: UndoEntry;
+  /**
+   * P-101 (ruling 6): a Plan edit — nothing is shown; its Undo stays (the routine's menu, "Undo <edit>";
+   * Ctrl/⌘+Z) while it is the last action. A tap does not put it away; a screen change does.
+   */
+  quiet?: true;
+  /**
+   * P-101 (ruling 6): the action itself goes to another screen (the run ended: home; the routine removed:
+   * home) and the notice goes with it, once — the screen it lands on is where it happened.
+   */
+  follows?: true;
+  /**
+   * P-101 audit F1: put away (a tap, a screen change) — no longer shown, but its Undo (`entry`) stays for
+   * the panel's row, Ctrl/⌘+Z and Plan's menu until the next change replaces or clears the slot.
+   */
+  hidden?: true;
 }
 
 /** A press on the runner or in Plan while reconnecting (P-86, P-90): applied once the data is back, if the run is as it was. */
@@ -179,7 +194,7 @@ interface State {
    * Otherwise no Undo. Already in Plan: nothing changes. Kept while reconnecting.
    */
   planRun: (runId: Id) => Did;
-  /** Pause, with a reason or none. No Undo. */
+  /** Pause, with a reason or none (P-101: the Pause sheet's note; blank takes a stored one away; none leaves it). No Undo. While reconnecting a bare press is kept; one with a note is refused (the sheet keeps the words). */
   pauseRun: (runId: Id, reason?: string) => Did;
   /** The reason edited in place (each keystroke): only the reason changes; the Undo slot is left alone. */
   setPauseReason: (runId: Id, text: string) => Did;
@@ -195,6 +210,11 @@ interface State {
   jumpTo: (runId: Id, to: JumpTo) => Did;
   /** Back to <step>. No Undo (P-95). */
   backTo: (runId: Id) => Did;
+  /**
+   * P-101 amendment (ruling 9): Start over — `level` of the run (0: the whole run) from its first step, the
+   * values given inside it gone; the same run, its status kept. Asked first by the screen; a notice and an Undo.
+   */
+  restartRun: (runId: Id, level: number) => Did;
   /**
    * Every Plan edit (P-90): it changes the ROUTINE (`routineId` is the row's sequence — the routine,
    * or the one a step was broken into). Open runs are kept standing in the same write, so the one
@@ -221,6 +241,14 @@ interface State {
   typedOver: (runId: Id, itemId: Id, name: string, was: string) => Did;
   /** The notice was put away. Session only. */
   dismissRunNotice: () => void;
+  /**
+   * P-101 (ruling 6): the screen changed — the notice is put away (it is never shown on another screen;
+   * audit F1: its Undo stays), unless the action that made it is what changed the screen (`follows`):
+   * then it is shown there, this once.
+   */
+  screenChanged: () => void;
+  /** P-101 (ruling 6): a tap anywhere but on the notice puts a shown notice away (a quiet one stays). */
+  tapped: () => void;
   /** The data is back: applies the press kept while reconnecting, once, if its run is as it was. */
   verbMarked: () => void;
 }
@@ -311,7 +339,18 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   useStore.setState({
     data: r.data,
     undo: entry,
-    runNotice: entry ? { verb: verb.kind, ...said(noticeFor(verb.kind, r.said, onWait, r.folded), cleared.length ? `Cleared ${cleared.map((n) => `{${n}}`).join(', ')}` : what), entry } : undefined,
+    runNotice: entry
+      ? {
+          verb: verb.kind,
+          ...said(noticeFor(verb.kind, r.said, onWait, r.folded), cleared.length ? `Cleared ${cleared.map((n) => `{${n}}`).join(', ')}` : what),
+          entry,
+          // P-101 (ruling 6): Plan's edits say nothing. What changes the screen itself (the run ended: home; New, and
+          // Plan's fold of an earlier build's changes: its Plan; Jump to…: the runner; the routine removed: home)
+          // carries its notice there, once.
+          ...(verb.kind === 'editRoutine' && verb.edit.kind !== 'removeRoutine' && { quiet: true as const }),
+          ...((r.said?.kind === 'ended' || verb.kind === 'new' || verb.kind === 'plan' || verb.kind === 'jump' || (verb.kind === 'editRoutine' && verb.edit.kind === 'removeRoutine')) && { follows: true as const }),
+        }
+      : undefined,
     toVerb: undefined,
     toast: undefined,
   });
@@ -452,7 +491,8 @@ export const useStore = create<State>()((set, get) => ({
   pauseRun: gated<State['pauseRun']>(
     refused,
     (runId, reason) => act({ kind: 'pause', runId, ...(reason !== undefined && { reason }) }, 'clear'),
-    (runId) => keepPress('pause', runId),
+    // P-101 (ruling 3): a press that carries a note is refused like any typed text (the sheet keeps it); a bare one is kept.
+    (runId, reason) => (reason !== undefined ? sayReconnecting() : keepPress('pause', runId)),
   ),
   setPauseReason: gated<State['setPauseReason']>(refused, (runId, text) => act({ kind: 'reason', runId, text }, 'keep')),
   leaveRun: gated<State['leaveRun']>(refused, (runId) => act({ kind: 'home', runId }, 'clear')),
@@ -474,11 +514,21 @@ export const useStore = create<State>()((set, get) => ({
   // A jump makes its run the one that is running: like Resume, refused while a different run is (F7).
   jumpTo: gated<State['jumpTo']>(refused, (runId, to) => busyWith(runId) ?? act({ kind: 'jump', runId, to }, 'set')),
   backTo: gated<State['backTo']>(refused, (runId) => act({ kind: 'back', runId }, 'clear')),
+  restartRun: gated<State['restartRun']>(refused, (runId, level) => act({ kind: 'restart', runId, level }, 'set')),
   editRoutine: gated<State['editRoutine']>(refused, (routineId, edit) => act({ kind: 'editRoutine', routineId, edit }, 'set')),
   typeValue: gated<State['typeValue']>(refused, (runId, itemId, name, text) => act({ kind: 'value', runId, name, text, item: itemId }, 'keep')),
   changeValue: gated<State['changeValue']>(refused, (runId, name, text) => act({ kind: 'value', runId, name, text }, 'set')),
   typedOver: gated<State['typedOver']>(refused, typedOverValue),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
+  screenChanged: () =>
+    set((s) => {
+      if (!s.runNotice) return {};
+      if (!s.runNotice.follows) return s.runNotice.hidden ? {} : { runNotice: { ...s.runNotice, hidden: true } };
+      const { follows: _carried, ...stays } = s.runNotice;
+      return { runNotice: stays };
+    }),
+  // Audit F1: the notice is put away, never its Undo (that goes only with the next change).
+  tapped: () => set((s) => (s.runNotice && !s.runNotice.quiet && !s.runNotice.hidden ? { runNotice: { ...s.runNotice, hidden: true } } : {})),
 
   verbMarked: () => {
     const { toVerb, data } = get();

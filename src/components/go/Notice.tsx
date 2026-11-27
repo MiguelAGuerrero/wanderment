@@ -4,7 +4,12 @@
  * happened, and Undo while the store's Undo is still that action's. It is a polite live region and is
  * never the only home of Undo (the panel's "Undo <thing>" row, Ctrl/⌘+Z). The quiet "reconnecting"
  * line shows here too. (P-90: the Keep sheet that lived here is gone with the Keep offer.)
+ *
+ * P-101 (ruling 6): a Plan edit's notice is quiet — nothing is shown (its Undo is the routine's menu
+ * row, "Undo <edit>"). A shown notice goes at the next tap anywhere but on it, and at a screen change
+ * (`NoticeWatch`), so it is never seen on a screen other than the one where it happened.
  */
+import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 
@@ -30,8 +35,10 @@ export function Notice({ onUndone, reserve }: { onUndone?: () => void; reserve?:
   const notice = useStore((s) => s.runNotice);
   const quiet = useStore((s) => (s.toast?.notice ? s.toast.message : undefined));
   const can = useRunUndo();
-  const text = quiet ?? notice?.text ?? '';
-  const shown = !!text || (!!can && !quiet);
+  // A Plan edit's (quiet), or one put away by a tap or a screen change (audit F1: its Undo stays — the panel, Ctrl/⌘+Z).
+  const hush = (!!notice?.quiet || !!notice?.hidden) && !quiet;
+  const text = quiet ?? (hush ? '' : (notice?.text ?? ''));
+  const shown = !!text || (!!can && !quiet && !hush);
   // Native: said aloud (web has the live region).
   const said = useRef('');
   useEffect(() => {
@@ -43,7 +50,7 @@ export function Notice({ onUndone, reserve }: { onUndone?: () => void; reserve?:
       {shown && (
         <View style={[styles.notice, tight && styles.noticeTight]} testID="go-notice">
           {!!text && <T style={styles.text}>{text}</T>}
-          {can && !quiet && (
+          {can && !quiet && !hush && (
             <Btn
               kind="plain"
               mark="undo"
@@ -63,6 +70,7 @@ export function Notice({ onUndone, reserve }: { onUndone?: () => void; reserve?:
 }
 
 const styles = StyleSheet.create({
+  watch: { flex: 1 },
   slot: { paddingHorizontal: SP.s3 },
   reserved: { minHeight: 64 },
   noticeTight: { marginBottom: SP.s1 + 4 },
@@ -85,3 +93,38 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: SP.s2, borderBottomWidth: 1, borderBottomColor: G.line, paddingVertical: SP.s2 },
   rowWords: { flex: 1, minWidth: 0 },
 });
+
+/**
+ * P-101 (ruling 6): mounted once, around every `/go` screen. A tap anywhere but on the notice puts it
+ * away (`tapped`); a screen change does too, unless the action that made it changed the screen
+ * (`screenChanged`). Web: the click, captured before anything handles it (after the press, so nothing
+ * pressed moves under the pointer). Native: the touch, observed (never claimed) at the root.
+ */
+export function NoticeWatch({ children }: { children: React.ReactNode }) {
+  const path = usePathname();
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    useStore.getState().screenChanged();
+  }, [path]);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined') return;
+    // On the click, not the press: the notice's row going away must not move what is being pressed.
+    const tap = (e: MouseEvent) => {
+      const t = e.target as Element | null;
+      if (t && typeof t.closest === 'function' && t.closest('[data-testid="go-notice"]')) return;
+      useStore.getState().tapped();
+    };
+    document.addEventListener('click', tap, true);
+    return () => document.removeEventListener('click', tap, true);
+  }, []);
+  // Native: when the touch ends, after the press it was has run (a press on the notice's own Undo is never lost).
+  return (
+    <View style={styles.watch} {...(Platform.OS !== 'web' && { onTouchEnd: () => setTimeout(() => useStore.getState().tapped(), 0) })}>
+      {children}
+    </View>
+  );
+}

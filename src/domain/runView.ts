@@ -4,12 +4,19 @@
  * writes, and nothing throws on damaged data — a run or routine that can't be shown reads as
  * undefined, and the screen goes home.
  */
-import { advance, currentRun, Frame, isPlanning, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
+import { advance, currentRun, Frame, givenIn, isPlanning, passedGives, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
 import { hash } from './hash';
 import { Data, Id } from './types';
 import { joinItems, nameKey, namesIn, parseWords, tidyName, ValueEntry, valueText } from './values';
 
 const tidy = (s: string | undefined) => (s ?? '').trim().replace(/\s+/g, ' ');
+/** P-101 (ruling 3): a pause note as read — each line tidied, blank lines dropped (one or more lines). */
+const tidyLines = (s: string | undefined) =>
+  (s ?? '')
+    .split('\n')
+    .map((l) => tidy(l))
+    .filter(Boolean)
+    .join('\n');
 const kindOf = (item: Item): 'step' | 'wait' | 'routine' => (isRef(item) ? 'routine' : isWait(item) ? 'wait' : 'step');
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -114,6 +121,8 @@ export interface ValueDetail {
   readBy: { itemId: Id; words: string }[];
   level: number;
   mine: boolean;
+  /** P-101 amendment (ruling 10): given late — at a step that neither gives nor reads it ("given at <step>"). */
+  late?: true;
 }
 
 /** The value of `name` as the run's step sees it, for its sheet; undefined when there is none. */
@@ -129,18 +138,80 @@ export function valueDetail(data: Data, runId: Id, name: string): ValueDetail | 
   const items = body.flatMap((s) => s.items);
   const giver = items.find((i) => i.id === e.item);
   const readBy = items.filter((i) => !isRef(i) && namesIn(wordsOf(data, run, i)).some((n) => n.key === key)).map((i) => ({ itemId: i.id, words: wordsOf(data, run, i) }));
+  // Audit F2/F3: given late — stored as the giving step's, with the words of the step it was given at.
+  const late = !!giver && isLate(data, run, e, wordsOf(data, run, giver));
   return {
     name: e.name,
     text: valueText(e),
     items: e.items,
-    from: giver ? wordsOf(data, run, giver) : (e.words ?? ''),
-    ...(e.level !== scope && { routine: body[0]?.words ?? '' }),
+    from: late ? e.words! : giver ? wordsOf(data, run, giver) : (e.words ?? ''),
+    ...(e.level !== scope && !late && { routine: body[0]?.words ?? '' }),
     at: typeof e.at === 'string' ? e.at : '',
     ...(typeof e.changedAt === 'string' && { changedAt: e.changedAt }),
     readBy,
     level: e.level,
     mine: e.level === scope,
+    ...(late && { late: true as const }),
   };
+}
+
+/**
+ * P-101 amendment (ruling 10, audit F2/F3): a value given late keeps, in its `words`, the step it was given
+ * at — another step's words (a step the run reads). A value whose giving step was reworded after it was
+ * given also has other words, but no step has them any more: that one is not "given at".
+ */
+function isLate(data: Data, run: RunState, e: ValueEntry, giverWords: string): boolean {
+  if (e.words === undefined || tidy(e.words) === tidy(giverWords)) return false;
+  for (const id of Object.keys(data.routines)) {
+    const s = view(data, run, id);
+    if (s?.items.some((i) => !isRef(i) && tidy(wordsOf(data, run, i)) === tidy(e.words!))) return true;
+  }
+  return false;
+}
+
+/** P-101 (ruling 7): one line of a value's trace — a routine on the way, the step in it that led on, its values. */
+export interface TraceLevel {
+  routine: string;
+  step: string;
+  values: ValueShown[];
+}
+
+/**
+ * P-101 (ruling 7): the value sheet's trace — from the run's root to the step that gave `name` (as the
+ * run's step sees it), one line per routine on the way (the first layer and each named routine entered):
+ * the routine, the step it was left through (the giving step, on the last), and that routine's values.
+ * Undefined when there is no such value.
+ */
+export function valueTrace(data: Data, runId: Id, name: string): TraceLevel[] | undefined {
+  const run = readRun(data, runId);
+  const at = run && place(data, run);
+  if (!run || !at) return undefined;
+  const e = visibleValue(data, run, nameKey(name), at.frames);
+  if (!e) return undefined;
+  const scope = topScope(data, run, at.frames);
+  const giver = routineBody(data, run, at.frames[e.level].seq)
+    .flatMap((s) => s.items)
+    .find((i) => i.id === e.item);
+  const trace: TraceLevel[] = [];
+  for (let j = 0; j <= e.level && j < at.frames.length; ) {
+    const next = j === e.level ? -1 : nextScope(data, run, at.frames, j);
+    const through = next < 0 ? undefined : at.frames[next - 1];
+    const by = through ? view(data, run, through.seq)?.items.find((i) => i.id === through.at) : giver;
+    trace.push({
+      routine: view(data, run, at.frames[j].seq)?.words ?? '',
+      step: by ? wordsOf(data, run, by) : (e.words ?? ''),
+      values: run.values.filter((v) => v.level === j && v.seq === at.frames[j].seq).map((v) => shownOf(v, scope)),
+    });
+    if (next < 0) break;
+    j = next;
+  }
+  return trace;
+}
+
+/** The next level above `j` that is a routine of its own (a named routine entered as a step); frames.length when none. */
+function nextScope(data: Data, run: RunState, frames: Frame[], j: number): number {
+  for (let i = j + 1; i < frames.length; i++) if (view(data, run, frames[i].seq)?.named) return i;
+  return frames.length;
 }
 
 /** A press probed, never written: what Next (or Done) would say. */
@@ -158,11 +229,11 @@ export interface Tile {
   name: string;
   /**
    * running: the one run running. waiting: its run rests on a wait step (running or not). paused: its
-   * run is anywhere else and not running (paused, or left by Home, Back or another start): it reads
-   * "at <step>" with its reason. planning (P-90): its run was left in Plan, or is at the edge: it reads
-   * "planning · at <step>" ("planning" alone at the edge), whatever step that is. idle: nothing going.
+   * run is anywhere else and not running (paused, opened in Plan, or left by Home, Back or another
+   * start): it reads "at <step>" with its reason — or, at the edge an earlier build left it at, "nothing
+   * next yet" (`asking`). P-101 (ruling 4): there is no "planning" — Plan is a view. idle: nothing going.
    */
-  state: 'running' | 'paused' | 'waiting' | 'planning' | 'idle';
+  state: 'running' | 'paused' | 'waiting' | 'idle';
   /** The step its run is at, in this run's words. Absent when idle or when it is asking for a step. */
   at?: string;
   /** Its run is at the edge, asking for the next small step. */
@@ -174,9 +245,9 @@ export interface Tile {
   since?: string;
   /** When its run was started (ISO). */
   startedAt?: string;
-  /** The running run, or with none running the run left last: marked, never moved. */
+  /** P-101 (ruling 5): the run touched last (the running one, else the one left last) — marked "last", never moved. */
   current: boolean;
-  /** What its one button does: Resume its run; Start one; or, for a run in Plan, Plan (`planRun(runId)`, then its Plan). */
+  /** What its one button does: Resume its run; Start one; or, for a run at the edge (nothing to resume at), Plan (`planRun(runId)`, then its Plan). */
   action: 'resume' | 'start' | 'plan';
   /** Nothing going and no steps yet: there is nothing to start (Start is refused `empty`); its Plan is where the first step is added. */
   empty?: true;
@@ -215,7 +286,7 @@ function tileOf(data: Data, s: Seq, run: RunState | undefined, current: Id | und
   const base = { routineId: s.id, name: s.words, hue: routineHue(data, s.id) };
   const at = run && place(data, run);
   if (!run || !at) return { ...base, state: 'idle', current: false, action: 'start', ...(!s.items.length && { empty: true as const }) };
-  const reason = tidy(run.reason);
+  const reason = tidyLines(run.reason);
   const planning = isPlanning(data, run);
   const values = valuesInPlay(data, run);
   const scope = topScope(data, run, at.frames);
@@ -224,7 +295,7 @@ function tileOf(data: Data, s: Seq, run: RunState | undefined, current: Id | und
     ...(at.item && { atParts: partsFor(data, run, wordsOf(data, run, at.item), at.frames) }),
     ...(values.length && { values: values.map((e) => shownOf(e, scope)) }),
     runId: run.id,
-    state: planning ? 'planning' : isWait(at.item) ? 'waiting' : isRunning(data, run) ? 'running' : 'paused',
+    state: isWait(at.item) ? 'waiting' : isRunning(data, run) ? 'running' : 'paused',
     ...(at.item ? { at: wordsOf(data, run, at.item) } : { asking: true as const }),
     ...(reason && { reason }),
     ...(isWait(at.item) && { waitingFor: at.item.wait, ...(dated(run.waitingSince) && { since: run.waitingSince }) }),
@@ -239,6 +310,9 @@ const lastTouched = (a: RunState, b: RunState) => ((a.touchedAt ?? '') > (b.touc
 
 /** The run to mark on home: the one the app is on, else the open run touched last. */
 const markedRun = (data: Data): Id | undefined => (currentRun(data) ?? [...openRuns(data)].sort(lastTouched)[0])?.id;
+
+/** P-101 (ruling 5): runs by when each was made (started), stable. */
+const firstStarted = (a: RunState, b: RunState) => (a.startedAt < b.startedAt ? -1 : a.startedAt > b.startedAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /**
  * Home's tiles: every routine that is on home or has a run going, in a FIXED order (when each was
@@ -256,13 +330,18 @@ export function homeTiles(data: Data): Tile[] {
 }
 
 /**
- * P-95: home's tiles as shown — the run the app is on (running, paused or in Plan) first, so the way
- * back to it is the first thing on home; every other tile keeps `homeTiles`' fixed order.
+ * Home's tiles as shown. P-101 (ruling 5; was P-95: the run the app is on first): the runs going, by when
+ * each was made (started), then the routines with nothing going in `homeTiles`' order. Nothing is ranked:
+ * a pause, a resume or a step never reorders; the run touched last is marked "last" (`Tile.current`).
  */
 export function homeShown(data: Data, tiles: Tile[] = homeTiles(data)): Tile[] {
-  const on = currentRun(data)?.id;
-  const i = on === undefined ? -1 : tiles.findIndex((t) => t.runId === on);
-  return i <= 0 ? tiles : [tiles[i], ...tiles.slice(0, i), ...tiles.slice(i + 1)];
+  const started = new Map<Id, RunState>();
+  for (const t of tiles) {
+    const r = t.runId === undefined ? undefined : readRun(data, t.runId);
+    if (r) started.set(t.routineId, r);
+  }
+  const going = tiles.filter((t) => started.has(t.routineId)).sort((a, b) => firstStarted(started.get(a.routineId)!, started.get(b.routineId)!));
+  return [...going, ...tiles.filter((t) => !started.has(t.routineId))];
 }
 
 /**
@@ -341,7 +420,30 @@ export interface RunnerView {
   finish?: { name: string; ends: boolean };
   /** On a wait step: what for, and since when (ISO). */
   waiting?: { words: string; since?: string };
+  /**
+   * P-101 (ruling 1): the moves under the note, beside Next. `stepIn`: the step has steps (`stepIn`).
+   * `stepOut`: inside a level above the first — leaves it (`doneLevel`), named; absent on the first layer
+   * (Next, or Done, covers it).
+   */
+  moves: { stepIn: boolean; stepOut?: { name: string } };
+  /** P-101 (ruling 2): inside a call, the innermost named routine — "Plan <name>" opens its Plan (`planView({ runId, in: seq })`). */
+  planIn?: { seq: Id; name: string };
+  /**
+   * P-101 (ruling 7): hoisted gives for the context line — what the step's smaller steps give when it is a
+   * step broken down, else what the level's do when the level is one. Empty: nothing to say.
+   */
+  gives: string[];
+  /** P-101 (ruling 3): the pause note, read on the way back in (lines tidied) until the first move drops it. */
+  reason?: string;
+  /**
+   * P-101 amendment (ruling 10): names given by steps already passed, with no value yet — the values row's
+   * "{ } name: not given yet", each given now from the step the run is on (`typeValue(runId, step.itemId, name, text)`).
+   */
+  missing: string[];
 }
+
+/** P-101 (ruling 7): the names a step broken down gives through its smaller steps (theirs, and theirs in turn), in order. */
+const hoistedOf = (data: Data, run: RunState | undefined, seqId: Id): string[] => [...givenIn(data, run, seqId).values()];
 
 const lastOfRound = (at: Place) => !!at.item && at.seq.repeatFrom !== undefined && at.seq.items[at.seq.items.length - 1]?.id === at.item.id;
 const waitingOf = (run: RunState, at: Place) => (isWait(at.item) ? { words: at.item.wait, ...(dated(run.waitingSince) && { since: run.waitingSince }) } : undefined);
@@ -355,6 +457,14 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
   const waiting = waitingOf(run, at);
   const ends = !!item && !run.endedAt && wouldEnd(data, { kind: 'next', runId });
   const words = item ? wordsOf(data, run, item) : '';
+  const middle = target?.items.length && frames.length < MAX_DEPTH ? 'stepIn' : 'plan';
+  let inner: Seq | undefined;
+  for (let j = frames.length - 1; j > 0 && !inner; j--) {
+    const s = view(data, run, frames[j].seq);
+    if (s?.named) inner = s;
+  }
+  const gives = target && !target.named ? hoistedOf(data, run, target.id) : frames.length > 1 && !seq.named ? hoistedOf(data, run, seq.id) : [];
+  const reason = tidyLines(run.reason);
   return {
     runId,
     routineId: run.routineId,
@@ -369,12 +479,17 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
     values: valuesInPlay(data, run).map((e) => shownOf(e, topScope(data, run, frames))),
     lastOfRound: lastOfRound(at),
     canBack: !!previous(data, run),
-    middle: target?.items.length && frames.length < MAX_DEPTH ? 'stepIn' : 'plan',
+    middle,
     // P-96 audit F5: Done wherever the press ends the run — a last step that is a wait included.
     next: !item ? 'edge' : ends ? 'done' : isWait(item) ? 'itsHappened' : 'next',
     ends,
     ...(!run.endedAt && { finish: { name: seq.words, ends: wouldEnd(data, { kind: 'done', runId }) } }),
     ...(waiting && { waiting }),
+    moves: { stepIn: middle === 'stepIn', ...(frames.length > 1 && { stepOut: { name: seq.words } }) },
+    ...(inner && { planIn: { seq: inner.id, name: inner.words } }),
+    gives,
+    ...(reason && { reason }),
+    missing: run.endedAt ? [] : passedGives(data, run, at).map((p) => p.name),
   };
 }
 
@@ -493,8 +608,8 @@ export function whenWords(iso: string, now = new Date()): string {
 }
 
 /** P-96 part 2 (ruling 6): the value sheet's line "from <step> · <routine if not this one> · <when>"; what is not known is left out. */
-export function valueFrom(d: Pick<ValueDetail, 'from' | 'routine' | 'at'>, now = new Date()): string {
-  return `from ${[d.from, d.routine, whenWords(d.at, now)].filter(Boolean).join(' · ')}`;
+export function valueFrom(d: Pick<ValueDetail, 'from' | 'routine' | 'at' | 'late'>, now = new Date()): string {
+  return `${d.late ? 'given at' : 'from'} ${[d.from, d.routine, whenWords(d.at, now)].filter(Boolean).join(' · ')}`;
 }
 
 /** One line of Jump to… (the whole run as it reads; Plan has its own rows: `planView`). */
@@ -617,6 +732,40 @@ export interface PlanRow {
   scope: Id;
   /** P-96: Break it down is offered (a plain step that gives no name). */
   canBreakDown: boolean;
+  /** P-101 (ruling 7): a step broken down whose smaller steps give names: "gives {a}, {b}" on its row (hoisted). */
+  hoisted?: string[];
+  /**
+   * P-101 amendment (ruling 11): the names its words read that no step in this Plan gives — each shown as a
+   * dashed "asks {name}" (the fallback: it asks when run). Empty: nothing to revise.
+   */
+  asks: string[];
+}
+
+/**
+ * P-101 amendment (ruling 11): what removing the step `itemId` of the routine `scopeId` (or of one of its
+ * smaller steps) would leave asking — the name it gives and the steps that read it, in Plan's order (smaller
+ * steps included). Undefined when it gives nothing, nothing reads it, or another step gives it too.
+ */
+export function readersOf(data: Data, scopeId: Id, itemId: Id): { name: string; readers: string[] } | undefined {
+  const items: Item[] = [];
+  const seen = new Set<Id>();
+  const walk = (id: Id) => {
+    const s = seen.has(id) ? undefined : readRoutine(data, id);
+    seen.add(id);
+    for (const i of s?.items ?? []) {
+      items.push(i);
+      if (isRef(i) && readRoutine(data, i.ref)?.named === false) walk(i.ref);
+    }
+  };
+  walk(scopeId);
+  const item = items.find((i) => i.id === itemId);
+  const name = outOf(item);
+  if (!item || !name) return undefined;
+  const key = nameKey(name);
+  if (items.some((i) => i.id !== itemId && nameKey(outOf(i) ?? '') === key)) return undefined;
+  const words = (i: Item) => (isWait(i) ? i.wait : isStep(i) ? i.text : '');
+  const readers = items.filter((i) => i.id !== itemId && !isRef(i) && namesIn(words(i)).some((n) => n.key === key)).map(words);
+  return readers.length ? { name, readers } : undefined;
 }
 
 /** The Plan surface, for a run or for a routine with no run. */
@@ -627,9 +776,13 @@ export interface PlanView {
   /** The heading: the routine's name. */
   name: string;
   named: boolean;
-  /** The run is in Plan. False for a routine with no run — and for a run the data says is NOT in Plan (the route then goes where `runRoute` says). */
+  /**
+   * Plan shows the run: P-101 (ruling 4) — Plan is a view, so that is any open run that is not running
+   * (paused, left, or at the edge). False for a routine with no run, and for a running run (the route then
+   * goes to the runner).
+   */
   planning: boolean;
-  /** Beneath the heading: "planning · at <step>", "planning · nothing next yet" at the edge, '' with no run (or a run not in Plan). */
+  /** Beneath the heading: "at <step>", "nothing next yet" at the edge (P-101, ruling 4: never "planning"), '' with no run. */
   line: string;
   /** The HERE step's words, and what it is. */
   at?: string;
@@ -650,22 +803,27 @@ export interface PlanView {
   forward?: { kind: 'resume'; label: string; runId: Id } | { kind: 'start'; label: 'Start'; routineId: Id; ready: boolean };
   /** The run still carries this-run changes from the build before: `planRun(runId)` folds them into the routine (once, with its notice and Undo). */
   unfolded: boolean;
+  /** P-101 amendment (ruling 9): with a run — the run's level this Plan's routine is (0: the whole run), for Start over (`restartRun(runId, level)`). */
+  restartLevel?: number;
 }
 
 /**
  * Plan (P-90). `{ runId }`: that run's Plan (undefined once it has ended or is gone). `{ routineId }`:
  * the routine's — which is its open run's Plan when it has one (one surface per run). Reads only.
  */
-export function planView(data: Data, of: { runId: Id } | { routineId: Id }): PlanView | undefined {
+export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: Id }): PlanView | undefined {
   const run = 'runId' in of ? readRun(data, of.runId) : openRuns(data).filter((r) => r.routineId === of.routineId && !!place(data, r)).sort(lastTouched)[0];
   if ('runId' in of && (!run || run.endedAt)) return undefined;
   const at = run && place(data, run);
   if (run && !at) return undefined;
-  const root = readRoutine(data, run ? run.routineId : (of as { routineId: Id }).routineId);
-  if (!root || (!run && root.removedAt)) return undefined;
   const read = (seqId: Id) => (run ? view(data, run, seqId) : readRoutine(data, seqId));
+  // P-101 (ruling 2): "Plan <routine>" from inside a call — the innermost named routine the run is in, as
+  // the Plan's routine (its rows, its name, the run's HERE in it). Not a routine the run is in: the whole run's.
+  const inAt = run && at && 'in' in of && of.in ? at.frames.findIndex((f, i) => i > 0 && f.seq === of.in && read(f.seq)?.named === true) : -1;
+  const root = inAt > 0 ? read(at!.frames[inAt].seq) : readRoutine(data, run ? run.routineId : (of as { routineId: Id }).routineId);
+  if (!root || (!run && root.removedAt)) return undefined;
   const words = (item: Item) => (run ? wordsOf(data, run, item) : isRef(item) ? (readRoutine(data, item.ref)?.words ?? '') : isWait(item) ? item.wait : item.text);
-  const frames = at?.frames ?? [];
+  const frames = (inAt > 0 ? at!.frames.slice(inAt) : at?.frames) ?? [];
   const rows: PlanRow[] = [];
   const dividerOf = (s: Seq): PlanDivider | undefined =>
     s.repeatFrom === undefined ? undefined : { seq: s.id, from: s.repeatFrom, ...(s.repeat !== undefined && { repeat: s.repeat }), canUp: s.repeatFrom > 0, canDown: s.repeatFrom < s.items.length - 1 };
@@ -700,6 +858,8 @@ export function planView(data: Data, of: { runId: Id } | { routineId: Id }): Pla
         above: [...given],
         scope,
         canBreakDown: isStep(item) && !gives,
+        ...(isRef(item) && read(item.ref)?.named === false && hoisted(item.ref)),
+        asks: [],
       });
       if (gives && !given.some((g) => nameKey(g) === nameKey(gives))) given.push(gives);
       if (isRef(item) && !open.includes(item.ref) && depth + 1 < MAX_DEPTH) {
@@ -708,25 +868,36 @@ export function planView(data: Data, of: { runId: Id } | { routineId: Id }): Pla
       }
     });
   };
+  const hoisted = (seqId: Id) => {
+    const names = hoistedOf(data, run, seqId);
+    return names.length ? { hoisted: names } : {};
+  };
   walk(root.id, [], [root.id], true, root.id, []);
+  // Audit F9: a name is given for a step only by a step above it (before it, in run order).
+  const given = new Set<string>();
+  for (const r of rows) {
+    r.asks = r.reads.filter((n) => !given.has(nameKey(n)));
+    if (r.gives) given.add(nameKey(r.gives));
+  }
   const first = read(root.id) ?? root;
   const divider = dividerOf(first);
   const base = { routineId: root.id, name: root.words, named: root.named, rows, ...(divider && { divider }), open: first.open };
   if (!run || !at) {
     return { ...base, planning: false, line: '', edge: false, canDone: false, forward: { kind: 'start', label: 'Start', routineId: root.id, ready: root.items.length > 0 }, unfolded: false };
   }
-  const planning = isPlanning(data, run);
+  const planning = !isRunning(data, run);
   const here = at.item ? wordsOf(data, run, at.item) : undefined;
   return {
     ...base,
     runId: run.id,
     planning,
-    line: !planning ? '' : here === undefined ? 'planning · nothing next yet' : `planning · at ${here}`,
+    line: !planning ? '' : here === undefined ? 'nothing next yet' : `at ${here}`,
     ...(at.item && { at: here, hereKind: kindOf(at.item) }),
     edge: !at.item,
     canDone: !at.item,
     ...(at.item && { forward: { kind: 'resume' as const, label: `Resume at ${here}`, runId: run.id } }),
     unfolded: run.changes.length > 0,
+    restartLevel: inAt > 0 ? inAt : 0,
   };
 }
 
@@ -778,6 +949,7 @@ const LABELS: Record<Acted, string> = {
   stepIn: 'Step in',
   back: 'Back',
   jump: 'Jump',
+  restart: 'Start over',
   value: 'Change',
   editRoutine: 'Change',
 };
@@ -850,6 +1022,11 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     return 'Changed Repeat from here';
   }
   if (verb.kind === 'new') return `Made ${quoted(verb.words)}`;
+  if (verb.kind === 'restart') {
+    const r = readRun(data, verb.runId);
+    const f = r?.frames[verb.level];
+    return f ? `Started ${view(data, r!, f.seq)?.words ?? ''} over` : '';
+  }
   if (verb.kind === 'value') return `${verb.text.trim() ? 'Changed' : 'Cleared'} {${tidyName(verb.name)}}`;
   return '';
 }

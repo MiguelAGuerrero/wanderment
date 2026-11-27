@@ -70,16 +70,16 @@ describe('home: tiles', () => {
     expect(homeTiles(left)[2]).toMatchObject({ state: 'paused', at: 'Tailor the CV', reason: 'need the ad', action: 'resume' });
   });
 
-  it('P-95: as home shows them, the run the app is on comes first — running, paused or in Plan — and the rest keep their fixed order; a run left by Home in the build before, or none, moves nothing', () => {
+  it('P-101 (ruling 5; was P-95: "the run the app is on comes first"): as home shows them, the runs going come first by when each was started, the rest keep their fixed order; running, paused, opened in Plan or left by Home in the build before, nothing moves', () => {
     expect(homeShown(home()).map((x) => x.name)).toEqual(['Practise drawing', 'Feel at home in Spanish', 'Apply to Acme']);
     const { d, id } = start(home(), 'acme');
     expect(homeShown(d).map((x) => x.name)).toEqual(['Apply to Acme', 'Practise drawing', 'Feel at home in Spanish']);
     const paused = ok(d, { kind: 'pause', runId: id }).data;
     expect(homeShown(paused).map((x) => [x.name, x.state])).toEqual([['Apply to Acme', 'paused'], ['Practise drawing', 'idle'], ['Feel at home in Spanish', 'idle']]);
-    const planning = ok(d, { kind: 'plan', runId: id }).data;
-    expect(homeShown(planning)[0]).toMatchObject({ name: 'Apply to Acme', state: 'planning' });
+    const planned = ok(d, { kind: 'plan', runId: id }).data;
+    expect(homeShown(planned)[0]).toMatchObject({ name: 'Apply to Acme', state: 'paused' });
     const left = ok(paused, { kind: 'home', runId: id }).data;
-    expect(homeShown(left).map((x) => x.name)).toEqual(['Practise drawing', 'Feel at home in Spanish', 'Apply to Acme']);
+    expect(homeShown(left).map((x) => x.name)).toEqual(['Apply to Acme', 'Practise drawing', 'Feel at home in Spanish']);
     // (The fixed order itself is homeTiles', unchanged.)
     expect(homeTiles(paused).map((x) => x.name)).toEqual(['Practise drawing', 'Feel at home in Spanish', 'Apply to Acme']);
   });
@@ -105,9 +105,9 @@ describe('home: tiles', () => {
     expect(homeTiles(on)[2]).toMatchObject({ state: 'waiting', waitingFor: 'their answer', reason: 'chased on Monday' });
   });
 
-  it('a run at the edge of a goal: no step to be at, and it says so; it is in Plan (P-90), whatever is stored', () => {
+  it('a run at the edge of a goal: no step to be at, and it says so; Plan is its way in (P-90) — P-101 (ruling 4; was state "planning"): it reads paused, whatever is stored', () => {
     const d: Data = { ...home(), runs: { n1: { id: 'n1', routineId: 'spanish', startedAt: 'x', status: 'running', frames: [{ seq: 'spanish', at: null, round: 1 }], changes: [] } as Run } };
-    expect(homeTiles(d)[1]).toMatchObject({ state: 'planning', asking: true, action: 'plan' });
+    expect(homeTiles(d)[1]).toMatchObject({ state: 'paused', asking: true, action: 'plan' });
     expect(homeTiles(d)[1].at).toBeUndefined();
   });
 

@@ -14,7 +14,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { addStep, arrived, home, plan, planMenu, RoutineSpec, runner, setVisibility, settled, startGo } from './goFixture';
+import { addStep, arrived, expectEdit, home, plan, planMenu, RoutineSpec, runner, setVisibility, settled, startGo, tileBody } from './goFixture';
 
 const PAPER = 'rgb(244, 241, 232)';
 const RUNS = [
@@ -74,12 +74,12 @@ test('home: axe, targets, text, heading, names — empty, with tiles, and with a
   const h = home(page);
   await expectNoSeriousViolations(page);
   await expectRules(page, h.screen, 1, 0);
-  // P-96: reading order — the heading, the tiles in their order, the side doors (+ New), the filled button.
+  // P-96: reading order — the heading, the tiles in their order, the side doors (+ New). P-101 (ruling 5; was: then the filled Resume bar): no filled button; a run's tile body resumes it.
   await startGo(page, [{ ...RUNS[1], status: 'paused' as const }, RUNS[2]]);
   await expectNoSeriousViolations(page);
-  await expectRules(page, h.screen, 1, 1);
+  await expectRules(page, h.screen, 1, 0);
   const order = await h.screen.evaluate((root) => [...root.querySelectorAll('[role="heading"], [data-testid="go-tile"], [data-testid="go-new"], [data-testid="go-resume"]')].map((e) => (e as HTMLElement).dataset.testid ?? 'heading'));
-  expect(order).toEqual(['heading', 'go-tile', 'go-tile', 'go-tile', 'go-tile', 'go-new', 'go-resume']);
+  expect(order).toEqual(['heading', 'go-tile', 'go-tile', 'go-tile', 'go-tile', 'go-new']);
 });
 
 test('the runner and its panel: axe and the rules on each; reading order context → values → note → fields → notice → handle → buttons (P-96: no Done on the context line); it says "Running" and the step on arriving', async ({ page }) => {
@@ -94,17 +94,17 @@ test('the runner and its panel: axe and the rules on each; reading order context
   await expect(r.handle).toHaveAccessibleName('More about this step');
   await expect(r.screen.getByRole('img', { name: 'Last step of this round', exact: true })).toBeVisible();
   const order = await r.screen.evaluate((root) =>
-    [...root.querySelectorAll('[role="heading"], [data-testid="go-context"], [data-testid="go-done"], [data-testid="go-note"], [data-testid="go-notice-slot"], [data-testid="go-handle"], [data-testid="go-pause"], [data-testid="go-middle"], [data-testid="go-next"]')].map(
+    [...root.querySelectorAll('[role="heading"], [data-testid="go-context"], [data-testid="go-done"], [data-testid="go-note"], [data-testid="go-notice-slot"], [data-testid="go-handle"], [data-testid="go-pause"], [data-testid="go-plan-door"], [data-testid="go-step-in"], [data-testid="go-step-out"], [data-testid="go-next"]')].map(
       (e) => (e as HTMLElement).dataset.testid ?? 'heading',
     ),
   );
-  expect(order).toEqual(['heading', 'go-context', 'go-note', 'go-notice-slot', 'go-handle', 'go-pause', 'go-middle', 'go-next']);
+  // P-101 (rulings 1–2; was: … handle, pause, middle, Next): the top line's doors after the path; the moves before Next.
+  expect(order).toEqual(['heading', 'go-context', 'go-pause', 'go-plan-door', 'go-note', 'go-notice-slot', 'go-handle', 'go-step-out', 'go-next']);
   // The notice is a polite live region, in the flow (it can cover nothing).
   const slot = r.screen.getByTestId('go-notice-slot');
   await expect(slot).toHaveAttribute('aria-live', 'polite');
-  // (P-95: Next leaves no notice; Done does — P-96: the panel's Finish <level> now.)
-  await r.handle.click();
-  await r.finish.click();
+  // (P-95: Next leaves no notice; Step out does — P-101; was: the panel's Finish <level> now.)
+  await r.stepOut.click();
   await expect(r.notice).toContainText('Done with Hand studies of my left hand');
   const n = (await r.notice.boundingBox())!;
   const noteBox = (await r.note.boundingBox())!;
@@ -124,14 +124,14 @@ test('the runner and its panel: axe and the rules on each; reading order context
   await expect(r.said).toHaveText('Running: Gesture drawing');
   await expect(r.said).toHaveAttribute('aria-live', 'polite');
   await expect(r.note).toBeFocused();
-  await expect(r.middle).toHaveAccessibleName('Plan');
+  await expect(r.plan).toHaveAccessibleName('Plan');
 });
 
 const TEST: RoutineSpec = { id: 'test', name: 'Test out the app', steps: ['Select a feature to test', 'Vibe check', { wait: 'the build to finish' }, 'Write down concerns', { routine: 'proof' }], repeatFrom: 1, repeat: 3 };
 
 test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, while typing in place, at the edge, and for a routine with no run', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'test', at: 1, round: 2, status: 'running' }], 'runner', [TEST, { id: 'proof', name: 'Proofread out loud', home: false, open: false, steps: ['Read it aloud once'] }]);
-  await runner(page).middle.click();
+  await runner(page).plan.click();
   const p = plan(page);
   await expect(p.forward).toHaveText('Resume at Vibe check');
   await expectNoSeriousViolations(page);
@@ -148,14 +148,13 @@ test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, w
   expect(await p.here.getByTestId('go-plan-here').evaluate((e) => parseFloat(getComputedStyle(e.firstElementChild!).fontSize))).toBeGreaterThanOrEqual(16);
   const outlines = await p.rows.evaluateAll((els) => els.map((e) => getComputedStyle(e).borderTopColor));
   expect(outlines.filter((c) => c === 'rgb(244, 241, 232)')).toHaveLength(1);
-  // Reading order: the band (the word, Home), the heading, where you are, the rows, the open row, the notice, the filled button.
+  // Reading order: the band (the word, Home — P-101, ruling 2), the heading, where you are, the rows, the open row, the notice, the filled button.
   const order = await p.screen.evaluate((root) =>
     [...root.querySelectorAll('[data-testid="go-plan-word"], [data-testid="go-plan-home"], [role="heading"], [data-testid="go-plan-line"], [data-testid="go-plan-row"], [data-testid="go-plan-add"], [data-testid="go-notice-slot"], [data-testid="go-plan-forward"]')].map(
       (e) => (e as HTMLElement).dataset.testid ?? 'heading',
     ),
   );
-  // (P-96: Home is the bottom-left side door, after the notice and before the filled button.)
-  expect(order).toEqual(['go-plan-word', 'heading', 'go-plan-line', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-add', 'go-notice-slot', 'go-plan-home', 'go-plan-forward']);
+  expect(order).toEqual(['go-plan-word', 'go-plan-home', 'heading', 'go-plan-line', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-add', 'go-notice-slot', 'go-plan-forward']);
 
   // A step's menu: a dialog with its step as the heading; no filled button (nothing in it is "the" forward choice).
   await p.more('Vibe check').click();
@@ -170,17 +169,10 @@ test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, w
   await expectRules(page, p.screen, 1, 1);
   await p.typed.fill('Check the vibe');
   await p.typed.press('Enter');
-  // With the notice and its Undo.
-  await expect(p.notice).toContainText('Changed “Vibe check”');
-  await expect(p.undo).toHaveAccessibleName('Undo Change');
+  // P-101 (ruling 6; was: with the notice and its Undo, in the flow): no notice; its Undo is the routine's menu.
+  await expectEdit(page, 'Changed “Vibe check”');
   await expectNoSeriousViolations(page);
   await expectRules(page, p.screen, 1, 1);
-  // The notice is in the flow, above the filled button: it covers nothing.
-  const n = (await p.notice.boundingBox())!;
-  const f = (await p.forward.boundingBox())!;
-  const l = (await p.list.boundingBox())!;
-  expect(n.y).toBeGreaterThanOrEqual(l.y + l.height - 1);
-  expect(n.y + n.height).toBeLessThanOrEqual(f.y + 1);
 
   // Repeat from here: its sheet.
   await p.dividerMore.click();
@@ -217,7 +209,7 @@ test('Plan against Run without colour: arriving in Plan says "Plan" and the rout
   await startGo(page, [{ id: 'r1', routine: 'test', at: 1, round: 2, status: 'running' }], 'runner', [TEST, { id: 'proof', name: 'Proofread out loud', home: false, open: false, steps: ['Read it aloud once'] }]);
   const r = runner(page);
   const p = plan(page);
-  await r.middle.click();
+  await r.plan.click();
   await expect(p.title).toBeFocused();
   await expect(p.title).toHaveAccessibleName('Plan: Test out the app');
   // The word is text, in the band, and the band is light whatever the routine's colour.
@@ -246,12 +238,16 @@ test('a wait, home with a paused (waiting) run first (P-95, P-96; was: Paused, W
   const r = runner(page);
   await expectNoSeriousViolations(page);
   await expectRules(page, r.screen, 1, 1);
-  // P-96: Pause goes home; home has the run first, "Resume <name>" the one filled button.
+  // P-96: Pause goes home — P-101 (rulings 3, 5; was: "Resume <name>" the one filled button): its sheet first; the tile's body resumes it.
   await r.pause.click();
-  await expect(home(page).tiles.first()).toHaveAttribute('data-state', 'waiting');
+  const pausing = await arrived(page, 'go-pause-sheet');
   await expectNoSeriousViolations(page);
-  await expectRules(page, home(page).screen, 1, 1);
-  await home(page).resume.click();
+  await expectRules(page, pausing, 2, 1);
+  await pausing.getByTestId('go-pause-confirm').click();
+  await expect(page.getByTestId('go-tile').filter({ hasText: 'Apply to Acme' })).toHaveAttribute('data-state', 'waiting');
+  await expectNoSeriousViolations(page);
+  await expectRules(page, home(page).screen, 1, 0);
+  await tileBody(page, 'Apply to Acme').click();
 
   await r.handle.click();
   await r.panel.getByRole('button', { name: 'Jump to…', exact: true }).click();
@@ -263,13 +259,11 @@ test('a wait, home with a paused (waiting) run first (P-95, P-96; was: Paused, W
   await expectRules(page, j, 1, 1);
   await page.goBack();
 
-  // A run left in Plan: its old paused address lands on /go, which opens where you left off — its Plan;
-  // home, behind it, has its tile saying planning, with Plan.
+  // A run an earlier build left in Plan: its old paused address lands on /go — P-101 (ruling 4; was: its
+  // Plan, the tile saying planning): home, its tile paused like any other.
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused', mode: 'plan' }, RUNS[2]], 'plan');
   await page.goto('./go/run/r1/paused');
-  await expect(plan(page).line).toHaveText('planning · at Tailor the CV');
-  await plan(page).home.click();
-  await expect(home(page).tiles.first()).toHaveAttribute('data-state', 'planning');
+  await expect(home(page).tiles.first()).toHaveAttribute('data-state', 'paused');
   await expectNoSeriousViolations(page);
   await expectRules(page, home(page).screen, 1, 0);
 });
@@ -280,30 +274,27 @@ test('focus has its own ring; sheets take focus and give it back; focus is never
   await r.next.focus();
   const ring = await r.next.evaluate((e) => ({ style: getComputedStyle(e).outlineStyle, colour: getComputedStyle(e).outlineColor, offset: getComputedStyle(e).outlineOffset }));
   expect(ring).toEqual({ style: 'solid', colour: 'rgb(185, 167, 255)', offset: '3px' });
-  // Tab order on the runner: the note, the handle, Pause, the middle, Next (the context line is words, not a control).
-  await r.note.focus();
-  const seen: string[] = ['go-note'];
-  for (let i = 0; i < 4; i++) {
+  // Tab order on the runner — P-101 (rulings 1–2; was: the note, the handle, Pause, the middle, Next): ❚❚ and Plan (the top line; the path is words, not a control), the note, the handle, Step out, Next.
+  await r.pause.focus();
+  const seen: string[] = ['go-pause'];
+  for (let i = 0; i < 5; i++) {
     await page.keyboard.press('Tab');
     seen.push(await page.evaluate(() => (document.activeElement as HTMLElement).dataset.testid ?? ''));
   }
-  expect(seen).toEqual(['go-note', 'go-handle', 'go-pause', 'go-middle', 'go-next']);
-  // Plan: the ring is focus's own (HERE's outline is white, and is not it).
-  await r.middle.click();
+  expect(seen).toEqual(['go-pause', 'go-plan-door', 'go-note', 'go-handle', 'go-step-out', 'go-next']);
+  // Plan: the ring is focus's own (HERE's outline is white, and is not it). (P-101: inside a call, the innermost routine's Plan.)
+  await r.plan.click();
   const p = plan(page);
   // Arriving in Plan moves focus to the heading; wait for that before moving focus ourselves.
   await expect(p.title).toBeFocused();
   await p.forward.focus();
   expect(await p.forward.evaluate((e) => ({ style: getComputedStyle(e).outlineStyle, colour: getComputedStyle(e).outlineColor, offset: getComputedStyle(e).outlineOffset }))).toEqual(ring);
   expect(await p.here.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe('none');
-  // Tab order in Plan (P-96: the band holds only the word): the heading's menu, the rows, …, then the
-  // side doors (Home) and the filled button, lowest.
-  await p.title.focus();
-  await page.keyboard.press('Tab');
-  await expect(p.more('Practise drawing')).toBeFocused();
+  // Tab order in Plan — P-101 (ruling 2; was: Home the bottom side door, before the filled button): Home in
+  // the band, then the heading's menu, the rows, …, and the filled button, lowest.
   await p.home.focus();
   await page.keyboard.press('Tab');
-  await expect(p.forward).toBeFocused();
+  await expect(p.more('Hand studies of my left hand')).toBeFocused();
   // A sheet: focus in (its heading), and back to what opened it.
   const more = p.more('Add the shadows');
   await more.click();
@@ -315,18 +306,21 @@ test('focus has its own ring; sheets take focus and give it back; focus is never
 
 // After the audit (F4): WCAG 1.4.11 — a focus indicator needs 3:1 against what it is drawn on. P-96:
 // Home and Done left the light band for the side doors, on the dark screen (was: against the band).
-test('the focus ring on Plan’s Home and Done (the side doors) is at least 3:1 against what they are on', async ({ page }) => {
+// P-101 (ruling 2): Home is back in the light band — its ring is measured against the band; Done's against the screen.
+test('the focus ring on Plan’s Home (in the band) and Done (the side door) is at least 3:1 against what each is on', async ({ page }) => {
   await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'paused', mode: 'plan' }], 'plan');
   const p = plan(page);
   await expect(p.done).toBeVisible();
-  const band = await p.doors.evaluate((e) => {
-    for (let el: Element | null = e; el; el = el.parentElement) {
-      const c = getComputedStyle(el).backgroundColor;
-      if (c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c;
-    }
-    return 'rgb(255, 255, 255)';
-  });
-  expect(band).not.toBe(PAPER);
+  const under = (l: Locator) =>
+    l.evaluate((e) => {
+      for (let el: Element | null = e.parentElement; el; el = el.parentElement) {
+        const c = getComputedStyle(el).backgroundColor;
+        if (c !== 'rgba(0, 0, 0, 0)' && c !== 'transparent') return c;
+      }
+      return 'rgb(255, 255, 255)';
+    });
+  expect(await under(p.home)).toBe(PAPER);
+  expect(await under(p.done)).not.toBe(PAPER);
   const luminance = (rgb: string) => {
     const [r, g, b] = rgb.match(/[\d.]+/g)!.slice(0, 3).map((v) => {
       const c = Number(v) / 255;
@@ -337,6 +331,7 @@ test('the focus ring on Plan’s Home and Done (the side doors) is at least 3:1 
   const contrast = (a: string, b: string) => (Math.max(luminance(a), luminance(b)) + 0.05) / (Math.min(luminance(a), luminance(b)) + 0.05);
   for (const control of [p.home, p.done]) {
     await control.focus();
+    const band = await under(control);
     const ring = await control.evaluate((e) => ({ style: getComputedStyle(e).outlineStyle, width: getComputedStyle(e).outlineWidth, colour: getComputedStyle(e).outlineColor }));
     expect(ring.style).toBe('solid');
     expect(parseFloat(ring.width)).toBeGreaterThanOrEqual(2);
@@ -348,7 +343,7 @@ test('Reduce Motion: sheets, the confirm, the panel and the change between Plan 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await startGo(page, RUNS, 'runner');
   const r = runner(page);
-  await r.middle.click();
+  await r.plan.click();
   const p = plan(page);
   await expect(p.here).toBeInViewport();
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
@@ -365,7 +360,11 @@ test('Reduce Motion: sheets, the confirm, the panel and the change between Plan 
   await r.next.click();
   await expect(r.note).toHaveAttribute('data-moving', 'false');
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+  // P-101 (ruling 3): Pause's own sheet never moves either.
   await r.pause.click();
+  await expect(page.getByTestId('go-pause-sheet')).toHaveAttribute('data-moving', 'false');
+  expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+  await page.getByTestId('go-pause-confirm').click();
   await expect(home(page).tiles.first()).toHaveAttribute('data-state', 'paused');
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
   // P-95: New's own sheet never moves either.
@@ -376,7 +375,7 @@ test('Reduce Motion: sheets, the confirm, the panel and the change between Plan 
 
 test('without Reduce Motion nothing takes long and nothing moves a control: a sheet has arrived within its 160 ms slide', async ({ page }) => {
   await startGo(page, RUNS, 'runner');
-  await runner(page).middle.click();
+  await runner(page).plan.click();
   const p = plan(page);
   const forward = await p.forward.boundingBox();
   const home = await p.home.boundingBox();
@@ -390,15 +389,17 @@ for (const [label, size] of [
   ['keyboard up (390×510)', { width: 390, height: 510 }],
   ['200 % text (195×422)', { width: 195, height: 422 }],
 ] as const) {
-  test(`${label}: the runner — the note always fits its room, the three buttons stay reachable (P-96: no Done on the top line), nothing is clipped or scrolls sideways`, async ({ page }) => {
+  test(`${label}: the runner — the note always fits its room, the buttons stay reachable (P-96: no Done on the top line; P-101: ❚❚ and Plan on it, Step out beside Next), nothing is clipped or scrolls sideways`, async ({ page }) => {
     await startGo(page, RUNS, 'runner');
     await page.setViewportSize(size);
     const r = runner(page);
     await expect(r.next).toBeInViewport();
     // The note is sized from the room it measures, so after a change (a notice appearing, a new step)
     // the layout takes a frame or two to come to rest: the checks are retried until it has.
-    const fits = () => expect(fitsNow).toPass({ timeout: 5000 });
-    const fitsNow = async () => {
+    const fits = (reach = false) => expect(() => fitsNow(reach)).toPass({ timeout: 5000 });
+    // `reach`: P-101 (rulings 1–2) — with a notice showing at 200 % text inside a call (the path, ❚❚ and Plan
+    // take two rows on top; Step out and Next two below) the column scrolls: each button is reached, whole.
+    const fitsNow = async (reach: boolean) => {
       expect((await r.note.boundingBox())!.width).toBeLessThan(Math.min(size.width - 25, 250));
       const area = (await r.screen.getByTestId('go-note-area').boundingBox())!;
       const n = (await r.note.boundingBox())!;
@@ -406,7 +407,8 @@ for (const [label, size] of [
       expect(n.y + n.height).toBeLessThanOrEqual(area.y + area.height + 0.5);
       expect(n.x).toBeGreaterThanOrEqual(0);
       expect(n.x + n.width).toBeLessThanOrEqual(size.width);
-      for (const l of [r.pause, r.middle, r.next, r.handle]) {
+      for (const l of [r.pause, r.plan, r.stepOut, r.next, r.handle]) {
+        if (reach) await l.scrollIntoViewIfNeeded();
         const b = (await l.boundingBox())!;
         expect(b.y, 'top').toBeGreaterThanOrEqual(0);
         expect(b.y + b.height, 'bottom').toBeLessThanOrEqual(size.height + 0.5);
@@ -429,7 +431,7 @@ for (const [label, size] of [
     await setVisibility(page, 'hidden');
     await r.next.click();
     await expect(r.notice).toHaveText('Just a moment — reconnecting.');
-    await fits();
+    await fits(size.width < 340);
     await setVisibility(page, 'visible');
     await expect(r.notice).toHaveCount(0);
     await fits();
@@ -442,10 +444,10 @@ for (const [label, size] of [
     await expectNoSeriousViolations(page);
   });
 
-  test(`${label}: Plan — the band stays pinned (P-96: Home is the bottom-left side door), HERE is in view on arriving, the filled button and the open row are in reach, nothing scrolls sideways`, async ({ page }) => {
+  test(`${label}: Plan — the band stays pinned (P-101: with Home in it; was P-96: the bottom-left side door), HERE is in view on arriving, the filled button and the open row are in reach, nothing scrolls sideways`, async ({ page }) => {
     await startGo(page, RUNS, 'runner');
     await page.setViewportSize(size);
-    await runner(page).middle.click();
+    await runner(page).plan.click();
     const p = plan(page);
     const pinned = async () => {
       const band = (await p.band.boundingBox())!;
@@ -475,7 +477,8 @@ for (const [label, size] of [
     await p.add.click();
     await pinned();
     await addStep(page, 'Sign it');
-    await expect(p.notice).toContainText('Added “Sign it”');
+    // P-101 (ruling 6; was: the notice "Added …"): no notice.
+    await expect(p.notice).toHaveCount(0);
     await pinned();
     await expect(p.forward).toBeInViewport({ ratio: 1 });
     // A step's menu and Repeat from here's sheet: every control can be reached.
@@ -511,13 +514,20 @@ for (const [label, size] of [
     await page.setViewportSize(size);
     const r = runner(page);
 
+    // P-101 (ruling 3): Pause's sheet — its note and Pause in reach.
     await r.pause.click();
+    const pausing = await arrived(page, 'go-pause-sheet');
+    await expect(pausing.getByTestId('go-pause-note')).toBeInViewport();
+    await pausing.getByTestId('go-pause-confirm').scrollIntoViewIfNeeded();
+    await expect(pausing.getByTestId('go-pause-confirm')).toBeInViewport();
+    await expectRules(page, pausing, 2, 1);
+    await pausing.getByTestId('go-pause-confirm').click();
     const h = home(page);
     await expect(h.newBtn).toBeInViewport();
-    // The paused run is first; "Resume <name>" the one filled button, in reach.
-    await expect(h.tiles.first()).toContainText('Practise drawing');
-    await expect(h.resume).toBeInViewport();
-    await expectRules(page, h.screen, 1, 1);
+    // P-101 (ruling 5; was: the paused run first, "Resume <name>" the one filled button): its body resumes it, in reach.
+    await tileBody(page, 'Practise drawing').scrollIntoViewIfNeeded();
+    await expect(tileBody(page, 'Practise drawing')).toBeInViewport();
+    await expectRules(page, h.screen, 1, 0);
     await expectNoSeriousViolations(page);
     // New's own sheet: the name field and Plan in reach.
     await h.screen.getByTestId('go-new').click();

@@ -5,17 +5,19 @@
  * tile "waiting for <words> · since <day>" — never as abandoned. A wait is made in Plan ("Make it a
  * wait"), where it is reworded, moved and removed. (P-96: the paused screen, titled "Waiting" with its
  * own "It's happened", is gone — Pause goes home; J34-c and J34-e are rewritten below.)
+ * P-101 (rulings 1–5): Plan is the top line's door (was: the middle slot); Pause opens its sheet; home's
+ * tile body resumes a run (was: the filled Resume bar).
  */
 import { expect, test } from './fixtures';
-import { addStep, expectSteps, home, place, plan, planMenu, planType, runner, startGo, tile, sinceDate } from './goFixture';
+import { addStep, expectEdit, expectSteps, home, pauseRun, place, plan, planMenu, planType, runner, startGo, tile, tileBody, sinceDate, undoEdit } from './goFixture';
 
 /** A wait seeded nine days ago reads its date (within the last week it would be a day's name). */
 const SINCE = sinceDate(9);
 
-test('J34-a: the runner on a wait step — the outlined note with the wait mark, "It’s happened" in Next’s place, Plan in the middle slot as on any step', async ({ page }) => {
+test('J34-a: the runner on a wait step — the outlined note with the wait mark, "It’s happened" in Next’s place, Plan (P-101: on the top line; was: in the middle slot) as on any step', async ({ page }) => {
   await startGo(page, [{ id: 'r2', routine: 'apply-acme', at: 0, status: 'running' }], 'runner');
   const r = runner(page);
-  const fixed = { pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), note: await place(r.note) };
+  const fixed = { pause: await place(r.pause), plan: await place(r.plan), next: await place(r.next), note: await place(r.note) };
   const plain = await r.note.evaluate((e) => getComputedStyle(e).backgroundColor);
   await r.next.click();
   await expect(r.note).toHaveAttribute('data-kind', 'wait');
@@ -29,14 +31,14 @@ test('J34-a: the runner on a wait step — the outlined note with the wait mark,
   expect(waiting.border).toBe('2px');
   expect(waiting.colour).toBe(plain);
   // The buttons keep their places.
-  expect({ pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), note: await place(r.note) }).toEqual(fixed);
+  expect({ pause: await place(r.pause), plan: await place(r.plan), next: await place(r.next), note: await place(r.note) }).toEqual(fixed);
   await expect(r.next).toHaveText('It’s happened');
   await expect(r.next).toHaveAccessibleName('It’s happened: a reply from Acme');
   expect(await r.next.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(244, 241, 232)');
   // Plan is there on a wait too (it is where a wait is reworded, or made a step again): never dimmed.
-  await expect(r.middle).toBeEnabled();
-  await expect(r.middle).toHaveText('Plan');
-  expect(await r.middle.evaluate((e) => getComputedStyle(e).borderTopStyle)).toBe('solid');
+  await expect(r.plan).toBeEnabled();
+  await expect(r.plan).toHaveText('Plan');
+  expect(await r.plan.evaluate((e) => getComputedStyle(e).borderTopStyle)).toBe('solid');
   await expect(r.pause).toBeEnabled();
 });
 
@@ -49,7 +51,7 @@ test('J34-b: the panel on a wait says what it is waiting for and since when, in 
   await expect(where).toContainText('then: Note the answer in the tracker');
   // A wait's words are changed like a step's: in Plan, not here.
   await expect(r.panel.getByRole('button', { name: 'Change the words', exact: true })).toHaveCount(0);
-  await r.middle.click();
+  await r.plan.click();
   await planMenu(page, 'a reply from Acme', 'Change the words');
   await expect(plan(page).typed).toHaveAccessibleName('Wait for: a reply from Acme');
   await planType(page, 'a reply from Acme HR');
@@ -57,32 +59,32 @@ test('J34-b: the panel on a wait says what it is waiting for and since when, in 
   await expect(r.note).toHaveAccessibleName('Wait for: a reply from Acme HR');
 });
 
-test('J34-c, J34-d (P-96; was: the paused screen titled "Waiting"): leaving it — Pause goes home; its tile reads "waiting for … · since …", first, and Resume returns to the wait note', async ({ page }) => {
+test('J34-c, J34-d (P-96; was: the paused screen titled "Waiting"): leaving it — Pause goes home; its tile reads "waiting for … · since …", first, and its body (P-101; was: the Resume bar) returns to the wait note', async ({ page }) => {
   await startGo(page, [{ id: 'r2', routine: 'apply-acme', at: 1, waitingDaysAgo: 9, status: 'running' }], 'runner');
-  await runner(page).pause.click();
+  await pauseRun(page);
   const h = home(page);
   const t = tile(page, 'Apply to Acme');
   await expect(h.tiles.first()).toContainText('Apply to Acme');
   await expect(t).toHaveAttribute('data-state', 'waiting');
   await expect(t.getByTestId('go-tile-line')).toHaveText(`waiting for a reply from Acme · since ${SINCE}`);
   await expect(t).toHaveAccessibleName(`Apply to Acme, waiting for a reply from Acme · since ${SINCE}`);
-  await expect(h.resume).toHaveText('Resume Apply to Acme');
+  await expect(tileBody(page, 'Apply to Acme')).toHaveAccessibleName(/^Resume Apply to Acme/);
   // Resume returns to the wait note, still waiting since then; "It's happened" is there.
-  await h.resume.click();
+  await tileBody(page, 'Apply to Acme').click();
   await expect(runner(page).note).toHaveAccessibleName('Wait for: a reply from Acme');
   await expect(runner(page).next).toHaveText('It’s happened');
 });
 
 test('J34-e: back again — saying it has happened goes on to the next step (P-95: with no Undo and no notice), resumed from home (P-96; was: from Waiting) and from the runner', async ({ page }) => {
   await startGo(page, [{ id: 'r2', routine: 'apply-acme', at: 1, waitingDaysAgo: 9, status: 'paused' }], 'home');
-  await home(page).resume.click();
+  await tileBody(page, 'Apply to Acme').click();
   const r = runner(page);
   await r.screen.getByRole('button', { name: 'It’s happened: a reply from Acme', exact: true }).click();
   await expect(r.words).toHaveText('Note the answer in the tracker');
   await expect(r.note).toHaveAttribute('data-kind', 'step');
   // (P-96, ruling 7: the last step of the run — Next reads Done there.)
   await expect(r.next).toHaveText('Done');
-  await expect(r.middle).toBeEnabled();
+  await expect(r.plan).toBeEnabled();
   await expect(r.notice).toHaveCount(0);
   await expect(r.screen.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
   // From the runner: the same.
@@ -119,7 +121,7 @@ test('J34-h: the same wait at 200 % (a 195×422 window stands in for it) — the
   await expect(r.next).toBeInViewport();
   // The note has taken its new room (it is sized from it).
   await expect.poll(async () => (await r.note.boundingBox())!.width).toBeLessThan(170);
-  for (const l of [r.note, r.pause, r.middle, r.next]) {
+  for (const l of [r.note, r.pause, r.plan, r.next]) {
     const b = (await l.boundingBox())!;
     expect(b.x).toBeGreaterThanOrEqual(0);
     expect(b.x + b.width).toBeLessThanOrEqual(195.5);
@@ -141,12 +143,12 @@ test('J36-a, J36-b, J36-c: a wait is written into a routine in Plan, among the s
   // Add a step, then another made a wait (in words, from its menu).
   await addStep(page, 'Celebrate');
   await expect(p.add).toBeFocused();
-  await expect(p.notice).toContainText('Added “Celebrate”');
+  // P-101 (ruling 6; was: each edit's notice, with its Undo): no notice — the Undo is the routine's menu.
+  await expectEdit(page, 'Added “Celebrate”');
   await addStep(page, 'the contract');
   await planMenu(page, 'the contract', 'Make it a wait');
   await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker', 'Celebrate', 'Wait for the contract']);
-  await expect(p.notice).toContainText('Made “the contract” a wait');
-  await expect(p.notice.getByRole('button', { name: 'Undo Change', exact: true })).toBeVisible();
+  await expectEdit(page, 'Made “the contract” a wait');
   // Move, reword, remove.
   await planMenu(page, 'the contract', 'Move up');
   await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker', 'Wait for the contract', 'Celebrate']);
@@ -155,17 +157,17 @@ test('J36-a, J36-b, J36-c: a wait is written into a routine in Plan, among the s
   await planType(page, 'the signed contract');
   await expect(p.row('the signed contract')).toHaveAttribute('data-kind', 'wait');
   await planMenu(page, 'Celebrate', 'Remove this step');
-  // The notice names what went, beside its Undo.
-  await expect(p.notice).toContainText('Removed “Celebrate”');
+  // Its Undo names what went.
+  await expectEdit(page, 'Removed “Celebrate”');
   await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker', 'Wait for the signed contract']);
-  await p.notice.getByRole('button', { name: 'Undo Change', exact: true }).click();
+  await undoEdit(page);
   await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker', 'Wait for the signed contract', 'Celebrate']);
 });
 
 test('J36-f: a wait made in Plan in the middle of a run is the routine’s; running reaches it', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
   const r = runner(page);
-  await r.middle.click();
+  await r.plan.click();
   const p = plan(page);
   await planMenu(page, 'Tailor the CV', 'Add a step after');
   await planType(page, 'feedback from Sam');

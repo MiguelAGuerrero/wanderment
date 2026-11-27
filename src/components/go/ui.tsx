@@ -333,15 +333,24 @@ export function Field({ style, ink, bare, size = BODY, onFocus, onBlur, ref, kee
  * A field for a line of the person's words that may be long: it wraps and grows, never cutting them
  * off; Return keeps the words (no new line in a step).
  */
-export function GrowField({ onSubmit, style, ...rest }: FieldProps & { onSubmit?: () => void }) {
+export function GrowField({ onSubmit, style, ref, ...rest }: FieldProps & { onSubmit?: () => void }) {
   const [tall, setTall] = useState(0);
   // In its own box the 2-px outline is inside the height: without that room the last 4 px would scroll.
   const edge = rest.bare ? 0 : 4;
   const own = useRef<InputRef>(null);
+  // Emptied (P-101: "Add a step" stays on screen after a step is added): back to one line — the web's
+  // content size never reports less than the height it was given.
+  const empty = !rest.value;
+  if (empty && tall) setTall(0);
   return (
     <Field
       {...rest}
-      ref={own}
+      ref={(el) => {
+        own.current = el;
+        // P-101: the caller's ref too (Plan's "Add a step" field is one of these now).
+        if (typeof ref === 'function') ref(el);
+        else if (ref) (ref as { current: InputRef | null }).current = el;
+      }}
       multiline
       onContentSizeChange={(e) => setTall(Math.ceil(e.nativeEvent.contentSize.height))}
       // Narrower than it was (the window, larger text): the words wrap again, and it grows to hold them.

@@ -6,7 +6,7 @@
  * Jump from Paused and of the toggle are rewritten below.)
  */
 import { expect, test } from './fixtures';
-import { arrived, home, plan, RoutineSpec, runner, settled, startGo } from './goFixture';
+import { arrived, home, plan, RoutineSpec, runner, settled, startGo, tileBody } from './goFixture';
 
 const IN_LOOP = [{ id: 'r3', routine: 'drawing', at: 1, inner: [{ routine: 'hands', at: 2, round: 2 }], status: 'running' as const }];
 
@@ -89,9 +89,8 @@ test('J39-c, J39-d, J39-g: picking a particular step keeps the round; a step ins
   await r.handle.click();
   await expect(r.panel.getByTestId('go-where')).toContainText('Round 2 of 3');
   await page.keyboard.press('Escape');
-  // From a level above, into a routine you are not in. (P-96: Finish <level> now is the panel's.)
-  await r.handle.click();
-  await r.finish.click();
+  // From a level above, into a routine you are not in. (P-101: Step out; was P-96: the panel's Finish <level> now.)
+  await r.stepOut.click();
   await expect(r.words).toHaveText('Gesture drawing');
   await r.handle.click();
   await r.panel.getByRole('button', { name: 'Jump to…', exact: true }).click();
@@ -104,7 +103,7 @@ test('J39-c, J39-d, J39-g: picking a particular step keeps the round; a step ins
 
 test('J39-a (P-96; was: from the paused screen): a paused run, resumed from home, Jumps from the panel — running at the new place afterwards', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused' }], 'home');
-  await home(page).resume.click();
+  await tileBody(page, 'Apply to Initech').click();
   await runner(page).handle.click();
   await runner(page).panel.getByRole('button', { name: 'Jump to…', exact: true }).click();
   const j = settled(page, 'jump');
@@ -135,7 +134,7 @@ test('J39-h: a thirty-step routine in the picker scrolls, and Jump here stays in
 test('J37-a, J37-b: the number of a counted repeat is set in Plan; set below the round a run is on, the run is not ended or moved — it just goes on, and the loop finishes by itself', async ({ page }) => {
   await startGo(page, IN_LOOP, 'runner');
   const r = runner(page);
-  await r.middle.click();
+  await r.plan.click();
   const p = plan(page);
   // The nested routine's own divider (the run is inside it, so its row is open).
   await expect(p.divider).toHaveText('Repeat from here · 3 times');
@@ -170,7 +169,7 @@ test('J37-a, J37-b: the number of a counted repeat is set in Plan; set below the
 
 test('P-96 (ruling 7; was: "Ends here" set in Plan makes the last Next finish): the last Next of an open routine finishes it — there is no "Ends here" to set; a routine with a run going is not offered Remove', async ({ page }) => {
   await startGo(page, [{ id: 'r3', routine: 'drawing', at: 2, status: 'running' }], 'runner');
-  await runner(page).middle.click();
+  await runner(page).plan.click();
   const p = plan(page);
   await p.more('Practise drawing').click();
   const sheet = await arrived(page, 'go-plan-routine');

@@ -116,30 +116,30 @@ describe('the repair bug (ruling 6): a run never sits inside a removed step', ()
 // ───────── The mode table (scout §2; rulings 1 and 5) ─────────
 
 describe('mode: set by Plan', () => {
-  it('from the runner (the run that is running): paused and in Plan in ONE write; its place, round, reason and waiting-since untouched; nothing said; no other record touched', () => {
+  it('from the runner (the run that is running): paused in ONE write — P-101 (ruling 4; was "paused and in Plan"): plainly, no mode written; its place, round, reason and waiting-since untouched; nothing said; no other record touched', () => {
     const w = world([seq('R', 'Report', [wait('w', 'a reply'), step('b')])], [aRun('A', 'R', [{ seq: 'R', at: 'w', round: 1 }], { status: 'running', reason: 'why', waitingSince: '2026-11-24T10:00:00.000Z' })]);
     const r = ok(w, { kind: 'plan', runId: 'A' });
-    expect(json(r.data.runs.A)).toEqual({ ...json(w.runs.A), status: 'paused', mode: 'plan', touchedAt: NOW });
-    expect(run(r.data, 'A')).toMatchObject({ status: 'paused', mode: 'plan' });
-    expect(isPlanning(r.data, run(r.data, 'A'))).toBe(true);
+    expect(json(r.data.runs.A)).toEqual({ ...json(w.runs.A), status: 'paused', touchedAt: NOW });
+    expect(run(r.data, 'A').mode).toBeUndefined();
+    expect(isRunning(r.data, run(r.data, 'A'))).toBe(false);
     expect(r.data.routines).toBe(w.routines);
     expect([r.said, r.folded]).toEqual([undefined, undefined]);
   });
 
-  it('from the paused screen (the run the app is on, paused): in Plan, still paused', () => {
+  it('from home (the run the app is on, paused): P-101 (ruling 4; was "in Plan, still paused"): still paused, and nothing is written', () => {
     const w = world([seq('R', 'Report', [step('a')])], [aRun('A', 'R', [{ seq: 'R', at: 'a', round: 1 }], { status: 'paused', reason: 'lunch' })]);
     const r = ok(w, { kind: 'plan', runId: 'A' });
-    expect(run(r.data, 'A')).toMatchObject({ status: 'paused', mode: 'plan', reason: 'lunch' });
+    expect(r.data).toBe(w);
+    expect(run(r.data, 'A')).toMatchObject({ status: 'paused', reason: 'lunch' });
   });
 
-  it('from a home tile (a run that is not the one the app is on): the mode only — it does not take the slot, and the run that is running goes on running', () => {
+  it('from a home tile (a run that is not the one the app is on): P-101 (ruling 4; was "the mode only"): nothing is written — it does not take the slot, and the run that is running goes on running', () => {
     const d = base();
     const r = ok(d, { kind: 'plan', runId: 'B' });
-    expect(json(r.data.runs.B)).toEqual({ ...json(d.runs.B), mode: 'plan', touchedAt: NOW });
+    expect(r.data).toBe(d);
     expect('status' in r.data.runs.B).toBe(false);
-    expect(r.data.runs.A).toBe(d.runs.A);
     expect(run(r.data, 'A').status).toBe('running');
-    expect(isPlanning(r.data, run(r.data, 'B'))).toBe(true);
+    expect(isPlanning(r.data, run(r.data, 'B'))).toBe(false);
     expect(isPlanning(r.data, run(r.data, 'A'))).toBe(false);
   });
 
@@ -202,23 +202,25 @@ describe('mode: derived at the edge (nothing next)', () => {
     expect(r.said).toEqual({ kind: 'ended', name: 'Goal' });
   });
 
-  it('a run stored at the edge as running by the build before: Plan normalises it (paused, in Plan); so does the first Plan edit, in the edit’s own write', () => {
+  it('a run stored at the edge as running by the build before: Plan normalises it (paused — P-101, ruling 4: no mode written); so does the first Plan edit, in the edit’s own write', () => {
     const legacy = world([seq('E', 'E', [], { open: true })], [aRun('A', 'E', [{ seq: 'E', at: null, round: 1 }], { status: 'running' })]);
-    expect(ok(legacy, { kind: 'plan', runId: 'A' }).data.runs.A).toMatchObject({ status: 'paused', mode: 'plan' });
+    const planned = ok(legacy, { kind: 'plan', runId: 'A' }).data.runs.A;
+    expect(planned).toMatchObject({ status: 'paused' });
+    expect('mode' in planned).toBe(false);
     const added = edit(legacy, 'E', { kind: 'addStep', text: 'Find a tutor' });
     const made = readRoutine(added, 'E')!.items[0].id;
-    // The step added at the edge is where the run stands — still planning: Resume is a tap of its own.
+    // The step added at the edge is where the run stands — paused: Resume is a tap of its own.
     expect(at(added, 'A')).toEqual([`E:${made}:1`]);
-    expect(added.runs.A).toMatchObject({ status: 'paused', mode: 'plan' });
-    expect(isPlanning(added, run(added, 'A'))).toBe(true);
+    expect(added.runs.A).toMatchObject({ status: 'paused' });
+    expect('mode' in added.runs.A).toBe(false);
+    expect(isRunning(added, run(added, 'A'))).toBe(false);
     expect(undone(legacy, added)).toEqual(json(legacy));
   });
 });
 
 describe('mode: what is refused while planning, and what clears it', () => {
-  it('Next, Step in and Back are refused ("planning") while a run is in Plan; nothing changes', () => {
-    const w = world([seq('R', 'R', [step('a'), ref('k', 'K'), step('c')]), seq('K', 'Kit', [step('k1')])], [aRun('A', 'R', [{ seq: 'R', at: 'k', round: 1 }], { status: 'running' })]);
-    const d = ok(w, { kind: 'plan', runId: 'A' }).data;
+  it('Next, Step in and Back are refused ("planning") on a run an earlier build stored in Plan (P-101, ruling 4: the stored mode is still read; nothing writes it now); nothing changes', () => {
+    const d = world([seq('R', 'R', [step('a'), ref('k', 'K'), step('c')]), seq('K', 'Kit', [step('k1')])], [aRun('A', 'R', [{ seq: 'R', at: 'k', round: 1 }], { status: 'paused', mode: 'plan' })]);
     for (const kind of ['next', 'stepIn', 'back'] as const) expect(go(d, { kind, runId: 'A' }), kind).toMatchObject({ ok: false, reason: 'planning', data: d });
   });
 
@@ -229,13 +231,13 @@ describe('mode: what is refused while planning, and what clears it', () => {
     expect(go(d, { kind: 'stepIn', runId: 'A' })).toMatchObject({ ok: false, reason: 'planning', data: d });
   });
 
-  it('Done exists only when running and at the edge: refused ("planning") in Plan on a step; at the edge it ends the run, and the mode goes with it', () => {
-    const d = planning();
+  it('Done is refused ("planning") on a step of a run an earlier build stored in Plan (P-101, ruling 4: read, never written now); at the edge it ends the run, and the mode goes with it', () => {
+    const d = world([G()], [aRun('A', 'G', [{ seq: 'G', at: 'b', round: 1 }], { status: 'paused', mode: 'plan' })]);
     expect(go(d, { kind: 'done', runId: 'A' })).toMatchObject({ ok: false, reason: 'planning', data: d });
     const edge = world([seq('E', 'Goal', [step('a')], { open: true })], [aRun('A', 'E', [{ seq: 'E', at: null, round: 1 }], { status: 'paused', mode: 'plan' })]);
     const r = ok(edge, { kind: 'done', runId: 'A' });
-    // (The third verb of this test: the clock moves a second per verb.)
-    expect(run(r.data, 'A')).toMatchObject({ endedAt: new Date(T0 + 2000).toISOString(), endedBy: 'done' });
+    // (The second verb of this test: the clock moves a second per verb.)
+    expect(run(r.data, 'A')).toMatchObject({ endedAt: new Date(T0 + 1000).toISOString(), endedBy: 'done' });
     expect(Object.keys(r.data.runs.A).filter((k) => k === 'mode' || k === 'status')).toEqual([]);
     expect(r.said).toEqual({ kind: 'ended', name: 'Goal' });
     expect(undone(edge, r.data)).toEqual(json(edge));
@@ -263,7 +265,7 @@ describe('mode: what is refused while planning, and what clears it', () => {
     expect('status' in r.data.runs.A).toBe(false);
   });
 
-  it('Start on the routine of a run in Plan resumes that run (the mode goes); Start of ANOTHER routine while a run is in Plan is allowed — it is not running — and that run keeps its mode', () => {
+  it('Start on the routine of a run opened in Plan resumes that run; Start of ANOTHER routine while a run is opened in Plan is allowed — it is not running — P-101 (ruling 4; was "and that run keeps its mode"): no mode was written', () => {
     const w = world([G(), seq('S', 'Sketch', [step('q')])], [aRun('A', 'G', [{ seq: 'G', at: 'b', round: 1 }], { status: 'running' })]);
     const d = ok(w, { kind: 'plan', runId: 'A' }).data;
     const same = ok(d, { kind: 'start', routineId: 'G' });
@@ -273,12 +275,12 @@ describe('mode: what is refused while planning, and what clears it', () => {
     const other = ok(d, { kind: 'start', routineId: 'S' });
     expect(run(other.data, other.runId!).status).toBe('running');
     expect('status' in other.data.runs.A).toBe(false);
-    expect(other.data.runs.A.mode).toBe('plan');
-    expect(isPlanning(other.data, run(other.data, 'A'))).toBe(true);
+    expect('mode' in other.data.runs.A).toBe(false);
+    expect(isRunning(other.data, run(other.data, 'A'))).toBe(false);
   });
 
-  it('Home keeps the mode (you left it in Plan); so does Pause', () => {
-    const d = planning();
+  it('Home keeps a stored mode (an earlier build left it in Plan); so does Pause — P-101 (ruling 4): read and kept, never converted', () => {
+    const d = world([G()], [aRun('A', 'G', [{ seq: 'G', at: 'b', round: 1 }], { status: 'paused', mode: 'plan' })]);
     const left = ok(d, { kind: 'home', runId: 'A' }).data;
     expect('status' in left.runs.A).toBe(false);
     expect(left.runs.A.mode).toBe('plan');
@@ -336,10 +338,10 @@ describe('mode: the tolerant reader', () => {
     expect(isPlanning(edge, run(edge, 'A'))).toBe(false);
   });
 
-  it('a left run with mode "plan" reads as planning (it was left in Plan)', () => {
+  it('a left run with mode "plan" reads its mode — P-101 (ruling 4; was "reads as planning"): it is not planning; it reads as paused', () => {
     const d = one({ mode: 'plan' });
     expect(run(d, 'A')).toMatchObject({ mode: 'plan' });
-    expect(isPlanning(d, run(d, 'A'))).toBe(true);
+    expect(isPlanning(d, run(d, 'A'))).toBe(false);
   });
 });
 
@@ -515,13 +517,13 @@ describe('Plan edits under live runs: the repair table', () => {
     expect(run(r, 'B').endedAt).toBeUndefined();
   });
 
-  it('remove every step: both runs are at the edge, rounds kept, never ended — which is planning: the one that was running is paused and in Plan, the other in Plan without the slot', () => {
+  it('remove every step: both runs are at the edge, rounds kept, never ended — which is planning: the one that was running is paused, the other without the slot (P-101, ruling 4: no mode written)', () => {
     let d = base();
     for (const item of ['a', 'b', 'c', 'd']) d = edit(d, 'G', { kind: 'remove', item });
     expect(places(d)).toEqual([['G:null:1'], ['G:null:2']]);
     expect([run(d, 'A').endedAt, run(d, 'B').endedAt]).toEqual([undefined, undefined]);
-    expect(d.runs.A).toMatchObject({ status: 'paused', mode: 'plan' });
-    expect(d.runs.B.mode).toBe('plan');
+    expect(d.runs.A).toMatchObject({ status: 'paused' });
+    expect(['mode' in d.runs.A, 'mode' in d.runs.B]).toEqual([false, false]);
     expect('status' in d.runs.B).toBe(false);
     expect([isPlanning(d, run(d, 'A')), isPlanning(d, run(d, 'B'))]).toEqual([true, true]);
   });
@@ -576,10 +578,11 @@ describe('Plan edits under live runs: the repair table', () => {
     expect(shape(r, 'G')).toBe('a b | c >d');
   });
 
-  it('break down in Plan: the run stays planning, on the first small step ("Resume at <first small step>"); breaking that one down again goes one deeper', () => {
+  it('break down in Plan: the run stays paused (P-101, ruling 4; was "planning"), on the first small step ("Resume at <first small step>"); breaking that one down again goes one deeper', () => {
     const d = planning();
     const r = edit(d, 'G', { kind: 'breakDown', item: 'b', steps: ['one', 'two'] });
-    expect(r.runs.A).toMatchObject({ status: 'paused', mode: 'plan' });
+    expect(r.runs.A).toMatchObject({ status: 'paused' });
+    expect('mode' in r.runs.A).toBe(false);
     expect(here(r, 'A')).toBe('one');
     const [u] = unnamed(r);
     const again = edit(r, u.id, { kind: 'breakDown', item: readRoutine(r, u.id)!.items[0].id, steps: ['half'] });
@@ -664,12 +667,12 @@ describe('Plan edits under live runs: the repair table', () => {
     expect(cur).toEqual(json(d));
   });
 
-  it('an edit in Plan never takes the run out of Plan: after each, it is still planning, paused, on a step that is there', () => {
+  it('an edit in Plan never sets the run going (P-101, ruling 4; was "never takes the run out of Plan"): after each, it is still paused, not running, on a step that is there', () => {
     const d = planning();
     for (const e of [{ kind: 'remove', item: 'b' }, { kind: 'move', item: 'b', by: 1 }, { kind: 'toWait', item: 'b' }, { kind: 'breakDown', item: 'b', steps: ['x'] }, { kind: 'addStep', text: 'x' }, { kind: 'divider', from: 0 }] as RoutineEdit[]) {
       const r = edit(d, 'G', e);
-      expect(r.runs.A, JSON.stringify(e)).toMatchObject({ status: 'paused', mode: 'plan' });
-      expect(isPlanning(r, run(r, 'A'))).toBe(true);
+      expect(r.runs.A, JSON.stringify(e)).toMatchObject({ status: 'paused' });
+      expect(isRunning(r, run(r, 'A'))).toBe(false);
       expect(place(r, run(r, 'A'))!.repaired).toBe(false);
     }
   });
@@ -720,8 +723,8 @@ describe('runs that carry this-run changes from the build before: folded into th
     const { ownerRunId: _o2, ...jobAd } = BEFORE.routines[JOB_AD];
     expect(r.data.routines[TAILOR]).toEqual({ ...tailor, items: [{ id: 'p90-020', ref: JOB_AD }, { id: 'p90-021', text: 'Rewrite the summary' }] });
     expect(r.data.routines[JOB_AD]).toEqual({ ...jobAd, items: [{ id: 'p90-024', text: 'Find the right tab' }, { id: 'p90-025', text: 'Copy the requirements' }] });
-    // The run: no changes left, in Plan, exactly where it was; not the one the app is on (it was not).
-    expect(r.data.runs[A]).toEqual({ ...BEFORE.runs[A], changes: [], mode: 'plan', touchedAt: NOW });
+    // The run: no changes left, exactly where it was; not the one the app is on (it was not). P-101 (ruling 4): no mode written.
+    expect(r.data.runs[A]).toEqual({ ...BEFORE.runs[A], changes: [], touchedAt: NOW });
     expect(reading(r.data, A)).toEqual(was);
     expect(r.folded).toBe('Apply for jobs');
     expect(place(r.data, run(r.data, A))!.repaired).toBe(false);
@@ -760,12 +763,13 @@ describe('runs that carry this-run changes from the build before: folded into th
     expect(again.folded).toBeUndefined();
   });
 
-  it('from the runner (the run running, with changes): the fold, paused and in Plan are one write and one Undo', () => {
+  it('from the runner (the run running, with changes): the fold and the pause are one write and one Undo (P-101, ruling 4: no mode)', () => {
     const d = frozen();
     delete d.runs[B].status;
     d.runs[A].status = 'running';
     const r = ok(d, { kind: 'plan', runId: A });
-    expect(r.data.runs[A]).toMatchObject({ status: 'paused', mode: 'plan', changes: [] });
+    expect(r.data.runs[A]).toMatchObject({ status: 'paused', changes: [] });
+    expect('mode' in r.data.runs[A]).toBe(false);
     expect(r.folded).toBe('Apply for jobs');
     expect(undone(d, r.data)).toEqual(json(d));
   });
@@ -856,33 +860,34 @@ describe('after the audit, F1: a run the build before left at the edge stored "r
     expect(isRunning(planning(), run(planning(), 'A'))).toBe(false);
   });
 
-  it('Start on another routine is not refused; in that same write the edge run is stored in Plan and not running — one running run', () => {
+  it('Start on another routine is not refused; in that same write the edge run is stored not running (P-101, ruling 4: and no mode) — one running run', () => {
     const d = legacy();
     const r = go(d, { kind: 'start', routineId: 'H' });
     expect(r.ok, r.reason).toBe(true);
     expect(storedRunning(r.data)).toEqual([r.runId]);
     expect(r.data.runs.A.status).toBeUndefined();
-    expect(r.data.runs.A.mode).toBe('plan');
+    expect('mode' in r.data.runs.A).toBe(false);
     expect(at(r.data, 'A')).toEqual(['G:null:1']);
     expect(isPlanning(r.data, run(r.data, 'A'))).toBe(true);
     expect(undone(d, r.data)).toEqual(json(d));
   });
 
-  it('Resume on another run is not refused; the edge run is stored in Plan and not running in that write', () => {
+  it('Resume on another run is not refused; the edge run is stored not running in that write (P-101, ruling 4: and no mode)', () => {
     const d = legacy();
     const r = go(d, { kind: 'resume', runId: 'B' });
     expect(r.ok, r.reason).toBe(true);
     expect(storedRunning(r.data)).toEqual(['B']);
     expect(r.data.runs.A.status).toBeUndefined();
-    expect(r.data.runs.A.mode).toBe('plan');
+    expect('mode' in r.data.runs.A).toBe(false);
     expect(undone(d, r.data)).toEqual(json(d));
   });
 
-  it('Pause and Home on that run itself leave it stored in Plan, never "paused" on nothing', () => {
+  it('Pause and Home on that run itself leave it not running — P-101 (ruling 4; was "stored in Plan"): no mode is written; it is still the edge (Plan is its way in)', () => {
     for (const verb of [{ kind: 'pause', runId: 'A' }, { kind: 'home', runId: 'A' }] as const) {
       const after = ok(legacy(), verb).data;
       expect(after.runs.A.status, verb.kind).not.toBe('running');
-      expect(after.runs.A.mode, verb.kind).toBe('plan');
+      expect('mode' in after.runs.A, verb.kind).toBe(false);
+      expect(isPlanning(after, run(after, 'A')), verb.kind).toBe(true);
     }
   });
 

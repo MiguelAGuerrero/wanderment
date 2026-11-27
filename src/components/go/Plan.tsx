@@ -10,6 +10,13 @@
  * in its own slot beside Home. P-96: a step's menu has Gives… (a name later steps use as {name}); names
  * in words are chips; while words are typed, a bar above the keyboard offers the names given above.
  *
+ * P-101 (rulings 2, 4, 6–8): Home is back in the band, at its right edge (one fixed place); Plan is a view
+ * of a run that is not running (paused, plainly — never "planning"); from inside a call it is that
+ * routine's Plan (`inSeq`). Its edits say nothing (no notice): their Undo is the routine's menu, "Undo
+ * <edit>", while it is the last action. A step broken down whose smaller steps give names says "gives
+ * {a}, {b}" (hoisted). While words are typed, "{ } Insert" beside the field opens the names (the bar).
+ * The "Add a step" box wraps, so the whole step shows.
+ *
  * P-95: every step row has a grip at its left edge ("Reorder <words>"): dragged (touch or mouse) it
  * moves the row among its siblings — the row stays in place, dashed, and a line shows where it will go
  * (past an open routine: after its last step); nothing moves until it is let go, so nothing covers
@@ -30,7 +37,7 @@ import { ComponentRef, useEffect, useLayoutEffect, useRef, useState } from 'reac
 import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { RoutineEdit } from '@/domain/run';
-import { namesOffered, PlanDivider, PlanRow, planView, runRoute } from '@/domain/runView';
+import { namesOffered, PlanDivider, PlanRow, planView, readersOf } from '@/domain/runView';
 import { isName, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
 import { useStore } from '@/store/useStore';
 
@@ -41,8 +48,8 @@ import { Repeat } from './Repeat';
 import { goHome } from './Runner';
 import { readDraft, writeDraft } from './session';
 import { G, SP, TARGET } from './tokens';
-import { Btn, caretToEnd, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
-import { NameChip } from './Values';
+import { Btn, caretToEnd, Confirm, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
+import { Gives, NameChip } from './Values';
 
 const WEB = Platform.OS === 'web';
 /** The focus ring: its own colour, with a gap (never the white of HERE). */
@@ -74,16 +81,16 @@ function readTyping(key: string): Typing | null {
   }
 }
 
-type Menu = { row: string } | { divider: string } | { routine: true } | { gives: string };
+type Menu = { row: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true };
 
-export function Plan({ runId, routineId }: { runId?: string; routineId?: string }) {
+export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: string; inSeq?: string }) {
   const data = useStore((s) => s.data);
   const act = useStore.getState;
   const focused = useIsFocused();
-  const v = planView(data, runId ? { runId } : { routineId: routineId ?? '' });
-  // Where the data says this run's screens are. This address is Plan's only while it says Plan
-  // (a routine's address: only while it has no run).
-  const route = v?.runId ? runRoute(data, v.runId) : undefined;
+  const v = planView(data, runId ? { runId, ...(inSeq && { in: inSeq }) } : { routineId: routineId ?? '' });
+  // P-101 (ruling 4): Plan is a view of a run that is not running (`planning`): running, the runner is
+  // where it is (a routine's address: Plan's only while it has no run).
+  const route = v?.runId ? (v.planning ? 'plan' : 'runner') : undefined;
   // This screen has shown the run with nothing left to fold: this-run changes on it again can only be
   // the fold's Undo (nothing writes one any more). Then it is not a Plan to edit: home.
   const [wasFolded, setWasFolded] = useState(false);
@@ -138,9 +145,9 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
   const gone = !v;
   useEffect(() => {
     if (!focused || here) return;
-    if (gone || !runOf || route === 'home' || undone) goHome();
+    if (gone || !runOf || undone) goHome();
     else if (route === 'runner') router.replace(`/go/run/${runOf}`);
-    // P-96: `runRoute` has no paused screen any more (a paused run is home).
+    // A routine's address while it has a run: that run's Plan.
     else router.replace(`/go/run/${runOf}/plan`);
   }, [focused, here, gone, runOf, route, undone]);
 
@@ -171,6 +178,8 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
   };
 
   const can = useRunUndo();
+  // P-101 (ruling 6): a Plan edit's Undo (it gives no notice) — the routine's menu row, while it is the last action.
+  const quietEdit = useStore((s) => (s.runNotice?.quiet && s.runNotice.entry === s.undo ? s.runNotice.text : undefined));
   const undo = () => {
     if (!can) return;
     can.undo();
@@ -354,6 +363,8 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
   const close = () => setMenu(null);
   const menuRow = menu && 'row' in menu ? rowAt(menu.row) : undefined;
   const givesRow = menu && 'gives' in menu ? rowAt(menu.gives) : undefined;
+  const removingRow = menu && 'removing' in menu ? rowAt(menu.removing) : undefined;
+  const removing = removingRow ? readersOf(data, removingRow.scope, removingRow.itemId) : undefined;
   const menuDivider = menu && 'divider' in menu ? (menu.divider === '' ? v.divider : v.rows.find((r) => r.divider && parentOf(keyOf(r.path)) === menu.divider)?.divider) : undefined;
   const startTyping = (t: Typing) => {
     close();
@@ -441,12 +452,48 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
         kind="plain"
         label="Remove this step"
         onPress={() => {
+          // P-101 amendment (ruling 11): a step whose name other steps read — asked first, naming them.
+          if (readersOf(data, menuRow.scope, menuRow.itemId)) return setMenu({ removing: keyOf(menuRow.path) });
           edit(menuRow.seq, { kind: 'remove', item: menuRow.itemId });
           close();
         }}
       />
       <Btn label="Close" onPress={close} />
     </Sheet>
+  ) : removingRow && removing ? (
+    <Sheet title={`Remove “${removingRow.words}”?`} onClose={close} testID="go-plan-removing" fallback={title}>
+      <T>{`It gives {${removing.name}}, which ${removing.readers.length === 1 ? '1 step reads' : `${removing.readers.length} steps read`}. They’ll ask for it when run.`}</T>
+      <View style={styles.gap} testID="go-plan-readers">
+        {removing.readers.map((w, i) => (
+          <T key={i} dim>
+            <Chips words={w} asks={[removing.name]} />
+          </T>
+        ))}
+      </View>
+      <Btn
+        kind="filled"
+        label="Remove"
+        spoken={`Remove ${removingRow.words}`}
+        size={18}
+        testID="go-plan-remove"
+        onPress={() => {
+          edit(removingRow.seq, { kind: 'remove', item: removingRow.itemId });
+          close();
+        }}
+      />
+      <Btn label="Close" onPress={close} />
+    </Sheet>
+  ) : menu && 'restart' in menu && v.runId ? (
+    <Confirm
+      title={`Start ${v.name} over? Your place and values in it go.`}
+      action="Start over"
+      testID="go-restart-confirm"
+      onCancel={close}
+      onAct={() => {
+        close();
+        if (v.runId) act().restartRun(v.runId, v.restartLevel ?? 0);
+      }}
+    />
   ) : menuDivider ? (
     <Sheet title="Repeat from here" onClose={close} testID="go-plan-repeat" fallback={title}>
       <Repeat repeat={menuDivider.repeat} onChange={(times) => edit(menuDivider.seq, { kind: 'repeat', ...(times !== undefined && { times }) })} />
@@ -464,7 +511,24 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
     <GivesSheet row={givesRow} edit={edit} onClose={close} fallback={title} />
   ) : menu && 'routine' in menu ? (
     <Sheet title={v.name} onClose={close} testID="go-plan-routine" fallback={title}>
+      {/* P-101 (ruling 6): the last Plan edit's Undo lives here (Plan's edits give no notice). */}
+      {can && quietEdit && (
+        <Btn
+          kind="plain"
+          mark="undo"
+          label={`Undo ${quietEdit.charAt(0).toLowerCase()}${quietEdit.slice(1)}`}
+          testID="go-plan-undo"
+          onPress={() => {
+            close();
+            can.undo();
+            // After the sheet has gone (the screen beneath is inert until then): the heading, as for any Undo here.
+            setTimeout(() => focusOn(title), 0);
+          }}
+        />
+      )}
       <Btn kind="plain" label="Change the name" onPress={() => startTyping({ mode: 'name', path: '', text: v.name })} />
+      {/* P-101 amendment (ruling 9): its run, from this routine's first step (asked first; Undo). */}
+      {!!v.runId && <Btn kind="plain" label="Start over" spoken={`Start over: ${v.name}`} onPress={() => setMenu({ restart: true })} testID="go-plan-restart" />}
       {!v.divider && v.rows.length > 0 && (
         <Btn
           kind="plain"
@@ -491,6 +555,9 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
     </Sheet>
   ) : null;
 
+  /** P-101 (ruling 8): "{ } Insert" beside a field typed in — the names (the bar), from the first. */
+  // Audit F7: the web only — on iOS/Android the names bar above the keyboard is the way (its chips are buttons there).
+  const insertBtn = offered.length > 0 && WEB ? <InsertBtn lastField={lastField} onLeave={leftBar} /> : null;
   const typed = (label: string, placeholder?: string) =>
     typing && (
       <Typed
@@ -501,6 +568,10 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
         onChange={type}
         onSubmit={() => keep(true)}
         onBlur={() => keep(false)}
+        onField={(el) => {
+          lastField.current = el;
+        }}
+        insert={typing.mode === 'name' ? null : insertBtn}
       />
     );
 
@@ -510,13 +581,15 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
   const foot = (
     <>
       <Notice onUndone={() => focusOn(title)} reserve={!floor} />
-      {/* P-96 (the amendment): the side doors — left, Home (the run stays in Plan); right, Done at the edge only. */}
-      <View style={styles.doors} testID="go-side-doors">
-        <View style={styles.door}>
-          <Btn mark="home" label="Home" onPress={goHome} testID="go-plan-home" />
+      {/* P-101 (ruling 2; was P-96: Home the bottom-left side door): Home is in the band. Done, at the edge only, is the right side door. */}
+      {v.canDone && (
+        <View style={styles.doors} testID="go-side-doors">
+          <View style={styles.door} />
+          <View style={styles.door}>
+            <Btn label="Done" spoken={`Done with ${v.name}`} onPress={() => v.runId && act().doneLevel(v.runId)} testID="go-plan-done" />
+          </View>
         </View>
-        <View style={styles.door}>{v.canDone && <Btn label="Done" spoken={`Done with ${v.name}`} onPress={() => v.runId && act().doneLevel(v.runId)} testID="go-plan-done" />}</View>
-      </View>
+      )}
       {/* The filled button's slot is kept when there is nothing forward (P-96): the side doors never move. */}
       <View style={styles.foot}>
         {forward ? (
@@ -551,6 +624,8 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
         <T title ink size={20} style={styles.word} testID="go-plan-word">
           PLAN
         </T>
+        {/* P-101 (ruling 2): Home, at the band's right edge — one fixed place on every Plan screen. Nothing changes. */}
+        <Btn ink mark="home" label="Home" onPress={goHome} testID="go-plan-home" />
       </View>
       {/* Web: the heading ("Plan: <name>") takes the focus and is read, unless the open row has it. Native: focus is not moved, so it is always said. */}
       {(openFirst || !WEB) && <Said text={`Plan: ${v.name}`} />}
@@ -635,7 +710,7 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
                         <View style={narrow ? styles.wordsNarrow : styles.words}>
                           <T testID="go-plan-words">
                             {row.kind === 'wait' && <T dim>Wait for </T>}
-                            <Chips words={row.words} />
+                            <Chips words={row.words} asks={row.asks} />
                           </T>
                           {!!row.gives && (
                             <T dim testID="go-plan-gives">
@@ -643,6 +718,8 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
                               <NameChip name={row.gives} />
                             </T>
                           )}
+                          {/* P-101 (ruling 7): what its smaller steps give, hoisted. */}
+                          {!!row.hoisted && <Gives names={row.hoisted} testID="go-plan-hoisted" />}
                         </View>
                       </View>
                       <Btn kind="plain" mark="more" spoken={`More for ${row.words}`} onPress={() => setMenu({ row: key })} dataSet={{ more: key }} style={styles.sq} />
@@ -664,20 +741,24 @@ export function Plan({ runId, routineId }: { runId?: string; routineId?: string 
             <View style={styles.addMark}>
               <Mark name="add" color={G.dim} />
             </View>
-            <Field
+            {/* P-101 (item 5): it wraps and grows, so the whole step shows while it is typed. */}
+            <GrowField
               ref={addField}
               bare
               value={adding}
               onChangeText={setAdding}
-              onFocus={() => setAddFocused(true)}
+              onFocus={(e) => {
+                setAddFocused(true);
+                if (WEB) lastField.current = e.target as unknown as HTMLInputElement;
+              }}
               onBlur={(e) => !toBar(e) && setAddFocused(false)}
               placeholder="Add a step"
               accessibilityLabel="Add a step"
-              keepFocus
-              onSubmitEditing={addIt}
+              onSubmit={addIt}
               style={styles.addField}
               testID="go-plan-add"
             />
+            {addFocused && insertBtn}
             {!!adding.trim() && <Btn kind="plain" label="Add" spoken="Add this step" onPress={addIt} style={styles.addBtn} />}
           </View>
         </View>
@@ -823,8 +904,8 @@ function Grip({ words, onStart, onMove, onDrop, onPress }: { words: string; onSt
   );
 }
 
-/** A field typed in, in place: it has the focus from the start; Return keeps the words, leaving it keeps them too. */
-function Typed({ value, label, placeholder, onChange, onSubmit, onBlur }: { value: string; label: string; placeholder?: string; onChange: (text: string) => void; onSubmit: () => void; onBlur: () => void }) {
+/** A field typed in, in place: it has the focus from the start; Return keeps the words, leaving it keeps them too. P-101: "{ } Insert" beside it. */
+function Typed({ value, label, placeholder, onChange, onSubmit, onBlur, onField, insert }: { value: string; label: string; placeholder?: string; onChange: (text: string) => void; onSubmit: () => void; onBlur: () => void; onField: (el: HTMLInputElement) => void; insert: React.ReactNode }) {
   const box = useRef<ViewRef>(null);
   // Taken off the screen while it has the focus (its words were kept, or it moved beneath a new row):
   // the blur that causes is not the person leaving it.
@@ -843,24 +924,80 @@ function Typed({ value, label, placeholder, onChange, onSubmit, onBlur }: { valu
     caretToEnd(el);
   }, []);
   return (
-    <View ref={box} {...{ dataSet: { typing: '' } }}>
-      <GrowField value={value} onChangeText={onChange} onSubmit={onSubmit} onBlur={(e) => !gone.current && !toBar(e) && onBlur()} accessibilityLabel={label} placeholder={placeholder} autoFocus={!WEB} testID="go-plan-typed" />
+    <View ref={box} style={styles.typedRow} {...{ dataSet: { typing: '' } }}>
+      <GrowField
+        value={value}
+        onChangeText={onChange}
+        onSubmit={onSubmit}
+        onFocus={(e) => {
+          if (WEB) onField(e.target as unknown as HTMLInputElement);
+        }}
+        onBlur={(e) => !gone.current && !toBar(e) && onBlur()}
+        accessibilityLabel={label}
+        placeholder={placeholder}
+        autoFocus={!WEB}
+        style={styles.typedField}
+        testID="go-plan-typed"
+      />
+      {insert}
     </View>
   );
 }
 
 /** P-96: a row's words, each `{name}` in them a chip. */
-function Chips({ words }: { words: string }) {
+function Chips({ words, asks = [] }: { words: string; asks?: string[] }) {
   const parts = parseWords(words);
   if (!parts.some((p) => p.kind === 'name')) return <>{words}</>;
-  return <>{parts.map((p, i) => (p.kind === 'text' ? p.text : <NameChip key={i} name={p.name} />))}</>;
+  // P-101 amendment (ruling 11): a name no step here gives — dashed, "asks {name}" (it asks when run).
+  const asking = new Set(asks.map((n) => nameKey(n)));
+  return <>{parts.map((p, i) => (p.kind === 'text' ? p.text : <NameChip key={i} name={p.name} asks={asking.has(nameKey(p.name))} />))}</>;
 }
 
 /** P-96 audit F6: the focus is going into the names bar (a field left for it is not left). */
 function toBar(e: unknown): boolean {
   const ev = e as { relatedTarget?: unknown; nativeEvent?: { relatedTarget?: unknown } } | undefined;
   const t = (ev?.relatedTarget ?? ev?.nativeEvent?.relatedTarget) as Element | null | undefined;
-  return !!t && typeof t.closest === 'function' && !!t.closest('[data-testid="go-names-bar"]');
+  return !!t && typeof t.closest === 'function' && !!t.closest('[data-testid="go-names-bar"], [data-insert]');
+}
+
+/**
+ * P-101 (ruling 8): "{ } Insert" beside the field being typed in — the visible way to the names (the bar
+ * above the keyboard; Alt+↓ from the field is the same). A pointer press never takes the focus from the
+ * field; pressed, the first name has the focus (Return inserts it and goes back to the field; Esc goes
+ * back without inserting). Leaving it for anywhere but the field or the names ends the typing, as
+ * leaving the field does.
+ */
+function InsertBtn({ lastField, onLeave }: { lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
+  const box = useRef<ViewRef>(null);
+  const leave = useRef(onLeave);
+  useEffect(() => {
+    leave.current = onLeave;
+  });
+  useEffect(() => {
+    const el = box.current as unknown as HTMLElement | null;
+    if (!WEB || !el || typeof el.addEventListener !== 'function') return;
+    const keep = (e: Event) => e.preventDefault();
+    const out = (e: FocusEvent) => {
+      const next = e.relatedTarget as Element | null;
+      if (next && (el.contains(next) || next === lastField.current || (typeof next.closest === 'function' && next.closest('[data-testid="go-names-bar"]')))) return;
+      leave.current();
+    };
+    el.addEventListener('mousedown', keep);
+    el.addEventListener('focusout', out);
+    return () => {
+      el.removeEventListener('mousedown', keep);
+      el.removeEventListener('focusout', out);
+    };
+  }, [lastField]);
+  const open = () => {
+    if (!WEB || typeof document === 'undefined') return;
+    document.querySelector<HTMLElement>('[data-testid="go-names-bar"] [data-testid="go-names-chip"]')?.focus();
+  };
+  return (
+    <View ref={box} {...{ dataSet: { insert: '' } }} style={styles.insert}>
+      <Btn kind="plain" mark="braces" label="Insert" spoken="Insert a name" onPress={open} testID="go-insert" />
+    </View>
+  );
 }
 
 /**
@@ -1103,6 +1240,10 @@ const styles = StyleSheet.create({
   // Too narrow for the words and Add on one line (large text): Add goes beneath, at the end.
   addBtn: { minWidth: TARGET + SP.s3, justifyContent: 'center', marginLeft: 'auto' },
   addField: { flex: 1, minWidth: 96, paddingHorizontal: SP.s2 },
+  // P-101 (ruling 8): the field and "{ } Insert" beside it; with too little room, Insert goes beneath, at the end.
+  typedRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: SP.s1 },
+  typedField: { flexGrow: 1, flexShrink: 1, flexBasis: 200, minWidth: 0 },
+  insert: { marginLeft: 'auto' },
   foot: { paddingHorizontal: SP.s3, paddingBottom: SP.s3, paddingTop: SP.s1 },
   // The side doors: two halves, left and right, always in the same places (P-96).
   doors: { flexDirection: 'row', gap: SP.s2, paddingHorizontal: SP.s3, paddingTop: SP.s1, paddingBottom: SP.s2 },

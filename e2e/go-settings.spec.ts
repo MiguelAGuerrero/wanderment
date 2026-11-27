@@ -7,7 +7,7 @@
 import { readFileSync } from 'node:fs';
 
 import { expect, test } from './fixtures';
-import { chooseBackup, expectInside, goBackup, home, IMPORTED, MAYA, openGo, openSettings, seedGo, settled, startRun, startThing } from './goFixture';
+import { chooseBackup, expectInside, goBackup, home, IMPORTED, MAYA, openGo, openSettings, seedGo, settled, startRun, startThing, tileBody } from './goFixture';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const EARLIER = 'Your earlier wanders and lines are kept, and are in every export.';
@@ -55,12 +55,12 @@ test('with a run going, Settings is still one step from the home, and leaves the
   await openGo(page);
   await startRun(page, 'Bake bread');
   await page.goBack();
-  // (P-96: no "Running" title — the running run's Resume is the filled button.)
-  await expect(home(page).resume).toHaveText('Resume Bake bread');
+  // (P-96: no "Running" title. P-101: the running run's tile body resumes it; was: the filled button.)
+  await expect(tileBody(page, 'Bake bread')).toHaveAccessibleName(/^Resume Bake bread/);
   await home(page).screen.getByRole('button', { name: 'Settings', exact: true }).click();
   await expect(settings(page)).toBeVisible();
   await settings(page).getByRole('button', { name: 'Back', exact: true }).click();
-  await expect(home(page).resume).toHaveText('Resume Bake bread');
+  await expect(tileBody(page, 'Bake bread')).toHaveAccessibleName(/^Resume Bake bread/);
   await expect(home(page).tiles).toHaveCount(1);
 });
 

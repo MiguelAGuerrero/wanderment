@@ -151,11 +151,13 @@ describe('finishing and pausing go home (ruling 7)', () => {
     expect(st().runNotice).toMatchObject({ text: 'Done with Practice' });
   });
 
-  it('Pause: "go home"; the paused run is first on home', () => {
+  it('Pause: "go home"; P-101 (ruling 5; was "the paused run is first on home"): the paused run keeps its place and is the one marked "last"', () => {
     const other = started('P');
     st().pauseRun(other);
     const id = started('D');
+    const order = homeShown(st().data).map((x) => x.runId);
     expect(st().pauseRun(id)).toEqual({ ok: true, runId: id, home: true });
-    expect(homeShown(st().data)[0]).toMatchObject({ runId: id, state: 'paused', action: 'resume' });
+    expect(homeShown(st().data).map((x) => x.runId)).toEqual(order);
+    expect(homeShown(st().data).find((x) => x.runId === id)).toMatchObject({ state: 'paused', action: 'resume', current: true });
   });
 });

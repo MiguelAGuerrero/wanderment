@@ -6,9 +6,14 @@
  * paused run is the first tile, marked; the one filled button, lowest, is "Resume <name>"; every other
  * run keeps its own (outlined) Resume on its tile. A reason stored by an earlier build still reads on
  * its tile and in the panel (there is no screen to type one any more: see the P-96 report).
+ *
+ * P-101 (rulings 3, 5): ❚❚ opens a small sheet, "Pausing <name>", with an optional note (kept as the
+ * run's reason, read on the tile and back in the runner) and the filled Pause; home's order never moves
+ * for a pause; the filled Resume bar is gone — each run's tile body resumes it. The pausing itself is
+ * e2e/go-moves.spec.ts (2); the tests below say what each was.
  */
 import { expect, test } from './fixtures';
-import { home, openGo, runner, setVisibility, settled, startGo, tile, sinceDate } from './goFixture';
+import { arrived, home, openGo, pauseRun, runner, setVisibility, settled, startGo, tile, tileBody, sinceDate } from './goFixture';
 
 const RUNS = [
   { id: 'r1', routine: 'apply', at: 1, status: 'running' as const },
@@ -20,21 +25,20 @@ const RUNS = [
 const SINCE = sinceDate(9);
 const PAPER = 'rgb(244, 241, 232)';
 
-test('J10-a (P-96; was: Pause opens the paused screen): Pause goes home — the run first, "Resume <name>" the filled button, and what else can be resumed, each with its own Resume', async ({ page }) => {
+test('J10-a (P-96; was: Pause opens the paused screen): Pause goes home — P-101 (rulings 3, 5; was: the run first, "Resume <name>" the filled button): through its sheet; the run marked "last", every run resumed by its own tile, none filled', async ({ page }) => {
   await startGo(page, RUNS, 'runner');
-  await runner(page).pause.click();
+  await pauseRun(page);
   const h = home(page);
   await expect(h.screen).toBeVisible();
   await expect(page).toHaveURL(/\/go$/);
   await expect(h.tiles.first()).toHaveAccessibleName('Apply to Initech, paused at Tailor the CV');
-  await expect(h.resume).toHaveText('Resume Apply to Initech');
-  expect(await h.resume.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(PAPER);
-  await expect(tile(page, 'Apply to Initech').getByRole('button', { name: /^Resume/ })).toHaveCount(0);
+  await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-last')).toHaveText('last');
+  await expect(page.getByTestId('go-resume')).toHaveCount(0);
   await expect(tile(page, 'Apply to Acme').getByTestId('go-tile-line')).toHaveText(`waiting for a reply from Acme · since ${SINCE}`);
-  for (const name of ['Resume Practise drawing', 'Resume Apply to Acme']) {
-    const b = h.screen.getByRole('button', { name, exact: true });
-    await expect(b).toHaveText('Resume');
-    expect(await b.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  for (const name of ['Apply to Initech', 'Practise drawing', 'Apply to Acme']) {
+    const b = tileBody(page, name);
+    await expect(b).toHaveAccessibleName(new RegExp(`^Resume ${name}`));
+    expect(await b.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(PAPER);
   }
   // The retired verbs are nowhere, and Pause has no notice.
   await expect(h.screen.getByText(/\b(Stop|Switch)\b/)).toHaveCount(0);
@@ -43,14 +47,14 @@ test('J10-a (P-96; was: Pause opens the paused screen): Pause goes home — the 
 
 test('J10: Resume goes back to the step; Resume on another run opens that one, and Back from it is home', async ({ page }) => {
   await startGo(page, RUNS, 'runner');
-  await runner(page).pause.click();
-  await home(page).resume.click();
+  await pauseRun(page);
+  await tileBody(page, 'Apply to Initech').click();
   await expect(runner(page).words).toHaveText('Tailor the CV');
   await expect(page).toHaveURL(/\/go\/run\/r1$/);
   await expect(runner(page).note).toBeFocused();
 
-  await runner(page).pause.click();
-  await home(page).screen.getByRole('button', { name: 'Resume Practise drawing', exact: true }).click();
+  await pauseRun(page);
+  await tileBody(page, 'Practise drawing').click();
   await expect(runner(page).words).toHaveText('Warm-up lines');
   await expect(page).toHaveURL(/\/go\/run\/r3$/);
   await page.goBack();
@@ -61,20 +65,23 @@ test('J10: Resume goes back to the step; Resume on another run opens that one, a
   await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-line')).toHaveText('at Tailor the CV');
 });
 
-test('J10, P-95 (5): Pause asks nothing — no "Stop <name>?"; reopened, the app is home with the run first and its Resume filled', async ({ page }) => {
+test('J10, P-95 (5): Pause never confirms — no "Stop <name>?" (P-101: its sheet is "Pausing <name>", the note optional, Pause filled); reopened, the app is home with the run first, resumed by its tile', async ({ page }) => {
   await startGo(page, RUNS, 'runner');
   await runner(page).pause.click();
+  const sheet = await arrived(page, 'go-pause-sheet');
+  await expect(sheet).toHaveRole('dialog');
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
   await expect(page.getByText(/^Stop /)).toHaveCount(0);
+  await sheet.getByTestId('go-pause-confirm').click();
   await expect(home(page).screen).toBeVisible();
   await page.goto('./go');
   await expect(settled(page, 'home')).toBeVisible();
   await expect(home(page).tiles.first()).toHaveAccessibleName('Apply to Initech, paused at Tailor the CV');
-  await home(page).resume.click();
+  await tileBody(page, 'Apply to Initech').click();
   await expect(runner(page).words).toHaveText('Tailor the CV');
 });
 
-test('J35 (P-96; was: a reason typed on the paused screen): a stored reason reads on its tile, wrapped and never clipped, and in the panel after Resume until the first Next', async ({ page }) => {
+test('J35 (P-96; was: a reason typed on the paused screen): a stored reason reads on its tile, wrapped and never clipped, and after Resume — P-101 (ruling 3; was: "nothing about it on the runner\'s surface") on the runner under the path, and in the panel — until the first Next', async ({ page }) => {
   const LONG = 'waiting until the kids are asleep and the house is quiet enough to think about what the ad really asks for';
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused', reason: LONG }]);
   const t = tile(page, 'Apply to Initech');
@@ -88,29 +95,36 @@ test('J35 (P-96; was: a reason typed on the paused screen): a stored reason read
   expect(b.y + b.height).toBeLessThanOrEqual(tb.y + tb.height);
   expect(await reason.evaluate((e) => e.scrollWidth <= e.clientWidth + 1)).toBe(true);
 
-  await home(page).resume.click();
+  await tileBody(page, 'Apply to Initech').click();
   const r = runner(page);
   await expect(r.words).toHaveText('Tailor the CV');
-  // Nothing about it on the runner's surface.
-  await expect(r.screen.getByText(LONG)).toHaveCount(0);
+  await expect(r.reason).toHaveText(LONG);
   await r.handle.click();
   await expect(r.panel.getByTestId('go-panel-reason')).toHaveText(LONG);
   await page.keyboard.press('Escape');
   await r.next.click();
   await expect(r.words).toHaveText('Write the cover letter');
+  await expect(r.reason).toHaveCount(0);
   await r.handle.click();
   await expect(r.panel.getByTestId('go-panel-reason')).toHaveCount(0);
 });
 
-test('must-handle (two tabs; P-96: was the paused screen’s Resume): Pause pressed while reconnecting is kept and applied once — then home', async ({ page }) => {
+test('must-handle (two tabs; P-96: was the paused screen’s Resume): Pause pressed while reconnecting is kept and applied once — then home; P-101 (ruling 3): with a note typed it is refused and the sheet keeps the words', async ({ page }) => {
   await startGo(page, RUNS, 'runner');
   const r = runner(page);
   await setVisibility(page, 'hidden');
   await r.pause.click();
+  const sheet = await arrived(page, 'go-pause-sheet');
+  await sheet.getByTestId('go-pause-note').fill('back after lunch');
+  await sheet.getByTestId('go-pause-confirm').click();
+  await expect(sheet.getByTestId('go-pause-note')).toHaveValue('back after lunch');
+  await sheet.getByTestId('go-pause-note').fill('');
+  await sheet.getByTestId('go-pause-confirm').click();
+  await expect(page.getByTestId('go-pause-sheet')).toHaveCount(0);
   await expect(r.screen.getByTestId('go-notice')).toHaveText('Just a moment — reconnecting.');
   await expect(r.words).toHaveText('Tailor the CV');
   await setVisibility(page, 'visible');
-  await expect(home(page).resume).toHaveText('Resume Apply to Initech');
+  await expect(tileBody(page, 'Apply to Initech')).toHaveAccessibleName(/^Resume Apply to Initech/);
   await openGo(page);
   await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'paused');
 });

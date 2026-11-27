@@ -5,11 +5,15 @@
  * line opens the value sheet (where from, when, what reads it; filled Keep, Close leaves it). A step
  * reading a name nothing gave ASKS for it. A name a routine gives is its own (no collision). A new round
  * clears the values given after the divider. Values survive a reload and reach another tab.
+ *
+ * P-101 (rulings 6–7): a value is no longer typed in place — the step's field (it reads its label and its
+ * value) opens a sheet of its own, over the keyboard (`typeValue`); a Plan edit gives no notice (its Undo
+ * is the routine's menu); a notice goes at the next tap. Each rewrite says what it was.
  */
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, exported, home, plan, planMenu, RoutineSpec, runner, saved, setVisibility, startGo, tile, turn, anotherTab } from './goFixture';
+import { arrived, exported, home, openGo, pauseRun, plan, planMenu, RoutineSpec, runner, saved, seedGo, setVisibility, startGo, tile, tileBody, turn, typeValue, anotherTab } from './goFixture';
 
 const DRAWING: RoutineSpec = {
   id: 'draw',
@@ -32,11 +36,18 @@ const TESTING: RoutineSpec = {
 
 const run1 = (routine: string, at = 0) => [{ id: 'v1', routine, at, status: 'running' as const }];
 
-/** Types a value into the step's field (it keeps it as typed), then Next. */
+/** Gives a value — P-101 (ruling 7; was: typed into the step's field in place): in its sheet, Keep — then Next. */
 async function give(page: Page, name: string, value: string) {
   const r = runner(page);
-  await r.field(name).fill(value);
+  await typeValue(page, name, value);
   await r.next.click();
+}
+
+/** P-101: the Plan edit just made is undone from the routine's menu (Plan's edits give no notice). */
+async function undoInPlan(page: Page) {
+  await plan(page).screen.getByTestId('go-plan-more').click();
+  const menu = await arrived(page, 'go-plan-routine');
+  await menu.getByTestId('go-plan-undo').click();
 }
 
 test.describe('giving and reading (journey 3)', () => {
@@ -49,8 +60,9 @@ test.describe('giving and reading (journey 3)', () => {
     await expect(r.field('subject')).toHaveAccessibleName('subject');
     await expect(r.screen.getByText('subject', { exact: true })).toBeVisible();
     await expect(r.values).toHaveCount(0);
-    await r.field('subject').fill('figures in motion');
-    // Typing leaves no notice (ruling 4).
+    // P-101 (ruling 7; was: typed in place): its sheet; a first value leaves no notice (ruling 4).
+    await typeValue(page, 'subject', 'figures in motion');
+    await expect(r.field('subject')).toHaveAccessibleName('subject: figures in motion');
     await expect(r.notice).toHaveCount(0);
     await r.next.click();
     await expect(r.words).toHaveText('Find three reference photos of figures in motion');
@@ -99,10 +111,10 @@ test('asking (ruling 2): a step reading a name nothing gave asks for it there �
   await expect(r.words).toHaveText('Write to {person}');
   await expect(r.screen.getByTestId('go-value-blank')).toHaveText('{person}');
   await expect(r.field('person')).toHaveAccessibleName('asks person');
-  await r.field('person').fill('Ana');
+  await typeValue(page, 'person', 'Ana');
   await expect(r.words).toHaveText('Write to Ana');
-  // It keeps its field while the value is the one typed here.
-  await expect(r.field('person')).toHaveValue('Ana');
+  // It keeps its field while the value is the one typed here (P-101: the field reads it).
+  await expect(r.field('person')).toHaveAccessibleName('asks person: Ana');
   await r.next.click();
   await expect(r.words).toHaveText('Post it to Ana');
   await expect(r.fields).toHaveCount(0);
@@ -117,14 +129,14 @@ test('scope (ruling 2): a routine inside reads a name given above it, but a name
   const r = runner(page);
   await give(page, 'base', 'white');
   await give(page, 'colour', 'blue');
-  await expect(r.middle).toHaveText('Step in');
-  await r.middle.click();
+  await expect(r.stepIn).toHaveText('Step in');
+  await r.stepIn.click();
   await expect(r.words).toHaveText('Stir the white');
   await expect(r.context).toContainText('Mix the paint');
   await r.next.click();
   // Its own {colour}: an empty field, not blue.
   await expect(r.words).toHaveText('Choose the trim colour');
-  await expect(r.field('colour')).toHaveValue('');
+  await expect(r.field('colour')).toHaveAccessibleName('colour');
   await give(page, 'colour', 'gold');
   await expect(r.words).toHaveText('Mix gold');
   await r.next.click();
@@ -215,7 +227,7 @@ test('rounds (ruling 3): a new round asks again for what was given after "Repeat
   await r.next.click();
   // Round 2: Pick a feature again, its field empty; {device} still in play.
   await expect(r.words).toHaveText('Pick a feature');
-  await expect(r.field('feature')).toHaveValue('');
+  await expect(r.field('feature')).toHaveAccessibleName('feature');
   await expect(r.values).toHaveCount(1);
   await expect(r.values.first()).toHaveAccessibleName('device: phone');
   await r.next.click();
@@ -231,7 +243,7 @@ test('reload: the values and where they are survive; home shows the paused run w
   const r = runner(page);
   await expect(r.words).toHaveText('Find three reference photos of figures in motion');
   await expect(r.values.first()).toHaveAccessibleName('subject: figures in motion');
-  await r.pause.click();
+  await pauseRun(page);
   const h = home(page);
   await expect(h.screen).toBeVisible();
   const t = tile(page, 'Drawing practice');
@@ -241,7 +253,7 @@ test('reload: the values and where they are survive; home shows the paused run w
   await saved(page);
   await page.reload();
   await expect(tile(page, 'Drawing practice').getByTestId('go-value-in-place')).toHaveText('figures in motion');
-  await expect(home(page).resume).toHaveText('Resume Drawing practice');
+  await expect(tileBody(page, 'Drawing practice')).toHaveAccessibleName(/^Resume Drawing practice/);
 });
 
 test('two tabs: a value given in one is in the other once it takes the data back', async ({ page, context }) => {
@@ -269,7 +281,7 @@ test('two tabs: a value given in one is in the other once it takes the data back
 test.describe('Plan (journeys 1–2, ruling 5)', () => {
   const PLAIN: RoutineSpec = { id: 'draw', name: 'Drawing practice', steps: ['Select the subject matter', 'Find three reference photos', 'Rank your drawings'] };
 
-  test('Gives…: a sheet with the name suggested from the words; Gives <name> — the row says "gives {subject}", with Undo', async ({ page }) => {
+  test('Gives…: a sheet with the name suggested from the words; Gives <name> — the row says "gives {subject}", with Undo (P-101, ruling 6: no notice — the routine’s menu)', async ({ page }) => {
     await startGo(page, [], 'home', [PLAIN]);
     await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
     const p = plan(page);
@@ -281,8 +293,8 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     await expect(sheet.getByTestId('go-gives-apply')).toHaveText('Gives subject');
     await sheet.getByTestId('go-gives-apply').click();
     await expect(p.row('Select the subject matter').getByTestId('go-plan-gives')).toHaveText('gives {subject}');
-    await expect(p.notice).toContainText('gives {subject}');
-    await p.undo.click();
+    await expect(p.notice).toHaveCount(0);
+    await undoInPlan(page);
     await expect(p.screen.getByTestId('go-plan-gives')).toHaveCount(0);
   });
 
@@ -314,7 +326,9 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
 
   test('renaming a name renames it in the steps that read it (and in an open run), in one change with one Undo', async ({ page }) => {
     const GIVING: RoutineSpec = { ...PLAIN, steps: [{ text: 'Select the subject matter', gives: 'subject' }, 'Find three reference photos of {subject}', 'Rank your drawings'] };
-    await startGo(page, [{ id: 'v1', routine: 'draw', at: 1, status: 'paused', mode: 'plan', values: [{ name: 'subject', items: ['hands'], level: 0, seq: 'draw', item: 'draw-0', words: 'Select the subject matter', at: new Date().toISOString() }] }], 'plan', [GIVING]);
+    // (P-101, ruling 4: a run an earlier build left in Plan reads paused — home on reopening; its Plan by its address.)
+    await seedGo(page, [GIVING], [{ id: 'v1', routine: 'draw', at: 1, status: 'paused', mode: 'plan', values: [{ name: 'subject', items: ['hands'], level: 0, seq: 'draw', item: 'draw-0', words: 'Select the subject matter', at: new Date().toISOString() }] }]);
+    await openGo(page, 'plan', './go/run/v1/plan');
     const p = plan(page);
     await planMenu(page, 'Select the subject matter', 'Gives…');
     const sheet = await arrived(page, 'go-gives-sheet');
@@ -323,7 +337,11 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     await sheet.getByTestId('go-gives-apply').click();
     await expect(p.row('Select the subject matter').getByTestId('go-plan-gives')).toHaveText('gives {topic}');
     await expect(p.row('Find three reference photos of {topic}')).toHaveCount(1);
-    await expect(p.notice).toContainText('Renamed {subject} to {topic}');
+    // P-101 (ruling 6; was: the notice "Renamed …"): no notice; its Undo is the routine's menu.
+    await expect(p.notice).toHaveCount(0);
+    await p.screen.getByTestId('go-plan-more').click();
+    await expect((await arrived(page, 'go-plan-routine')).getByTestId('go-plan-undo')).toHaveText('Undo renamed {subject} to {topic}');
+    await page.keyboard.press('Escape');
     await p.forward.click();
     const r = runner(page);
     await expect(r.words).toHaveText('Find three reference photos of hands');
@@ -339,7 +357,11 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     const menu = await arrived(page, 'go-plan-menu');
     await expect(menu.getByRole('button', { name: 'Break it down', exact: true })).toHaveCount(0);
     await menu.getByRole('button', { name: 'Remove this step', exact: true }).click();
+    // P-101 amendment (ruling 11): it has a reader — asked first, naming it; the reader's words stay.
+    await expect(page.getByTestId('go-plan-removing')).toContainText('which 1 step reads');
+    await page.getByTestId('go-plan-remove').click();
     await expect(p.row('Find three reference photos of {subject}')).toHaveCount(1);
+    await expect(p.row('Find three reference photos of {subject}').getByTestId('go-name-chip')).toHaveText('asks {subject}');
     await p.forward.click();
     const r = runner(page);
     await expect(r.words).toHaveText('Find three reference photos of {subject}');
@@ -355,28 +377,34 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     const sheet = await arrived(page, 'go-gives-sheet');
     await sheet.getByRole('button', { name: 'Gives nothing', exact: true }).click();
     await expect(p.screen.getByTestId('go-plan-gives')).toHaveCount(0);
-    await expect(p.notice).toContainText('gives nothing');
+    // P-101 (ruling 6; was: the notice "… gives nothing"): its Undo is the routine's menu.
+    await expect(p.notice).toHaveCount(0);
     await p.screen.getByTestId('go-plan-more').click();
     const routine = await arrived(page, 'go-plan-routine');
+    await expect(routine.getByTestId('go-plan-undo')).toHaveText('Undo “Select the subject matter” gives nothing');
     await expect(routine.getByRole('button', { name: /Ends here/ })).toHaveCount(0);
   });
 });
 
 test.describe('fixes after the audit', () => {
-  test('F3 (ruling 4): typing over a filled value in the step’s own field and leaving it — "Changed {x}" with Undo, once; the Next that follows keeps the Undo', async ({ page }) => {
+  test('F3 (ruling 4): a filled value typed over in the step’s own field — "Changed {x}" with Undo, once — P-101 (rulings 6–7; was: typed in place, and "the Next that follows keeps the Undo"): kept from its sheet; the notice goes at the next tap', async ({ page }) => {
     await startGo(page, run1('draw'), 'runner', [DRAWING]);
     const r = runner(page);
     await give(page, 'subject', 'figures in motion');
     await r.handle.click();
     await r.panel.getByRole('button', { name: /^Back to/ }).click();
-    await expect(r.field('subject')).toHaveValue('figures in motion');
-    await r.field('subject').fill('hands');
+    await expect(r.field('subject')).toHaveAccessibleName('subject: figures in motion');
+    await r.field('subject').click();
+    const sheet = await arrived(page, 'go-entry-sheet');
+    await expect(sheet.getByTestId('go-entry-field')).toHaveValue('figures in motion');
+    await sheet.getByTestId('go-entry-field').fill('hands');
     // Per keystroke nothing is said.
     await expect(r.notice).toHaveCount(0);
-    await r.next.click();
-    await expect(r.words).toHaveText('Find three reference photos of hands');
+    await sheet.getByTestId('go-entry-keep').click();
     await expect(r.notice).toContainText('Changed {subject}');
     await r.notice.getByRole('button', { name: /^Undo/ }).click();
+    await expect(r.field('subject')).toHaveAccessibleName('subject: figures in motion');
+    await r.next.click();
     await expect(r.words).toHaveText('Find three reference photos of figures in motion');
   });
 
@@ -387,13 +415,13 @@ test.describe('fixes after the audit', () => {
     await give(page, 'feature', 'search');
     await r.next.click();
     await expect(r.words).toHaveText('Pick a feature');
-    await r.field('feature').fill('login');
+    await typeValue(page, 'feature', 'login');
     await r.handle.click();
     await r.panel.getByRole('button', { name: /^Back to/ }).click();
     await expect(r.notice).toContainText('Cleared {feature}');
     await r.notice.getByRole('button', { name: /^Undo/ }).click();
     await expect(r.words).toHaveText('Pick a feature');
-    await expect(r.field('feature')).toHaveValue('login');
+    await expect(r.field('feature')).toHaveAccessibleName('feature: login');
   });
 
   test('F5: a last step that is a wait reads Done — it ends the run', async ({ page }) => {

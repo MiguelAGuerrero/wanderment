@@ -254,10 +254,15 @@ export async function openGo(page: Page, lands: 'home' | 'runner' | 'plan' = 'ho
   await expect(settled(page, lands)).toBeVisible();
 }
 
-/** Seeds, then opens `/go`. */
+/**
+ * Seeds, then opens `/go`. P-101 (ruling 4): Plan is a view, not a state — a run an earlier build left in
+ * Plan (`mode: 'plan'`, on a step) reads paused and `/go` opens home; to land on its Plan, it is opened by
+ * its Plan's address (the run the app is on, else the first). A run at the edge still opens in Plan from `/go`.
+ */
 export async function startGo(page: Page, runs: RunSpec[] = [], lands: 'home' | 'runner' | 'plan' = 'home', routines: RoutineSpec[] = MAYA) {
   await seedGo(page, routines, runs);
-  await openGo(page, lands);
+  const left = lands === 'plan' && runs.some((r) => r.mode === 'plan' && r.at !== null) ? (runs.find((r) => r.status) ?? runs[0]) : undefined;
+  await openGo(page, lands, left ? `./go/run/${left.id}/plan` : './go');
 }
 
 /** The runner's parts. */
@@ -268,20 +273,23 @@ export const runner = (page: Page) => {
     note: screen.getByTestId('go-note'),
     words: screen.getByTestId('go-note-words'),
     next: screen.getByTestId('go-next'),
-    middle: screen.getByTestId('go-middle'),
-    /** P-96: ❚❚, bottom left — the run paused, and home. */
+    /** P-101 (ruling 2): the doors, at the top line's right — ❚❚ (opens "Pausing <name>") and Plan ("Plan <routine>" inside a call). */
     pause: screen.getByTestId('go-pause'),
-    /** P-96: the side doors' row (Pause · Plan / Step in). */
+    plan: screen.getByTestId('go-plan-door'),
     doors: screen.getByTestId('go-side-doors'),
+    /** P-101 (ruling 1): the moves, beside Next — Step in (the step has steps), Step out (not on the first layer). */
+    moves: screen.getByTestId('go-moves'),
+    stepIn: screen.getByTestId('go-step-in'),
+    stepOut: screen.getByTestId('go-step-out'),
+    /** P-101 (ruling 3): the pause note, on the way back in. */
+    reason: screen.getByTestId('go-runner-reason'),
     context: screen.getByTestId('go-context'),
     /** P-96: the values row (under the top line) and its values. */
     values: screen.getByTestId('go-value'),
-    /** P-96: the step's value fields (the giving step's; a step that asks). */
+    /** P-96: the step's value fields (the giving step's; a step that asks). P-101: each opens the entry sheet. */
     fields: screen.getByTestId('go-value-field'),
     field: (name: string) => screen.locator(`[data-testid="go-value-field"][data-name="${name}"]`),
     inPlace: screen.getByTestId('go-value-in-place'),
-    /** P-96: the panel's "Finish <level> now". */
-    finish: screen.getByTestId('go-finish'),
     handle: screen.getByTestId('go-handle'),
     panel: screen.getByTestId('go-panel'),
     notice: screen.getByTestId('go-notice'),
@@ -345,6 +353,30 @@ export async function planType(page: Page, text: string) {
   await field.press('Enter');
 }
 
+/** P-101 (ruling 5): a run's tile body — its way back in ("Resume <name>"). */
+export const tileBody = (page: Page, name: string) => tile(page, name).getByTestId('go-tile-body');
+
+/**
+ * P-101 (ruling 3): ❚❚ on the runner, its sheet ("Pausing <name>"), the note typed (optional), Pause:
+ * home opens. Without a note: Pause as it is (the stored reason, if any, stays prefilled).
+ */
+export async function pauseRun(page: Page, note?: string) {
+  await runner(page).pause.click();
+  const sheet = await arrived(page, 'go-pause-sheet');
+  if (note !== undefined) await sheet.getByTestId('go-pause-note').fill(note);
+  await sheet.getByTestId('go-pause-confirm').click();
+  await expect(settled(page, 'home')).toBeVisible();
+}
+
+/** P-101 (ruling 7): a value typed in its entry sheet (the step's field opens it), then Keep. */
+export async function typeValue(page: Page, name: string, text: string) {
+  await runner(page).field(name).click();
+  const sheet = await arrived(page, 'go-entry-sheet');
+  await sheet.getByTestId('go-entry-field').fill(text);
+  await sheet.getByTestId('go-entry-keep').click();
+  await expect(page.getByTestId('go-entry-sheet')).toHaveCount(0);
+}
+
 /** A tile on home, by its routine's name. */
 export const tile = (page: Page, name: string) => settled(page, 'home').getByTestId('go-tile').filter({ has: page.getByText(name, { exact: true }) });
 
@@ -360,13 +392,11 @@ export const home = (page: Page) => {
     /** P-96: + New, a side door (right). */
     newBtn: screen.getByTestId('go-new'),
     doors: screen.getByTestId('go-side-doors'),
-    /** P-96: the one filled button, lowest: "Resume <name>" for the run the app is on. */
-    resume: screen.getByTestId('go-resume'),
   };
 };
 
 /** A sheet or confirm, once it has arrived (it slides in unless Reduce Motion is on). */
-export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-new-sheet' | 'go-gives-sheet' | 'go-value-sheet'): Promise<Locator> {
+export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-new-sheet' | 'go-gives-sheet' | 'go-value-sheet' | 'go-pause-sheet' | 'go-entry-sheet'): Promise<Locator> {
   const sheet = page.getByTestId(testId);
   await expect(sheet).toHaveAttribute('data-moving', 'false');
   return sheet;
@@ -500,7 +530,19 @@ export async function expectApart(page: Page, parts: Record<string, Locator>) {
   const boxes: [string, { x: number; y: number; width: number; height: number }][] = [];
   for (const [name, l] of Object.entries(parts)) {
     if ((await l.count()) === 0) continue;
-    const b = await l.first().boundingBox();
+    // What can be seen of it: its box cut to every scrolling or clipping container it is in (P-101 audit F6:
+    // with little room the runner's column scrolls under its pinned moves — what is scrolled away covers nothing).
+    const b = await l.first().evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      let [x0, y0, x1, y1] = [r.left, r.top, r.right, r.bottom];
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        const o = getComputedStyle(p);
+        if (o.overflowX === 'visible' && o.overflowY === 'visible') continue;
+        const c = p.getBoundingClientRect();
+        [x0, y0, x1, y1] = [Math.max(x0, c.left), Math.max(y0, c.top), Math.min(x1, c.right), Math.min(y1, c.bottom)];
+      }
+      return { x: x0, y: y0, width: Math.max(0, x1 - x0), height: Math.max(0, y1 - y0) };
+    });
     if (b && b.width > 0 && b.height > 0) boxes.push([name, b]);
   }
   for (let i = 0; i < boxes.length; i++)
@@ -511,4 +553,36 @@ export async function expectApart(page: Page, parts: Record<string, Locator>) {
       expect(apart, `${an} and ${bn} overlap: ${JSON.stringify(a)} ${JSON.stringify(b)}`).toBe(true);
     }
   return boxes.map(([name]) => name);
+}
+
+/** "Undo <edit>", as the routine's menu says it: the edit's words, the first letter small. */
+const undoOf = (text: string) => `Undo ${text.charAt(0).toLowerCase()}${text.slice(1)}`;
+
+/**
+ * P-101 (ruling 6): a Plan edit gives no notice; its Undo is the routine's menu row, "Undo <edit>", while
+ * it is the last action. Checks both — no notice shown, the menu's Undo names `text` — and closes the menu.
+ */
+export async function expectEdit(page: Page, text: string) {
+  await expect(page.getByTestId('go-notice')).toHaveCount(0);
+  await plan(page).screen.getByTestId('go-plan-more').click();
+  const menu = await arrived(page, 'go-plan-routine');
+  await expect(menu.getByTestId('go-plan-undo')).toContainText(undoOf(text));
+  await menu.getByRole('button', { name: 'Close', exact: true }).last().click();
+  await expect(page.getByTestId('go-plan-routine')).toHaveCount(0);
+}
+
+/** P-101 (ruling 6): the last Plan edit taken back — from the routine's menu ("Undo <edit>"). */
+export async function undoEdit(page: Page) {
+  await plan(page).screen.getByTestId('go-plan-more').click();
+  const menu = await arrived(page, 'go-plan-routine');
+  await menu.getByTestId('go-plan-undo').click();
+  await expect(page.getByTestId('go-plan-routine')).toHaveCount(0);
+}
+
+/** P-101 (ruling 6): nothing to take back from Plan's menu (no edit is the last action). */
+export async function expectNoEdit(page: Page) {
+  await plan(page).screen.getByTestId('go-plan-more').click();
+  const menu = await arrived(page, 'go-plan-routine');
+  await expect(menu.getByTestId('go-plan-undo')).toHaveCount(0);
+  await menu.getByRole('button', { name: 'Close', exact: true }).last().click();
 }
