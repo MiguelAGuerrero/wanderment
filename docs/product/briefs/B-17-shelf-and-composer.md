@@ -1,12 +1,11 @@
 # B-17 — A library of ready-made routines, and adding one where you write
 
-**Status:** proposed, revised after its UI audit and persona panel · **Decision:** D-24 (to be added on
-main) · **Theme:** Reuse; Written by running · **Date:** 2026-11-27 · **Needs:** P-97 (My routines) and
-P-98 (routines as steps, for each); P-99 (In any order) for the templates
+**Status:** go (owner, 2026-11-27: "Go, after P-98") · **Decision:** D-24 · **Theme:** Reuse; Written
+by running · **Date:** 2026-11-27 · **Needs:** P-97 (My routines) and P-98 (routines as steps, for each);
+P-99 (In any order) for the templates
 
-_The first draft said "shelf" and "Take". The owner's word is "library" ("The library is a copy you
-own"), and DESIGN.md already has the verb for making your own version ("to vary, copy"), so this
-revision says **Library** and **Copy**. Both are a designer's ruling until the owner confirms them._
+_The first draft said "shelf" and "Take". The owner confirmed **Library** and **Copy** (2026-11-27):
+"library" is the owner's word, and DESIGN.md already has the verb ("to vary, copy")._
 
 ## The problem, in the owner's terms
 "It's kind of hard to apply every method and have that in your head while you're doing something … what
@@ -265,12 +264,12 @@ outside view, Check a source), which tests whether the methods are worth having 
   accidental copy; the owner's own reach was "@".
 - **Descriptions and evidence on screen.** Refused by minimalism.
 
-## Questions for the owner
-1. **The words:** "Library" and "Copy" (proposed), or other words?
-2. **Order:** the library after P-98, whole (proposed), or a small one straight after P-97?
-3. **Practitioner conventions** in the library, labelled only in the repository? Proposed: yes.
-4. **Wait steps in library routines** ("Test a guess" has one; DESIGN.md says nothing makes a new
-   one). Proposed: none, so it stays out.
+## Answered by the owner (2026-11-27)
+1. **When:** "Go, after P-98". The library ships whole once routines can be called.
+2. **The words:** "Library and Copy".
+3. **The composer:** library methods are offered "Only when summoned" ("@" or Add's "a routine").
+4. **Contents:** "Conventions in, waits out". Practitioner conventions are included and labelled in the
+   repository; no library routine contains a wait step, so "Test a guess" stays out.
 
-## Decision requested
-**D-24:** Build B-17, slice 1 after P-98? **Go** / **Go, but change …** / **Not now** / **No**.
+## Decision
+**D-24:** answered 2026-11-27 by the owner: **go**, slice 1 after P-98.
