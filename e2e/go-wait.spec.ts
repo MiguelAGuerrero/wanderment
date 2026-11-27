@@ -12,7 +12,7 @@
  * J36-a/b/c and J36-f are rewritten below (each says what it was).
  */
 import { expect, test } from './fixtures';
-import { addStep, arrived, closeMenu, expectEdit, expectRemoved, expectSteps, home, menuItems, pauseRun, place, plan, planMenu, planMove, planType, runner, startGo, tile, tileBody, sinceDate, undoEdit } from './goFixture';
+import { addStep, arrived, closeMenu, expectEdit, expectRemoved, expectSteps, home, menuItems, pauseRun, place, plan, planMenu, planMove, planType, runner, startGo, tile, tileBody, sinceDate, undoEdit, planFromRoutines } from './goFixture';
 
 /** A wait seeded nine days ago reads its date (within the last week it would be a day's name). */
 const SINCE = sinceDate(9);
@@ -140,7 +140,8 @@ test('J34-h: the same wait at 200 % (a 195×422 window stands in for it) — the
 // moved (Alt+↑) and removed, each with Undo; a new step can't be made a wait.
 test('J36-a, J36-b, J36-c (P-102): a wait stored in a routine shows in Plan among the steps; it can be reworded, moved and removed, each with Undo; nothing makes a new one', async ({ page }) => {
   await startGo(page, []);
-  await home(page).screen.getByRole('button', { name: 'Plan Apply to Acme', exact: true }).click();
+  // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+  await planFromRoutines(page, 'Apply to Acme');
   const p = plan(page);
   await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker']);
   await expect(p.row('a reply from Acme')).toHaveAttribute('data-kind', 'wait');

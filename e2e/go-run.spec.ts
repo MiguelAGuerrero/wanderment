@@ -173,9 +173,9 @@ test('J04-j, §3.6, P-96 (ruling 7; was: Next, then "Finished <name>"): on the l
   await expect(runner(page).next).toHaveText('Done');
   await runner(page).next.click();
   await expect(home(page).notice).toContainText('Done with Apply to Initech');
-  await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'idle');
+  await expect(tile(page, 'Apply to Initech')).toHaveCount(0); // P-97 (was: its tile, idle): ended, it leaves home — it is on My routines
   await expectFinal(page, 'Apply to Initech');
-  await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'idle');
+  await expect(tile(page, 'Apply to Initech')).toHaveCount(0); // P-97 (was: its tile, idle): ended, it leaves home — it is on My routines
 });
 
 test('must-handle (two tabs, offline): Next pressed while reconnecting is kept, says so, and is applied once the data is back', async ({ page }) => {

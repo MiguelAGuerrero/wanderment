@@ -3,7 +3,8 @@
 **Not what you have to do. How you do it.** A personal runbook: you keep your own ways of doing
 things — routines, in your words — and run them one small step at a time.
 
-Pick a routine, or make one with + New, and run it: one step on screen. The bottom row is the moves,
+Pick a routine on **My routines** — every one, A–Z, with Find and tags you type on a routine and tap to
+filter — or make one with + New, and run it: one step on screen. The bottom row is the moves,
 as in a debugger — Step in (the step has steps), Step out (leave this level), and Next (Done on the step
 that finishes the run); the top line is where you are, with ❚❚ Pause and Plan beside it. A step can
 **give** a value — "Select the subject matter" gives `{subject}` — that later steps use in their words;
@@ -13,8 +14,9 @@ from. Planning has its own view, Plan, which looks nothing like running: the who
 are added, reworded, moved (drag a row by its grip, or use its menu), removed, broken into smaller ones
 and made to repeat — changes there change the routine, each with an Undo in the routine's menu — and
 "Resume at <step>" takes you back exactly where you were. Pause asks for an optional note, puts the run
-down and goes home, where every run keeps its place, the one touched last says "last", and tapping a
-run's tile picks it up again (its note with it). A run can be started over, whole or from the level
+down and goes home, which shows only what is in motion — **Ongoing** (a routine that repeats until you're
+done) and **Finishing** (one with an end) — where every run keeps its place, the one touched last says
+"last", and tapping a run's tile picks it up again (its note with it). A run can be started over, whole or from the level
 you are in. A routine can repeat until you're done, or a set number of times; a run can wait on
 something outside your hands and be picked up later, where you left it. Nothing counts what you did or shows how much is left; there are no deadlines, streaks or
 notifications.
@@ -57,10 +59,10 @@ npm run e2e        # Playwright end-to-end tests against the built web app
 
 | Path | What lives there |
 |---|---|
-| `src/domain/` | Pure TypeScript: the execution engine (`run.ts`: a run plus a verb gives the next run), the views the screens read (`runView.ts`), values in words (`values.ts`), the search the retired prompt used (`starts.ts`), backup and migration. No React. Unit-tested. |
+| `src/domain/` | Pure TypeScript: the execution engine (`run.ts`: a run plus a verb gives the next run), the views the screens read (`runView.ts`; My routines and home's groups, `routines.ts`; tags, `tags.ts`), values in words (`values.ts`), the search the retired prompt used (`starts.ts`), backup and migration. No React. Unit-tested. |
 | `src/store/` | Zustand store: data, actions, notices, single-step undo. |
 | `src/storage/` | SQLite schema and migrations, the repository, persistence with a write-ahead journal on web, the localStorage fallback, tab hand-over. |
-| `src/app/go/`, `src/components/go/` | The screens: home (tiles that resume, + New), the runner (moves, Pause's sheet, values, the entry and value sheets), Plan (with Gives…, the names bar and Insert), Jump to…, Settings. |
+| `src/app/go/`, `src/components/go/` | The screens: home (the runs going, Ongoing and Finishing; My routines, + New), My routines (A–Z, Find, tags; the Tags sheet), the runner (moves, Pause's sheet, values, the entry and value sheets), Plan (with Gives…, the names bar and Insert), Jump to…, Settings. |
 | `src/pwa/` | Service-worker registration and update detection (web only). |
 | `public/` | Web HTML template, PWA manifest and icons. |
 | `e2e/` | Playwright specs and a static server that mimics GitHub Pages. |

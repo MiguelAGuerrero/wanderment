@@ -8,7 +8,7 @@
  * Gives… on another step turns them back; one Undo restores the step and its gives.
  */
 import { expect, test } from './fixtures';
-import { arrived, expectEdit, expectRemoved, home, phoneKeyboard, plan, planMenu, RoutineSpec, runner, saved, exported, setVisibility, startGo, tile, undoEdit } from './goFixture';
+import { arrived, expectEdit, expectRemoved, home, phoneKeyboard, plan, planMenu, RoutineSpec, runner, saved, exported, setVisibility, startGo, tile, undoEdit, planFromRoutines } from './goFixture';
 
 const DRAWING: RoutineSpec = { id: 'draw', name: 'Drawing practice', steps: ['Select the subject matter', 'Warm up', 'Find photos of {subject}', { routine: 'sketch' }, 'Rank your drawings'] };
 const SKETCH: RoutineSpec = { id: 'sketch', name: 'Sketch', home: false, steps: [{ text: 'Pick a pencil', gives: 'pencil' }, 'Draw with the {pencil}'] };
@@ -125,7 +125,8 @@ for (const size of [
     test('(11) removing a giving step with readers: asked first, naming them; then their names are a dashed "asks {x}" and the runner asks; Gives… on another step, or Undo, turns them back', async ({ page }) => {
       const GIVING: RoutineSpec = { ...DRAWING, steps: [{ text: 'Select the subject matter', gives: 'subject' }, 'Warm up', 'Find photos of {subject}', 'Rank {subject} drawings'] };
       await startGo(page, [], 'home', [GIVING, SKETCH]);
-      await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
+      // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+      await planFromRoutines(page, 'Drawing practice');
       const p = plan(page);
       await expect(p.screen.locator('[data-testid="go-name-chip"][data-asks="true"]')).toHaveCount(0);
       await planMenu(page, 'Select the subject matter', 'Remove');

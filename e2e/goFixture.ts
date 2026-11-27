@@ -25,6 +25,8 @@ export interface RoutineSpec {
   home?: boolean;
   /** Days ago it was first made: the tiles' fixed order (default: in the order given). */
   madeDaysAgo?: number;
+  /** P-97: its tags, as stored (no "#"). */
+  tags?: string[];
 }
 
 export interface RunSpec {
@@ -81,6 +83,7 @@ export function goBackup(routines: RoutineSpec[], runs: RunSpec[] = [], now = Da
       ...(r.repeat !== undefined && { repeat: r.repeat }),
       open: r.open ?? true,
       home: r.home ?? true,
+      ...(r.tags && { tags: r.tags }),
     };
   });
   const outRuns: Record<string, unknown> = {};
@@ -177,7 +180,7 @@ export async function seedGo(page: Page, routines: RoutineSpec[], runs: RunSpec[
 export interface Stored {
   threads: Record<string, { id: string; name: string; hidden: boolean; next?: string; declaredAt?: string }>;
   activities: Record<string, { id: string; text: string; note?: string; doingId?: string; toIds: string[]; lit?: true; settledAt?: string }>;
-  routines: Record<string, { id: string; words: string; named?: boolean; items?: { id: string; text?: string; wait?: string; ref?: string }[]; repeatFrom?: number; repeat?: number; open?: boolean }>;
+  routines: Record<string, { id: string; words: string; named?: boolean; home?: boolean; tags?: string[]; [field: string]: unknown; items?: { id: string; text?: string; wait?: string; ref?: string }[]; repeatFrom?: number; repeat?: number; open?: boolean }>;
   runs: Record<string, { id: string; routineId: string; status?: string; mode?: string; endedAt?: string; frames?: { seq: string; at: string | null; round: number }[]; changes?: unknown[]; values?: { name: string; items: string[]; level: number; seq: string; item: string; words?: string; at: string; changedAt?: string }[] }>;
 }
 
@@ -246,7 +249,7 @@ export async function openAndRun(page: Page, words: string, step?: string) {
 }
 
 /** A `/go` screen by its test id, once it has nothing left to load or move. */
-export const settled = (page: Page, screen: 'home' | 'runner' | 'plan' | 'jump' | 'settings'): Locator => page.locator(`[data-testid="go-${screen}"][data-settled="true"]`).filter({ visible: true });
+export const settled = (page: Page, screen: 'home' | 'runner' | 'plan' | 'jump' | 'settings' | 'routines'): Locator => page.locator(`[data-testid="go-${screen}"][data-settled="true"]`).filter({ visible: true });
 
 /** Opens `/go` (it goes where you left off) and waits for the screen it lands on. */
 export async function openGo(page: Page, lands: 'home' | 'runner' | 'plan' = 'home', path = './go') {
@@ -308,6 +311,10 @@ export const plan = (page: Page) => {
     band: screen.getByTestId('go-plan-band'),
     word: screen.getByTestId('go-plan-word'),
     home: screen.getByTestId('go-plan-home'),
+    /** P-97: Plan opened from My routines — its way out, top-left in Home's place, back there. */
+    toRoutines: screen.getByTestId('go-plan-to-routines'),
+    /** P-97: its tags, under the heading. */
+    tags: screen.getByTestId('go-plan-tags'),
     /** P-103 (3): Plan opened from the runner — its way out, top-left in Home's place, "Back to the run". */
     back: screen.getByTestId('go-plan-back'),
     done: screen.getByTestId('go-plan-done'),
@@ -374,7 +381,7 @@ export async function planMenu(page: Page, words: string, action: string) {
 export const menuItems = (menu: Locator) => menu.locator('[role="menuitem"]:not([data-sr-close])');
 
 /** P-102: a menu or the divider's small dialog put away without choosing (Esc), and gone. */
-export async function closeMenu(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-plan-reorder' | 'go-tile-menu') {
+export async function closeMenu(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-plan-reorder' | 'go-tile-menu' | 'go-routine-menu') {
   await page.keyboard.press('Escape');
   await expect(page.getByTestId(testId)).toHaveCount(0);
 }
@@ -437,11 +444,64 @@ export const home = (page: Page) => {
     /** P-96: + New, a side door (right). */
     newBtn: screen.getByTestId('go-new'),
     doors: screen.getByTestId('go-side-doors'),
+    /** P-97: My routines, the left side door (once there is a routine). */
+    routinesBtn: screen.getByTestId('go-my-routines'),
+    /** P-97: Ongoing and Finishing, each with its heading and its tiles. */
+    group: (which: 'ongoing' | 'finishing') => screen.locator(`[data-testid="go-home-group"][data-group="${which}"]`),
+    headings: screen.getByTestId('go-home-heading'),
+    /** P-97: routines, but nothing going. */
+    idle: screen.getByTestId('go-home-idle'),
   };
 };
 
+/** P-97: My routines' parts. A row is found by its routine's name. */
+export const routines = (page: Page) => {
+  const screen = settled(page, 'routines');
+  const rows = screen.getByTestId('go-routine-row');
+  return {
+    screen,
+    title: screen.getByRole('heading', { level: 1 }),
+    /** The one way out, top-left. */
+    home: screen.getByTestId('go-routines-home'),
+    find: screen.getByTestId('go-routines-find'),
+    tags: screen.getByTestId('go-routines-tag'),
+    tag: (t: string) => screen.getByRole('button', { name: `#${t}`, exact: true }),
+    letters: screen.getByTestId('go-routines-letter'),
+    rows,
+    names: screen.getByTestId('go-routine-name'),
+    row: (name: string) => rows.filter({ has: page.getByTestId('go-routine-name').getByText(name, { exact: true }) }),
+    more: (name: string) => screen.getByRole('button', { name: `More for ${name}`, exact: true }),
+    empty: screen.getByTestId('go-routines-empty'),
+    none: screen.getByTestId('go-routines-none'),
+    newBtn: screen.getByTestId('go-routines-new'),
+    notice: screen.getByTestId('go-notice'),
+  };
+};
+
+/** P-97: My routines, from home's left side door. */
+export async function openRoutines(page: Page) {
+  await home(page).routinesBtn.click();
+  await expect(settled(page, 'routines')).toBeVisible();
+  return routines(page);
+}
+
+/** P-97 (was: an idle tile's Plan): a routine's Plan, from its row on My routines (opened from home). */
+export async function planFromRoutines(page: Page, name: string) {
+  const r = await openRoutines(page);
+  await r.row(name).getByTestId('go-routine-body').click();
+  await expect(plan(page).title).toHaveText(name);
+}
+
+/** P-97 (was: an idle tile's Start): Start on a routine's row on My routines (opened from home) — its ··· → Start; the runner opens. */
+export async function startFromRoutines(page: Page, name: string) {
+  const r = await openRoutines(page);
+  await r.more(name).click();
+  await (await arrived(page, 'go-routine-menu')).getByRole('menuitem', { name: `Start ${name}`, exact: true }).click();
+  await expect(settled(page, 'runner')).toBeVisible();
+}
+
 /** A sheet or confirm, once it has arrived (it slides in unless Reduce Motion is on). */
-export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-plan-reorder' | 'go-tile-menu' | 'go-new-sheet' | 'go-gives-sheet' | 'go-value-sheet' | 'go-pause-sheet' | 'go-entry-sheet'): Promise<Locator> {
+export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-plan-reorder' | 'go-tile-menu' | 'go-new-sheet' | 'go-gives-sheet' | 'go-value-sheet' | 'go-pause-sheet' | 'go-entry-sheet' | 'go-routine-menu' | 'go-tags-sheet'): Promise<Locator> {
   const sheet = page.getByTestId(testId);
   await expect(sheet).toHaveAttribute('data-moving', 'false');
   return sheet;

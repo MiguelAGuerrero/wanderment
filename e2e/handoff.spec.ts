@@ -2,7 +2,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { addStep, anotherTab, arrived, exported, home, plan, RoutineSpec, runner, saved, setVisibility, settled, startGo, turn, typeValue } from './goFixture';
+import { addStep, anotherTab, arrived, exported, home, plan, RoutineSpec, runner, saved, setVisibility, settled, startGo, turn, typeValue, planFromRoutines, openRoutines } from './goFixture';
 
 /**
  * P-29 part B: a page holds the data only while it's visible. Headless Chromium keeps every page
@@ -53,7 +53,8 @@ const spanishSteps = async (page: Page) => ((await exported(page)).routines['spa
 
 /** Opens a routine's Plan from its tile on the home, and "Change the name": gives the field its name is typed in, in place. */
 async function nameOf(page: Page, name: string) {
-  await home(page).screen.getByRole('button', { name: `Plan ${name}`, exact: true }).click();
+  // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+  await planFromRoutines(page, name);
   await plan(page).more(name).click();
   await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Change the name', exact: true }).click();
   const field = plan(page).typed;
@@ -108,7 +109,9 @@ test('a hidden page lets a waiting one open by itself; shown again, it takes the
   await saved(page);
   // And A shows what B changed.
   await page.goBack();
-  await expect(home(page).tiles.filter({ hasText: 'Practise drawing daily' })).toHaveCount(1);
+  // P-97 (was: its tile on home): a routine with nothing going is on My routines.
+  await expect(home(page).screen).toBeVisible();
+  await expect((await openRoutines(page)).row('Practise drawing daily')).toHaveCount(1);
   // (B to the background first: opening Settings by its address loads the page, and a visible, waiting B would take the data.)
   await turn(b, 'hidden');
   expect(await spanishSteps(page)).toEqual(['half-typed in A', 'and one more']);

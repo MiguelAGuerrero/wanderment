@@ -18,6 +18,35 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — One name, given more than once, is one list (relayed)
+On whether two calls giving the same name are renamed or collected, the owner answered the recommendation
+to collect: "Proceed with that".
+Led to: P-98 and P-99 Done when amended.
+
+## 2026-11-27 — A step owes what its insides give (relayed)
+"there is a concern of routines having children that produce values and they aren't represented in the
+parental context itself … if I laid down break it down and there's a sub that produces the value, if I
+choose not to step into a function, those [values] need to be supplied somewhere, and it would have to be
+supplied at the top level call, like hoisting up the return types of its children, because … any routine
+[may depend] on the value that a sub [step] produces"
+Led to: P-98 Done when amended (B-16 "A step owes what its insides give").
+
+## 2026-11-27 — Functional style; recursion; a for each declares its own list (relayed)
+"I'm more in style of a functional style approach … where you just kind of regenerate the list … so we
+don't have to necessarily support write operations." "there has to be a way for something like research
+question. If question produce question, research this question … It generates itself, like recursive
+calls. That way the user doesn't ahead of time … have to state they're going to encounter these things,
+but they're accounted for in the procedure." "maybe there's better UX to have a for each loop declare its
+own values, like locally … I think it's design." "Make the amendments".
+Led to: P-98 Done when amended (B-16).
+
+## 2026-11-27 — "You were supposed to implement it all"
+"I refreshed and I see no semblance of a work queue at all" — then: "You were supposed to implement it all"
+Interpretation (ours): the owner expected every designed batch to be built, not one at a time with
+stops. From here P-97 → P-98 → P-99 → P-100 are built back to back without stopping between them
+(each still scouted, tested, audited and verified), reporting as each lands.
+Led to: P-97 started.
+
 ## 2026-11-27 — A neutral name for now; Settings still says the old name
 "A neutral placeholder, or you can offer a suggestion. Also, notice that the settings of the app still
 reference Wonders, and that has to be updated."

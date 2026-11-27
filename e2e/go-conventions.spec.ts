@@ -6,7 +6,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, exported, home, openGo, openSettings, chooseBackup, pauseRun, plan, planMenu, RoutineSpec, runner, saved, settled, startGo, tile, tileBody } from './goFixture';
+import { arrived, exported, home, openGo, openRoutines, openSettings, chooseBackup, pauseRun, plan, planFromRoutines, planMenu, routines, RoutineSpec, runner, saved, settled, startFromRoutines, startGo, tile, tileBody } from './goFixture';
 
 const TEA: RoutineSpec = { id: 'tea', name: 'Make tea', steps: ['Boil the water', 'Pour it over the leaves'] };
 const OUTER: RoutineSpec = { id: 'apply', name: 'Apply to Initech', steps: ['Read the job ad twice', { routine: 'proof' }, 'Send the application'] };
@@ -103,7 +103,8 @@ test.describe('(1, audit F1) a quick second tap after Resume never ends the run'
 test.describe('(11, audit F3/F4) the names picker opens only at a word start and Return is the person’s choice', () => {
   test('"me@co" and "json {" add literally; the caret moved away closes it; a name put in after a word gets a space before it', async ({ page }) => {
     await startGo(page, [], 'home', [DOUBTS]);
-    await tile(page, 'Improve my workout routine').getByRole('button', { name: 'Plan Improve my workout routine', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Improve my workout routine');
     const p = plan(page);
     await p.add.click();
     await p.add.pressSequentially('Write to me@co');
@@ -198,19 +199,18 @@ test.describe('(3) Plan opened from the runner', () => {
 });
 
 test.describe('(4) a paused tile shows a visible Resume', () => {
-  test('"Resume" in words where Start sits on an idle tile; it and the body both resume', async ({ page }) => {
+  test('"Resume" in words where Start sat on an idle tile (P-97: idle tiles are gone — the first control of the foot, at its left, before Plan); it and the body both resume', async ({ page }) => {
     await startGo(page, [{ id: 'r', routine: 'tea', at: 1, status: 'paused' }], 'home', [TEA, HANDS]);
     const resume = tile(page, 'Make tea').getByTestId('go-tile-resume');
     await expect(resume).toHaveText('Resume');
     await expect(resume).toHaveAccessibleName('Resume Make tea');
     const rb = await box(resume);
     expect(rb.height).toBeGreaterThanOrEqual(48);
-    // In the place Start has on an idle tile: the first control of the tile's foot, at its left.
-    const start = tile(page, 'Hand studies').getByRole('button', { name: 'Start Hand studies', exact: true });
-    const sb = await box(start);
+    // P-97 (was: in the place Start had on an idle tile beside it): the first control of the tile's foot, at its left, Plan after it.
     const tb = await box(tile(page, 'Make tea'));
-    const ib = await box(tile(page, 'Hand studies'));
-    expect(Math.abs(rb.x - tb.x - (sb.x - ib.x))).toBeLessThanOrEqual(2);
+    const pb = await box(tile(page, 'Make tea').getByRole('button', { name: 'Plan Make tea', exact: true }));
+    expect(rb.x - tb.x).toBeLessThanOrEqual(16);
+    expect(rb.x).toBeLessThan(pb.x);
     await resume.click();
     await expect(runner(page).words).toHaveText('Pour it over the leaves');
     await pauseRun(page);
@@ -222,7 +222,8 @@ test.describe('(4) a paused tile shows a visible Resume', () => {
 test.describe('(5) removing says so', () => {
   test('removing a step shows a notice with a labelled Undo, which brings it back', async ({ page }) => {
     await startGo(page, [], 'home', [TEA]);
-    await tile(page, 'Make tea').getByRole('button', { name: 'Plan Make tea', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Make tea');
     const p = plan(page);
     await planMenu(page, 'Boil the water', 'Remove');
     await expect(p.row('Boil the water')).toHaveCount(0);
@@ -233,9 +234,10 @@ test.describe('(5) removing says so', () => {
     await expect(p.row('Boil the water')).toHaveCount(1);
   });
 
-  test('removing a routine asks first; Cancel keeps it; Remove takes it off home with Undo', async ({ page }) => {
+  test('removing a routine asks first; Cancel keeps it; Remove takes it off My routines (P-97; was: off home) with Undo', async ({ page }) => {
     await startGo(page, [], 'home', [TEA, HANDS]);
-    await tile(page, 'Make tea').getByRole('button', { name: 'Plan Make tea', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Make tea');
     const ask = async () => {
       await plan(page).screen.getByTestId('go-plan-more').click();
       const menu = await arrived(page, 'go-plan-routine');
@@ -249,17 +251,20 @@ test.describe('(5) removing says so', () => {
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
     await expect(plan(page).title).toHaveText('Make tea');
     dialog = await ask();
+    // P-97 (was: "It goes from home, with its steps."): it is on My routines now.
+    await expect(dialog.getByTestId('go-confirm-body')).toHaveText('It goes from My routines, with its steps.');
     await dialog.getByRole('button', { name: 'Remove', exact: true }).click();
-    await expect(settled(page, 'home')).toBeVisible();
-    await expect(tile(page, 'Make tea')).toHaveCount(0);
-    await expect(home(page).notice).toContainText('Removed “Make tea”');
-    await home(page).notice.getByRole('button', { name: /^Undo/ }).click();
-    await expect(tile(page, 'Make tea')).toHaveCount(1);
+    // P-97 (was: home): its Plan was opened from My routines — the screen goes back there, with the notice.
+    await expect(settled(page, 'routines')).toBeVisible();
+    await expect(routines(page).row('Make tea')).toHaveCount(0);
+    await expect(routines(page).notice).toContainText('Removed “Make tea”');
+    await routines(page).notice.getByRole('button', { name: /^Undo/ }).click();
+    await expect(routines(page).row('Make tea')).toHaveCount(1);
   });
 });
 
 test.describe('(6) a paused run can be ended from its tile', () => {
-  test('··· → "End this run" asks first; End ends it (final), the routine stays to Start, across a reload', async ({ page }) => {
+  test('··· → "End this run" asks first; End ends it (final), the routine stays to Start (P-97: on My routines; was: its tile, idle), across a reload', async ({ page }) => {
     await startGo(page, [{ id: 'r', routine: 'tea', at: 1, status: 'paused' }], 'home', [TEA]);
     await tile(page, 'Make tea').getByTestId('go-tile-more').click();
     const menu = await arrived(page, 'go-tile-menu');
@@ -272,12 +277,18 @@ test.describe('(6) a paused run can be ended from its tile', () => {
     await (await arrived(page, 'go-tile-menu')).getByRole('menuitem', { name: /^End this run/ }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'End this run', exact: true }).click();
     await expect(page.getByRole('alertdialog')).toHaveCount(0);
-    await expect(tile(page, 'Make tea')).toHaveAttribute('data-state', 'idle');
+    // P-97 (was: its tile, idle): ended, it leaves home.
+    await expect(tile(page, 'Make tea')).toHaveCount(0);
     await expect(home(page).notice).toContainText('Done with Make tea');
     await expect(home(page).notice.getByRole('button', { name: /Undo/ })).toHaveCount(0);
     await saved(page);
     await page.reload();
-    await expect(tile(page, 'Make tea')).toHaveAttribute('data-state', 'idle');
+    await expect(tile(page, 'Make tea')).toHaveCount(0);
+    // It stays to Start — from My routines.
+    const list = await openRoutines(page);
+    await list.more('Make tea').click();
+    await expect((await arrived(page, 'go-routine-menu')).getByRole('menuitem', { name: 'Start Make tea', exact: true })).toBeEnabled();
+    await page.keyboard.press('Escape');
     const stored = (await exported(page)).runs.r;
     expect(stored.endedAt).toBeTruthy();
     expect(stored.frames).toEqual([{ seq: 'tea', at: 'tea-1', round: 1 }]);
@@ -295,7 +306,7 @@ test.describe('(6, audit F5/F6) End this run is for a paused run only, and keeps
     await tile(page, 'Make tea').getByTestId('go-tile-more').click();
     await (await arrived(page, 'go-tile-menu')).getByRole('menuitem', { name: /^End this run/ }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'End this run', exact: true }).click();
-    await expect(tile(page, 'Make tea')).toHaveAttribute('data-state', 'idle');
+    await expect(tile(page, 'Make tea')).toHaveCount(0); // P-97 (was: its tile, idle): ended, it leaves home
     await saved(page);
     const stored = (await exported(page)).runs.r as { endedAt?: string; reason?: string };
     expect(stored.endedAt).toBeTruthy();
@@ -304,44 +315,50 @@ test.describe('(6, audit F5/F6) End this run is for a paused run only, and keeps
 });
 
 test.describe('(7) removing a nested routine’s row never strands that routine', () => {
-  test('the routine it used gets its tile on home, and keeps it across a reload', async ({ page }) => {
+  // P-97 (was: "gets its tile on home"): every named routine is on My routines, so nothing can be stranded; the
+  // stored mark P-103 gives it ("home") is still written, in the same write.
+  test('the routine it used stays on My routines (and gets P-103’s stored mark), across a reload', async ({ page }) => {
     await startGo(page, [], 'home', [OUTER, PROOF]);
-    await expect(tile(page, 'Proofread out loud')).toHaveCount(0);
-    await tile(page, 'Apply to Initech').getByRole('button', { name: 'Plan Apply to Initech', exact: true }).click();
+    await expect((await openRoutines(page)).row('Proofread out loud')).toHaveCount(1);
+    await routines(page).row('Apply to Initech').getByTestId('go-routine-body').click();
     await planMenu(page, 'Proofread out loud', 'Remove');
     await expect(plan(page).row('Proofread out loud')).toHaveCount(0);
-    await plan(page).home.click();
-    await expect(tile(page, 'Proofread out loud')).toHaveCount(1);
+    await plan(page).toRoutines.click();
+    await expect(routines(page).row('Proofread out loud')).toHaveCount(1);
     await saved(page);
-    await page.reload();
-    await expect(tile(page, 'Proofread out loud')).toHaveCount(1);
+    expect((await exported(page)).routines.proof).toMatchObject({ home: true });
+    await openGo(page);
+    await expect((await openRoutines(page)).row('Proofread out loud')).toHaveCount(1);
   });
 });
 
 test.describe('(7, after build) removing a whole routine never strands a routine only it used', () => {
-  test('the routine it used gets its tile on home; Undo takes both back; it stays across a reload', async ({ page }) => {
+  test('the routine it used stays on My routines (P-97; was: gets its tile on home); Undo takes the removal back; it stays across a reload', async ({ page }) => {
     await startGo(page, [], 'home', [OUTER, PROOF, TEA]);
-    await expect(tile(page, 'Proofread out loud')).toHaveCount(0);
-    await tile(page, 'Apply to Initech').getByRole('button', { name: 'Plan Apply to Initech', exact: true }).click();
+    await planFromRoutines(page, 'Apply to Initech');
     await plan(page).screen.getByTestId('go-plan-more').click();
     await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Remove Apply to Initech', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Remove', exact: true }).click();
-    await expect(settled(page, 'home')).toBeVisible();
-    await expect(tile(page, 'Apply to Initech')).toHaveCount(0);
-    await expect(tile(page, 'Proofread out loud')).toHaveCount(1);
-    await home(page).notice.getByRole('button', { name: /^Undo/ }).click();
-    await expect(tile(page, 'Apply to Initech')).toHaveCount(1);
-    await expect(tile(page, 'Proofread out loud')).toHaveCount(0);
-    // Removed again: across a reload, still reachable.
-    await tile(page, 'Apply to Initech').getByRole('button', { name: 'Plan Apply to Initech', exact: true }).click();
-    await plan(page).screen.getByTestId('go-plan-more').click();
-    await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Remove Apply to Initech', exact: true }).click();
-    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove', exact: true }).click();
-    await expect(tile(page, 'Proofread out loud')).toHaveCount(1);
+    // (Its Plan was opened from My routines: the screen goes back there, with the notice.)
+    await expect(settled(page, 'routines')).toBeVisible();
+    await routines(page).notice.getByRole('button', { name: /^Undo/ }).click();
+    await expect(routines(page).row('Apply to Initech')).toHaveCount(1);
+    await expect(routines(page).row('Proofread out loud')).toHaveCount(1);
     await saved(page);
-    await page.reload();
-    await expect(tile(page, 'Proofread out loud')).toHaveCount(1);
-    await expect(tile(page, 'Apply to Initech')).toHaveCount(0);
+    expect((await exported(page)).routines.proof).toMatchObject({ home: false });
+    // Removed again: across a reload, still reachable.
+    await openGo(page);
+    await planFromRoutines(page, 'Apply to Initech');
+    await plan(page).screen.getByTestId('go-plan-more').click();
+    await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Remove Apply to Initech', exact: true }).click();
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove', exact: true }).click();
+    await expect(settled(page, 'routines')).toBeVisible();
+    await saved(page);
+    expect((await exported(page)).routines.proof).toMatchObject({ home: true });
+    await openGo(page);
+    const list = await openRoutines(page);
+    await expect(list.row('Proofread out loud')).toHaveCount(1);
+    await expect(list.row('Apply to Initech')).toHaveCount(0);
   });
 });
 
@@ -366,6 +383,7 @@ async function expectConfirm(page: Page, verb: string) {
   await expect(page.getByRole('alertdialog')).toHaveCount(0);
 }
 
+
 test.describe('(8) every destructive confirm is one dialog', () => {
   test('Start over (tile), End this run, Start over (runner panel), removing a giving step with readers, removing a routine', async ({ page }) => {
     await startGo(page, [{ id: 'r', routine: 'tea', at: 1, status: 'paused' }], 'home', [TEA, DOUBTS]);
@@ -383,7 +401,8 @@ test.describe('(8) every destructive confirm is one dialog', () => {
     await runner(page).panel.getByTestId('go-restart-run').click();
     await expectConfirm(page, 'Start over');
     await pauseRun(page);
-    await tile(page, 'Improve my workout routine').getByRole('button', { name: 'Plan Improve my workout routine', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Improve my workout routine');
     await planMenu(page, 'List out my doubts', 'Remove');
     await expectConfirm(page, 'Remove');
     await expect(plan(page).row('List out my doubts')).toHaveCount(1);
@@ -428,12 +447,14 @@ test.describe('(10) conventional glyphs, one meaning each', () => {
     expect(d).toMatch(/a/i);
     await plan(page).home.click();
     // › for open: the routine row's open control is a chevron, not the routine mark (▤).
-    await tile(page, 'Apply to Initech').getByRole('button', { name: 'Plan Apply to Initech', exact: true }).click();
+    // (P-97, was: its idle tile's Plan: from My routines, and back.)
+    await planFromRoutines(page, 'Apply to Initech');
     const open = plan(page).screen.getByRole('button', { name: 'Open Proofread out loud', exact: true });
     await expect(open.locator('rect')).toHaveCount(0);
     const chevron = await open.locator('svg path').getAttribute('d');
     expect(chevron).toMatch(/^M\s*\d+\s+\d+l/);
-    await plan(page).home.click();
+    await plan(page).toRoutines.click();
+    await routines(page).home.click();
     // On the runner: ❚❚ only on Pause — the pause note has its own mark.
     await tileBody(page, 'Hand studies').click();
     const r = runner(page);
@@ -459,7 +480,8 @@ for (const size of [
 
     test('it grows with its words (never clips), Insert and Add sit below it, "@" or "{" opens the names, and an inserted name gets a space after it', async ({ page }) => {
       await startGo(page, [], 'home', [DOUBTS]);
-      await tile(page, 'Improve my workout routine').getByRole('button', { name: 'Plan Improve my workout routine', exact: true }).click();
+      // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Improve my workout routine');
       const p = plan(page);
       await p.add.click();
       await p.add.pressSequentially('For each concern, @');
@@ -495,7 +517,9 @@ for (const size of [
 test.describe('(12) the update banner, Jump, Settings errors', () => {
   test('the update banner never covers a control (Plan’s Home, the runner’s Pause)', async ({ page, request }) => {
     await startGo(page, [], 'home', [TEA]);
-    await tile(page, 'Make tea').getByRole('button', { name: 'Plan Make tea', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): its Plan by its address — there its way out is ⌂ Home.
+    await page.goto('./go/routine/tea');
+    await expect(plan(page).home).toBeVisible();
     await page.waitForFunction(async () => !!(await navigator.serviceWorker.ready).active && !!navigator.serviceWorker.controller);
     await plan(page).add.fill('mid-sentence');
     await request.post('/__e2e/bump-sw');
@@ -582,9 +606,11 @@ test.describe('P-103 scope addition (owner: "A neutral placeholder … the setti
     const check = async () => expect(await shown(page)).not.toMatch(/wander/i);
     await check();
     await page.goto('./go');
-    await expect(tile(page, 'Make tea')).toBeVisible();
+    // P-97 (was: its tile on home, and its Start): nothing going — it is on My routines, and starts there.
+    await expect((await openRoutines(page)).row('Make tea')).toBeVisible();
     await check();
-    await tile(page, 'Make tea').getByRole('button', { name: 'Start Make tea', exact: true }).click();
+    await routines(page).home.click();
+    await startFromRoutines(page, 'Make tea');
     await expect(runner(page).words).toHaveText('Boil the water');
     await check();
     await runner(page).plan.click();

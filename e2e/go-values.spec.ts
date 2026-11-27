@@ -13,7 +13,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, exported, home, openGo, pauseRun, plan, planMenu, RoutineSpec, runner, saved, seedGo, setVisibility, startGo, tile, tileBody, turn, typeValue, anotherTab } from './goFixture';
+import { arrived, exported, home, openGo, pauseRun, plan, planMenu, RoutineSpec, runner, saved, seedGo, setVisibility, startGo, tile, tileBody, turn, typeValue, anotherTab, planFromRoutines } from './goFixture';
 
 const DRAWING: RoutineSpec = {
   id: 'draw',
@@ -283,7 +283,8 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
 
   test('Gives…: a sheet with the name suggested from the words; Gives <name> — the row says "gives {subject}", with Undo (P-101, ruling 6: no notice — the routine’s menu)', async ({ page }) => {
     await startGo(page, [], 'home', [PLAIN]);
-    await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Drawing practice');
     const p = plan(page);
     await planMenu(page, 'Select the subject matter', 'Gives…');
     const sheet = await arrived(page, 'go-gives-sheet');
@@ -301,7 +302,8 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
   test('the bar above the keyboard offers names given above (never below); a tap puts {name} at the caret; the row then shows it as a chip; braces typed by hand work too', async ({ page }) => {
     const GIVING: RoutineSpec = { ...PLAIN, steps: [{ text: 'Select the subject matter', gives: 'subject' }, 'Find three reference photos', { text: 'Rank your drawings', gives: 'best' }] };
     await startGo(page, [], 'home', [GIVING]);
-    await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Drawing practice');
     const p = plan(page);
     await expect(p.namesBar).toHaveCount(0);
     await planMenu(page, 'Find three reference photos', 'Edit');
@@ -352,7 +354,8 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
   test('removing the giving step leaves the readers’ words as they are — they ask when run; a giving step cannot be broken down', async ({ page }) => {
     const GIVING: RoutineSpec = { ...PLAIN, steps: [{ text: 'Select the subject matter', gives: 'subject' }, 'Find three reference photos of {subject}', 'Rank your drawings'] };
     await startGo(page, [], 'home', [GIVING]);
-    await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Drawing practice');
     const p = plan(page);
     await p.more('Select the subject matter').click();
     const menu = await arrived(page, 'go-plan-menu');
@@ -374,7 +377,8 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
   test('"Gives nothing" takes the name off (with Undo); the routine’s menu has no "Ends here"', async ({ page }) => {
     const GIVING: RoutineSpec = { ...PLAIN, steps: [{ text: 'Select the subject matter', gives: 'subject' }, 'Find three reference photos of {subject}'] };
     await startGo(page, [], 'home', [GIVING]);
-    await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Drawing practice');
     const p = plan(page);
     await planMenu(page, 'Select the subject matter', 'Gives…');
     const sheet = await arrived(page, 'go-gives-sheet');
@@ -440,7 +444,8 @@ test.describe('fixes after the audit', () => {
   test('F6: the names bar from the keyboard — Alt+↓ reaches the names (spoken "Insert {name}"), Return inserts at the caret and the field has the focus again; Esc goes back without inserting', async ({ page }) => {
     const GIVING: RoutineSpec = { id: 'draw', name: 'Drawing practice', steps: [{ text: 'Select the subject matter', gives: 'subject' }, 'Find three reference photos'] };
     await startGo(page, [], 'home', [GIVING]);
-    await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
+    // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+    await planFromRoutines(page, 'Drawing practice');
     const p = plan(page);
     await planMenu(page, 'Find three reference photos', 'Edit');
     await expect(p.typed).toBeFocused();

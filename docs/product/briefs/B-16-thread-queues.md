@@ -102,6 +102,90 @@ research task. I provide the inputs into the routine for research, and it [queue
 - **One-off work is a value.** A chore that arises inside a larger aim is words given at a step and
   done at the next; it needs no queue of its own.
 
+### A called routine returns; it never writes
+The owner (2026-11-27): "I'm more in style of a functional style approach … where you just kind of
+regenerate the list … so we don't have to necessarily support write operations."
+- **A called routine only returns what its call row gives.** What it is handed is its own copy: it may
+  mark or strike a list it asked for, and that changes nothing for the caller.
+  Only the routine that holds a list gives it again. (This narrows "Reach" above: reach is for steps
+  and parts written inside the routine that holds the list, not for a routine called from it.)
+- **A for each collects.** A value given inside the loop is, after the block, a list of what each item
+  gave (already in P-98: "a value given inside is collected after it"). A closing step that needs the
+  results reads that name. No step may ask the person to act on results from memory.
+- **One name, given more than once, is one list.** When two calls in a routine give the same name,
+  or the parts of an In any order block do, or a routine that calls itself does, what they give is
+  collected under that name, in the order it was given, as a for each already collects (owner,
+  2026-11-27: "Proceed with that"). No output is renamed at a call. A later step that gives the name
+  again is shown the collected list to adjust, which is how "State the answer" ends with one answer.
+- **For each is the consumer.** Taking an item, doing the work and carrying on with the rest needs no
+  routine that calls itself with a shorter list; the block does it.
+
+### A routine can call itself
+The owner (2026-11-27): "there has to be a way for something like research question. If question
+produce question, research this question. And all of those are … observable … frames that don't
+necessarily have to be defined in steps. It generates itself, like recursive calls. That way the user
+doesn't ahead of time … have to state they're going to encounter these things, but they're accounted
+for in the procedure."
+```
+Research a question                          asks {question} · gives {answer}
+  Find what bears on {question}
+  List the questions this raises             gives {raised}
+  For each {raised question}
+    Research a question · with {raised question}          ← itself
+  Write the answer to {question}             gives {answer}
+```
+- **Listing nothing is where it stops** (rule 2). The person never says in advance how deep it goes.
+- **Each level is a frame the person can see**: the path names it, and the tree view lists them all.
+- **It is dependency for free** (rule 1): the answer stands after the for each, so it waits on the
+  answers to everything the question raised, and reads them as the collected `{answer}`.
+- **What it changes:** DESIGN.md says "A routine can't contain itself." That sentence would go, for a
+  routine calling itself directly or through another. A proposal for the owner's rules, not an edit
+  made here.
+- **In Plan** a call to the routine being planned, or to one already open above it, is a closed row; it
+  is never opened in place.
+- **Depth.** The engine keeps at most 64 levels in a run and refuses to go deeper. At that point the
+  call cannot be stepped into and says so in words; nothing is lost and the run stays where it is.
+  *(Designer's ruling.)*
+- **The path line** shows the routine the run began in and the nearest two levels, in words, with the
+  levels between left to the tree view. No number of levels is shown. *(Designer's ruling.)*
+- **When to use which:** a routine that calls itself when each item may raise more of the same and
+  the parent needs the results; a for each whose list is given again when the work is flat and taken
+  as it comes ("Work it out as you go").
+
+### A step owes what its insides give
+The owner (2026-11-27): "there is a concern of routines having children that produce values and they
+aren't represented in the parental context itself … if I laid down break it down and there's a sub
+that produces the value, if I choose not to step into a function, those [values] need to be supplied
+somewhere, and it would have to be supplied at the top level call, like hoisting up the return types of
+its children, because … any routine [may depend] on the value that a sub [step] produces."
+
+Built today (P-101): a step broken down says "gives {a}, {b}" on its row in Plan and on the runner's
+path. That is display only. Going past it with Next gives nothing, and a later step that reads the
+name asks for it in place, far from where it was made.
+
+- **A step that has insides is a function, and what it gives is what it owes.** For a step broken
+  down: the names its smaller steps give that something outside them reads. For a call: what its call
+  row gives.
+- **Leaving it settles what it owes.** Next on such a step without stepping in, or Step out before
+  its giving steps were reached, shows a field for each name still owed, labelled with the name, in
+  the same place and form a giving step's field has. The value's trace says it came from that step.
+- **A field may be left empty**, as a giving step's may. A later step that reads the name then asks in
+  place, as today; that stays as the fallback, not the main way.
+- **Names used only inside stay inside.** Nothing is asked for a name that no step outside reads (owner,
+  2026-11-25: "there has to be a purpose for that outcome").
+- **Inside a for each**, what is owed is owed per item, and is collected after the block like any
+  other value given inside it.
+*(The form of the fields and "names still owed" on Step out are a designer's ruling.)*
+
+### A for each can declare its own list
+The owner (2026-11-27): "maybe there's better UX to have a for each loop declare its own values, like
+locally … I think it's design." A for each gets its list from one of two places:
+- **A name given above it**, when making the list is work in itself ("List what stopped you").
+- **Its own header**, when nothing else reads the list: arriving at the block asks for the items, in
+  the list editor, and they belong to the block. This removes a step whose only job was to feed the
+  loop.
+A kept list is the second kind, kept between runs.
+
 ## The patterns (discipline, not features)
 The owner's reading, taken here: the loop that comes round until nothing more is given **is** a for
 each. No new kind of Repeat is needed.
@@ -212,10 +296,25 @@ asks by itself. This is how a method is sharpened by running it.
   thing it asks; a step reading that value steps into it. Inputs resolve: typed where given, then by
   name where it runs, then asked.
 
+- A called routine returns what its call row gives and cannot adjust a list it was handed.
+- A routine can call itself, directly or through another: Plan shows such a call as a closed row; the
+  run refuses, in words, to step in past the engine's depth limit and stays where it is; the path shows
+  the first routine and the nearest two levels with no count.
+- A for each can declare its own list in its header: arriving at it asks for the items; they are local
+  to the block; kept, they persist between runs.
+
+- Next on a call or on a step broken down, without stepping in, and Step out before its giving steps
+  were reached, show a field for each name it gives that is still empty (for a breakdown: only names
+  read outside it); the value's trace names that step; left empty, a later reader asks as today.
+
+- What calls give under one name in the same routine is collected into one list under that name, in
+  the order given; nothing is renamed at a call.
+
 **P-99**
 - A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:
   "Yes, a finished part takes up again when its list changes"): it reads as ready again, at that
   item, and a block it belongs to is no longer finished until it returns.
+- What the parts of a block give under one name is collected into one list after the block.
 - A consequence, stated as a test: a step that stands after an In any order block, and that the run had
   already been able to reach, waits again if a part of that block takes up again before the step is
   done. The run's place is not moved back by this; the step simply reads as waiting on that part, in

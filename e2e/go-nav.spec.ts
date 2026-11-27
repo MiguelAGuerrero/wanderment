@@ -16,7 +16,7 @@
 import { Locator } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { exported, expectApart, expectFinal, home, MAYA, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, saved, seedGo, startGo, tile, tileBody, typeValue } from './goFixture';
+import { exported, expectApart, expectFinal, home, MAYA, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, saved, seedGo, startGo, tile, tileBody, typeValue, planFromRoutines } from './goFixture';
 
 const DRAWING: RoutineSpec = {
   id: 'draw',
@@ -235,7 +235,8 @@ test.describe('notices have their own row: never over a row, a tile, the note or
       await expect(() => expectApart(page, { notice: h.notice, tiles: h.screen.getByTestId('go-tiles'), doors: h.doors })).toPass({ timeout: 5000 });
 
       // Plan — P-101 (ruling 6; was: an edit's notice beside the rows): an edit gives none; the fold of an earlier build's this-run changes does (a notice that is not an edit) — never over the rows or the filled button; then typing (keyboard up).
-      await tile(page, 'Test out the app').getByRole('button', { name: 'Plan Test out the app', exact: true }).click();
+      // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+      await planFromRoutines(page, 'Test out the app');
       const p = plan(page);
       await p.add.fill('Write down concerns');
       await p.add.press('Enter');

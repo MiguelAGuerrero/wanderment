@@ -12,7 +12,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, expectApart, expectFinal, expectInside, exported, home, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody } from './goFixture';
+import { arrived, expectApart, expectFinal, expectInside, exported, home, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody, planFromRoutines } from './goFixture';
 
 /** The owner's MyStack: a call (Vibe check) that gives {mood}, a step that reads it. */
 const STACK: RoutineSpec = { id: 'stack', name: 'MyStack', steps: [{ routine: 'vibe' }, 'Pick a task for {mood}', 'Do it'] };
@@ -148,9 +148,9 @@ for (const size of SIZES) {
       );
       const h = home(page);
       const names = () => h.tiles.evaluateAll((els) => els.map((e) => e.getAttribute('data-routine')));
-      // The runs, by when each was started; then what has nothing going.
+      // The runs, by when each was started (P-97; was: then what has nothing going — that is on My routines now).
       const order = await names();
-      expect(order).toEqual(['other', 'stack', 'twice']);
+      expect(order).toEqual(['other', 'stack']);
       await expect(page.getByTestId('go-resume')).toHaveCount(0);
       await expect(tile(page, 'Practise drawing').getByTestId('go-tile-last')).toHaveText('last');
       await expect(tile(page, 'MyStack').getByTestId('go-tile-last')).toHaveCount(0);
@@ -298,7 +298,8 @@ for (const size of SIZES) {
 
     test('(6) Plan: a step broken down says what its smaller steps give, hoisted; "{ } Insert" beside a field opens the names — from the keyboard too', async ({ page }) => {
       await startGo(page, [], 'home', ROUTINES);
-      await tile(page, 'Practise drawing').getByRole('button', { name: 'Plan Practise drawing', exact: true }).click();
+      // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
+      await planFromRoutines(page, 'Practise drawing');
       const p = plan(page);
       // Break "Warm-up lines" down into a step that gives {lines}.
       await p.more('Warm-up lines').click();
@@ -340,6 +341,11 @@ for (const size of SIZES) {
       // P-103 (audit F4; was 'Gesture drawing{lines}'): a name put in after a word gets a space before it.
       await expect(p.row('Gesture drawing {lines}')).toHaveCount(1);
       // And on the runner, the context line says it too.
+      // (P-97 ci-like flake: the emulated keyboard goes down a moment after the field closes and Start moves with it —
+      // wait for that before pressing, so the press is never made on where Start was.)
+      await expect(p.typed).toHaveCount(0);
+      await expect.poll(() => page.evaluate(() => Math.round(window.visualViewport?.height ?? innerHeight) === innerHeight)).toBe(true);
+      await expect(p.forward).toBeInViewport();
       await p.forward.click();
       await expect(runner(page).screen.getByTestId('go-context-gives')).toHaveText('gives {lines}');
     });

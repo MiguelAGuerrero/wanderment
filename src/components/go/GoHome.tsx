@@ -11,13 +11,19 @@
  * routines with nothing going); the run touched last carries a small "last" mark, in words. A run's tile
  * body is the way back in — "Resume <name>" — and its Plan button stays; the filled Resume bar is gone.
  * Nothing reads "planning": a run is running or paused.
+ *
+ * P-97 (owner, 2026-11-26: home "populated with a whole bunch of disparate types of routines"): home shows only
+ * what is in motion — the runs running, paused or waiting — under **Ongoing** (the routine has no end: it repeats
+ * until I'm done at its top) and **Finishing** (it has an end); each keeps its tile. A routine with nothing going
+ * is on My routines (the left side door), with Start there and in its Plan.
  */
 import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { tileLine } from '@/domain/goText';
-import { homeShown, leftOff, opensAt, Tile } from '@/domain/runView';
+import { homeGroups, myRoutines } from '@/domain/routines';
+import { leftOff, opensAt, Tile } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
 import { Mark } from './marks';
@@ -50,7 +56,10 @@ export function GoHome() {
     if (focused && here) focusSoon(title);
   }, [focused, here]);
 
-  const tiles = homeShown(data);
+  const groups = homeGroups(data);
+  const tiles = [...groups.ongoing, ...groups.finishing];
+  /** P-97: there are routines to find on My routines (named, not removed). */
+  const any = myRoutines(data).length > 0;
   // One thing at a time: while a run is running it is the only thing home lets you resume or start.
   // Every other Resume and Start is shown, unavailable, until you pause it — never a silent switch.
   // Plan and New run nothing (New makes the routine only), so they stay.
@@ -188,24 +197,47 @@ export function GoHome() {
       </View>
       <ScrollView style={styles.flex} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" testID="go-tiles">
         {/* P-103 (9; audit F-10): with no routines, one line says what will be here; + New, below, is its one action. */}
-        {tiles.length === 0 && (
+        {tiles.length === 0 && !any && (
           <View style={styles.empty}>
             <T dim size={18} style={styles.emptyWords} testID="go-home-empty">
               Your routines will be here.
             </T>
           </View>
         )}
-        <View style={styles.grid}>
-          {tiles.map((t) => (
-            <TileBox key={t.routineId} tile={t} wide={columns === 1} onPress={() => choose(t)} onPlan={() => toPlan(t.routineId, t.runId)} onMore={t.runId && t.state !== 'running' ? () => setTileMenu(t) : undefined} moreRef={(el) => { mores[t.routineId] = el; }} unavailable={busy(t)} />
-          ))}
-        </View>
+        {/* P-97: routines, but nothing going — they are on My routines. */}
+        {tiles.length === 0 && any && (
+          <View style={styles.empty}>
+            <T dim size={18} style={styles.emptyWords} testID="go-home-idle">
+              Nothing going.
+            </T>
+          </View>
+        )}
+        {(
+          [
+            ['ongoing', 'Ongoing', groups.ongoing],
+            ['finishing', 'Finishing', groups.finishing],
+          ] as const
+        ).map(
+          ([key, heading, group]) =>
+            group.length > 0 && (
+              <View key={key} style={styles.group} testID="go-home-group" {...{ dataSet: { group: key } }}>
+                <T bold dim role="heading" aria-level={2} accessibilityRole="header" testID="go-home-heading">
+                  {heading}
+                </T>
+                <View style={styles.grid}>
+                  {group.map((t) => (
+                    <TileBox key={t.routineId} tile={t} wide={columns === 1} onPress={() => choose(t)} onPlan={() => toPlan(t.routineId, t.runId)} onMore={t.runId && t.state !== 'running' ? () => setTileMenu(t) : undefined} moreRef={(el) => { mores[t.routineId] = el; }} unavailable={busy(t)} />
+                  ))}
+                </View>
+              </View>
+            ),
+        )}
       </ScrollView>
       {/* Its own row, in the flow above the side doors: never over a tile (ruling 8). */}
       <Notice onUndone={undone} />
       <View style={styles.doors} testID="go-side-doors">
-        {/* Left: another place (My routines, once it exists). Right: + New. */}
-        <View style={styles.door} />
+        {/* Left: another place (P-97: My routines, once there is a routine). Right: + New. */}
+        <View style={styles.door}>{any && <Btn label="My routines" onPress={() => router.push('/go/routines')} testID="go-my-routines" />}</View>
         <View style={styles.door}>
           <Btn ref={newBtn} mark="add" label="New" onPress={() => setNaming(true)} testID="go-new" />
         </View>
@@ -219,7 +251,7 @@ export function GoHome() {
  * New (P-95, P-96): its own sheet — the name, then Plan (the routine is made only now, and its Plan
  * opens). Return in the field is the same as Plan.
  */
-function NewSheet({ onMake, onClose, fallback }: { onMake: (words: string) => void; onClose: () => void; fallback: { current: unknown } }) {
+export function NewSheet({ onMake, onClose, fallback }: { onMake: (words: string) => void; onClose: () => void; fallback: { current: unknown } }) {
   const [name, setName] = useState('');
   const make = () => (name.trim() ? onMake(name) : undefined);
   return (
@@ -336,6 +368,7 @@ const styles = StyleSheet.create({
   bar: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingLeft: SP.s3, paddingRight: SP.s2, gap: SP.s1 },
   settings: { width: TARGET, paddingHorizontal: 0, justifyContent: 'center' },
   list: { paddingHorizontal: SP.s3, paddingTop: SP.s1, paddingBottom: SP.s3, gap: SP.s3 },
+  group: { gap: SP.s2 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s3 - 2 },
   tile: { padding: SP.s3 - 4, gap: SP.s1, minHeight: 132, marginRight: 6, marginBottom: 6 },
   tileHalf: { flexGrow: 1, flexShrink: 1, flexBasis: '40%', maxWidth: '100%' },

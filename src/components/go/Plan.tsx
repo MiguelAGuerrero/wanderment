@@ -43,6 +43,7 @@ import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWind
 
 import { RoutineEdit } from '@/domain/run';
 import { namesOffered, PlanDivider, PlanRow, planView, readersOf, rowMoves } from '@/domain/runView';
+import { tagsOf, tagsWritable } from '@/domain/tags';
 import { isName, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
 import { useStore } from '@/store/useStore';
 
@@ -52,6 +53,7 @@ import { Notice, useRunUndo } from './Notice';
 import { Repeat } from './Repeat';
 import { goHome } from './Runner';
 import { readDraft, writeDraft } from './session';
+import { TagsSheet, tagWords } from './Tags';
 import { G, SP, TARGET } from './tokens';
 import { Btn, caretToEnd, Confirm, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Menu, MenuItem, MenuSep, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
 import { Gives, NameChip } from './Values';
@@ -86,9 +88,9 @@ function readTyping(key: string): Typing | null {
   }
 }
 
-type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true };
+type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true };
 
-export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; routineId?: string; inSeq?: string; fromRun?: boolean }) {
+export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: string; routineId?: string; inSeq?: string; fromRun?: boolean; fromList?: boolean }) {
   const data = useStore((s) => s.data);
   const act = useStore.getState;
   const focused = useIsFocused();
@@ -103,6 +105,8 @@ export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; rou
   const undone = wasFolded && !!v?.planning && v.unfolded;
   const here = !!v && !undone && (v.runId ? !!runId && route === 'plan' : true);
   const id = runId ?? routineId ?? '';
+  /** P-97: the routine's tags (read tolerantly: none stored = none). */
+  const tags = tagsOf(v ? data.routines[v.routineId]?.tags : undefined);
 
   const [menu, setMenu] = useState<Open | null>(null);
   /** P-102: each ··· (by its `data-more` key: a row's key, '' for the routine's, `divider:<seq>`) — what its menu hangs from. */
@@ -192,13 +196,15 @@ export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; rou
   const gone = !v;
   useEffect(() => {
     if (!focused || here) return;
-    if (gone || !runOf || undone) goHome();
+    // (P-97: opened from My routines, a removed routine's Plan goes back there; else home.)
+    if (gone && fromList && router.canGoBack()) router.back();
+    else if (gone || !runOf || undone) goHome();
     // P-103 (3): opened from the runner, it is over it — back to it (the runner beneath is where you were).
     else if (route === 'runner' && fromRun && router.canGoBack()) router.back();
     else if (route === 'runner') router.replace(`/go/run/${runOf}`);
     // A routine's address while it has a run: that run's Plan.
     else router.replace(`/go/run/${runOf}/plan`);
-  }, [focused, here, gone, runOf, route, undone, fromRun]);
+  }, [focused, here, gone, runOf, route, undone, fromRun, fromList]);
 
   // The one write this route makes (ruling 4): a run from the build before, at the edge, still
   // carrying this-run changes. Once: an Undo of it is not folded again while this screen is up (it leaves).
@@ -549,7 +555,7 @@ export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; rou
     // P-103 (5): removing a routine asks first (it reaches beyond this screen: home, and every routine using it).
     <Confirm
       title={`Remove “${v.name}”?`}
-      body="It goes from home, with its steps."
+      body="It goes from My routines, with its steps."
       action="Remove"
       testID="go-remove-routine-confirm"
       onCancel={close}
@@ -587,6 +593,17 @@ export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; rou
     </Menu>
   ) : givesRow ? (
     <GivesSheet row={givesRow} edit={edit} onClose={close} fallback={title} />
+  ) : menu && 'tags' in menu ? (
+    // P-97: the routine's tags (a comma or Return makes a chip); Keep is one Plan edit, its Undo in this menu.
+    <TagsSheet
+      name={v.name}
+      tags={tags}
+      fallback={title}
+      onClose={close}
+      onKeep={(next) => {
+        if (edit(v.routineId, { kind: 'tags', tags: next }).ok) close();
+      }}
+    />
   ) : menu && 'routine' in menu ? (
     <Menu anchor={() => mores['']} label={v.name} onClose={close} testID="go-plan-routine" fallback={title}>
       {/* P-101 (ruling 6): the last Plan edit's Undo lives here (Plan's edits give no notice). */}
@@ -604,6 +621,8 @@ export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; rou
         />
       )}
       <MenuItem label="Change the name" onPress={() => startTyping({ mode: 'name', path: '', text: v.name })} />
+      {/* P-97: tags, for My routines' filter. */}
+      {v.named && tagsWritable(v ? data.routines[v.routineId]?.tags : undefined) && <MenuItem label="Tags…" spoken={`Tags for ${v.name}`} testID="go-plan-tags-item" onPress={() => setMenu({ tags: true })} />}
       {/* P-101 amendment (ruling 9): its run, from this routine's first step (asked first; Undo). */}
       {!!v.runId && <MenuItem label="Start over" spoken={`Start over: ${v.name}`} onPress={() => setMenu({ restart: true })} testID="go-plan-restart" />}
       {!v.divider && v.rows.length > 0 && (
@@ -707,6 +726,9 @@ export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; rou
             from the runner it says so and goes back there, where you were; else ⌂ Home, which changes nothing. */}
         {fromRun && v.runId ? (
           <Btn ink mark="back" label="Back to the run" spoken={`Back to the run: ${v.name}`} onPress={backToRun} testID="go-plan-back" style={styles.out} />
+        ) : fromList ? (
+          // P-97: opened from My routines — its way out goes back there (as the browser's Back would).
+          <Btn ink mark="back" label="My routines" spoken="Back to My routines" onPress={() => (router.canGoBack() ? router.back() : router.replace('/go/routines'))} testID="go-plan-to-routines" style={styles.out} />
         ) : (
           <Btn ink mark="home" label="Home" onPress={goHome} testID="go-plan-home" style={styles.out} />
         )}
@@ -738,6 +760,12 @@ export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; rou
           {!!v.line && (
             <T dim style={styles.line} testID="go-plan-line">
               {v.line}
+            </T>
+          )}
+          {/* P-97: its tags, under the heading (Tags… on its ··· changes them). */}
+          {v.named && tags.length > 0 && typing?.mode !== 'name' && (
+            <T dim style={styles.line} testID="go-plan-tags">
+              {tagWords(tags)}
             </T>
           )}
 

@@ -31,7 +31,8 @@ reference. The composer should be summoned from the row where the person is alre
 - Owner notes: 2026-11-26 (the origin in productivity science), 2026-11-27 (the request; copies are
   owned; calls return; the "@" screenshot; a value can be a routine).
 - Discovery: [`../discovery/2026-11-27-standard-library.md`](../discovery/2026-11-27-standard-library.md)
-  (14 small methods, 4 templates, how other tools package a library) and
+  (rewritten as seven core functions, twelve named methods and five templates; and how other tools
+  package a library) and
   [`../discovery/2026-11-27-standard-library-survey.md`](../discovery/2026-11-27-standard-library-survey.md)
   (70 more). **No source in either was opened**; both say so. Other tools: most copy with no sync
   (Todoist, Notion, Things); Shortcuts and Lodash reference; Workflowy keeps the two apart by name; Tana
@@ -132,7 +133,7 @@ the person writes their own words. The library is **summoned**: "@" (the owner's
 
 ### Edges
 - **Offline:** the library ships inside the app; nothing is fetched.
-- **Many:** the first library is about eighteen; headings and Find are enough. No ranking.
+- **Many:** the first library is about two dozen; headings and Find are enough. No ranking.
 - **Screen reader:** a row reads "Recall before you look, asks material, gives misses, in the library"
   (or "yours"); "Learn ▢" reads "Learn, blank"; the two-part control is a tab list; focus returns to the
   row after Close and after Copy.
@@ -215,8 +216,9 @@ and a method that cannot be called is not yet a library. So the library now wait
 
 1. **The library** `[feature]` `[ux]` M. After P-97 and P-98. My routines gains the Library view; the
    two-line rows; the preview sheet; Copy with Undo; "Open yours". The library ships in the app in the
-   export format and is read through the import check. Content: the fourteen small methods of the
-   discovery's first shelf, less "Test a guess". *Done when:* a method can be found, previewed, copied,
+   export format and is read through the import check. Content: the seven core functions and the twelve
+   named methods of the discovery file's "The library, in three layers" (wrappers over the core, and
+   five that are their own thing), written to its closed vocabulary and house style. *Done when:* a method can be found, previewed, copied,
    undone, started by itself and called from another routine; a copied routine survives reload, export
    and import and is unchanged by an app update; a name already in Yours offers "Open yours"; at 390 px
    and 200 % text nothing is cut, every target is at least 48 px, the control is a tab list and each row
@@ -226,7 +228,7 @@ and a method that cannot be called is not yet a library. So the library now wait
    Yours and Library under headings; a library row opens the sheet with **Copy and add**; one Undo
    removes both. *Done when:* typing "@" and part of a library method's name offers it; nothing is
    copied by Return; a giving field on the runner lists Yours only.
-3. **Templates** `[feature]` `[data]` M (Full tier). After P-99. Learn ▢, Find out ▢, Make ▢, Make a
+3. **Templates** `[feature]` `[data]` M (Full tier). After P-99. Learn ▢, Find out ▢ (which calls itself), Make ▢, Make a
    decision, and "Work it out as you go". **Copy…** names the copy and brings what it calls, by name.
    *Done when:* "Learn ▢" copied twice gives two routines with separate kept lists that call the same
    methods; a name in use is refused in the sheet and nothing is overwritten.

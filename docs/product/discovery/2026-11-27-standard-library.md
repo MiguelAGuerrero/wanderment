@@ -24,6 +24,9 @@ Think like the Lodash of the app, where either these are small functions that ca
 or we have templates that are purposed to model big goals like learn a skill, do research, make a
 project, etc. … generalizable enough to be used towards any specific purpose."
 
+**Read "The library, in three layers" first:** it is the current proposal. Sections after it are the
+research it was built from.
+
 Chosen by the owner for this round: a catalogue only (no brief, nothing built); research-backed first,
 with practitioner conventions labelled; a tight core; web research with sources.
 
@@ -59,32 +62,350 @@ For each, In any order. All need P-98 and P-99 except where marked.
    summarising, rated low-utility for learning (Dunlosky et al. 2013, search); "close it and write two
    lines from memory" is retrieval, rated high. B-16's Study example is changed to match.
 
-## The first shelf (proposed)
-Fourteen small methods and four big templates. "Today" marks the three that need no for each and can
-be written in the app as it stands.
+## The library, in three layers (rewritten 2026-11-27)
+The owner asked for a fresh review of the first proposal and then for this rewrite ("Yes rewrite the
+library catalogue"). The review (`.polish/product/review-stdlib-core.md`, local; it checked no research
+claim) found that the first proposal was a catalogue of techniques, not a library: one checking loop
+appeared about ten times under different names, signatures did not plug into each other, several
+closing steps asked the person to act on results they could no longer see, and parts of it had gone
+stale against the owner's later rulings. This section replaces "the first shelf". The research notes
+further down are kept for their sources and evidence; **the routines in them are superseded by the
+ones here.**
 
-| | Routine | For | Asks → gives / adds to | Evidence | Verdict |
-|---|---|---|---|---|---|
-| S1 | Recall before you look | Fixing material in memory | {material} → {misses} | Strong | Fits |
-| S2 | Work through the errors | Turning feedback into changes | {attempt} → {patterns} | Strong on average | Fits |
-| S3 | Review after doing | Learning from finished work | {work} → a changed routine | Strong | Fits |
-| S4 | Practise at the edge | One sitting of deliberate practice | {subject} → {target} | Moderate, contested | Fits if changed |
-| S5 | Explain each step | Understanding why | {example} → {gaps} | Moderate | Fits |
-| S6 | Teach it plainly | Finding holes in understanding | {topic} → {holes} | Convention (parts moderate) | Fits |
-| S7 | Come back to it | Recalling again after a gap | a kept list | Strong | Fits if changed |
-| S8 | An if-then plan · Today | Getting an action to start | {aim} → {plan} | Strong | Fits if changed |
-| S9 | Make it startable | A task too vague to begin | {task} → {parts} | Moderate, mixed | Fits |
-| S10 | Find how it fails | Testing a plan first | {plan} → {revised plan} | Moderate, one study | Fits |
-| S11 | Argue the other side | A belief you are about to act on | {belief} → {after} | Moderate to strong (lab) | Fits |
-| S12 | Take the outside view · Today | Any forecast | {project} → {forecast} | Moderate | Fits |
-| S13 | Weigh the options | A choice with checkable criteria | {decision} → {choice} | Moderate, by inference | Fits if changed |
-| S14 | Check a source · Today | How far to trust a claim | {source} → {trust} | Moderate to strong | Fits |
-| B1 | Learn a skill | A skill, open-ended | copied per skill; kept lists | Parts moderate; the join untested | Fits |
-| B2 | Research a question | An answer you do not have | {question}; kept lists | Guided inquiry strong; cycle descriptive | Fits, leans on Step out |
-| B3 | Make a project | A made thing | {brief}; kept lists | Convention; parallel prototypes suggestive | Fits |
-| B4 | Make a decision | A decision worth an hour | {decision} → {decision made} | Parts moderate; whole untested | Fits; callable |
+1. **Core functions (7).** General and callable by themselves. No kept list, no wait.
+2. **Named methods (12).** Thin wrappers that set the condition a research finding depends on and then
+   call the core, plus five methods that are their own thing.
+3. **Templates (5).** Copied per aim; they hold the kept lists and call methods and core.
 
-## Small methods
+**The rule for the core: abstract the object, never the action.** "Compare {attempt} with {reference}"
+fails on a phone because the verb is abstract. "Set {work} beside {standard} and go through it point by
+point" says what the hands do, and only the nouns vary. A method's research finding travels in one of
+three ways: a wrapper step before the call ("Put {material} out of sight"); an input that names the
+constraint (`{rule}`, `{angle}`); or the standard or tests passed in. Where none of the three carries
+it, the method stays its own routine.
+
+Notation: B-16's. `Name · with {x}` passes a value of the same name; `with {x} as y` passes it under
+another name; words in quotes are typed where the call is written. A step that gives a name which
+already has a value shows that value to adjust.
+
+### Layer 1 — Core functions
+
+**Say what done is** · asks `{work}` · gives `{standard}`
+```
+Say what done is                                          asks {work}
+  List what must be true of {work} for it to be done      gives {standard}
+  Strike what would be nice and is not needed             gives {standard}
+  Reword each so you could check it by looking            gives {standard}
+```
+Drawing: `{work}` "a fist from three-quarter view" → "the outline matches a tracing of the photo · the
+knuckles sit on a curve". Debugging: "the fix for the double charge" → "the failing test passes · the
+log shows one charge per order".
+
+**Check and mend** · asks `{work}`, `{standard}`, `{rule}` · gives `{faults}`
+```
+Check and mend                                            asks {work}, {standard}, {rule}
+  Set {work} beside {standard} and go through it point by point
+  List each place it falls short, as a thing in the work  gives {faults}
+  For each {fault}
+    Redo only the part of {work} where this is: {fault}. Keep to: {rule}
+    Check that part against {standard} again
+    Add what is still off, and what the fix exposed       gives {faults}
+```
+`{rule}` is the condition every redo keeps to, and is where a method's finding travels when it sits
+inside the loop. "As a thing in the work" stays in the core's own words because it holds for every
+caller (feedback aimed at the person can lower performance). Drawing: rule "change only that one
+thing". An essay: standard "the editor's notes", rule "cut before you add". Memory: standard the
+source, rule "from memory, with it out of sight again".
+
+**Keep the lesson** · asks `{cases}` · gives `{lessons}`
+```
+Keep the lesson                                           asks {cases}
+  List what explains {cases}: what more than one shares, or what led to each    gives {lessons}
+  For each {lesson}
+    Name the routine and the point in it where this would have helped: {lesson}
+    Reword it as a step you could follow there            gives {lessons}
+  Open Plan and put each of {lessons} where it belongs
+```
+The app's own bet ("sharpened each time they run it") as a function. One visit to Plan, at the end.
+
+**Make it startable** · asks `{whole}` · gives `{parts}`
+```
+Make it startable                                         asks {whole}
+  List the parts of {whole}, the dull ones included       gives {parts}
+  Reword each part so it begins with something to do with your hands    gives {parts}
+  Put {parts} in the order they must happen               gives {parts}
+```
+(The review called this "Break down"; it keeps the first proposal's name so it is not confused with
+Plan's own "Break it down".) A caller runs `For each {part}` over the result.
+
+**Gather options** · asks `{problem}` · gives `{options}`
+```
+Gather options                                            asks {problem}
+  List every answer to {problem} that comes, judging none gives {options}
+  State {problem} with its particulars taken out          gives {bare problem}
+  Add what is done about this elsewhere: {bare problem}   gives {options}
+  Add leaving things as they are, and one you would not pick first    gives {options}
+```
+
+**Choose** · asks `{options}`, `{tests}` · gives `{choice}`
+```
+Choose                                                    asks {options}, {tests}
+  For each {test}
+    Mark each of the options with how it does on this alone, from evidence: {test}    gives {options}
+  Strike the options that fail a test that must hold      gives {options}
+  Name the one you take, and what you give up by it       gives {choice}
+```
+The loop runs over tests, never over options, which is the guard against the halo effect. The marks
+are written onto the options themselves, so the last two steps show every option with everything said
+about it. No grid, no weights, no total.
+
+**Try to break it** · asks `{claim}`, `{angle}` · gives `{doubts}`, `{revised}`
+```
+Try to break it                                           asks {claim}, {angle}
+  State {claim} and how sure you are, in words            gives {before}
+  Take this as fact: {angle}. List the reasons that come easily    gives {doubts}
+  For each {doubt}
+    Name what you would see if this were so, and look for it: {doubt}
+    Reword it with what you found                         gives {doubts}
+  Strike the doubts that did not hold up                  gives {doubts}
+  State {claim} again beside {before}, changed by the doubts left    gives {revised}
+```
+The angle is the method: "it was carried out and failed badly" is the pre-mortem; "the opposite is
+true" is considering the opposite; "the person who disagrees is right" is stating their side.
+
+*Not in the core:* the review also proposed "Put it down" and "Pick it up". The owner had already
+judged that pair unnecessary indirection, since pausing presents the note and returning shows it.
+
+### Layer 2 — Named methods
+
+**Wrappers over the core.** Each keeps the one step its evidence depends on in plain sight.
+```
+Recall before you look                                    asks {material} · gives {faults}
+  Put {material} out of sight
+  Write down everything you can recall of it
+  Check and mend · with "what I recalled" as work, {material} as standard,
+                   "from memory, with it out of sight again" as rule
+
+Practise at the edge                                      asks {subject} · gives {faults}
+  Name one thing in {subject} just beyond what you can do gives {work}
+  Say what done is · with {work}
+  Attempt it, with full attention: {work}
+  Check and mend · with {work}, {standard}, "change only that one thing" as rule
+
+Teach it plainly                                          asks {topic} · gives {faults}
+  Put your sources on {topic} away
+  Write an explanation of {topic} for someone new to it
+  Check and mend · with "my explanation" as work,
+                   "every term explained and no step skipped, for someone new to it" as standard,
+                   "look it up, then rewrite with the sources away again" as rule
+
+Work through the errors                                   asks {work}, {standard} · gives {lessons}
+  Check and mend · with {work}, {standard}, "mend the cause, not only the place" as rule
+  Keep the lesson · with {faults} as cases
+
+Review after doing                                        asks {work} · gives {lessons}
+  State what you set out to do in {work}, and what happened
+  List what went well and what fell short, each with why  gives {cases}
+  Keep the lesson · with {cases}
+
+Find how it fails                                         asks {plan} · gives {doubts}, {revised}
+  Try to break it · with {plan} as claim, "it was carried out and failed badly" as angle
+
+Argue the other side                                      asks {belief} · gives {doubts}, {revised}
+  Try to break it · with {belief} as claim, "the opposite is true" as angle
+
+Weigh the options                                         asks {decision} · gives {choice}
+  Gather options · with {decision} as problem
+  List what matters in {decision}, each thing separate    gives {tests}
+  Choose · with {options}, {tests}
+```
+
+**Methods that are their own thing.** No core function carries their finding.
+```
+Set a cue to start                                        asks {aim} · gives {cue}
+  Name the first small action for {aim}                   gives {action}
+  Name the moment it follows, something you already do or a place you will be    gives {cue}
+  Put this where it happens: When {cue}, I will {action}
+
+Take the outside view                                     asks {project} · gives {forecast}
+  State your own guess for {project}                      gives {guess}
+  Name the kind of thing {project} is                     gives {kind}
+  List past cases of this kind, with how each really went: {kind}    gives {cases}
+  State what usually happens across {cases}               gives {usual}
+  Set the forecast beside {guess}: start from {usual}, move only for what is truly different    gives {forecast}
+
+Check a source                                            asks {source} · gives {trust}
+  Leave {source} before reading it closely
+  Search for who is behind {source} and what others say of them      gives {standing}
+  Find where its main claim first came from               gives {origin}
+  State how far to trust it, given {standing} and {origin}: {source} gives {trust}
+
+Explain each step                                         asks {example} · gives {gaps}
+  List the steps or claims in {example}                   gives {claims}
+  For each {claim}
+    Write why this holds, or why it comes next: {claim}
+    Mark it if you could not explain it                   gives {claims}
+  Strike the claims you could explain                     gives {gaps}
+
+Compare two cases                                         asks {cases} · gives {principle}
+  Set the two side by side: {cases}
+  List what they share, before any difference             gives {shared}
+  State the one idea that explains {shared}               gives {principle}
+```
+"Set a cue to start" was "An if-then plan"; the cue is a situation, never a clock time, and the app
+does nothing at it. "Come back to it" (spaced recall) is no longer a method: a method keeps no list.
+It is a For each over a kept list in the person's own routine that calls "Recall before you look"
+(see Learn ▢ below).
+
+### Layer 3 — Templates
+Copied per aim. No template contains a wait step (owner: "waits out"); a person who is waiting on
+someone pauses.
+```
+Learn ▢
+  State what you want to be able to do                    gives {aim}
+  parts:  (kept, at this level)                           + Add
+  In any order
+    Practise
+      For each {part}
+        Practise at the edge · with {part} as subject
+        Adjust the parts: add what you still can't do, from {faults}     gives parts
+    Study
+      For each {topic}:  (its own, kept)                  + Add
+        Find one good source on {topic}
+        Recall before you look · with "that source" as material
+        Adjust the parts: add what to practise from {faults}             gives parts
+    Use it
+      For each {piece}:  (its own, kept)                  + Add
+        Make it for real, start to finish: {piece}
+        Review after doing · with {piece} as work
+```
+```
+Find out ▢                                                (copies "Research a question")
+Research a question                                       asks {question} · gives {answer}
+  State what you think the answer is, and what would change your mind
+  Find what bears on {question}, and list the sources worth keeping    gives {sources}
+  For each {source}
+    Check a source · with {source}
+    Mark it with how far to trust it: {trust}             gives {sources}
+  List the questions this raises                          gives {raised}
+  For each {raised question}
+    Research a question · with {raised question} as question            ← itself
+  State the answer to {question}, from {sources} and what the raised questions gave    gives {answer}
+```
+```
+Make ▢
+  State who it is for and what it should do for them      gives {brief}
+  Say what done is · with {brief} as work
+  Gather options · with {brief} as problem
+  For each {option}
+    Make the cheapest version of this that can be tried: {option}
+    Try it on someone, or on yourself, and mark the option with what it showed    gives {options}
+  Choose · with {options}, {standard} as tests
+  Find how it fails · with {choice} as plan
+  Build the first whole version of: {revised}
+  Check and mend · with "the first version" as work, {standard},
+                   "show it to someone after each change" as rule
+  Review after doing · with "the whole project" as work
+```
+```
+Make a decision                                           asks {decision} · gives {choice}
+  State {decision} as a choice between things you can do
+  Weigh the options · with {decision}
+  In any order
+    Find how it fails · with {choice} as plan
+    Argue the other side · with {choice} as belief
+    Take the outside view · with {choice} as project
+  State the choice again, and what you would have to see to reopen it,
+    from what the three gave                              gives {choice}
+```
+```
+Work it out as you go                                     asks {aim}
+  List the first steps toward {aim}                       gives {steps}
+  For each {step}
+    Do {step}
+    Adjust the list: what does that make possible         gives {steps}
+```
+"Make a decision" keeps no list, so it can be called as well as copied.
+
+### How the first proposal maps onto this
+| First proposal | Now |
+|---|---|
+| S1 Recall before you look, S4 Practise at the edge, S6 Teach it plainly | Wrappers over Check and mend |
+| S2 Work through the errors | Check and mend, then Keep the lesson |
+| S3 Review after doing | A wrapper over Keep the lesson |
+| S9 Make it startable | A core function |
+| S10 Find how it fails, S11 Argue the other side | Try to break it, with two angles |
+| S13 Weigh the options | Gather options, then Choose |
+| S8, S12, S14, S5 | Their own; S8 renamed "Set a cue to start" |
+| S7 Come back to it | Not a method; a kept list in the person's routine |
+| B1–B4 | Rewritten on the methods; B2 calls itself; B3 has no waits |
+| From the survey | Say what done is (now core), Compare two cases, Work it out as you go |
+Across all 88 candidates the review judged about 39 a core call, wrapper or composition, about 12
+plain For each idioms better left as house style, and about 37 not reducible (mostly the
+self-management survey), which stay candidates in the survey file.
+
+### A closed vocabulary
+A name is reused only when it holds the same kind of thing, so a caller's value arrives by name with
+nothing typed.
+
+| Name | Holds | Given by | Asked by |
+|---|---|---|---|
+| `{work}` | the thing being made or done, named so you could point at it | the caller | Say what done is, Check and mend |
+| `{standard}` | what the work is judged against: a source, a model, or what must be true | Say what done is, or the caller | Check and mend |
+| `{rule}` | the condition every redo keeps to | typed at the call | Check and mend |
+| `{faults}` | places the work fell short, each as a thing in the work | Check and mend | |
+| `{cases}` | things that happened, to learn from | the caller | Keep the lesson |
+| `{lessons}` | each worded as a step | Keep the lesson | |
+| `{whole}` / `{parts}` | something too big to start / its startable pieces, in order | the caller / Make it startable | |
+| `{problem}` / `{options}` | what an answer is wanted for / candidate answers with what was said of each | the caller / Gather options | Choose |
+| `{tests}` | what an answer must do, one thing each | the caller | Choose |
+| `{choice}` | the option taken and what was given up | Choose | |
+| `{claim}` / `{angle}` | a plan, belief or forecast as a sentence / the stance doubts come from | the caller / typed at the call | Try to break it |
+| `{doubts}` / `{revised}` | reasons that held up, with what was found / the claim restated | Try to break it | |
+
+Plugs with nothing typed: Say what done is → Check and mend (`{standard}`); Gather options → Choose
+(`{options}`). Rebound at the call, on purpose and visibly: `{faults}` as cases, `{choice}` as plan or
+claim, `{standard}` as tests. A fault becoming a case is a change of role, and the call row says so.
+
+### House style for library routines
+1. A list is a regular plural and its item the singular (faults / {fault}).
+2. The verb says where the product goes: *List* gives a list and *Name* or *State* give one short
+   thing, typed in the app; *Write*, *Draw*, *Make*, *Redo* and *Read* happen in the person's own
+   material and give nothing.
+3. An output name says the product, not the moment (`{revised}`, not `{after}`).
+4. Every given name is read in braces by a later step, or is in the call row.
+5. Results are collected inside a loop by giving the outer list again; no step asks the person to
+   act on results from memory.
+6. A function gives at most two names to its caller.
+7. A long value goes last in a step, after a colon, so the sentence survives any wording of it.
+8. Inputs are named for a role, never a domain (`{work}`, not `{draft}`).
+9. No kept list, no wait and no "Open Plan" inside a loop, in a core function or a method.
+10. A template never uses a core name for something else, since values pass by name.
+11. Names are verb-first and read after "Plan" and "Start".
+12. No more than three levels: a template calls a method, which calls the core.
+
+### What this rewrite assumes of P-98 (to settle in its contract)
+- **Typed words at a call** (`with "what I recalled" as work`). P-98 has `with {y} as x`; a literal is
+  the same thing with the value typed in Plan.
+- **An input is the callee's own copy.** Choose marks and strikes `{options}`, which it was handed. That
+  must change only its copy; the caller's list is untouched and the result comes back as `{choice}`.
+- **Two calls in one routine that give the same name** (Make a decision's two checks both give
+  `{doubts}`; a routine calling itself gives `{answer}` inside a step that also gives `{answer}`). Either a
+  call's output can be renamed at the call, or what parts and loops give is collected under the name.
+- **An input that never asks.** `{rule}` is required only because optional inputs (DESIGN.md's designed
+  "blank") are not built; with them, a bare call to Check and mend would not ask for a rule.
+
+### What it costs
+- **A wrapper looks thinner in the library's preview than it runs:** the preview of "Recall before you
+  look" shows three rows, one of them a call. Someone deciding whether to copy it sees less.
+- **Outside feedback is gone from every checking method**, because no library routine holds a wait
+  step. The outside eye is what the deliberate-practice research leans on most.
+- **The evidence was gathered per technique.** A core function has no study of its own; the grade
+  belongs to the method that wraps it, and the research notes below still say which.
+
+## Research notes: the small methods as first drafted
+_Kept for the sources, the evidence grade and the worked example of each. The routines themselves are
+superseded by "The library, in three layers" above; some use the older "adds to" wording._
 
 ### S1. Recall before you look
 For fixing material in memory and finding what has not stuck.
@@ -425,7 +746,8 @@ Example: a supplement review site → standing "owned by a retailer" → origin 
 people" → others "a 2021 review finds no effect" → trust "low; cite the review instead".
 
 
-## Big templates
+## Research notes: the big templates as first drafted
+_Kept for sources and evidence. The routines are superseded above._
 
 ### B1. Learn a skill
 
@@ -632,7 +954,7 @@ outside view "of four friends who went contracting, three had a dry first quarte
 "take it; reopen if no second client by the time the first contract ends".
 
 
-## A second shelf (researched, not in the core)
+## Also researched, not in the library
 Each is written out in the local reports.
 - **Wish, outcome, obstacle, plan** (WOOP): moderate; overlaps S8, which has the stronger evidence.
 - **Example, then less help** (worked examples, fading): strong for novices in structured domains only.
