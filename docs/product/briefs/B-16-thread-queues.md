@@ -211,6 +211,39 @@ name asks for it in place, far from where it was made.
 - **Inside a for each**, what is owed is owed per item, and is collected after the block like any
   other value given inside it.
 *(The form of the fields and "names still owed" on Step out are a designer's ruling.)*
+- **A chunk is chosen while running, not written into the routine.** The owner (2026-11-27), first:
+  "when I sufficiently understand my own routine, especially when it comes to loops, it would be more
+  overhead to just keep looping through a block … instead of working it one by one, you can see chunks
+  of steps all at once"; then: "it's like an abstraction, because it's no different from forming one
+  step out of a whole bunch of sub-steps"; then, settling the shape: "in whatever step you can view,
+  you can choose to keep pushing on the next steps as you see fit. And that way you can chunk up as
+  arbitrarily as you want. And one way to address deeply nested structures is that they're expandable,
+  and effectively it just turns into an outline view. And operates as a skip. So when you skip over a
+  chunk, you go to the next step after the chunk. This doesn't have to be like a first class thing. It
+  just has to be a quality of life UI affordance."
+  So, on the runner:
+  - The step in view can be extended with the step that follows it, and again, as far as the person
+    likes. What is shown together is the chunk.
+  - A shown step that has insides (a step broken down, a called routine, a turn of a loop) can be
+    opened in place to show its smaller steps. Several levels opened read as an outline.
+  - **Next takes the whole chunk as done** and goes to the step after the last one shown. It is a skip
+    over everything in view.
+  - A step in the chunk that gives a name shows its field there, so results are noted before moving
+    on (the rule above: leaving settles what is owed).
+  - Nothing is stored. The chunk is how the runner is being looked at, not part of the routine or the
+    run; the routine is unchanged and Step in still takes one step at a time.
+  This replaces the earlier wording here (a loop's turn as one note): the chunk follows what the person
+  can hold at the moment, not the routine's structure, so it needs no rule of its own for loops.
+  **What it touches:** DESIGN.md's "The runner is the step and nothing else" becomes "the runner is the
+  step, and as many of the next ones as the person pulls into view". "Planning and running must never
+  look alike" still holds: an outline on the runner is read and passed over, never edited, and must
+  keep the runner's look. The pull-up panel's "then: <next step>" and Jump to… already show and move
+  to later steps; this brings the same two things onto the step itself.
+  *(Designer's rulings: the chunk resets after Next; a turn's end extends into the next turn; under
+  P-110's "only steps above the place hold values", what a passed chunk gave stays because the place
+  is then below it.)*
+  Research on guidance and skill points the same way: step-by-step help turns from aid to hindrance
+  as skill grows (the expertise-reversal finding; unverified, from the 2026-11-27 assessment).
 
 ### A for each can declare its own list
 The owner (2026-11-27): "maybe there's better UX to have a for each loop declare its own values, like
@@ -359,6 +392,11 @@ asks by itself. This is how a method is sharpened by running it.
 - (With the self-call, when unparked:) a level whose routine has the same name as the one above is
   named by the value it was called with, in the path, Step out's notice, Start over and Jump to…; a
   long path collapses its middle to a plain-text "…"; the closed self-call row in Plan carries words.
+
+- (P-112, a runner affordance; nothing stored:) the step in view can be extended with the steps that
+  follow, one at a time; a shown step with insides opens in place, to any depth; Next takes everything
+  shown as done and goes to the step after it; giving steps in view show their fields; the chunk resets
+  after Next. DESIGN.md's "the runner is the step and nothing else" is reworded to allow it.
 
 **P-99**
 - A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:

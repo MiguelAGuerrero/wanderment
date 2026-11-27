@@ -4401,6 +4401,236 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(JSON.parse(toBackup(held)).data).toEqual(held);
     });
   });
+
+  // ───────── P-108: kept lists, a for each's own list, values that are routines ─────────
+  describe('P-108: a kept list, a list of its own, a routine row by a name and a value that is a routine survive reload, journal replay, the fallback, hand-over, undo, export and import — shapes this version cannot read are kept', () => {
+    type Ids = { better: string; guide: string; kept: string; own: string; adjust: string; choose: string; slot: string; ownRow: string; runId: string };
+    const itemsOf = (data: { routines: Record<string, Record<string, unknown>> }, id: string) => data.routines[id].items as Record<string, unknown>[];
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * Through the store's actions, as a person would (B-16's "Become a better drawer"): a for each over a list kept in the
+     * routine ("arms", "legs" by + Add), "Practise {subject}" and "Adjust the subjects" (gives it) inside; a for each with
+     * its own list ("topics"); "Choose a way to draw" gives {way}; ▤ {way}. Started: arms practised, "hands" added from the
+     * adjusting step, on through legs; at the own list's row, "colour theory" given; through it; {way} chosen as the
+     * routine "Draw with guidelines"; Next: on ▤ {way}.
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const guide = (g().createRoutine('Draw with guidelines') as { routineId?: string }).routineId!;
+      const made = g().createRoutine('Become a better drawer');
+      if (!made.ok || !made.routineId || !guide) throw new Error('New: was refused');
+      const better = made.routineId;
+      const all = [g().editRoutine(guide, { kind: 'addStep', text: 'Block it in with guidelines' }), g().editRoutine(better, { kind: 'addEach', item: 'subject', list: 'subjects', own: 'kept' })];
+      const kept = (itemsOf(g().data, better)[0] as { ref: string }).ref;
+      all.push(g().editRoutine(kept, { kind: 'keptList', items: ['arms', 'legs'] }), g().editRoutine(kept, { kind: 'addStep', text: 'Practise {subject}' }), g().editRoutine(kept, { kind: 'addStep', text: 'Adjust the subjects' }));
+      const adjust = itemsOf(g().data, kept)[1].id as string;
+      all.push(g().editRoutine(kept, { kind: 'gives', item: adjust, name: 'subjects' }), g().editRoutine(better, { kind: 'addEach', item: 'topic', list: 'topics', own: 'asked' }));
+      const ownRow = itemsOf(g().data, better)[1] as { id: string; ref: string };
+      all.push(g().editRoutine(ownRow.ref, { kind: 'addStep', text: 'Find a guide on {topic}' }), g().editRoutine(better, { kind: 'addStep', text: 'Choose a way to draw' }));
+      const choose = itemsOf(g().data, better)[2].id as string;
+      all.push(g().editRoutine(better, { kind: 'gives', item: choose, name: 'way' }), g().editRoutine(better, { kind: 'addSlot', name: 'way' }));
+      const slot = itemsOf(g().data, better)[3].id as string;
+      const started = g().startRoutine(better);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      const runId = started.runId;
+      all.push(g().nextStep(runId), g().typeList(runId, adjust, 'subjects', ['arms', 'legs', 'hands']), g().nextStep(runId), g().nextStep(runId), g().nextStep(runId));
+      all.push(g().typeList(runId, ownRow.id, 'topics', ['colour theory']), g().nextStep(runId), g().nextStep(runId));
+      all.push(g().typeValue(runId, choose, 'way', 'Draw with guidelines', [{ ref: guide, name: 'Draw with guidelines' }]), g().nextStep(runId));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { better, guide, kept, own: ownRow.ref, adjust, choose, slot, ownRow: ownRow.id, runId };
+    }
+    const isAsBuilt = (data: { routines: Record<string, Record<string, unknown>>; runs: Record<string, Record<string, unknown>> }, ids: Ids) => {
+      expect(data.routines[ids.kept]).toMatchObject({ named: false, words: 'For each subject in {subjects}', each: { item: 'subject', list: 'subjects', kept: ['arms', 'legs', 'hands'] } });
+      expect(data.routines[ids.own]).toMatchObject({ named: false, each: { item: 'topic', list: 'topics', own: true } });
+      expect(itemsOf(data, ids.better)[3]).toEqual({ id: ids.slot, text: '{way}', slot: true });
+      const run = data.runs[ids.runId] as { frames: Record<string, unknown>[]; values: Record<string, unknown>[] };
+      expect(run.frames.map((f) => f.at)).toEqual([ids.slot]);
+      expect(run.values.map((v) => [v.name, v.items, v.item, v.refs])).toEqual([
+        ['topics', ['colour theory'], ids.ownRow, undefined],
+        ['way', ['Draw with guidelines'], ids.choose, [{ ref: ids.guide, name: 'Draw with guidelines' }]],
+      ]);
+    };
+    const shown = async (data: Parameters<typeof isAsBuilt>[0], ids: Ids) => {
+      const { runnerView } = await import('@/domain/runView');
+      const v = runnerView(data as never, ids.runId)!;
+      return { step: v.step, stepIn: v.moves.stepIn, way: v.values.find((x) => x.name === 'way')?.shown };
+    };
+
+    it('reload: saved to SQLite as kept — the kept list (with what the running step added), the own list, ▤ {way}, the routine chosen — the same after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const data = store.getState().data;
+      isAsBuilt(data as never, ids);
+      expect(await onDisk()).toEqual(data);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      expect(await shown(store.getState().data as never, ids)).toMatchObject({ step: { kind: 'routine', words: 'Draw with guidelines' }, stepIn: true, way: [{ text: 'Draw with guidelines', routine: ids.guide }] });
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), all of it is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const data = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      isAsBuilt(store.getState().data as never, ids);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('the localStorage fallback keeps it, and moves it into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const data = store.getState().data;
+      isAsBuilt(JSON.parse(env.ls.get('wanderment')!).state.data, ids);
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      expect(store.getState().data).toEqual(data);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(data);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('hand-over with a take-back: the run’s step into the routine held, still only in the journal when hidden, stays on top of another page’s + Add on the kept list; the other page’s item is taken', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      writeGate = deferred();
+      expect(store.getState().stepIn(ids.runId).ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      const mine = store.getState().data.runs[ids.runId];
+      expect((mine.frames as { seq: string }[]).map((f) => f.seq)).toEqual([ids.better, ids.guide]);
+
+      const { editRoutine } = await import('@/domain/run');
+      const other = editRoutine(await onDisk(), ids.kept, { kind: 'keptList', items: ['arms', 'legs', 'hands', 'cartoons'] }, { now: '2026-11-27T12:00:00.000Z', id: () => 'other-page' });
+      expect(other.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [other.data.routines[ids.kept]] } as never);
+      db.close();
+
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.runs[ids.runId]).toEqual(mine);
+      expect(store.getState().data.routines[ids.kept]).toMatchObject({ each: { kept: ['arms', 'legs', 'hands', 'cartoons'] } });
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('undo of Add’s For each… with a kept list, of + Add, of an adjustment from the running step, of ▤ {way} added, and of a routine value replaced: taken back on screen and on disk', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const g = () => store.getState();
+      let before = g().data;
+      for (const e of [
+        [ids.better, { kind: 'addEach', item: 'pose', list: 'poses', own: 'kept' }],
+        [ids.kept, { kind: 'keptList', items: ['arms', 'legs', 'hands', 'feet'] }],
+        [ids.better, { kind: 'addSlot', name: 'way', after: null }],
+      ] as const) {
+        expect(g().editRoutine(e[0], e[1] as never).ok).toBe(true);
+        await tick(30);
+        expect(await onDisk()).not.toEqual(before);
+        expect(g().undoLast()).toBe(true);
+        await tick(30);
+        expect(await onDisk()).toEqual(before);
+      }
+      // The routine value replaced by words in its field, then the field left: "Changed {way}", and its Undo puts the routine back.
+      expect(g().jumpTo(ids.runId, { path: [ids.choose] }).ok).toBe(true);
+      await tick(30);
+      before = g().data;
+      expect(g().typeValue(ids.runId, ids.choose, 'way', 'freely').ok).toBe(true);
+      g().typedOver(ids.runId, ids.choose, 'way', 'Draw with guidelines', undefined, [{ ref: ids.guide, name: 'Draw with guidelines' }]);
+      await tick(30);
+      expect(((await onDisk()).runs[ids.runId].values as Record<string, unknown>[]).find((v) => v.name === 'way')).not.toHaveProperty('refs');
+      expect(g().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      // The kept list adjusted from the running step, then left: its Undo puts the routine's list back.
+      expect(g().jumpTo(ids.runId, { path: [ids.kept ? (itemsOf(g().data as never, ids.better)[0].id as string) : '', ids.adjust] }).ok).toBe(true);
+      await tick(30);
+      before = g().data;
+      expect(g().typeList(ids.runId, ids.adjust, 'subjects', ['arms']).ok).toBe(true);
+      g().typedOver(ids.runId, ids.adjust, 'subjects', 'arms, legs and hands', ['arms', 'legs', 'hands']);
+      await tick(30);
+      expect((await onDisk()).routines[ids.kept]).toMatchObject({ each: { kept: ['arms'] } });
+      expect(g().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+    });
+
+    it('export → import: all of it is in the backup; the same file is identical; one with a kept list, refs, a routine row and a level in shapes this version cannot read replaces it — kept exactly through a move, an edit, a reload, the journal and another export', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      const file = JSON.parse(json);
+      isAsBuilt(file.data, ids);
+      expect(previewImport(json).plan).toMatchObject({ identical: true });
+      file.data.routines[ids.kept].each.kept = { later: ['arms'] };
+      file.data.routines[ids.kept].each.order = 'shuffled';
+      file.data.runs[ids.runId].values[1].refs = 'a later shape';
+      (file.data.routines[ids.better].items[3] as Record<string, unknown>).inputs = { later: true };
+      file.data.runs[ids.runId].frames[0].eachSeen = { later: 1 };
+      expect(confirmImport(previewImport(JSON.stringify(file))).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      const { readRoutine } = await import('@/domain/run');
+      const { runnerView } = await import('@/domain/runView');
+      // A kept list it cannot read: read as empty, never written over.
+      expect(readRoutine(store.getState().data, ids.kept)!.each).toMatchObject({ kept: [], locked: true });
+      expect(store.getState().editRoutine(ids.kept, { kind: 'keptList', items: ['x'] }).ok).toBe(false);
+      // refs it cannot read: the value reads as its words; the row as those words, no Step in.
+      expect(runnerView(store.getState().data, ids.runId)!.step).toMatchObject({ kind: 'step' });
+      expect(runnerView(store.getState().data, ids.runId)!.moves.stepIn).toBe(false);
+      env.state.hangWrites = true;
+      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      expect((store.getState().data.runs[ids.runId].frames as { at: string }[])[0].at).toBe(ids.choose);
+      expect(store.getState().editRoutine(ids.better, { kind: 'addStep', text: 'Rest', after: ids.slot }).ok).toBe(true);
+      expect(store.getState().editRoutine(ids.kept, { kind: 'addStep', text: 'Breathe' }).ok).toBe(true);
+      await tick(30);
+      env.state.hangWrites = false;
+      store = await reload();
+      const held = store.getState().data;
+      expect(held.routines[ids.kept]).toMatchObject({ each: { kept: { later: ['arms'] }, order: 'shuffled' } });
+      expect(itemsOf(held as never, ids.better)[3]).toEqual({ id: ids.slot, text: '{way}', slot: true, inputs: { later: true } });
+      expect((held.runs[ids.runId].values as Record<string, unknown>[])[1]).toMatchObject({ refs: 'a later shape' });
+      expect((held.runs[ids.runId].frames as Record<string, unknown>[])[0]).toMatchObject({ eachSeen: { later: 1 } });
+      expect(JSON.parse(toBackup(held)).data).toEqual(held);
+    });
+  });
 });
 
 // P-89: the control is gone with the old app; the saved setting is still a person's data, kept as it is.

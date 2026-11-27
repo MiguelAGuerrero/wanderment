@@ -18,6 +18,77 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — Home as one queue, values follow the place, a breakdown's own view, "@" names, chunks
+Read from Notion (MyStack › Home › plan › 2026-11-27, and Home › Observations), the owner's answers in chat,
+and two notes relayed from the second session:
+
+Read from the Notion page (MyStack › Home › plan › dated 2026-11-27 page, with a screenshot of Plan opened
+from a run: "Back to the run", HERE on "Envision how'd expect {feature} to work", the Resume button reading
+"Resume at Envision how'd expect {feature} to work", and a row reading "@Document Iteration"):
+
+- "Feature isn't interpolated when a value is a supplied during a run"
+- "The home view should really be a queue. Any ongoing runs would be the queue itself. And the new would be
+  enqueue"
+- "The breakdown step doesn't have its own contact so you have to keep clicking the previous substeps
+  context menu to add a next step after it while it's more intuitive to have the breakdown step be its own
+  view so that you can modify or develop the substeps with more screen space."
+- "So I noticed if you're able to apply a value within the plan, you can't supply a valley before it's its
+  prompted for or given while running in the execution of a step so that's a little bit non-intuitive. I
+  ran into that case when I was planning out or finding my routine for iterating on the app, in order to
+  proceed, I had to supply the value, but when I resumed, it was given before the step that gives it was
+  reached. There has to be some smart way of ensuring or asserting the invariance: the place where you are
+  in the app, in the routine (even post-planning), establishes this as the intended or expected state at
+  that point in terms of values declared. This will improve the app by preventing unintended state and
+  preventing cases where those values are supplied. The user leaves, they see where they are, they are in
+  the routine, and don't understand how those values got there."
+- Home › Observations: "I observed that the last known routine ran is indicated with just the word last. I
+  think this can be improved by making it more explicit stating last ran or even most recent run because
+  last is relative and the thing it's relative to is not clearly expressed in the UI and it makes it
+  ambiguous as to what it's referring to. This will improve the possibility to communicate what was last
+  rim so that the user can resume from their most recent work."
+
+Answers in chat, 2026-11-27:
+- Home: "One queue" — Home is one ordered list; each ongoing run is a row with its current step and where
+  it sits; + New adds a run at the bottom; the top row gets the filled Resume; rows reorder by drag; no
+  sections. (Replaces P-100's Up next / Ongoing / Finishing.)
+- Values: only the steps above the place hold values (moving the place back — Jump, Resume at, Repeat —
+  clears values given at or below it, with Undo; a value is asked only at its giving step, never ahead),
+  "but ensure that we're not displaying placeholders if those valleys aren't supplied, so that gives extra
+  context to say hey, you never reached part of the routine for which let's say concern was a resupplied.
+  It should only show the active state of declaration at that point."
+- Breakdown: "Opens its own view" — tapping a breakdown in Plan opens it full-screen with its own steps,
+  its own Add a step and a path back, like Step in.
+- Order: "Right after P-108" — quick fixes and the values rule, then the breakdown view, then P-100 as the
+  queue-Home; P-99 and the library after.
+- In chat, 2026-11-27: "Also I tried to reference a routine but it didn't work" (the screenshot's row reads
+  "@Document Iteration" as words). Cause found: "@" closes its list at the first space typed
+  (Plan.tsx readPick: `[\p{L}\p{N}_-]*`), so a routine named with two words can only be chosen before the
+  space; typing the whole name and adding it keeps it as words. Also "@" only works in Add a step / Add
+  after, not while changing a step's words. → P-110.
+- Relayed from the second session (B-16, "A step owes what its insides give"), the owner, verbatim: "when I
+  sufficiently understand my own routine, especially when it comes to loops, it would be more overhead to
+  just keep looping through a block, and it might be more expedient to at least capture the results of
+  that loop at the top level … instead of working it one by one, you can see chunks of steps all at once.
+  And so when you are ready to proceed to the next loop and capture all the outputs of that loop or given
+  values, you can note that and move on." And: "This improves the app by allowing the user to hold more
+  than one step as context in their head at once without incurring the cost of tapping and navigating the
+  app … it's like an abstraction, because it's no different from forming one step out of a whole bunch of
+  sub-steps … effectively it's just syntactic sugar for looping over a function." → P-112 (a turn as one
+  note), after P-100 unless the owner places it elsewhere.
+- Relayed from the second session, the owner's answer on P-112, verbatim: "in a step view, well, in whatever
+  step you can view, you can choose to keep pushing on the next steps as you see fit. And that way you can
+  chunk up as arbitrarily as you want. And one way to address deeply nested structures is that they're
+  expandable, and effectively it just turns into an outline view. And operates as a skip. So when you skip
+  over a chunk, you go to the next step after the chunk. This doesn't have to be like a first class thing.
+  It just has to be a quality of life UI affordance." → P-112 is a view affordance on the runner (extend the
+  step in view with the next, expand insides in place as an outline, Next skips past the chunk; nothing
+  stored). P-111's disclosure control and wording to match.
+
+Interpretation (ours): order after P-108 is P-110 (values follow the place; Plan shows given values during a
+run; "Last ran"; "@" across spaces), P-111 (a breakdown's own view in Plan), P-100 rewritten as the
+queue-Home, then P-112 (chunks on the runner), P-99, the library.
+Led to: P-110, P-111, P-100 (rewritten), P-112; B-16 (chunks).
+
 ## 2026-11-27 — Defer auditing to one review at the end; an investigator per phase
 "While this is being built, just defer all auditing at the end in one batch review so implementation is
 quick. That being said, prepare to have a read-only investigator per phase to queue up points of

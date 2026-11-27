@@ -33,7 +33,7 @@ import { decideWhere, wentHome, whereDecided } from './session';
 import { G, hueOf, SP, TARGET } from './tokens';
 import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Menu, MenuItem, MenuSep, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
 import { PlacesSheet } from './Places';
-import { Parts } from './Values';
+import { KeptSheet, Parts } from './Values';
 
 export function GoHome() {
   const data = useStore((s) => s.data);
@@ -84,6 +84,8 @@ export function GoHome() {
   const [ending, setEnding] = useState<Tile | null>(null);
   /** P-109: a tile's Places door — its routine's places, to open (read-only here). */
   const [placesOf, setPlacesOf] = useState<Tile | null>(null);
+  /** P-108: + Add on a tile's kept list. */
+  const [keptOf, setKeptOf] = useState<{ seq: string; list: string } | null>(null);
   /** P-102 audit F5: each tile's ··· (by routine), what its menu hangs from. */
   const [mores] = useState<Record<string, unknown>>(() => ({}));
   const newBtn = useRef<ViewRef>(null);
@@ -116,7 +118,7 @@ export function GoHome() {
     else focusOn(title);
   };
   useKeys(
-    focused && !naming && !tileMenu && !restarting && !ending && !placesOf,
+    focused && !naming && !tileMenu && !restarting && !ending && !placesOf && !keptOf,
     {
       'mod+z': () => {
         if (!can) return;
@@ -135,6 +137,8 @@ export function GoHome() {
       layer={
         naming ? (
           <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newBtn} />
+        ) : keptOf ? (
+          <KeptSheet seq={keptOf.seq} list={keptOf.list} onClose={() => setKeptOf(null)} fallback={title} />
         ) : placesOf ? (
           <PlacesSheet routineId={placesOf.routineId} name={placesOf.name} onClose={() => setPlacesOf(null)} fallback={title} />
         ) : restarting?.runId ? (
@@ -232,7 +236,7 @@ export function GoHome() {
                 </T>
                 <View style={styles.grid}>
                   {group.map((t) => (
-                    <TileBox key={t.routineId} tile={t} wide={columns === 1} onPress={() => choose(t)} onPlan={() => toPlan(t.routineId, t.runId)} onMore={t.runId && t.state !== 'running' ? () => setTileMenu(t) : undefined} moreRef={(el) => { mores[t.routineId] = el; }} unavailable={busy(t)} onPlaces={placesShown(data.routines[t.routineId]?.places).length > 0 ? () => setPlacesOf(t) : undefined} />
+                    <TileBox key={t.routineId} tile={t} wide={columns === 1} onPress={() => choose(t)} onPlan={() => toPlan(t.routineId, t.runId)} onMore={t.runId && t.state !== 'running' ? () => setTileMenu(t) : undefined} moreRef={(el) => { mores[t.routineId] = el; }} unavailable={busy(t)} onPlaces={placesShown(data.routines[t.routineId]?.places).length > 0 ? () => setPlacesOf(t) : undefined} onKept={(k) => setKeptOf(k)} />
                   ))}
                 </View>
               </View>
@@ -284,6 +288,8 @@ interface TileProps {
   moreRef?: (el: ViewRef | null) => void;
   /** P-109: its routine has places — the one door beside the name (none without). */
   onPlaces?: () => void;
+  /** P-108: + Add on one of its kept lists. */
+  onKept?: (kept: { seq: string; list: string }) => void;
 }
 
 const WEB = Platform.OS === 'web';
@@ -295,7 +301,7 @@ const RING_INK = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: 
  * (at the edge: "Plan <name>") — with Plan beside it; the run touched last says "last". A routine with
  * nothing going has Start (outlined, never filled) and Plan.
  */
-function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, onPlaces }: TileProps) {
+function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, onPlaces, onKept }: TileProps) {
   const hue = hueOf(tile.hue);
   const l = tileLine(tile);
   const color = G.ink;
@@ -365,6 +371,10 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, on
         {/* P-109 (B-18; the UI audit: beside the name it broke the name in a half tile): one door, after Plan and before ···,
             only when the routine has places — a mark-only button about this routine alone. */}
         {onPlaces && <Btn ink kind="plain" mark="places" spoken={`Places for ${tile.name}`} onPress={onPlaces} testID="go-tile-places" />}
+        {/* P-108 (B-16): + Add on each kept list, from home — no count. */}
+        {tile.kept?.map((k) => (
+          <Btn key={k.seq} ink kind="plain" mark="add" label={k.list} spoken={`Add to ${k.list} in ${tile.name}`} onPress={() => onKept?.(k)} testID="go-tile-kept-add" dataSet={{ list: k.list }} />
+        ))}
         {onMore && <Btn ref={moreRef} ink kind="plain" mark="more" spoken={`More for ${tile.name}`} onPress={onMore} testID="go-tile-more" />}
       </View>
     </View>

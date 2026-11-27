@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { applyUndo, sameValue, UndoEntry, undoEntry } from '@/domain/diff';
 import { Settings } from '@/domain/migrate';
 import { LogInput, logActivity, newId } from '@/domain/model';
-import { currentRun, editRoutine, isRunning, JumpTo, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
+import { currentRun, editRoutine, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
 import { Acted, noticeFor, runnerView, whatChanged } from '@/domain/runView';
 import { Data, emptyData, Id, Run } from '@/domain/types';
 import { nameKey, tidyName } from '@/domain/values';
@@ -230,12 +230,14 @@ interface State {
    * which gives the name or asks for it. Kept as typed, keystroke by keystroke; blank clears it. No notice,
    * and the Undo slot is left alone (ruling 4). Refused while reconnecting: the screen keeps the text.
    */
-  typeValue: (runId: Id, itemId: Id, name: string, text: string) => Did;
+  /** P-108: `refs` — the value is a routine (chosen in the field): `[{ ref, name }]`, held by reference. */
+  typeValue: (runId: Id, itemId: Id, name: string, text: string, refs?: (ListRef | null)[]) => Did;
   /**
    * P-107: a list given in the list field of the runner's step (a name a for each reads) — one item per row, blank
    * rows dropped, none clears it. As `typeValue`: no notice, the Undo slot left alone (`typedOver` names a change).
    */
-  typeList: (runId: Id, itemId: Id, name: string, items: string[]) => Did;
+  /** P-108: `refs` — the routines the rows hold, one per row (null: words). */
+  typeList: (runId: Id, itemId: Id, name: string, items: string[], refs?: (ListRef | null)[]) => Did;
   /**
    * P-96: the value sheet — call once, on Close, with what is in its field. Replacing or clearing the value
    * the run's step sees leaves "Changed {name}" / "Cleared {name}" with an Undo (ruling 4); the same text
@@ -248,7 +250,8 @@ interface State {
    * First giving (`was` empty) and an edit that ends where it began leave nothing.
    */
   /** P-107: `wasItems` — the list it began with (a list field): the Undo puts those items back, one per row. */
-  typedOver: (runId: Id, itemId: Id, name: string, was: string, wasItems?: string[]) => Did;
+  /** P-108: `wasRefs` — the routines it held: the Undo puts them back too. */
+  typedOver: (runId: Id, itemId: Id, name: string, was: string, wasItems?: string[], wasRefs?: (ListRef | null)[]) => Did;
   /** P-98: a refusal said in words, in the notice's row (nothing changed, nothing to undo): Plan's "a routine as a step of itself". */
   say: (text: string) => void;
   /** The notice was put away. Session only. */
@@ -382,7 +385,8 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
 }
 
 /** P-109: the Places sheet's edits (each said, with its Undo, in the sheet). */
-const PLACE_EDITS = new Set<RoutineEdit['kind']>(['addPlace', 'changePlace', 'movePlace', 'removePlace']);
+// (P-108: and + Add on a kept list — from Plan or a tile, said with its Undo.)
+const PLACE_EDITS = new Set<RoutineEdit['kind']>(['addPlace', 'changePlace', 'movePlace', 'removePlace', 'keptList']);
 
 /** P-98: what Step in says when the run is as deep as it can go. */
 export const STEP_IN_TOO_DEEP = 'Can’t step in any deeper';
@@ -400,15 +404,16 @@ function clearedNames(before: Data, after: Data, runId: Id): string[] {
  * (`was`): one notice, "Changed {x}" / "Cleared {x}", with an Undo that puts `was` back. The keystrokes
  * themselves wrote as they went ('keep'); this only names the edit and makes it undoable, once.
  */
-function typedOverValue(runId: Id, itemId: Id, name: string, was: string, wasItems?: string[]): Did {
+function typedOverValue(runId: Id, itemId: Id, name: string, was: string, wasItems?: string[], wasRefs?: (ListRef | null)[]): Did {
   const s = useStore.getState();
   const now = runnerView(s.data, runId)?.fields.find((f) => nameKey(f.name) === nameKey(name));
   const run = readRun(s.data, runId);
   if (!run || !was.trim()) return { ok: true, runId };
   const current = now?.text ?? '';
   // (P-107: a list is the same only item for item.)
-  if (wasItems ? JSON.stringify(now?.items ?? []) === JSON.stringify(wasItems) : current === was) return { ok: true, runId };
-  const back = runVerb(s.data, { kind: 'value', runId, name, text: was, item: itemId, ...(wasItems && { items: wasItems }) }, { now: new Date().toISOString(), id: newId });
+  const sameRefs = JSON.stringify(now?.refs ?? null) === JSON.stringify(wasRefs?.some(Boolean) ? wasRefs : null);
+  if ((wasItems ? JSON.stringify(now?.items ?? []) === JSON.stringify(wasItems) : current === was) && sameRefs) return { ok: true, runId };
+  const back = runVerb(s.data, { kind: 'value', runId, name, text: was, item: itemId, ...(wasItems && { items: wasItems }), ...(wasRefs && { refs: wasRefs }) }, { now: new Date().toISOString(), id: newId });
   if (!back.ok || back.data === s.data) return { ok: true, runId };
   const entry = undoEntry(back.data, s.data);
   useStore.setState({ undo: entry, runNotice: { verb: 'value', text: `${current.trim() ? 'Changed' : 'Cleared'} {${tidyName(name)}}`, label: 'Change', entry } });
@@ -550,8 +555,8 @@ export const useStore = create<State>()((set, get) => ({
   backTo: gated<State['backTo']>(refused, (runId) => act({ kind: 'back', runId }, 'clear')),
   restartRun: gated<State['restartRun']>(refused, (runId, level) => act({ kind: 'restart', runId, level }, 'set')),
   editRoutine: gated<State['editRoutine']>(refused, (routineId, edit) => act({ kind: 'editRoutine', routineId, edit }, 'set')),
-  typeValue: gated<State['typeValue']>(refused, (runId, itemId, name, text) => act({ kind: 'value', runId, name, text, item: itemId }, 'keep')),
-  typeList: gated<State['typeList']>(refused, (runId, itemId, name, items) => act({ kind: 'value', runId, name, text: items.join('\n'), items, item: itemId }, 'keep')),
+  typeValue: gated<State['typeValue']>(refused, (runId, itemId, name, text, refs) => act({ kind: 'value', runId, name, text, item: itemId, ...(refs && { refs }) }, 'keep')),
+  typeList: gated<State['typeList']>(refused, (runId, itemId, name, items, refs) => act({ kind: 'value', runId, name, text: items.join('\n'), items, item: itemId, ...(refs && { refs }) }, 'keep')),
   changeValue: gated<State['changeValue']>(refused, (runId, name, text) => act({ kind: 'value', runId, name, text }, 'set')),
   typedOver: gated<State['typedOver']>(refused, typedOverValue),
   say: (text) => set({ runNotice: { verb: 'editRoutine', text, label: '' } }),

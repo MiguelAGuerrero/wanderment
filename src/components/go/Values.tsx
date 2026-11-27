@@ -26,8 +26,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { addressesIn } from '@/domain/places';
+import { ListRef, readRoutine } from '@/domain/run';
+import { myRoutines } from '@/domain/routines';
 import { MAX_ITEMS, MAX_VALUE } from '@/domain/values';
-import { partsText, StepPart, valueDetail, ValueField, valueFrom, ValueShown, valueTrace, wordsShown } from '@/domain/runView';
+import { partsText, ShownItem, StepPart, valueDetail, ValueField, valueFrom, ValueShown, valueTrace, wordsShown } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
 import { decorative } from '../a11y';
@@ -48,7 +50,7 @@ export function Parts({ parts, ink, on }: { parts: StepPart[]; ink: string; on: 
           p.text
         ) : p.kind === 'value' ? (
           <Text key={i} style={[styles.inverted, { backgroundColor: ink, color: on }]} testID="go-value-in-place" {...{ dataSet: { name: p.name } }}>
-            {p.text}
+            {p.shown ? <ValueText shown={p.shown} color={on} /> : p.text}
           </Text>
         ) : (
           <Text key={i} style={[styles.blank, { color: ink, borderColor: ink }]} testID="go-value-blank" {...{ dataSet: { name: p.name } }}>
@@ -56,6 +58,28 @@ export function Parts({ parts, ink, on }: { parts: StepPart[]; ink: string; on: 
           </Text>
         ),
       )}
+    </>
+  );
+}
+
+/**
+ * P-108: a value's words — each item that is a routine drawn with the routine mark before its name ("▤ Draw with
+ * guidelines: slower"); items joined as in words ("a, b and c"). The mark is drawn, never spoken (the words are).
+ */
+export function ValueText({ shown, color = G.text }: { shown: ShownItem[]; color?: string }) {
+  return (
+    <>
+      {shown.map((x, i) => (
+        <Text key={i}>
+          {i > 0 && (i === shown.length - 1 ? ' and ' : ', ')}
+          {!!(x.routine || x.removed) && (
+            <Text {...decorative} testID="go-value-routine">
+              <Mark name="routine" size={18} color={color} />{' '}
+            </Text>
+          )}
+          {x.text}
+        </Text>
+      ))}
     </>
   );
 }
@@ -84,7 +108,7 @@ export function ValuesRow({ values, missing = [], onOpen, onGive }: { values: Va
           <Mark name="braces" size={20} color={G.dim} />
           <T style={styles.shrink}>
             <T dim>{`${label}: `}</T>
-            {v.text}
+            {v.shown ? <ValueText shown={v.shown} /> : v.text}
             {/* P-98 (ruling 4): an input of the routine the run is in — where it came from. */}
             {v.from !== undefined && <T dim testID="go-value-from-step">{` · from ${v.from}`}</T>}
           </T>
@@ -157,21 +181,69 @@ export function EntrySheet(props: { runId: string; itemId: string; field: ValueF
   return props.field.list ? <ListSheet {...props} /> : <TextSheet {...props} />;
 }
 
+/** P-108: one row of a giving field — words, or a routine it holds (by reference) with the words beside it. */
+type Row = { text: string; ref: ListRef | null };
+/** A row's routine is gone once its words no longer begin with the routine's name (they are words then). */
+const rowAfter = (r: Row, text: string): Row => ({ text, ref: r.ref && text.trim().toLowerCase().startsWith(r.ref.name.toLowerCase()) ? r.ref : null });
+
+/**
+ * P-108 (B-16, "Giving a routine"): the person's routines a giving field offers as they type — those whose name has
+ * the words in it; with nothing typed, only where the name is read by a routine row (`all`). The run's own routine is
+ * left out. A tap makes the row that routine (a call, not text).
+ */
+function RoutineOffers({ typed, all, runId, onPick }: { typed: string; all?: boolean; runId?: string; onPick: (ref: ListRef) => void }) {
+  const data = useStore((s) => s.data);
+  const q = typed.trim().toLowerCase();
+  if (!all && q.length < 2) return null;
+  const own = runId ? data.runs[runId]?.routineId : undefined;
+  const found = myRoutines(data)
+    .filter((r) => r.routineId !== own && (!q || r.name.toLowerCase().includes(q)) && r.name.toLowerCase() !== q)
+    .slice(0, 5);
+  if (!found.length) return null;
+  return (
+    <View style={styles.offers} testID="go-routine-offers">
+      {found.map((r) => (
+        <Btn key={r.routineId} kind="plain" mark="routine" label={r.name} spoken={`Use the routine ${r.name}`} onPress={() => onPick({ ref: r.routineId, name: r.name })} testID="go-routine-offer" dataSet={{ routine: r.routineId }} />
+      ))}
+    </View>
+  );
+}
+
 function TextSheet({ runId, itemId, field, onClose, fallback }: { runId: string; itemId: string; field: ValueField; onClose: () => void; fallback: { current: unknown } }) {
-  const [text, setText] = useState(field.text);
+  const was: Row = { text: field.text, ref: field.refs?.[0] ?? null };
+  const [row, setRow] = useState<Row>(was);
   const label = field.gives ? field.name : `asks ${field.name}`;
+  const fieldRef = useRef<unknown>(null);
   const keep = () => {
     const s = useStore.getState();
-    if (text !== field.text) {
+    if (row.text !== was.text || row.ref?.ref !== was.ref?.ref) {
       // Refused (reconnecting): the sheet stays, with what was typed.
-      if (!s.typeValue(runId, itemId, field.name, text).ok) return;
-      if (field.text) s.typedOver(runId, itemId, field.name, field.text);
+      if (!s.typeValue(runId, itemId, field.name, row.text, row.ref ? [row.ref] : undefined).ok) return;
+      if (field.text) s.typedOver(runId, itemId, field.name, field.text, undefined, field.refs);
     }
     onClose();
   };
   return (
     <Sheet title={label} onClose={onClose} testID="go-entry-sheet" fallback={fallback}>
-      <GrowField value={text} onChangeText={setText} accessibilityLabel={label} maxLength={MAX_VALUE} onSubmit={keep} testID="go-entry-field" {...{ dataSet: { first: 'true', name: field.name } }} />
+      <View style={styles.listRow}>
+        {!!row.ref && (
+          <View style={styles.rowMark} testID="go-entry-routine">
+            <Mark name="routine" color={G.dim} />
+          </View>
+        )}
+        <GrowField ref={fieldRef as never} value={row.text} onChangeText={(t) => setRow((r) => rowAfter(r, t))} accessibilityLabel={label} maxLength={MAX_VALUE} onSubmit={keep} style={styles.listField} testID="go-entry-field" {...{ dataSet: { first: 'true', name: field.name } }} />
+      </View>
+      {!row.ref && (
+        <RoutineOffers
+          typed={row.text}
+          all={field.routines}
+          runId={runId}
+          onPick={(ref) => {
+            setRow({ text: ref.name, ref });
+            focusSoon(fieldRef);
+          }}
+        />
+      )}
       <Btn kind="filled" label="Keep" spoken={`Keep ${field.name}`} onPress={keep} size={18} testID="go-entry-keep" />
       <Btn label="Close" onPress={onClose} testID="go-entry-close" />
     </Sheet>
@@ -186,19 +258,70 @@ const linesOf = (text: string) => text.split(/\r?\n/).map((l) => l.trim()).filte
  * in a row opens the next. Several lines pasted into a row offer **Split into rows** (one item per line) or **Keep
  * as one** (the lines joined by spaces) — nothing is split by itself, and never at commas. Keep is the field's own
  * write, as `TextSheet`'s: a first list says nothing; replacing or clearing one says "Changed / Cleared {name}",
- * with an Undo that puts its items back.
+ * with an Undo that puts its items back. P-108: a row can be a routine (offered as it is typed), drawn with its mark,
+ * with words after its name.
  */
 function ListSheet({ runId, itemId, field, onClose, fallback }: { runId: string; itemId: string; field: ValueField; onClose: () => void; fallback: { current: unknown } }) {
   const was = field.items ?? [];
-  const [rows, setRows] = useState<string[]>(() => (was.length ? [...was] : ['']));
+  const wasRefs = field.refs ?? was.map(() => null);
+  return (
+    <ListEditor
+      title={field.name}
+      testID="go-list-sheet"
+      rows={was.map((text, i) => ({ text, ref: wasRefs[i] ?? null }))}
+      offerAll={field.routines}
+      runId={runId}
+      fallback={fallback}
+      onClose={onClose}
+      onKeep={(items, refs) => {
+        const s = useStore.getState();
+        if (JSON.stringify(items) === JSON.stringify(was) && JSON.stringify(refs) === JSON.stringify(wasRefs)) return true;
+        // Refused (reconnecting): the sheet stays, with its rows.
+        if (!s.typeList(runId, itemId, field.name, items, refs.some(Boolean) ? refs : undefined).ok) return false;
+        if (was.length) s.typedOver(runId, itemId, field.name, field.text, was, field.refs);
+        return true;
+      }}
+    />
+  );
+}
+
+/**
+ * P-108: + Add on a kept list (in Plan, under its block; on the routine's tile) — its items as rows, a new one at the end
+ * with the focus; the filled Keep keeps the list in the routine (one change, said, with its Undo). No count anywhere.
+ */
+export function KeptSheet({ seq, list, onClose, fallback }: { seq: string; list: string; onClose: () => void; fallback: { current: unknown } }) {
+  const data = useStore((s) => s.data);
+  const each = readRoutine(data, seq)?.each;
+  const kept = each?.kept ?? [];
+  const refs = each?.refs ?? kept.map(() => null);
+  return (
+    <ListEditor
+      title={list}
+      testID="go-kept-sheet"
+      rows={[...kept.map((text, i) => ({ text, ref: refs[i] ?? null })), { text: '', ref: null }]}
+      focusLast
+      fallback={fallback}
+      onClose={onClose}
+      onKeep={(items, r) => {
+        if (JSON.stringify(items) === JSON.stringify(kept) && JSON.stringify(r) === JSON.stringify(refs)) return true;
+        return useStore.getState().editRoutine(seq, { kind: 'keptList', items, refs: r }).ok;
+      }}
+    />
+  );
+}
+
+function ListEditor({ title, testID, rows: start, offerAll, runId, focusLast, onKeep, onClose, fallback }: { title: string; testID: string; rows: Row[]; offerAll?: boolean; runId?: string; focusLast?: boolean; onKeep: (items: string[], refs: (ListRef | null)[]) => boolean; onClose: () => void; fallback: { current: unknown } }) {
+  const [rows, setRows] = useState<Row[]>(() => (start.length ? start : [{ text: '', ref: null }]));
   /** The row that holds several pasted lines, offering to split them. */
   const [pasted, setPasted] = useState<number | null>(null);
+  /** The row being typed in (its routines are offered under it). */
+  const [active, setActive] = useState<number | null>(null);
   /**
    * The row to give the focus to once it is drawn (a new one, or the one after a row removed). It is the person's
    * own move from the row they were typing in, so it is moved at once after the render that draws it (`focusSoon`
    * never takes the focus out of a field); not there yet, `focusSoon` waits for it.
    */
-  const focusAt = useRef<number | null>(null);
+  const focusAt = useRef<number | null>(focusLast ? Math.max(0, start.length - 1) : null);
   const setFocusAt = (i: number) => {
     focusAt.current = i;
   };
@@ -212,50 +335,54 @@ function ListSheet({ runId, itemId, field, onClose, fallback }: { runId: string;
     else focusSoon({ current: el });
   });
   const set = (i: number, text: string) => {
-    setRows((r) => r.map((x, j) => (j === i ? text : x)));
+    setRows((r) => r.map((x, j) => (j === i ? rowAfter(x, text) : x)));
     setPasted(linesOf(text).length > 1 ? i : pasted === i ? null : pasted);
   };
   const addAfter = (i: number) => {
     if (rows.length >= MAX_ITEMS) return;
-    setRows((r) => [...r.slice(0, i + 1), '', ...r.slice(i + 1)]);
+    setRows((r) => [...r.slice(0, i + 1), { text: '', ref: null }, ...r.slice(i + 1)]);
     setPasted(null);
     setFocusAt(i + 1);
   };
   const remove = (i: number) => {
-    setRows((r) => (r.length === 1 ? [''] : r.filter((_, j) => j !== i)));
+    setRows((r) => (r.length === 1 ? [{ text: '', ref: null }] : r.filter((_, j) => j !== i)));
     setPasted(null);
     setFocusAt(Math.max(0, Math.min(i, rows.length - 2)));
   };
   const split = (i: number) => {
-    const lines = linesOf(rows[i]);
-    setRows((r) => [...r.slice(0, i), ...lines, ...r.slice(i + 1)].slice(0, MAX_ITEMS));
+    const lines = linesOf(rows[i].text);
+    setRows((r) => [...r.slice(0, i), ...lines.map((text) => ({ text, ref: null })), ...r.slice(i + 1)].slice(0, MAX_ITEMS));
     setPasted(null);
     setFocusAt(Math.min(i + lines.length - 1, MAX_ITEMS - 1));
   };
   const asOne = (i: number) => {
-    set(i, linesOf(rows[i]).join(' '));
+    set(i, linesOf(rows[i].text).join(' '));
     setPasted(null);
     setFocusAt(i);
   };
   const keep = () => {
-    const items = rows.flatMap((r) => (r.trim() ? [linesOf(r).join(' ')] : []));
-    const s = useStore.getState();
-    if (JSON.stringify(items) !== JSON.stringify(was)) {
-      // Refused (reconnecting): the sheet stays, with its rows.
-      if (!s.typeList(runId, itemId, field.name, items).ok) return;
-      if (was.length) s.typedOver(runId, itemId, field.name, field.text, was);
-    }
-    onClose();
+    const kept = rows.flatMap((r) => (r.text.trim() ? [{ text: linesOf(r.text).join(' '), ref: r.ref }] : []));
+    if (onKeep(
+      kept.map((r) => r.text),
+      kept.map((r) => r.ref),
+    ))
+      onClose();
   };
   return (
-    <Sheet title={field.name} onClose={onClose} testID="go-list-sheet" fallback={fallback}>
-      <View style={styles.list} role="list" aria-label={field.name}>
-        {rows.map((text, i) => {
-          const spoken = `${field.name} ${i + 1}`;
+    <Sheet title={title} onClose={onClose} testID={testID} fallback={fallback}>
+      <View style={styles.list} role="list" aria-label={title}>
+        {rows.map((row, i) => {
+          const text = row.text;
+          const spoken = `${title} ${i + 1}`;
           const n = linesOf(text).length;
           return (
             <View key={i} role="listitem" style={styles.listItem} testID="go-list-row">
               <View style={styles.listRow}>
+                {!!row.ref && (
+                  <View style={styles.rowMark} testID="go-list-routine">
+                    <Mark name="routine" color={G.dim} />
+                  </View>
+                )}
                 <GrowField
                   ref={(el) => {
                     fields.current[i] = el;
@@ -263,6 +390,7 @@ function ListSheet({ runId, itemId, field, onClose, fallback }: { runId: string;
                   value={text}
                   onChangeText={(t) => set(i, t)}
                   onSubmit={() => addAfter(i)}
+                  onFocus={() => setActive(i)}
                   accessibilityLabel={spoken}
                   maxLength={MAX_VALUE}
                   style={styles.listField}
@@ -277,12 +405,23 @@ function ListSheet({ runId, itemId, field, onClose, fallback }: { runId: string;
                   <Btn kind="plain" label="Keep as one" onPress={() => asOne(i)} testID="go-list-one" />
                 </View>
               )}
+              {active === i && !row.ref && n <= 1 && (
+                <RoutineOffers
+                  typed={text}
+                  all={offerAll}
+                  runId={runId}
+                  onPick={(ref) => {
+                    setRows((r) => r.map((x, j) => (j === i ? { text: ref.name, ref } : x)));
+                    setFocusAt(i);
+                  }}
+                />
+              )}
             </View>
           );
         })}
       </View>
-      {rows.length < MAX_ITEMS && <Btn kind="plain" mark="add" label="Add another" spoken={`Add another to ${field.name}`} onPress={() => addAfter(rows.length - 1)} testID="go-list-add" />}
-      <Btn kind="filled" label="Keep" spoken={`Keep ${field.name}`} onPress={keep} size={18} testID="go-list-keep" />
+      {rows.length < MAX_ITEMS && <Btn kind="plain" mark="add" label="Add another" spoken={`Add another to ${title}`} onPress={() => addAfter(rows.length - 1)} testID="go-list-add" />}
+      <Btn kind="filled" label="Keep" spoken={`Keep ${title}`} onPress={keep} size={18} testID="go-list-keep" />
       <Btn label="Close" onPress={onClose} testID="go-list-close" />
     </Sheet>
   );
@@ -325,14 +464,22 @@ export function ValueSheet({ runId, name, onClose, fallback }: { runId: string; 
       {/* P-107: a list a for each reads — its items, one per row; it changes only by being given again (its step's list). */}
       {d.list ? (
         <View style={styles.list} role="list" aria-label={d.name} testID="go-value-sheet-list">
-          {d.items.map((x, i) => (
+          {(d.shown ?? d.items.map((text) => ({ text }))).map((x, i) => (
             <T key={i} role="listitem" style={styles.listShown}>
-              {x}
+              {d.shown ? <ValueText shown={[x]} /> : x.text}
             </T>
           ))}
         </View>
       ) : (
-        <GrowField value={text} onChangeText={setText} accessibilityLabel={d.name} maxLength={MAX_VALUE} onSubmit={() => focusOn(keepBtn)} testID="go-value-sheet-field" {...{ dataSet: { first: 'true' } }} />
+        <>
+          {/* P-108: a value that is a routine — the routine, drawn with its mark (it changes as words here). */}
+          {!!d.shown && (
+            <T testID="go-value-sheet-routine">
+              <ValueText shown={d.shown} />
+            </T>
+          )}
+          <GrowField value={text} onChangeText={setText} accessibilityLabel={d.name} maxLength={MAX_VALUE} onSubmit={() => focusOn(keepBtn)} testID="go-value-sheet-field" {...{ dataSet: { first: 'true' } }} />
+        </>
       )}
       <T dim testID="go-value-from">
         {valueFrom({ ...d, from: d.from && (partsText(wordsShown(data, runId, d.from)) || d.from) })}
@@ -351,7 +498,7 @@ export function ValueSheet({ runId, name, onClose, fallback }: { runId: string; 
                   <Mark name="braces" size={20} color={G.dim} />
                   <T style={styles.shrink}>
                     <T dim>{`${x.name}: `}</T>
-                    {x.text}
+                    {x.shown ? <ValueText shown={x.shown} /> : x.text}
                   </T>
                 </View>
               ))}
@@ -415,6 +562,9 @@ const styles = StyleSheet.create({
   listRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.s1 },
   listField: { flex: 1, minWidth: 0 },
   pasted: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2 },
+  // P-108: a row that is a routine (its mark), and the routines offered under a row.
+  rowMark: { minHeight: TARGET, justifyContent: 'center' },
+  offers: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s1 },
   listShown: { borderLeftWidth: 2, borderColor: G.line, paddingLeft: SP.s2, flexShrink: 1 },
   // P-101 amendment (ruling 11): the fallback — dashed, on no fill.
   chipAsks: { backgroundColor: 'transparent', borderWidth: 1, borderStyle: 'dashed', borderColor: G.dim },

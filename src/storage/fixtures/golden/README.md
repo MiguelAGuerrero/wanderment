@@ -148,3 +148,26 @@ before and write nothing by loading, for good.
 | `p107-old-build.json` | that build's `planView` and `runnerView` | what it SHOWED for the block: its Plan rows, and the runner on the block's row, inside the block and inside Sketch — a step broken down, Step in, `{photo}` asked |
 
 `freeze-p107.ts.txt` is the script that wrote them.
+
+## P-108 (frozen 2026-11-27, before kept lists)
+
+Written the same way by the build before P-108 (`ee66a65`, P-107's for each), which knew none of P-108's fields. It
+started from `p107-schema4.sqlite` (so everything above is in it) and was then used through its own store actions — and
+its Import, for what only an import could make there: the shapes P-108 writes. A for each with a **kept list**
+(`each: { item, list, kept, refs }`, a routine among its items), one with **its own list** (`each.own`), **routine
+rows by a name** (`{ id, text: '{way}', slot: true }`), **values that are routines** (`refs` beside `items`) and a for
+each level that **keeps the list it last saw** (`eachSeen`). That build read both blocks as for eaches over a name
+nothing gave and passed them, read `▤ {way}` as the step "{way}" showing the routine's name as words (no Step in), and
+its Plan added a step inside the kept block keeping the header it did not know. P-108 reads all of it; this data must
+load exactly as before and write nothing by loading.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p108-schema4.sqlite` | that build, ordinary saves (and five Imports), over `p107-schema4.sqlite` | everything in `p107-schema4.sqlite`, plus "Draw with guidelines"; "Become a better drawer" (Warm up, the kept block — arms, legs, "Draw with guidelines: eyes, slower" — with a step added by that build's Plan, the own-list block over {topics}, "Choose a way to draw" gives `{way}`, `▤ {way}`, "Tell Sam about {way}"), a run of it paused on `▤ {way}` with `{way}` the routine; "Try ways" ("List the ways to try" gives `{ways}`, a for each over it holding `▤ {way}`), a run paused inside it with `{ways}` a routine with words and plain words, its level keeping `eachSeen`; and P-96's "Read a chapter" running again |
+| `p108-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p108-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p108-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p108-expected.json` | that build's store | what those four must read as |
+| `p108-old-build.json` | that build's `planView` and `runnerView` | what it SHOWED: both blocks as steps broken down, passed straight through on the run; `▤ {way}` as the step "{way}" with the routine's name in place as words, no Step in; inside "Try ways"' for each, the item with its words |
+
+`freeze-p108.ts.txt` is the script that wrote them.

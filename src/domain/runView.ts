@@ -4,7 +4,7 @@
  * writes, and nothing throws on damaged data — a run or routine that can't be shown reads as
  * undefined, and the screen goes home.
  */
-import { advance, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, passedGives, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
+import { advance, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, passedGives, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
 import { hash } from './hash';
 import { addressesIn, PlaceShown, placesOf, placesShown, tidyPlaceText } from './places';
 import { Data, Id } from './types';
@@ -44,8 +44,39 @@ const dated = (iso: string | undefined): string | undefined => (typeof iso === '
 
 // ───────── values (P-96) ─────────
 
-/** A piece of words as shown: plain text; a value in place (shown inverted, read "name: value"); a blank — a name with no value (read "name, empty"). */
-export type StepPart = { kind: 'text'; text: string } | { kind: 'value'; name: string; text: string } | { kind: 'blank'; name: string };
+/**
+ * P-108: one item of a value as shown — its words, or a routine it holds: the routine's name now (held by reference)
+ * and the words beside it, drawn with the routine mark (`routine`, its id); a routine removed reads "<name> (removed)".
+ */
+export interface ShownItem {
+  text: string;
+  routine?: Id;
+  removed?: true;
+}
+/** P-108: a value's items as shown. */
+export function shownItems(data: Data, e: { items: string[]; refs?: unknown }): ShownItem[] {
+  const refs = refsOf(e);
+  return e.items.map((x, i) => {
+    const r = refs[i];
+    if (!r) return { text: x };
+    const beside = x.trim().slice(tidy(r.name).length).replace(/^\s*:?\s*/, '');
+    const t = readRoutine(data, r.ref);
+    const live = !!t?.named && !t.removedAt;
+    const name = live ? t!.words : `${r.name} (removed)`;
+    return { text: beside ? `${name}: ${beside}` : name, ...(live ? { routine: t!.id } : { removed: true as const }) };
+  });
+}
+/** P-108: `shown`, only for a value that holds a routine (else its words are its items). */
+const shownOf_ = (data: Data, e: { items: string[]; refs?: unknown }): { text: string; shown?: ShownItem[] } => {
+  const shown = shownItems(data, e);
+  return shown.some((x) => x.routine || x.removed) ? { text: joinItems(shown.map((x) => x.text)), shown } : { text: valueText(e as ValueEntry) };
+};
+
+/**
+ * A piece of words as shown: plain text; a value in place (shown inverted, read "name: value"); a blank — a name with no
+ * value (read "name, empty"). P-108: a value that holds a routine has its items `shown` (drawn with the routine mark).
+ */
+export type StepPart = { kind: 'text'; text: string } | { kind: 'value'; name: string; text: string; shown?: ShownItem[] } | { kind: 'blank'; name: string };
 /** A value the runner shows (the values row, a tile): its name as given, its items joined in words. `mine`: given (or asked) in the level the run is in. */
 export interface ValueShown {
   name: string;
@@ -57,6 +88,8 @@ export interface ValueShown {
   from?: string;
   /** P-107: a for each's item — "photo 2 of 3: the boxer" (`n` of `of`, where it is in its list). */
   each?: { n: number; of: number };
+  /** P-108: its items, when one of them is a routine (each drawn with the routine mark). */
+  shown?: ShownItem[];
 }
 /**
  * A field on the runner's step (ruling 6): the giving step's — labelled with its name — or one for a name
@@ -70,12 +103,16 @@ export interface ValueField {
   /** P-107: a name a for each reads — its field is a list (one row per item); `items`: the list as it is (when it has one). */
   list?: true;
   items?: string[];
+  /** P-108: the routines its items hold (when one does). */
+  refs?: (ListRef | null)[];
+  /** P-108: a name a routine row (`▤ {name}`) reads — its field opens on the person's routines. */
+  routines?: true;
 }
 
 const asTyped = (e: ValueEntry) => (e.items.length === 1 ? e.items[0] : joinItems(e.items));
-const shownOf = (e: ValueEntry, mine: number, from?: string): ValueShown => {
+const shownOf = (data: Data, e: ValueEntry, mine: number, from?: string): ValueShown => {
   const each = eachPlace(e);
-  return { name: e.name, text: valueText(e), items: e.items, level: e.level, mine: e.level === mine && from === undefined, ...(from !== undefined && { from }), ...(each && { each }) };
+  return { name: e.name, ...shownOf_(data, e), items: e.items, level: e.level, mine: e.level === mine && from === undefined, ...(from !== undefined && { from }), ...(each && { each }) };
 };
 /** The words of the step a value was given at (as stored with it, else its step's words now). */
 function givenAt(data: Data, run: RunState, frames: Frame[], e: ValueEntry): string {
@@ -100,7 +137,7 @@ function partsFor(data: Data, run: RunState, words: string, frames: Frame[] | un
   return parseWords(words).map((p) => {
     if (p.kind === 'text') return { kind: 'text', text: p.text };
     const e = visibleValue(data, run, p.key, frames);
-    return e ? { kind: 'value', name: p.name, text: valueText(e) } : { kind: 'blank', name: p.name };
+    return e ? { kind: 'value', name: p.name, ...shownOf_(data, e) } : { kind: 'blank', name: p.name };
   });
 }
 /** Parts as plain words: values in place, blanks as their name in braces. */
@@ -113,9 +150,27 @@ export function wordsShown(data: Data, runId: Id, words: string): StepPart[] {
   return run && at ? partsFor(data, run, words, at.frames) : [];
 }
 
+/** P-108: the routines a value's items hold, for its field (when one does). */
+const refsField = (e: ValueEntry | undefined) => {
+  const refs = e ? refsOf(e) : [];
+  return refs.some(Boolean) ? { refs } : {};
+};
+/** P-108: a name read by a routine row (`▤ {name}`) in the routine the run is in. */
+function readBySlot(data: Data, run: RunState, frames: Frame[], key: string): boolean {
+  let j = frames.length - 1;
+  while (j > 0 && !view(data, run, frames[j].seq)?.named) j--;
+  return routineBody(data, run, frames[j].seq).some((s) => s.items.some((i) => nameKey(slotOf(i) ?? '') === key));
+}
+
 function fieldsFor(data: Data, run: RunState, at: Place): ValueField[] {
   const item = at.item;
   if (!item) return [];
+  // P-108: a for each that asks for its own list — its list field, on its row.
+  const own = ownBlock(data, run, item);
+  if (own?.each) {
+    const e = visibleValue(data, run, nameKey(own.each.list), at.frames);
+    return [{ name: own.each.list, text: e ? asTyped(e) : '', gives: true, list: true, ...(e && { items: [...e.items] }), ...refsField(e), ...(readBySlot(data, run, at.frames, nameKey(own.each.item)) && { routines: true as const }) }];
+  }
   // P-98 (the owner: no options while running a step): a row with insides has no fields — what it owes is asked only once Next is pressed (`nextOwes`).
   if (isRef(item)) return [];
   const scope = topScope(data, run, at.frames);
@@ -125,13 +180,15 @@ function fieldsFor(data: Data, run: RunState, at: Place): ValueField[] {
     const e = visibleValue(data, run, nameKey(gives), at.frames);
     // P-107: a list a for each reads — one row per item, shown as it is to adjust.
     const list = readByEach(data, run, at.frames, nameKey(gives));
-    out.push({ name: gives, text: e ? asTyped(e) : '', gives: true, ...(list && { list: true as const }), ...(list && e && { items: [...e.items] }) });
+    // P-108: a name a routine row reads (itself, or the item of a for each over it) opens on routines.
+    const routines = readBySlot(data, run, at.frames, nameKey(gives)) || routineBody(data, run, at.frames[scope].seq).some((b) => b.each && nameKey(b.each.list) === nameKey(gives) && readBySlot(data, run, at.frames, nameKey(b.each.item)));
+    out.push({ name: gives, text: e ? asTyped(e) : '', gives: true, ...(list && { list: true as const }), ...(list && e && { items: [...e.items] }), ...refsField(e), ...(routines && { routines: true as const }) });
   }
   for (const n of namesIn(wordsOf(data, run, item))) {
     if (gives && n.key === nameKey(gives)) continue;
     const e = visibleValue(data, run, n.key, at.frames);
     // It asks while nothing gave it — and keeps its field while the value is the one typed here.
-    if (!e || (e.item === item.id && e.level === scope)) out.push({ name: n.name, text: e ? asTyped(e) : '', gives: false });
+    if (!e || (e.item === item.id && e.level === scope)) out.push({ name: n.name, text: e ? asTyped(e) : '', gives: false, ...refsField(e), ...(slotOf(item) && { routines: true as const }) });
   }
   return out;
 }
@@ -157,6 +214,8 @@ export interface ValueDetail {
   late?: true;
   /** P-107: a list a for each reads — its items shown as rows; it changes only by being given again (its giving step). */
   list?: true;
+  /** P-108: its items, when one of them is a routine. */
+  shown?: ShownItem[];
 }
 
 /** The value of `name` as the run's step sees it, for its sheet; undefined when there is none. */
@@ -178,7 +237,7 @@ export function valueDetail(data: Data, runId: Id, name: string): ValueDetail | 
   const late = !!giver && isLate(data, run, e, wordsOf(data, run, giver));
   return {
     name: e.name,
-    text: valueText(e),
+    ...shownOf_(data, e),
     items: e.items,
     from: late ? e.words! : giver ? wordsOf(data, run, giver) : (e.words ?? ''),
     ...(input ? { routine: view(data, run, at.frames[scopeLevel(data, run, at.frames, e.level - 1)].seq)?.words ?? '' } : e.level !== scope && !late && { routine: body[0]?.words ?? '' }),
@@ -243,7 +302,7 @@ export function valueTrace(data: Data, runId: Id, name: string): TraceLevel[] | 
     trace.push({
       routine: view(data, run, at.frames[j].seq)?.words ?? '',
       step: by ? wordsOf(data, run, by) : (e.words ?? ''),
-      values: valuesAtLevel(data, run, at.frames, j).filter((v) => !copy(v)).map((v) => shownOf(v, scope)),
+      values: valuesAtLevel(data, run, at.frames, j).filter((v) => !copy(v)).map((v) => shownOf(data, v, scope)),
     });
     if (next < 0) break;
     j = next;
@@ -300,6 +359,23 @@ export interface Tile {
   atParts?: StepPart[];
   /** P-96: the values in play where its run is; absent when none. */
   values?: ValueShown[];
+  /** P-108: its for each blocks' kept lists, each with + Add (`editRoutine(seq, { kind: 'keptList', items })`); absent when none. */
+  kept?: { seq: Id; list: string; items: string[] }[];
+}
+
+/** A routine and its smaller steps, as stored (each once). */
+function bodyOf_(data: Data, id: Id): Seq[] {
+  const out: Seq[] = [];
+  const seen = new Set<Id>();
+  const walk = (x: Id) => {
+    const s = seen.has(x) ? undefined : readRoutine(data, x);
+    seen.add(x);
+    if (!s) return;
+    out.push(s);
+    for (const i of s.items) if (isRef(i) && readRoutine(data, i.ref)?.named === false) walk(i.ref);
+  };
+  walk(id);
+  return out;
 }
 
 /**
@@ -326,7 +402,9 @@ function hueRanks(data: Data): Map<Id, number> {
 }
 
 function tileOf(data: Data, s: Seq, run: RunState | undefined, current: Id | undefined): Tile {
-  const base = { routineId: s.id, name: s.words, hue: routineHue(data, s.id) };
+  // P-108: the kept lists inside it — + Add on its tile (no count).
+  const kept = bodyOf_(data, s.id).flatMap((b) => (b.each?.kept && !b.each.locked ? [{ seq: b.id, list: b.each.list, items: [...b.each.kept] }] : []));
+  const base = { routineId: s.id, name: s.words, hue: routineHue(data, s.id), ...(kept.length && { kept }) };
   const at = run && place(data, run);
   if (!run || !at) return { ...base, state: 'idle', current: false, action: 'start', ...(!s.items.length && { empty: true as const }) };
   const reason = tidyLines(run.reason);
@@ -336,7 +414,7 @@ function tileOf(data: Data, s: Seq, run: RunState | undefined, current: Id | und
   return {
     ...base,
     ...(at.item && { atParts: partsFor(data, run, wordsOf(data, run, at.item), at.frames) }),
-    ...(values.length && { values: values.map((e) => shownOf(e, scope)) }),
+    ...(values.length && { values: values.map((e) => shownOf(data, e, scope)) }),
     runId: run.id,
     state: isWait(at.item) ? 'waiting' : isRunning(data, run) ? 'running' : 'paused',
     ...(at.item ? { at: wordsOf(data, run, at.item) } : { asking: true as const }),
@@ -507,11 +585,16 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
   const { item, seq, frames } = at;
   const below = frames.length > 1 ? view(data, run, frames[frames.length - 2].seq) : undefined;
   // P-98: a call to a removed routine says so (its words) and is not stepped into.
-  const removed = isRemovedCall(data, item);
-  const target = isRef(item) && !removed ? view(data, run, item.ref) : undefined;
+  // P-108: a routine row whose routine is a value shows the routine it holds (as it is now), with Step in; held words read as words.
+  const held = heldBy(data, run, frames, item);
+  const removed = isRemovedCall(data, item) || (!!held && 'removed' in held);
+  // (P-108: a for each is not stepped into from its row — arriving goes in; one asking for its own list goes in with Next.)
+  const target = held && 'routine' in held ? view(data, run, held.routine) : isRef(item) && !removed && !view(data, run, item.ref)?.each ? view(data, run, item.ref) : undefined;
   const waiting = waitingOf(run, at);
   const ends = !!item && !run.endedAt && wouldEnd(data, { kind: 'next', runId });
-  const words = item ? wordsOf(data, run, item) : '';
+  const words = held && 'routine' in held ? target!.words : held && 'removed' in held ? `${held.removed} (removed)` : item ? wordsOf(data, run, item) : '';
+  const heldRoutine = !!held && !('words' in held);
+  const kind = heldRoutine ? 'routine' : item && ownBlock(data, run, item) ? 'step' : item ? kindOf(item) : 'step';
   const middle = target?.items.length && frames.length < MAX_DEPTH ? 'stepIn' : 'plan';
   let inner: Seq | undefined;
   for (let j = frames.length - 1; j > 0 && !inner; j--) {
@@ -532,9 +615,9 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
     ...(below && { parent: levelWords(below) }),
     depth: frames.length,
     planning: isPlanning(data, run),
-    step: item ? { kind: kindOf(item), words, seq: seq.id, itemId: item.id, parts: partsFor(data, run, words, frames), ...(removed && { removed: true as const }) } : { kind: 'edge', words: '', seq: seq.id, parts: [] },
+    step: item ? { kind, words, seq: seq.id, itemId: item.id, parts: heldRoutine ? [{ kind: 'text', text: words }] : partsFor(data, run, words, frames), ...(removed && { removed: true as const }) } : { kind: 'edge', words: '', seq: seq.id, parts: [] },
     fields: fieldsFor(data, run, at),
-    values: valuesInPlay(data, run).map((e) => shownOf(e, topScope(data, run, frames), inputFrom(data, run, frames, e))),
+    values: valuesInPlay(data, run).map((e) => shownOf(data, e, topScope(data, run, frames), inputFrom(data, run, frames, e))),
     lastOfRound: lastOfRound(at),
     canBack: !!previous(data, run),
     middle,
@@ -679,6 +762,7 @@ export function namesOffered(rows: PlanRow[], at: { mode: 'words' | 'after' | 'i
   if (at.mode === 'words') return out;
   // P-107: a step put into a for each reads its item.
   if (at.mode === 'into' && row.each) add(row.each.item);
+  if (at.mode === 'into' && row.each?.own) add(row.each.list);
   const inside = (r: PlanRow) => r.path.length >= row.path.length && row.path.every((id, i) => r.path[i] === id);
   for (let i = at.index; i < rows.length && inside(rows[i]); i++) if (rows[i].scope === row.scope) rowGives(rows[i]).forEach(add);
   return out;
@@ -826,8 +910,14 @@ export interface PlanRow {
   asks: string[];
   /** P-98: a routine used as a step (a call): what it asks — each input and what fills it — and what it gives. */
   call?: PlanCall;
-  /** P-107: a for each block — "For each <item> in {<list>}": its steps read `{item}`; it reads `{list}`. */
-  each?: { item: string; list: string };
+  /**
+   * P-107: a for each block — "For each <item> in {<list>}": its steps read `{item}`; it reads `{list}`. P-108: `own`, its
+   * list is its own (asked on arrival; read by nothing outside it); `kept`, kept in the routine — its items as rows under
+   * the block, + Add (`editRoutine(ref, { kind: 'keptList', items })`); never counted.
+   */
+  each?: { item: string; list: string; own?: true; kept?: ShownItem[] };
+  /** P-108: a routine row whose routine is a value — `▤ {slot}` (it reads the name; "asks" when nothing gives it). */
+  slot?: string;
 }
 
 /**
@@ -961,6 +1051,7 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
       const gives = outOf(item);
       const call = isCall(data, item) ? callOf(item, given) : undefined;
       const each = isRef(item) ? read(item.ref)?.each : undefined;
+      const slot = slotOf(item);
       rows.push({
         path: [...path, item.id],
         depth,
@@ -976,24 +1067,26 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
         canDown: i < s.items.length - 1,
         ...(divider && divider.from === i && { divider }),
         ...(gives && { gives }),
-        reads: each ? [each.list] : isRef(item) ? [] : namesIn(words(item)).map((x) => x.name),
+        reads: each ? (each.own ? [] : [each.list]) : isRef(item) ? [] : namesIn(words(item)).map((x) => x.name),
         above: [...given],
         scope,
-        canBreakDown: isStep(item) && !gives,
+        canBreakDown: isStep(item) && !gives && !slot,
         ...(isRef(item) && read(item.ref)?.named === false && hoisted(item.ref)),
         asks: [],
         ...(call && { call }),
-        ...(each && { each }),
+        ...(each && { each: { item: each.item, list: each.list, ...(each.own && { own: true as const }), ...(each.kept && { kept: shownItems(data, { items: each.kept, refs: each.refs }) }) } }),
+        ...(slot && { slot }),
       });
       for (const g of [gives, ...(call?.gives ?? [])]) if (g && !given.some((x) => nameKey(x) === nameKey(g))) given.push(g);
       // (A removed routine is not opened: its row says so, and that is all.)
       if (isRef(item) && !call?.removed && !open.includes(item.ref) && depth + 1 < MAX_DEPTH) {
         const named = read(item.ref)?.named !== false;
         // P-107: inside a for each its item is a name given above (and only there).
-        const local = each && !given.some((g) => nameKey(g) === nameKey(each.item));
-        if (local) given.push(each.item);
+        // (P-108: and its own list, local to it.)
+        const locals = each ? [each.item, ...(each.own ? [each.list] : [])].filter((x) => !given.some((g) => nameKey(g) === nameKey(x))) : [];
+        given.push(...locals);
         walk(item.ref, [...path, item.id], [...open, item.ref], within, named ? item.ref : scope, named ? [] : given);
-        if (local) given.splice(given.findIndex((g) => g === each.item), 1);
+        for (const x of locals) given.splice(given.indexOf(x), 1);
       }
     });
   };
@@ -1024,6 +1117,7 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
     r.asks = r.reads.filter((n) => !given.has(nameKey(n)) && !local.includes(nameKey(n)));
     for (const g of rowGives(r)) given.add(nameKey(g));
     if (r.each) items.push({ path: r.path, key: nameKey(r.each.item) });
+    if (r.each?.own) items.push({ path: r.path, key: nameKey(r.each.list) });
   }
   const first = read(root.id) ?? root;
   const divider = dividerOf(first);
@@ -1153,6 +1247,14 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     // P-107: Add's "For each…".
     if (e.kind === 'addEach') return `Added ${quoted(eachWords({ item: tidyName(e.item), list: tidyName(e.list) }))}`;
     if (e.kind === 'bind') return `Changed {${tidyName(e.input)}} for ${item(e.item)}`;
+    // P-108: a kept list given (+ Add): the item added, else the list changed; a routine row by a name.
+    if (e.kind === 'keptList') {
+      const had = s?.each?.kept ?? [];
+      const now = (Array.isArray(e.items) ? e.items : []).filter((x) => typeof x === 'string' && x.trim());
+      const list = s?.each?.list ?? '';
+      return now.length === had.length + 1 && had.every((x, i) => x === now[i]) ? `Added ${quoted(now[now.length - 1])} to {${list}}` : `Changed {${list}}`;
+    }
+    if (e.kind === 'addSlot') return `Added the routine in {${tidyName(e.name)}}`;
     if (e.kind === 'copy') return `Copied ${quoted(s?.words ?? '')} as ${quoted(e.words)}`;
     if (e.kind === 'addWait') return `Added a wait for ${quoted(e.wait)}`;
     if (e.kind === 'remove') {

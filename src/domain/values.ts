@@ -159,6 +159,11 @@ export interface ValueEntry {
   words?: string;
   at: string;
   changedAt?: string;
+  /**
+   * P-108: the routines its items hold, one per item (null: words) — by reference, with the routine's name when it was
+   * given (the item's words begin with it, so an older build reads the words). Read through `refsOf` (run.ts).
+   */
+  refs?: ({ ref: Id; name: string } | null)[];
 }
 
 const isObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
