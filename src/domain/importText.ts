@@ -23,7 +23,8 @@ function held(plan: ImportPlan, side: 'here' | 'incoming'): string {
   const c = plan[side];
   const later = LATER_COLLECTIONS.map((k) => [k, (side === 'here' ? heldHere : heldIncoming)(plan[k])] as const)
     .filter(([, n]) => n > 0)
-    .map(([k, n]) => count(n, COLLECTION_INFO[k].one, COLLECTION_INFO[k].many));
+    // P-109: the places the routines hold go with them ("2 routines with 3 places"), only when there are any.
+    .map(([k, n]) => `${count(n, COLLECTION_INFO[k].one, COLLECTION_INFO[k].many)}${k === 'routines' && plan.places?.[side] ? ` with ${count(plan.places[side], 'place', 'places')}` : ''}`);
   const earlier = c.activities + c.wanders;
   return list([...later, ...(earlier ? [EARLIER(earlier)] : [])]);
 }

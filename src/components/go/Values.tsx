@@ -16,18 +16,25 @@
  * and opens `EntrySheet` (label, a field that wraps, the filled Keep, Close), which rises with the
  * keyboard. The value sheet shows the trace: routine › step from the run's root to the giving step,
  * each routine's values under it, then "read by". `Gives`: hoisted "gives {a}, {b}".
+ *
+ * P-107: a for each's item reads "photo 2 of 3: the boxer" in the values row. A name a for each reads is a list: its
+ * giving step's field opens `ListSheet` — one row per item (each with its ×), + Add another, the filled Keep — never
+ * one line read apart at commas; several lines pasted into a row offer Split into rows / Keep as one. Its value sheet
+ * shows the items as rows: a list changes only by being given again.
  */
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { MAX_VALUE } from '@/domain/values';
+import { addressesIn } from '@/domain/places';
+import { MAX_ITEMS, MAX_VALUE } from '@/domain/values';
 import { partsText, StepPart, valueDetail, ValueField, valueFrom, ValueShown, valueTrace, wordsShown } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
 import { decorative } from '../a11y';
 import { Mark } from './marks';
+import { OpenRows } from './Places';
 import { G, SP, TARGET } from './tokens';
-import { Btn, focusOn, GrowField, Sheet, T, ViewRef } from './ui';
+import { Btn, focusOn, focusSoon, GrowField, Sheet, T, ViewRef } from './ui';
 
 const WEB = Platform.OS === 'web';
 const RING = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: G.focus, outlineOffset: 3 } as object) : null;
@@ -62,22 +69,28 @@ export function ValuesRow({ values, missing = [], onOpen, onGive }: { values: Va
   if (!values.length && !missing.length) return null;
   return (
     <View style={styles.row} testID="go-values">
-      {values.map((v) => (
+      {values.map((v) => {
+        // P-107 (B-15 journey 7): a for each's item says where it is in its list — "photo 2 of 3".
+        const label = v.each ? `${v.name} ${v.each.n} of ${v.each.of}` : v.name;
+        return (
         <Pressable
           key={`${v.level}:${v.name}`}
           onPress={() => onOpen(v.name)}
           accessibilityRole="button"
-          accessibilityLabel={`${v.name}: ${v.text}`}
+          accessibilityLabel={`${label}: ${v.text}${v.from !== undefined ? ` · from ${v.from}` : ''}`}
           testID="go-value"
           {...{ dataSet: { name: v.name } }}
           style={(state) => [styles.value, (state as { focused?: boolean }).focused && RING]}>
           <Mark name="braces" size={20} color={G.dim} />
           <T style={styles.shrink}>
-            <T dim>{`${v.name}: `}</T>
+            <T dim>{`${label}: `}</T>
             {v.text}
+            {/* P-98 (ruling 4): an input of the routine the run is in — where it came from. */}
+            {v.from !== undefined && <T dim testID="go-value-from-step">{` · from ${v.from}`}</T>}
           </T>
         </Pressable>
-      ))}
+        );
+      })}
       {missing.map((name) => (
         <Pressable
           key={`missing:${name}`}
@@ -140,7 +153,11 @@ export function ValueFields({ fields, onOpen }: { fields: ValueField[]; onOpen: 
  * as typing in place was (P-96 ruling 4): giving a value for the first time leaves no notice; replacing or
  * clearing one says "Changed / Cleared {name}", with an Undo (audit F3). Return keeps it.
  */
-export function EntrySheet({ runId, itemId, field, onClose, fallback }: { runId: string; itemId: string; field: ValueField; onClose: () => void; fallback: { current: unknown } }) {
+export function EntrySheet(props: { runId: string; itemId: string; field: ValueField; onClose: () => void; fallback: { current: unknown } }) {
+  return props.field.list ? <ListSheet {...props} /> : <TextSheet {...props} />;
+}
+
+function TextSheet({ runId, itemId, field, onClose, fallback }: { runId: string; itemId: string; field: ValueField; onClose: () => void; fallback: { current: unknown } }) {
   const [text, setText] = useState(field.text);
   const label = field.gives ? field.name : `asks ${field.name}`;
   const keep = () => {
@@ -157,6 +174,116 @@ export function EntrySheet({ runId, itemId, field, onClose, fallback }: { runId:
       <GrowField value={text} onChangeText={setText} accessibilityLabel={label} maxLength={MAX_VALUE} onSubmit={keep} testID="go-entry-field" {...{ dataSet: { first: 'true', name: field.name } }} />
       <Btn kind="filled" label="Keep" spoken={`Keep ${field.name}`} onPress={keep} size={18} testID="go-entry-keep" />
       <Btn label="Close" onPress={onClose} testID="go-entry-close" />
+    </Sheet>
+  );
+}
+
+/** P-107: the lines of words pasted into one row (blank ones dropped). */
+const linesOf = (text: string) => text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+/**
+ * P-107 (B-15 journey 7): a list given at its step — one row per item, each with its × (Remove), + Add another; Return
+ * in a row opens the next. Several lines pasted into a row offer **Split into rows** (one item per line) or **Keep
+ * as one** (the lines joined by spaces) — nothing is split by itself, and never at commas. Keep is the field's own
+ * write, as `TextSheet`'s: a first list says nothing; replacing or clearing one says "Changed / Cleared {name}",
+ * with an Undo that puts its items back.
+ */
+function ListSheet({ runId, itemId, field, onClose, fallback }: { runId: string; itemId: string; field: ValueField; onClose: () => void; fallback: { current: unknown } }) {
+  const was = field.items ?? [];
+  const [rows, setRows] = useState<string[]>(() => (was.length ? [...was] : ['']));
+  /** The row that holds several pasted lines, offering to split them. */
+  const [pasted, setPasted] = useState<number | null>(null);
+  /**
+   * The row to give the focus to once it is drawn (a new one, or the one after a row removed). It is the person's
+   * own move from the row they were typing in, so it is moved at once after the render that draws it (`focusSoon`
+   * never takes the focus out of a field); not there yet, `focusSoon` waits for it.
+   */
+  const focusAt = useRef<number | null>(null);
+  const setFocusAt = (i: number) => {
+    focusAt.current = i;
+  };
+  const fields = useRef<Record<number, unknown>>({});
+  useEffect(() => {
+    const i = focusAt.current;
+    if (i === null) return;
+    focusAt.current = null;
+    const el = fields.current[i] as HTMLElement | null | undefined;
+    if (WEB && el?.isConnected && typeof el.focus === 'function') el.focus();
+    else focusSoon({ current: el });
+  });
+  const set = (i: number, text: string) => {
+    setRows((r) => r.map((x, j) => (j === i ? text : x)));
+    setPasted(linesOf(text).length > 1 ? i : pasted === i ? null : pasted);
+  };
+  const addAfter = (i: number) => {
+    if (rows.length >= MAX_ITEMS) return;
+    setRows((r) => [...r.slice(0, i + 1), '', ...r.slice(i + 1)]);
+    setPasted(null);
+    setFocusAt(i + 1);
+  };
+  const remove = (i: number) => {
+    setRows((r) => (r.length === 1 ? [''] : r.filter((_, j) => j !== i)));
+    setPasted(null);
+    setFocusAt(Math.max(0, Math.min(i, rows.length - 2)));
+  };
+  const split = (i: number) => {
+    const lines = linesOf(rows[i]);
+    setRows((r) => [...r.slice(0, i), ...lines, ...r.slice(i + 1)].slice(0, MAX_ITEMS));
+    setPasted(null);
+    setFocusAt(Math.min(i + lines.length - 1, MAX_ITEMS - 1));
+  };
+  const asOne = (i: number) => {
+    set(i, linesOf(rows[i]).join(' '));
+    setPasted(null);
+    setFocusAt(i);
+  };
+  const keep = () => {
+    const items = rows.flatMap((r) => (r.trim() ? [linesOf(r).join(' ')] : []));
+    const s = useStore.getState();
+    if (JSON.stringify(items) !== JSON.stringify(was)) {
+      // Refused (reconnecting): the sheet stays, with its rows.
+      if (!s.typeList(runId, itemId, field.name, items).ok) return;
+      if (was.length) s.typedOver(runId, itemId, field.name, field.text, was);
+    }
+    onClose();
+  };
+  return (
+    <Sheet title={field.name} onClose={onClose} testID="go-list-sheet" fallback={fallback}>
+      <View style={styles.list} role="list" aria-label={field.name}>
+        {rows.map((text, i) => {
+          const spoken = `${field.name} ${i + 1}`;
+          const n = linesOf(text).length;
+          return (
+            <View key={i} role="listitem" style={styles.listItem} testID="go-list-row">
+              <View style={styles.listRow}>
+                <GrowField
+                  ref={(el) => {
+                    fields.current[i] = el;
+                  }}
+                  value={text}
+                  onChangeText={(t) => set(i, t)}
+                  onSubmit={() => addAfter(i)}
+                  accessibilityLabel={spoken}
+                  maxLength={MAX_VALUE}
+                  style={styles.listField}
+                  testID="go-list-field"
+                  {...(i === 0 && { dataSet: { first: 'true' } })}
+                />
+                <Btn kind="plain" mark="close" spoken={`Remove ${text.trim() ? linesOf(text).join(' ') : spoken}`} onPress={() => remove(i)} testID="go-list-remove" />
+              </View>
+              {pasted === i && n > 1 && (
+                <View style={styles.pasted} testID="go-list-pasted">
+                  <Btn kind="plain" label={`Split into ${n} rows`} onPress={() => split(i)} testID="go-list-split" />
+                  <Btn kind="plain" label="Keep as one" onPress={() => asOne(i)} testID="go-list-one" />
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </View>
+      {rows.length < MAX_ITEMS && <Btn kind="plain" mark="add" label="Add another" spoken={`Add another to ${field.name}`} onPress={() => addAfter(rows.length - 1)} testID="go-list-add" />}
+      <Btn kind="filled" label="Keep" spoken={`Keep ${field.name}`} onPress={keep} size={18} testID="go-list-keep" />
+      <Btn label="Close" onPress={onClose} testID="go-list-close" />
     </Sheet>
   );
 }
@@ -195,7 +322,18 @@ export function ValueSheet({ runId, name, onClose, fallback }: { runId: string; 
   };
   return (
     <Sheet title={d.name} onClose={onClose} testID="go-value-sheet" fallback={fallback}>
-      <GrowField value={text} onChangeText={setText} accessibilityLabel={d.name} maxLength={MAX_VALUE} onSubmit={() => focusOn(keepBtn)} testID="go-value-sheet-field" {...{ dataSet: { first: 'true' } }} />
+      {/* P-107: a list a for each reads — its items, one per row; it changes only by being given again (its step's list). */}
+      {d.list ? (
+        <View style={styles.list} role="list" aria-label={d.name} testID="go-value-sheet-list">
+          {d.items.map((x, i) => (
+            <T key={i} role="listitem" style={styles.listShown}>
+              {x}
+            </T>
+          ))}
+        </View>
+      ) : (
+        <GrowField value={text} onChangeText={setText} accessibilityLabel={d.name} maxLength={MAX_VALUE} onSubmit={() => focusOn(keepBtn)} testID="go-value-sheet-field" {...{ dataSet: { first: 'true' } }} />
+      )}
       <T dim testID="go-value-from">
         {valueFrom({ ...d, from: d.from && (partsText(wordsShown(data, runId, d.from)) || d.from) })}
       </T>
@@ -231,8 +369,10 @@ export function ValueSheet({ runId, name, onClose, fallback }: { runId: string; 
           ))}
         </View>
       )}
-      <Btn kind="filled" ref={keepBtn} label="Keep" spoken={`Keep ${d.name}`} onPress={keep} size={18} testID="go-value-keep" />
-      <Btn label="Close" onPress={onClose} testID="go-value-close" />
+      {/* P-109 (B-18 journey 4): an address in the value — "Open <host>" (the words stay words). */}
+      <OpenRows addresses={addressesIn(d.text)} />
+      {!d.list && <Btn kind="filled" ref={keepBtn} label="Keep" spoken={`Keep ${d.name}`} onPress={keep} size={18} testID="go-value-keep" />}
+      <Btn label="Close" onPress={onClose} testID="go-value-close" {...(d.list && { dataSet: { first: 'true' } })} />
     </Sheet>
   );
 }
@@ -269,6 +409,13 @@ const styles = StyleSheet.create({
   readBy: { gap: SP.s1 },
   reader: { paddingLeft: SP.s3 },
   chip: { backgroundColor: G.surf2, paddingHorizontal: 4 },
+  // P-107: the list editor's rows, and a list shown in the value sheet.
+  list: { gap: SP.s2 },
+  listItem: { gap: SP.s1 },
+  listRow: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.s1 },
+  listField: { flex: 1, minWidth: 0 },
+  pasted: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2 },
+  listShown: { borderLeftWidth: 2, borderColor: G.line, paddingLeft: SP.s2, flexShrink: 1 },
   // P-101 amendment (ruling 11): the fallback — dashed, on no fill.
   chipAsks: { backgroundColor: 'transparent', borderWidth: 1, borderStyle: 'dashed', borderColor: G.dim },
 });

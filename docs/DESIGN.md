@@ -48,8 +48,50 @@ routines in their own words — and runs them with the person, one small step at
   name nothing gave asks for it in place. A new round after "Repeat from here" clears the values given
   after the divider (those steps ask again) — and a value whose giving step was removed in Plan; starting
   a routine again starts empty. A value is at most
-  2,000 characters. (Designed, not built yet: for each, values passed to a routine used as a step
-  ("with"), values that arrive later.)
+  2,000 characters. *(P-98, built: values passed to a routine used as a step — see **Calls**.)* *(P-107, built:
+  for each — see **For each**.)* (Designed, not built yet: values that arrive later.)
+- **For each** *(built, P-107; B-15 journeys 6–7, B-16; the owner: "For each … regular for loop")*: a **loop block**
+  over a name given above — "For each concern in {concerns}". Stored as a step broken down (a row `{ id, ref }` to an
+  unnamed sequence whose words are that sentence) carrying `each: { item, list }`, so **an older build reads it as a
+  step broken down** (Step in; the item asks); nothing is converted. Made from Add's **For each…** (beside A routine,
+  only once the routine gives a name): a sheet of ready-made sentences, one per name given, "concern in {concerns}"
+  (the item is the list's singular; a name that is not a plural gets " item"); a tap adds the block at the end and
+  opens a field inside it for its first step ("@" there adds a routine, called for each item). Its row in Plan opens
+  like a step broken down, its steps read `{concern}` (never "asks"), it says "gives {a}" for what its steps give; its
+  ··· reads **Add a step inside · Add a step after** · a line · **Remove** (no Edit: its words are the sentence). Its
+  item and list are renamed with the name. **A name a for each reads is a list**: its giving step's field opens a
+  **list sheet** — one row per item, each with its ×, **+ Add another**, Return in a row opens the next, the filled
+  **Keep**, Close; several lines pasted into a row offer **Split into N rows** / **Keep as one** (nothing is split by
+  itself, never at commas); a replaced or cleared list says "Changed / Cleared {name}" with an Undo that puts its items
+  back. **Running:** arriving at the block goes into it, at its first item — it is never a step to rest on; an empty
+  list (or none given) passes straight through, as Next would. Inside, the path reads "<routine> › For each concern",
+  the values row reads **"concern 2 of 3: time"**, the item reads in the steps and goes to a call inside by name. A
+  for each is a level of its own for values: **each round clears what was given inside it** (those steps ask again),
+  and what each item gave is **collected** after the block — one list under its name, in order (B-16, "a for each
+  collects"; one name given more than once is one list). **Giving the list again shows it to adjust — the only way a
+  list changes**: a step inside the block that gives its list gives it where the list is held, so the block **keeps
+  its place** (the item it is on, by its words), **carries on to items added**, and **ends past the last**. The list's
+  value sheet shows its items as rows, with no Keep. Step out leaves the loop (what this item gave is collected),
+  with "Left For each concern" and Undo; Start over on its level starts from the first item. (Designed, not built yet,
+  P-108: a list kept in the routine, a for each's own list in its header, values that are routines; renaming the item
+  from the block's menu; reordering a list's rows.)
+- **Calls** *(built, P-98; B-16, B-15 journey 5)*: a routine used as a step is a **call row** — stored as the
+  routine's id with its name then (`words`) and, per input, what fills it (`with`). Its **inputs** are the names
+  its steps read that nothing in it gives (its own calls' unbound inputs too); it **gives** every name it gives.
+  The row reads the routine's name with ▤, then a line per input — `with {x}` (by name), `with {y} as x`, `with
+  <words> as x`, or `asks {x}` (asked where it is read) — each a target opening its sheet ("<routine> with {x}": the
+  names given above, Ask when it runs, Words with the filled Keep, Close), then "gives {a}, {b}". An input
+  resolves typed words → the bound name where the call runs → asked; on Step in each is the called routine's
+  **own copy** (changed inside, the caller's stays), and the values row says where it came from ("· from <step>").
+  Leaving it (Next past its last step, or Step out) **hands back** only what its row gives; its other names stay
+  its own. One name given more than once in a routine — two calls, or a call and a step — is **one list**, in the
+  order given. **A step owes what its insides give**: Next on a call (or a step broken down: only names read
+  outside it) not stepped into, or Step out before its giving steps, first shows a sheet with a field for each
+  owed name still empty and the filled move (Next / Step out) — never anything extra on the step itself (the
+  owner: no options while running a step); left empty, a later step asks. Renaming a name renames it in the
+  calls' bindings (and a call that took it by name keeps getting it). A call to a **removed** routine reads
+  "<name> (removed)", shows no inputs and can't be stepped into (Next passes it). Older builds read a call as a
+  plain Step in. Optional inputs (blanks) are not built: an input with no value asks where it is read.
 - **Wait step** *(built, plain)*: a deliberate step, "Wait for: <words>". Reaching it means
   everything before it is done, to the person's knowledge. A run resting on one reads as *waiting*,
   with since when, in words only. *(P-102, the owner: "'Make it wait' is retired now".)* Nothing makes a
@@ -57,7 +99,10 @@ routines in their own words — and runs them with the person, one small step at
 - **Routine** *(built)*: a named, ordered sequence. Each item is a step, a wait step or another
   routine. It has one divider, **Repeat from here**: items above run once, items below repeat —
   **until I'm done** (the default) or **a number of times** the person sets. With no divider it runs
-  once through. A routine can't contain itself. *(P-96: its last Next finishes it either way; an
+  once through. A routine can't contain itself: *(P-98)* Plan refuses to add a routine as a step of itself,
+  directly or through another, in words ("“X” can’t be a step of itself" / "“Y” uses “X”, so it can’t be a step of
+  it"); data an import brings that holds itself is run, and past the depth limit Step in says "Can’t step in any
+  deeper". *(P-96: its last Next finishes it either way; an
   "ends here" stored by an earlier build is kept and read, and no longer offered.)*
 - **Run** *(built)*: a routine being carried out — where the person is at every level (including the
   round), running or paused *(P-101: a `mode: 'plan'` stored by an earlier build is kept and read as paused; nothing writes it)*, a pause reason (the Pause note), and a definite
@@ -75,15 +120,42 @@ routines in their own words — and runs them with the person, one small step at
   chip, each chip "#tag ×" removes itself, **Keep** (filled) keeps them — with what is still typed — and Close
   leaves them as they were. Keep is one Plan edit (its Undo in the routine's menu, and Ctrl/⌘+Z). Plan shows
   them under the heading.
-- **One version per name.** A name always means one routine. To vary, copy *(copying: designed, not
-  built yet)*.
+- **Places** *(built, P-109; B-18 slice 1; the owner: "a reference … to ease the burden of remembering where and how I
+  was working")*: where a routine's work lives, kept on the routine as `places: { id, name, where }[]`, in the person's
+  order; a routine stored without them has none (nothing is converted), and a field in another shape (a later
+  version's) is kept and never overwritten (Places… then offers no edits). **Where** is a pasted address or plain
+  words. **Only an `http:` or `https:` address opens** — by its own text (it starts with `http://` or `https://`,
+  any case, holds no space or control character and names a host); everything else — `javascript:`, `data:`,
+  `file:`, `vbscript:`, another app's own scheme, a relative path, words — is shown as words and opens nothing,
+  whatever brought it (typing, paste, an import). An address is shown by its host ("notion.so": "www." dropped; a
+  host in other scripts in its ASCII form), never whole; opening hands it to the system and asks nothing back — on
+  the web a new tab with `noopener`, never the app's own window — and the run stays exactly where it is. Seen in
+  three spots: **under Plan's heading**, after the tags, the names in a line (the link mark, then "Design doc ·
+  The brief · Sketchbook"), wrapping, each a full target — an address opens ("Open Design doc, notion.so"), words
+  open the Places sheet at that row ("Sketchbook, left shelf"); **on a home tile**, one mark-only door (the link
+  mark, "Places for <routine>") in its foot after Resume and Plan, before ···, only when the routine has places — it
+  opens the same list to open, nothing to edit; **in the runner's pull-up panel**, under what it holds, "Places"
+  (inside a routine used as a step: the run's first routine's, then "Places in <routine>"). Never on the runner's
+  face. The **Places sheet** (Plan's routine ··· → **Places…**, named routines): "Places for <name>", rows of name
+  and host (or words), each row's ··· an anchored menu — **Change** · **Move up** · **Move down** · a line ·
+  **Remove** (red); **+ Add a place** opens Name and Where in place with the filled **Add** (Change: **Keep**) and
+  Cancel; **Close** lowest. Every change is one Plan edit, said in the sheet ("Added / Changed / Moved / Removed
+  “<place>”") with its Undo and ×, its Undo also in the routine's menu and Ctrl/⌘+Z. Copy copies places. **Typed
+  addresses** *(journey 4)*: each http(s) address in the step's words, a value in play or the pause note gets an
+  **"Open <host>"** row in the panel (and, for a value, in the value sheet); the words themselves stay words. The
+  import preview counts places with the routines ("2 routines with 3 places"). (Designed, not built yet: other
+  apps' own schemes, B-18 slice 2, only if the owner's phone check shows a need.)
+- **One version per name.** A name always means one routine. To vary, copy — *(built, P-98)* **Copy…** on Plan's
+  routine ··· and a My routines row's ···: a sheet with the name (suggested "<name> (copy)"), the filled Copy (a
+  name in use is refused: "! Another routine has this name"); the copy has the same steps (its steps broken down
+  copied too, its calls the same routines) and is said, "Copied “X” as “Y”", with Undo.
 - **Designed, not built yet:** **blanks** (an optional input in a routine's name or steps, "Apply to
   ▢ employer"; it never asks); **child runs** (the same routine for different values, each at its own
   place); **reactions** (a named outcome on a wait step that holds one or more steps or routines —
   never empty, never a bare yes/no); **things set going** ("Wait for this later…" on a step makes a
   wait tied to it; until it is waited for, that thing is listed as "waiting on: <the wait's words>");
-  adding an existing routine into another in the editor, and Group. Running a routine that is
-  already an item (Step in) is built.
+  and Group. Running a routine that is already an item (Step in) is built; *(P-98)* so is adding one in
+  Plan.
 - The first layer — a routine shown on home — is nothing special and has no name in the app.
 - **Never shown as words:** frame, thread, stack, pointer, parameter, foundation, async, promise.
 
@@ -190,9 +262,10 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   one once, A–Z, "#tag" — each a toggle (pressed, never filled) that narrows the list; with two or more chosen a
   routine must carry all of them. A **row**: its colour (a small block), its name and a second line — its tags,
   "gives {a}, {b}", "asks {c}" — and its **···**, an anchored menu: **Start** (Resume, for a routine with a run
-  going; none with no steps; unavailable while another run is running) · **Plan** · **Tags…** · a line ·
-  **Remove** (with no run going; the one confirm, "Remove “<name>”?" · "It goes from My routines, with its
-  steps.", then "Removed “<name>”" with Undo, here). Tapping a row opens its Plan, whose way out, top-left in
+  going; none with no steps; unavailable while another run is running) · **Plan** · **Tags…** · **Copy…**
+  *(P-98)* · a line · **Remove** (with no run going; the one confirm, "Remove “<name>”?" · "It goes from My
+  routines, with its steps." — *P-98:* and, for one used as a step, "“<caller>” uses it as a step; there it will
+  read “(removed)”." — then "Removed “<name>”" with Undo, here). Tapping a row opens its Plan, whose way out, top-left in
   Home's place, reads **← My routines** and goes back there. **+ New routine** is the one filled button, lowest
   (New's own sheet; its Plan comes back here). With no routines: "No routines yet."; with nothing matching: "No
   routines match." and Clear. Room is kept for a second view later (B-17's "Yours | Library", P-104): the list is
@@ -228,7 +301,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   step down is planning).
 - **The person's words are never clipped, counted or warned about.**
 - **The pull-up panel** *(built)*: swiping up on the runner or tapping the note. It holds where you
-  are in this run (the round, "Last step of the round", "then: <next step>", values in place) and the
+  are in this run (the round, "Last step of the round", "then: <next step>", values in place), *(P-109)* the
+  routine's Places and an "Open <host>" row per address typed (see **Places**), and the
   actions that move you without planning: Back to <step>, Jump to…, and *(P-101 amendment)* **Start
   <level> over** (inside a call or a breakdown) and **Start <routine> over** — each asked first. *(P-101:
   Finish <level> now is gone — Step out.)*
@@ -255,8 +329,12 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   screen is only lightly dimmed; a tap outside, Esc, Tab and Back close it; focus goes to its first item
   (↑/↓ between items) and back to the button; rows ≥ 48 px. A step's menu reads **Edit · Add a step after ·
   Break it down** (not on a step that gives a name) **· Gives…** *(P-96)* **·** a line **· Remove** (red,
-  last); a wait from an earlier build has **Make it a step** in Gives…' place; a routine used as a step,
-  Add a step after · Remove. **Move up / Move down are not on the step menu** where there is a grip: the grip,
+  last); a wait from an earlier build has **Make it a step** in Gives…' place; a routine used as a step
+  *(P-98)*, **Open** (its Plan) · **Edit inputs** · Add a step after · Remove. *(P-98)* The "Add a step" row has
+  **A routine** beneath its field (not while there is almost no room: the keyboard up, large text), a sheet of the
+  person's routines, A–Z with what each asks and gives — and *(P-107)* **For each…** beside it, once the routine gives a
+  name (see **For each**); and **"@"** at a word's start there lists the routines
+  that match after the names — only when summoned; typed words alone list none. Its placeholder is one string. **Move up / Move down are not on the step menu** where there is a grip: the grip,
   pressed, opens its own small menu, **Move up · Move down** (each unavailable at its end) — the way to
   reorder without a drag *(P-102 audit: nothing by gesture alone)*; under 340 px, with no grip, they are on
   the step menu, before the line. They are also a row's screen-reader actions (on its ···) and, on the web,
@@ -283,7 +361,7 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   button, "Insert {name}"; ←/→ between them; Return inserts and goes back to the field; Esc goes back
   without inserting); typing the braces works anywhere. One press moves one row: next to "Repeat from
   here" a step passes it and nothing else moves. The routine's own menu holds **Undo <edit>** (the last
-  Plan edit's, while it is the last action), its name, **Start over** (with a run), adding "Repeat from
+  Plan edit's, while it is the last action), its name, Tags…, **Places…** *(P-109)*, **Copy…** *(P-98)*, **Start over** (with a run), adding "Repeat from
   here", and — with no run going — Remove *(P-96: no "Ends here")*. **Removing a step that gives a name
   other steps read** *(P-101 amendment, ruling 11)* asks first, naming them — "Remove “<step>”? It gives
   {name}, which N steps read. They'll ask for it when run." — *(P-103: the one confirm, Cancel filled and Remove
@@ -309,7 +387,7 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   addresses land there). The break-down sheet, the runner's blank "next small step" note and the
   Keep sheet are gone with them.
 - **Not built in Plan yet** (B-12, each needs its own item): declaring a routine where you stand
-  ("Make a routine from here…"), "Also in" for a routine used elsewhere, inputs ("With"), more than
+  ("Make a routine from here…"), "Also in" for a routine used elsewhere, more than
   one Undo, adding "Repeat from here" to a routine nested as a step from its
   parent's Plan.
 - **Designed, not built yet:** *(Your routines is built as My routines, P-97.)* Looking back ("a set, not a log": one line per ended
@@ -350,7 +428,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
 - **The filled button is the safe or forward choice**, one per screen or sheet. **Red and "!" only
   for errors and the irreversible.**
 - **One vocabulary, and one wording and one mark per meaning.** A mark never means two things (now,
-  repeats, routine, wait, forward, fold, more, pause each have their own).
+  repeats, routine, wait, forward, fold, more, pause each have their own; *P-109:* the link — two chain links — is
+  Places' and an "Open <host>" row's alone).
 - **Nothing is counted against you.** No streaks, deadlines, notifications or tallies of what you
   did; nothing shows how much is left; no timers. A repeat number you set and the round you are on
   are context, **shown only in the panel**. Counts appear otherwise only in the import preview.

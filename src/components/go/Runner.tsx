@@ -28,8 +28,10 @@ import { NOTE_PAD, NOTE_SIZES, noteType } from '@/domain/goText';
 import { panelView, partsText, routineHue, runnerView, RunnerView, sinceWords, StepPart, ValueField, wordsShown } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
+import { OwedSheet } from './Calls';
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
+import { OpenRows, PlaceRow } from './Places';
 import { decideWhere } from './session';
 import { face, G, hueOf, SP, TARGET } from './tokens';
 import { EntrySheet, Gives, Parts, ValueFields, ValueSheet, ValuesRow } from './Values';
@@ -74,7 +76,9 @@ export function Runner({ runId }: { runId: string }) {
   const [pausing, setPausing] = useState(false);
   /** P-101 (ruling 7): a value field's entry sheet is open on this field (it holds the screen like the value sheet). */
   const [entry, setEntry] = useState<ValueField | null>(null);
-  const typing = !!entry;
+  /** P-98: Next or Step out pressed past what still owes names — its fields first. */
+  const [owing, setOwing] = useState<'next' | 'out' | null>(null);
+  const typing = !!entry || !!owing;
   /** P-101 (ruling 2): Plan was pressed here — once the run is paused, its Plan (this address), in this screen's place. */
   const toPlan = useRef<string | null>(null);
   /** P-103 (3): Plan was opened from here, over this screen — coming back (its Back, the browser's) resumes where you were. */
@@ -144,6 +148,8 @@ export function Runner({ runId }: { runId: string }) {
   }, [doneKey, focused]);
   const next = () => {
     if (!v) return;
+    // P-98: past a call (or a step broken down) not stepped into, what it still owes is asked first — as a consequence of the press, never on the step.
+    if (v.nextOwes.length && !v.ends) return setOwing('next');
     act().nextStep(runId);
   };
   const plan = () => {
@@ -157,6 +163,8 @@ export function Runner({ runId }: { runId: string }) {
   // P-101 (ruling 1): Step out — the level the run is in ends and the run carries on above it (an Undo: it can skip steps).
   const stepOut = () => {
     setPanel(false);
+    // P-98: leaving before what this level owes was given — its fields first.
+    if (v?.stepOutOwes.length) return setOwing('out');
     act().doneLevel(runId);
     toNote();
   };
@@ -217,7 +225,23 @@ export function Runner({ runId }: { runId: string }) {
         }}
       />
     ) : null;
-  const layer = restartSheet ?? (pausing ? <PauseSheet name={v.name} reason={v.reason ?? ''} onPause={pause} onClose={() => setPausing(false)} fallback={pauseBtn} /> : (entrySheet ?? valueSheet));
+  const owedSheet = owing ? (
+    <OwedSheet
+      title={owing === 'next' ? v.step.words : v.level}
+      names={owing === 'next' ? v.nextOwes : v.stepOutOwes}
+      move={owing === 'next' ? 'Next' : 'Step out'}
+      fallback={nextBtn}
+      onClose={() => setOwing(null)}
+      onMove={(owed) => {
+        const did = owing === 'next' ? act().nextStep(runId, owed) : act().doneLevel(runId, owed);
+        // Refused (reconnecting): the sheet stays, with what was typed.
+        if (!did.ok && did.reason === 'reconnecting') return;
+        setOwing(null);
+        toNote();
+      }}
+    />
+  ) : null;
+  const layer = owedSheet ?? restartSheet ?? (pausing ? <PauseSheet name={v.name} reason={v.reason ?? ''} onPause={pause} onClose={() => setPausing(false)} fallback={pauseBtn} /> : (entrySheet ?? valueSheet));
   // P-101 (ruling 2): "Plan <routine>" inside a call. In a window too narrow for it beside the path (200 %
   // text) the button says "Plan" and its spoken name keeps the routine (the path beside it names it too).
   const planSpoken = v.planIn ? `Plan ${v.planIn.name}` : 'Plan';
@@ -611,7 +635,7 @@ function Panel({ runId, restart, onRestart, onClose, onUndo, onMoved }: PanelPro
           {!!p.reason && (
             <View style={styles.line} testID="go-panel-reason">
               <Mark name="note" color={G.dim} />
-              <T style={styles.shrink}>{p.reason}</T>
+              <T style={[styles.shrink, styles.anywhere]}>{p.reason}</T>
             </View>
           )}
           {round && (
@@ -647,6 +671,23 @@ function Panel({ runId, restart, onRestart, onClose, onUndo, onMoved }: PanelPro
           )}
           {where.length === 0 && !p.wait && <View style={styles.rule} />}
         </View>
+        {/* P-109 (B-18 journey 3): the routine's places, under what the panel already holds — the run began in, then the one you are in. */}
+        {p.places?.map((g) => (
+          <View key={`${g.inner ? 'in' : 'root'}:${g.routine}`} style={styles.places} testID="go-panel-places">
+            <T bold dim role="heading" aria-level={3} accessibilityRole="header">
+              {g.inner ? `Places in ${g.routine}` : 'Places'}
+            </T>
+            <View role="list" aria-label={g.inner ? `Places in ${g.routine}` : 'Places'}>
+              {g.places.map((pl) => (
+                <View key={pl.id} role="listitem">
+                  <PlaceRow place={pl} />
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+        {/* P-109 (journey 4): an address typed in the step, a value or the pause note. */}
+        {p.addresses && <OpenRows addresses={p.addresses} />}
         {can && <Btn kind="plain" mark="undo" label={`Undo ${can.label}`} onPress={onUndo} />}
         {backTo !== undefined && (
           <Btn
@@ -737,4 +778,7 @@ const styles = StyleSheet.create({
   where: { gap: SP.s1, paddingBottom: SP.s2, ...(WEB && ({ outlineStyle: 'none' } as object)) },
   line: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.s2, minHeight: 28 },
   rule: { height: 0 },
+  places: { gap: SP.s1, paddingBottom: SP.s2 },
+  // P-109: an address typed in the note is one long word — it breaks where it must (never cut at 200 % text).
+  anywhere: WEB ? ({ overflowWrap: 'anywhere' } as object) : {},
 });

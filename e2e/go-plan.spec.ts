@@ -818,7 +818,9 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expect(menuItems(sheet).first()).toBeFocused();
     // A routine with a run going can't be removed: it is not offered. (P-101 amendment, ruling 9: its run can be started over.)
     // (P-97: and Tags…, after the name.)
-    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Start over']);
+    // (P-98, rewritten: and Copy…, after Tags….)
+    // (P-109, rewritten: and Places…, after Tags….)
+    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Places…', 'Copy…', 'Start over']);
     await sheet.getByRole('menuitem', { name: 'Change the name', exact: true }).click();
     await expect(p.typed).toHaveValue('Test out the app');
     await p.typed.fill('Apply to Acme');
@@ -835,7 +837,9 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await p.more('Apply to Initech').click();
     sheet = await arrived(page, 'go-plan-routine');
     // P-102: Remove last, after a line, in red.
-    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Add Repeat from here', 'Remove Apply to Initech']);
+    // (P-98, rewritten: and Copy…, after Tags….)
+    // (P-109, rewritten: and Places…, after Tags….)
+    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Places…', 'Copy…', 'Add Repeat from here', 'Remove Apply to Initech']);
     await expect(sheet.getByRole('separator')).toHaveCount(1);
     await expect(menuItems(sheet).last()).toHaveAttribute('data-danger', 'true');
     await sheet.getByRole('menuitem', { name: 'Remove Apply to Initech', exact: true }).click();
@@ -1202,7 +1206,8 @@ test.describe('creating', () => {
     const list = await openRoutines(page);
     await list.more('Learn to bake bread').click();
     const menu = await arrived(page, 'go-routine-menu');
-    await expect(menuItems(menu)).toHaveText(['Plan', 'Tags…', 'Remove']);
+    // (P-98, rewritten: and Copy…, before the line.)
+    await expect(menuItems(menu)).toHaveText(['Plan', 'Tags…', 'Copy…', 'Remove']);
     await menu.getByRole('menuitem', { name: 'Plan Learn to bake bread', exact: true }).click();
     await expect(plan(page).title).toHaveText('Learn to bake bread');
     await plan(page).toRoutines.click();
@@ -1292,7 +1297,8 @@ test.describe('must handle', () => {
     // Its menu: a routine is not reworded or broken down from here.
     await p.more('Hand studies of my left hand').click();
     // (P-102: Add a step after · a line · Remove — was: … Move up · Move down · Remove this step · Close.)
-    await expect(menuItems(await arrived(page, 'go-plan-menu'))).toHaveText(['Add a step after', 'Remove']);
+    // (P-98, rewritten: a call's menu opens its routine's Plan — Open — first.)
+    await expect(menuItems(await arrived(page, 'go-plan-menu'))).toHaveText(['Open', 'Add a step after', 'Remove']);
     await page.keyboard.press('Escape');
     await planMenu(page, 'Add the shadows', 'Edit');
     await planType(page, 'Add the darkest shadows');

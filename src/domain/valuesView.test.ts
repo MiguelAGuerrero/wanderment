@@ -84,7 +84,8 @@ describe('the runner (ruling 6)', () => {
     let { d, id } = start(d0, 'P');
     d = typed(d, id, 'subject', 'hands');
     d = walk(d, id, 'next', 'stepIn');
-    expect(runnerView(d, id)!.values).toEqual([{ name: 'subject', text: 'hands', items: ['hands'], level: 0, mine: false }]);
+    // P-98 (rewritten; was level 0, read from below): an input is the called routine's own copy, at its level, "from" the caller's step — still not its own.
+    expect(runnerView(d, id)!.values).toEqual([{ name: 'subject', text: 'hands', items: ['hands'], level: 1, mine: false, from: 'Choose' }]);
   });
 
   it('Next reads Done only when that press ends the whole run (B-15 journey 8)', () => {

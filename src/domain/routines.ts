@@ -10,12 +10,11 @@
  *   the routine has no end (an "until I'm done" repeat at its top level), else **Finishing**. A routine with
  *   nothing going is on My routines, not home (its stored `home` flag is kept as it is and no longer read here).
  */
-import { isRef, isRunning, isStep, isWait, openRuns, outOf, readRoutine, readRun, Seq, view } from './run';
+import { callIO, isRunning, openRuns, readRoutine, readRun, Seq, view } from './run';
 import { homeShown, homeTiles, routineHue, Tile } from './runView';
 import { fold, tagKey, tagsOf, tagsWritable } from './tags';
 import { tileLine } from './goText';
 import { Data, emptyData, Id, Routine } from './types';
-import { nameKey, namesIn } from './values';
 
 export { addTags, fold, tagKey, tagsOf, tagsWritable, tidyTag } from './tags';
 
@@ -55,29 +54,10 @@ export function letterOf(name: string): string {
   return /\p{L}/u.test(first) ? first.toLocaleUpperCase('en') : '#';
 }
 
-/** What a routine gives and asks: its own steps and its steps broken down (a routine used as a step has its own). */
+/** What a routine gives and asks: its own steps and its steps broken down — P-98: and what its calls give and ask (`callIO`). */
 function givesAndAsks(data: Data, s: Seq): { gives: string[]; asks: string[] } {
-  const gives: string[] = [];
-  const read: { name: string; key: string }[] = [];
-  const seen = new Set<Id>();
-  const walk = (id: Id) => {
-    const seq = seen.has(id) ? undefined : readRoutine(data, id);
-    seen.add(id);
-    for (const i of seq?.items ?? []) {
-      if (isRef(i)) {
-        if (readRoutine(data, i.ref)?.named === false) walk(i.ref);
-        continue;
-      }
-      const out = outOf(i);
-      if (out && !gives.some((g) => nameKey(g) === nameKey(out))) gives.push(out);
-      read.push(...namesIn(isWait(i) ? i.wait : isStep(i) ? i.text : ''));
-    }
-  };
-  walk(s.id);
-  const given = new Set(gives.map(nameKey));
-  const asks: string[] = [];
-  for (const r of read) if (!given.has(r.key) && !asks.some((a) => nameKey(a) === r.key)) asks.push(r.name);
-  return { gives, asks };
+  const io = callIO(data, s.id);
+  return { gives: [...io.gives], asks: [...io.asks] };
 }
 
 /** My routines: every named routine that is not removed, A–Z. */

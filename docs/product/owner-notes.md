@@ -18,6 +18,56 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — Defer auditing to one review at the end; an investigator per phase
+"While this is being built, just defer all auditing at the end in one batch review so implementation is
+quick. That being said, prepare to have a read-only investigator per phase to queue up points of
+concerns so that the auditor has steering."
+Interpretation (ours): for P-98, P-109, P-107, P-108, P-100, P-99 and the library: build → `verify.sh
+--full` → land, with no per-batch audit; after each lands, a read-only investigator reads that batch's
+diff and appends concerns to one queue (`.polish/product/final-review-queue.md`); one adversarial audit
+at the end works from that queue. `verify.sh --full` still gates every landing (CLAUDE.md's definition
+of done).
+Led to: process change for the remaining batches.
+
+## 2026-11-27 — Build Places (references), after P-98
+Relayed: "Let's build the references, because I think that's a simple feature that would make sense."
+Answers there: "Places (Recommended)"; "Tile door, Plan and panel (Recommended)"; typed addresses "Build
+it with the first slice". Confirmed here, to scheduling it after P-98: "Proceed".
+Led to: D-25; P-109.
+
+## 2026-11-27 — References to where the work lives: investigate only (relayed)
+"research and investigation on integrations with external [apps] because there's a lot of friction on
+trying to sync up what I'm doing with apps that I rely on to capture my thoughts and or [store] my
+results … it would be nice and easy to … click and pull up where I left off without having to try to
+remember exactly the specifics of where I put the Notion document or that text file … I noticed in the
+past that when I start projects, I may have a Notion page for it and I don't remember that I did … I
+don't want the app to instrument tooling to do your work. It's supposed to be a context management
+[app]." "This is not within the test right now." Answers: a reference belongs to "The routine itself";
+kinds: "Web links", "Files on my devices", "A place inside another app", "Physical places"; depth: "A
+named link that opens (Recommended)".
+On the composer finding: "the fact that a lot of the processes that goes into natural language don't map
+cleanly into the constructs … is even a bigger reason to develop that, because we're supposed to make
+these complex structures from simple asks, like what does done look like might be a routine that's
+reasonably complicated to produce, but is afforded to the user as something simple."
+Led to: nothing yet (investigations; owner's trial first).
+
+## 2026-11-27 — A guided composer: investigate only, test the app first (relayed)
+"it might be prudent to do some research and investigation into a composer view that seems to be guiding
+you into making these complex decisions one step at a time … That way, the plan view is secondary to …
+intuition and figuring it out, which is the basis of this app … This isn't going to be drafted because I
+want to test the app a little bit first … It's supposed to develop that muscle to always be breaking
+down complex tasks … So thinking is afforded more room rather than remembering."
+Answers there: guides "When first writing a routine"; the first build's runner prompt failed because "the
+UI didn't make that very clear on the context switching … When I'm executing and I get to a point of
+finality, then the context switch is very apparent: what do I do next based on what I've done before?
+Having all these different options available to me while I was running an execution made it unclear as
+to what I was doing"; language "natural language and conversational … Not a routine, but … a strategy or
+an approach … as a task, a goal, or an ambition, or a question to answer"; commit at once or held: "Investigate
+both."
+Interpretation: nothing to build; discovery `docs/product/discovery/2026-11-27-guided-composer.md`. Keep
+the runner free of choices mid-step; keep Plan's Add-row placeholder easy to change.
+Led to: nothing yet (owner's trial first).
+
 ## 2026-11-27 — First real use (drawing), relayed; the order after it; work from work
 From the second session (verbatim in parts): "I do at least want the work queue. Because it at least
 holds a stateful intention of how I'm going to execute tasks without me having to remind myself what

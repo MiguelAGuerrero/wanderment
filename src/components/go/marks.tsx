@@ -41,7 +41,9 @@ export type MarkName =
   | 'chevron'
   | 'chevronDown'
   /** P-103: the pause note (a note: ❚❚ is the Pause button's alone). */
-  | 'note';
+  | 'note'
+  /** P-109: Places — the conventional link (two chain links): where a routine's work lives. */
+  | 'places';
 
 const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corner' | 'grip'>, string> = {
   wait: 'M6 3h12M6 21h12M7 3v4l5 5-5 5v4M17 3v4l-5 5 5 5v4',
@@ -68,6 +70,7 @@ const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corne
   chevron: 'M9 5l7 7-7 7',
   chevronDown: 'M5 9l7 7 7-7',
   note: 'M5 3h10l4 4v14H5zM8 11h8M8 15h6',
+  places: 'M10 14l4-4M11 7l2-2a4 4 0 016 6l-2 2M13 17l-2 2a4 4 0 01-6-6l2-2',
   gear: 'M10 3h4v3h1l2-2 3 3-2 2v1h3v4h-3v1l2 2-3 3-2-2h-1v3h-4v-3H9l-2 2-3-3 2-2v-1H3v-4h3V9L4 7l3-3 2 2h1zM10 10h4v4h-4z',
 };
 

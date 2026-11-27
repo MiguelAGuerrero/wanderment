@@ -89,3 +89,62 @@ only the runs going; this data has no tags, so it must load exactly as before an
 | `p97-expected.json` | that build's store | what those four must read as |
 
 `freeze-p97.ts.txt` is the script that wrote them.
+
+## P-98 (frozen 2026-11-27, before calls)
+
+Written the same way by the build before P-98 (`671e654`), where a routine used as a step was a plain `{id,
+ref}` item that only an import could make, run with Step in and its values dropped on leaving. It started from
+`p97-schema4.sqlite` (so everything above is in it) and was then used through its own store actions — and its
+Import, for what only an import could make there. P-98 reads a call's bindings (`with`), its name snapshot
+(`words`), returns what a call gives and refuses to step into a removed routine; this data must load exactly as
+before and write nothing by loading, and every field that build did not know must survive.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p98-schema4.sqlite` | that build, ordinary saves (and two Imports), over `p97-schema4.sqlite` | everything in `p97-schema4.sqlite`, plus "Research" (reads `{concerns}`, gives `{findings}`) used as a step of "Improve my workout routine" after "List out my doubts" (gives `{concerns}`) — the row carrying `with`, `words` and `later`, which that build did not know; "Old helper", removed, used as the last step of "Weekend plan", beside a step with an unknown field; a run of Improve paused inside Research with `{concerns}` given above and `{findings}` inside (its level and a value carrying fields that build did not know); a run of Weekend plan resting on the removed routine's row; and P-96's "Read a chapter" running again |
+| `p98-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p98-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p98-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p98-expected.json` | that build's store | what those four must read as |
+
+`freeze-p98.ts.txt` is the script that wrote them.
+
+## P-109 (frozen 2026-11-27, before places)
+
+Written the same way by the build before P-109 (`173867e`), where a routine had no `places` and nothing in the
+app opened an address. It started from `p98-schema4.sqlite` (so everything above is in it) and was then used
+through its own store actions. P-109 reads a routine's places (none here) and offers "Open <host>" for an
+http(s) address typed in a step, a value or the pause note; this data must load exactly as before and write
+nothing by loading.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p109-schema4.sqlite` | that build, ordinary saves, over `p98-schema4.sqlite` | everything in `p98-schema4.sqlite`, plus "Product design" (tagged "design"): a step whose words hold a Google Docs address, a step giving `{page}`, a step reading it, and a step whose words only look like other schemes ("javascript:alert(1)", "file:///etc/passwd"); a run of it paused on "Work in {page}" with `{page}` given as a Notion address and a pause note holding a Figma address; and P-96's "Read a chapter" running again |
+| `p109-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p109-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p109-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p109-expected.json` | that build's store | what those four must read as |
+
+`freeze-p109.ts.txt` is the script that wrote them.
+
+## P-107 (frozen 2026-11-27, before for each)
+
+Written the same way by the build before P-107 (`6f4afea`), where a step broken down was an unnamed sequence and
+nothing knew `each`. It started from `p109-schema4.sqlite` (so everything above is in it) and was then used through
+its own store actions — and its Import, for what only an import could make there: a for each block **in the shape
+P-107 writes** (a row `{ id, ref }` to an unnamed sequence whose words are "For each photo in {photos}", carrying
+`each: { item: 'photo', list: 'photos' }`). That build read it as a step broken down: it rested on its row with
+Step in, stepped in, and asked for `{photo}` inside; its Plan added a step inside the block and kept `each`. P-107
+reads the block as a for each and the run left inside it as on its first item; this data must load exactly as
+before and write nothing by loading, for good.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p107-schema4.sqlite` | that build, ordinary saves (and two Imports), over `p109-schema4.sqlite` | everything in `p109-schema4.sqlite`, plus "Sketch" (reads `{photo}`, gives `{drawing}`) and "Drawing practice" ("Find reference photos" gives `{photos}`, then the block — Sketch called inside it, "Note what to fix in {photo}", and "Put {photo} away" added by that build's Plan — then "Rank the {drawing}"); a run of Drawing practice paused inside Sketch inside the block (no item on its level), its `{photos}` made three items by the second import; and P-96's "Read a chapter" running again |
+| `p107-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p107-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p107-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p107-expected.json` | that build's store | what those four must read as |
+| `p107-old-build.json` | that build's `planView` and `runnerView` | what it SHOWED for the block: its Plan rows, and the runner on the block's row, inside the block and inside Sketch — a step broken down, Step in, `{photo}` asked |
+
+`freeze-p107.ts.txt` is the script that wrote them.

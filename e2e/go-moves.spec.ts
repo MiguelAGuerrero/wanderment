@@ -12,7 +12,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, expectApart, expectFinal, expectInside, exported, home, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody, planFromRoutines } from './goFixture';
+import { arrived, expectApart, expectFinal, expectInside, exported, home, openGo, pastOwed, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody, planFromRoutines } from './goFixture';
 
 /** The owner's MyStack: a call (Vibe check) that gives {mood}, a step that reads it. */
 const STACK: RoutineSpec = { id: 'stack', name: 'MyStack', steps: [{ routine: 'vibe' }, 'Pick a task for {mood}', 'Do it'] };
@@ -79,7 +79,8 @@ for (const size of SIZES) {
         await expectInside(page, [l]);
       }
       // Step out: up one, on the step after the call — with an Undo (it can skip steps).
-      await r.stepOut.click();
+      // P-98 (rewritten; was a bare Step out): Vibe check still owes {mood} — Step out asks for it first, left empty here.
+      await pastOwed(page, r.stepOut);
       await expect(r.words).toHaveText('Pick a task for {mood}');
       await expect(r.notice).toContainText('Left Vibe check');
       await r.notice.getByRole('button', { name: /^Undo/ }).click();
@@ -89,7 +90,8 @@ for (const size of SIZES) {
       await page.keyboard.press('Tab');
       await expect(r.next).toBeFocused();
       // Next to the end: Done only on the press that ends the run.
-      await r.stepOut.click();
+      // P-98 (rewritten; was a bare Step out): Vibe check still owes {mood} — Step out asks for it first, left empty here.
+      await pastOwed(page, r.stepOut);
       await r.next.click();
       await expect(r.next).toHaveText('Done');
       await expect(r.next).toHaveAccessibleName('Done with MyStack');
@@ -233,14 +235,16 @@ for (const size of SIZES) {
     test('(5) a notice goes at the next tap anywhere, and at a screen change — never shown on another screen', async ({ page }) => {
       await startGo(page, [{ id: 'r', routine: 'twice', status: 'running', inner: [{ routine: 'vibe', at: 1 }] }], 'runner', ROUTINES);
       const r = runner(page);
-      await r.stepOut.click();
+      // P-98 (rewritten; was a bare Step out): Vibe check still owes {mood} — Step out asks for it first, left empty here.
+      await pastOwed(page, r.stepOut);
       await expect(r.notice).toContainText('Left Vibe check');
       // A tap elsewhere (the path): it goes.
       await r.context.click();
       await expect(page.getByTestId('go-notice')).toHaveCount(0);
       // Made again (the second call), then Plan from the keyboard (no tap): not on Plan, not back on the runner.
       await r.stepIn.click();
-      await r.stepOut.click();
+      // P-98 (rewritten; was a bare Step out): Vibe check still owes {mood} — Step out asks for it first, left empty here.
+      await pastOwed(page, r.stepOut);
       await expect(r.notice).toContainText('Left Vibe check');
       await r.plan.focus();
       await page.keyboard.press('Enter');
