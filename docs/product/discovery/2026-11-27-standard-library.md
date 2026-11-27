@@ -35,10 +35,12 @@ For each, In any order. All need P-98 and P-99 except where marked.
    belongs to the routine, so "Learn a skill" for guitar and for Spanish cannot share one routine: the
    person takes a copy per aim (DESIGN.md: "to vary, copy"). A small method keeps no list, so one
    routine can be called from everywhere.
-3. **A called method cannot yet hand anything back.** DESIGN.md: a name a routine gives inside itself
-   is its own. So "Find how it fails" can ask `{plan}` and cannot give `{reasons}` to its caller.
-   All three reports hit this independently. It is the real question behind "proper inputs and
-   outputs", and it is the owner's to settle (see Questions).
+3. **A called method hands back what its call row says it gives.** All three reports read
+   DESIGN.md's "a name a routine gives anywhere inside itself is its own" as meaning nothing returns.
+   That was already settled with the owner on 2026-11-26 (the design canvas's "No collisions" note;
+   P-98: "a call row shows … what it gives"): names stay local **except** what the call row says the
+   routine gives, which is returned to the caller at the call, like a function's return value. So the
+   "gives" lines below work as written once P-98 lands, and DESIGN.md's sentence gains that clause.
 4. **What the refusals cost.** Spacing by schedule (strong evidence) survives only as a kept list with
    no dates. Recording progress (research-backed) is declined on purpose. Timed blocks, goals with a
    number and a date, and commitment devices are out.
@@ -802,9 +804,7 @@ that.
     Notion's gallery). **Doesn't fit**: a server and accounts; conditionals; deadlines.
 
 ## Questions for the owner
-1. **Can a called routine hand something back?** Either what a named routine gives reaches its caller,
-   or results only ever arrive as "adds to" on a list the caller holds. Every "gives" above assumes one
-   of these. It reverses or keeps a DESIGN.md sentence, so it is yours.
+1. ~~Can a called routine hand something back?~~ Settled 2026-11-26: yes, what its call row gives.
 2. **Is a shelf routine a copy you own, or a shared original?** The research leans to: once taken it
    is an ordinary routine in your words, and an app update never reaches into it.
 3. **Does a finished part take up again when another part adds to its list?** B1, B2 and B-16's own
