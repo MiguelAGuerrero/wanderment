@@ -146,6 +146,31 @@ Research a question                          asks {question} · gives {answer}
   the parent needs the results; a for each whose list is given again when the work is flat and taken
   as it comes ("Work it out as you go").
 
+### A step owes what its insides give
+The owner (2026-11-27): "there is a concern of routines having children that produce values and they
+aren't represented in the parental context itself … if I laid down break it down and there's a sub
+that produces the value, if I choose not to step into a function, those [values] need to be supplied
+somewhere, and it would have to be supplied at the top level call, like hoisting up the return types of
+its children, because … any routine [may depend] on the value that a sub [step] produces."
+
+Built today (P-101): a step broken down says "gives {a}, {b}" on its row in Plan and on the runner's
+path. That is display only. Going past it with Next gives nothing, and a later step that reads the
+name asks for it in place, far from where it was made.
+
+- **A step that has insides is a function, and what it gives is what it owes.** For a step broken
+  down: the names its smaller steps give that something outside them reads. For a call: what its call
+  row gives.
+- **Leaving it settles what it owes.** Next on such a step without stepping in, or Step out before
+  its giving steps were reached, shows a field for each name still owed, labelled with the name, in
+  the same place and form a giving step's field has. The value's trace says it came from that step.
+- **A field may be left empty**, as a giving step's may. A later step that reads the name then asks in
+  place, as today; that stays as the fallback, not the main way.
+- **Names used only inside stay inside.** Nothing is asked for a name that no step outside reads (owner,
+  2026-11-25: "there has to be a purpose for that outcome").
+- **Inside a for each**, what is owed is owed per item, and is collected after the block like any
+  other value given inside it.
+*(The form of the fields and "names still owed" on Step out are a designer's ruling.)*
+
 ### A for each can declare its own list
 The owner (2026-11-27): "maybe there's better UX to have a for each loop declare its own values, like
 locally … I think it's design." A for each gets its list from one of two places:
@@ -271,6 +296,10 @@ asks by itself. This is how a method is sharpened by running it.
   the first routine and the nearest two levels with no count.
 - A for each can declare its own list in its header: arriving at it asks for the items; they are local
   to the block; kept, they persist between runs.
+
+- Next on a call or on a step broken down, without stepping in, and Step out before its giving steps
+  were reached, show a field for each name it gives that is still empty (for a breakdown: only names
+  read outside it); the value's trace names that step; left empty, a later reader asks as today.
 
 **P-99**
 - A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:
