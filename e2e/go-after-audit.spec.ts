@@ -11,7 +11,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, expectSteps, focused, home, place, plan, planMenu, planType, RoutineSpec, runner, startGo, startThing, tile } from './goFixture';
+import { arrived, expectSteps, focused, home, pauseRun, place, plan, planMenu, planType, RoutineSpec, runner, startGo, startThing, tile, tileBody, undoEdit } from './goFixture';
 
 /** Focus is somewhere: never on nothing. */
 const somewhere = async (page: Page) => expect.poll(() => page.evaluate(() => document.activeElement !== null && document.activeElement !== document.body)).toBe(true);
@@ -61,7 +61,8 @@ test.describe('B1: at the edge of a goal Plan’s open row has the focus, howeve
     await typesThere(page);
     await plan(page).add.fill('');
     await plan(page).home.click();
-    await home(page).screen.getByRole('button', { name: 'Plan Feel at home in Spanish', exact: true }).click();
+    // (P-101, ruling 5: at the edge there is nothing to resume at — the tile's body is its Plan.)
+    await tileBody(page, 'Feel at home in Spanish').click();
     await typesThere(page);
     await page.keyboard.press('Enter');
     await expectSteps(page, [SENTENCE]);
@@ -74,14 +75,28 @@ test.describe('B1: at the edge of a goal Plan’s open row has the focus, howeve
   });
 });
 
-test('B3: Pause, the middle button, Next and the handle (P-96: no Done on the top line) do not move by a pixel between a plain step, a routine, a level down, a wait, with a notice and with the panel open; nor does the note', async ({ page }) => {
+test('B3: ❚❚ and Plan (P-101: on the top line), Next and the handle (P-96: no Done on the top line) do not move by a pixel between a plain step, a routine, a level down, a wait, with a notice and with the panel open; nor does the note — P-101 (ruling 1): Next keeps its right edge, its row and its height, and gives room to the moves beside it (Step in, Step out)', async ({ page }) => {
   const routines: RoutineSpec[] = [
     { id: 'all', name: 'Every kind of step', steps: ['Stretch', 'Read the job ad twice', { routine: 'inner' }, { wait: 'a reply' }] },
     { id: 'inner', name: 'Proofread out loud', home: false, open: false, steps: ['Read it aloud once'] },
   ];
   await startGo(page, [{ id: 'r', routine: 'all', at: 0, status: 'running' }], 'runner', routines);
   const r = runner(page);
-  const boxes = async () => ({ pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), handle: await place(r.handle) });
+  // P-101 (rulings 1–2): Next keeps its right edge, its row and its height (the moves take room beside it);
+  // the handle does not move. ❚❚ and Plan stay on the top line, above the note — inside a call Plan says
+  // "Plan <routine>" and the path gains a parent, so that line (and the note's room) may grow: checked apart.
+  const boxes = async () => {
+    const n = await place(r.next);
+    return { next: { y: n.y, right: n.x + n.width, height: n.height }, handle: await place(r.handle) };
+  };
+  const onTop = async (label: string) => {
+    const note = await place(r.note);
+    for (const d of [r.pause, r.plan]) {
+      const b = await place(d);
+      expect(b.y + b.height, `${label}: above the note`).toBeLessThanOrEqual(note.y);
+      expect(b.height, `${label}: a full target`).toBeGreaterThanOrEqual(48);
+    }
+  };
   const plain = await boxes();
   const note = await place(r.note);
   await expect(r.notice).toHaveCount(0);
@@ -93,17 +108,16 @@ test('B3: Pause, the middle button, Next and the handle (P-96: no Done on the to
   expect(await boxes(), 'after Next').toEqual(plain);
   // A routine as the step.
   await r.next.click();
-  await expect(r.middle).toHaveText('Step in');
+  await expect(r.stepIn).toHaveText('Step in');
   expect(await boxes(), 'a routine').toEqual(plain);
   expect(await place(r.note), 'the note, a routine').toEqual(note);
   // Inside it: the context line gains a parent, and nothing shifts.
-  await r.middle.click();
+  await r.stepIn.click();
   await expect(r.words).toHaveText('Read it aloud once');
   expect(await boxes(), 'a level down').toEqual(plain);
-  expect(await place(r.note), 'the note, a level down').toEqual(note);
-  // Finish <level> now leaves the level (P-95: Done has a notice, Next none): a wait, with a notice.
-  await r.handle.click();
-  await r.finish.click();
+  await onTop('a level down');
+  // Step out (P-101; was: Finish <level> now, in the panel) leaves the level (P-95: it has a notice, Next none): a wait, with a notice.
+  await r.stepOut.click();
   // P-96 (audit F5): this wait is the last step, so pressing it ends the run and it reads Done.
   await expect(r.next).toHaveText('Done');
   await expect(r.notice).toBeVisible();
@@ -130,7 +144,7 @@ for (const size of [
     expect(n.height).toBeGreaterThanOrEqual(96);
     await expect(r.words).toHaveText('Tailor the CV');
     // Everything can be brought into view, and works.
-    for (const l of [r.note, r.pause, r.middle, r.next]) {
+    for (const l of [r.note, r.pause, r.plan, r.next]) {
       await l.scrollIntoViewIfNeeded();
       await expect(l).toBeInViewport();
     }
@@ -168,23 +182,27 @@ for (const size of [
 test.describe('A2: focus never falls to nothing', () => {
   test('first arrival on /go: the heading; after Pause (P-96; was: Home from the paused screen): home’s heading', async ({ page }) => {
     await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-    await runner(page).pause.click();
+    await pauseRun(page);
     await expect(home(page).title).toBeFocused();
     // A cold open after Pause: home, its heading focused.
     await page.goto('./go');
     await expect(home(page).title).toBeFocused();
-    // And the runner: the note.
-    await home(page).resume.click();
+    // And the runner: the note (P-101: from the tile's body; was: the Resume bar).
+    await tileBody(page, 'Apply to Initech').click();
     await expect(runner(page).note).toBeFocused();
   });
 
-  test('Return in a value field moves on to Next (P-96; was: in the reason field, to Resume)', async ({ page }) => {
+  test('Return in a value field keeps it, and the focus goes back to the field (P-101, ruling 7: its sheet; was P-96: on to Next) — then Next', async ({ page }) => {
     const GIVING: RoutineSpec[] = [{ id: 'give', name: 'Wrap a present', steps: [{ text: 'Choose the gift', gives: 'gift' }, 'Wrap {gift}'] }];
     await startGo(page, [{ id: 'g1', routine: 'give', at: 0, status: 'running' }], 'runner', GIVING);
     const r = runner(page);
-    await r.field('gift').fill('a scarf');
-    await r.field('gift').press('Enter');
-    await expect(r.next).toBeFocused();
+    await r.field('gift').click();
+    const sheet = await arrived(page, 'go-entry-sheet');
+    await sheet.getByTestId('go-entry-field').fill('a scarf');
+    await sheet.getByTestId('go-entry-field').press('Enter');
+    await expect(page.getByTestId('go-entry-sheet')).toHaveCount(0);
+    await expect(r.field('gift')).toBeFocused();
+    await r.next.focus();
     await expect(r.words).toHaveText('Choose the gift');
     await page.keyboard.press('Enter');
     await expect(r.words).toHaveText('Wrap a scarf');
@@ -192,7 +210,7 @@ test.describe('A2: focus never falls to nothing', () => {
 
   test('Plan: after Return the field still has the focus — smaller steps under a step, and the open row', async ({ page }) => {
     await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-    await runner(page).middle.click();
+    await runner(page).plan.click();
     const p = plan(page);
     await planMenu(page, 'Tailor the CV', 'Break it down');
     for (const s of ['one', 'two', 'three']) {
@@ -239,7 +257,8 @@ test.describe('A2: focus never falls to nothing', () => {
     await somewhere(page);
     await planMenu(page, 'Write the cover letter', 'Move up');
     await expect(more).toBeFocused();
-    await p.undo.click();
+    // (P-101, ruling 6: the edit's Undo is the routine's menu.)
+    await undoEdit(page);
     await expect(p.title).toBeFocused();
   });
 });

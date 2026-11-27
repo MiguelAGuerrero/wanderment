@@ -18,6 +18,104 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-26 — From the second session ("product assessment and UX"), relayed; and the order confirmed here
+Recorded from the other session's hand-over (the owner's words there):
+- "create a friendly user experience in the composition of workflows represented as discrete algorithmic
+  steps and a threading model … a discipline app where I can engage with and in good faith hold all
+  context of what I want to do … without having to have the entire … vision in my head. I can define
+  blockers for myself, … easily define steps to achieve those blockers, understand how those blockers fit
+  into the goals I want to pursue … Ultimately, this is a context management app for productivity's sake,
+  and the mental model of using threads and concurrency is just a way to distill lofty pursuits into
+  small actionable steps that feel intuitive to follow."
+- Since P-96: "Only testing the app". Lost when hopping: "The next concrete action" and "What I'd decided or
+  made". Discipline as an outcome: "Staying oriented".
+- "I drew this from my BA of productivity science … what if I always have reference to how to actually
+  engage with an activity in order to draw the most learning and reflection from? … that can be
+  generalized to any activity … routines that I run through and apply them where that seems fitting
+  allows me to leverage my learnings and refine them over time."
+- "a construct that's missing in order to make those [threads] legible and making the next steps a
+  first-class citizen … routines can produce work and tasks that can be queued up in the context that it
+  will spawn … a construct such as blocked by gives me a reason to understand why I'm drawing … goals
+  represented by dependencies"; "Effectively, I'm trying to encode the idea of trust the process."
+- Answers there: order "Use it a week, then B-16"; In any order "Both, items first"; giving work "By
+  itself"; concrete outcomes "join it as part of the [thread]"; "don't use the literal term pursuit it
+  was a working term, use an appropriate domain analogy".
+Confirmed in this session: "I do want the work queue and let's not use pursuit as a domain term.
+Otherwise proceed".
+Interpretation (ours): order is P-101 → P-97 → a week of real use → B-16 slices 1–4 → P-98, P-99, P-100
+(the cross-thread work queue kept). The word "pursuit" is not used outside quotes.
+Led to: D-23 go; brief B-16 brought to main.
+
+## 2026-11-26 — Deleting a step that gives a value
+"Also, there is an edge case where if you delete a step that provides a value, any step that depends on it
+would have to be revised, or there should be a fallback. Not sure the best way to go about that."
+Interpretation (ours): both — Plan warns and names the readers before removing; afterwards the readers
+fall back to asking when run and show as dashed "asks {x}" in Plan so they are visibly in need of revising.
+Led to: P-101 (scope added).
+
+## 2026-11-26 — Reset a run, and give a value you've already passed
+"There should be a way to reset an ongoing thread or routine, especially if you edited it. So for
+example, I was editing my drawing routine and it was paused while I edited it, and I can't really reset,
+and I added values to it. So there's no way to supply that value where I was in the execution of that
+routine, and there's no way to reset it."
+Interpretation (ours): Start over (the whole run, or only the level you are in) with a confirm and Undo;
+names given by steps already passed show as "not given yet" in the values row and can be given there.
+Led to: P-101 (scope added).
+
+## 2026-11-26 — Debugger-style moves; Pause reason optional
+"A debugger style fits because of the model that we're following in terms of a call stack. And yes, a
+pause reason should be optional. It's just there in order to capture any last thoughts, either the reason
+for the exit or something else."
+Interpretation (ours): the proposal in conversation is accepted: bottom row = Step in · Step out · Next
+(Done only on the last press of the run); Pause and Plan leave/switch from the top line; Pause opens a
+small sheet with an optional note; plus the home, notice, keyboard and value-readability fixes proposed.
+Led to: P-101.
+
+## 2026-11-26 — MyStack, the later entries (read in full from the published page)
+The owner's page had many more entries than the published render showed (it loads lazily; read through
+Notion's public page API). Verbatim where short, closely paraphrased where long:
+- Adding a step: "I'm brought immediately to add another one, and it brings up the keyboard while
+  simultaneously getting a notification that I added a step … very cluttered … I should only ever see the
+  notification to show that, hey, you're done." "The notification banner doesn't go away when I interact
+  with other controls." "Undo is persisting across screens noisily" (screenshot: "Removed … · Undo" on Plan).
+- "The add box doesn't show the complete step when it's not fully added."
+- The add loop "hidden underneath the more" menu; expected the Add row to add constructs where you add
+  them, not insert-then-drag.
+- Done "can exit out of the routine, or … out of a loop … confusing … a step out should be a debug move to
+  abort early, and that should be co-located with Next … each button is a move throughout the routine, the
+  tree, the loops."
+- Enumerating observations: "for each of those things you listed, do this"; without the routine's roots in
+  view it is hard to track "what value I am assessing, how I am assessing it, and where I'm at".
+- Screenshot of the value field with the keyboard up: "The screen is getting very cluttered … a pop-up
+  drawer or dialogue … especially for a one line entry like this."
+- Tempting to support long-form text, but rather allow meta information about how I was working (e.g. a
+  reference to a Notion document) "to ease the burden of remembering where and how I was working".
+- Interpolation is intuitive once known, but "there's really no way to discover that feature".
+- A routine could generate follow-up work from its outcome: "if I determine … I'm unsatisfied, I would want
+  that work queued onto the context for follow-up … effectively a function generating a task on the queue
+  with its own context."
+- Breaking a step down drifted into writing questions; "a statement is an execution of work so it should
+  really read as answer the question" … "unless the results determine how to proceed … I don't think the
+  app should be supporting capture."
+- The value sheet's "from <step>" loses context; "a quick button to see the call stack instead, and all the
+  values in between … Same thing by read-by."
+- Hoisting: a substep that gives a value the user never steps into leaves readers blocked; "any step with
+  the substep is a function, and if that function is providing values, then so too must the parental
+  context … hoisted up to the parent" — the outputs then describe how to implement the step.
+- "The home button doesn't feel right at the bottom of the plan screen. I'd expected it in like a header."
+- A minimised runner overlay for debugging routines while in the app.
+- "I do think a pause with a reason would be helpful … a confirmation step … to park any thoughts …
+  relevant to the time at which you are leaving a thread of work."
+- "The fact that you can't resume from the home screen is bugging me when you're paused."
+- "planning" status is confusing; two plan cards look different but lead to the same place; the home
+  screen reordering after a pause is non-intuitive ("more akin to picking up where you left off when you
+  close and open the app again"); the big Resume call to action is "jarring" — prefer a simple "last run"
+  indicator.
+- "Start" may be retired with the work queue: enqueue a task from each ongoing thread instead.
+- Redundant nesting (a routine that only calls another) — an optimise / clean-up button.
+Interpretation (ours): see the discussion in conversation; nothing decided yet.
+Led to: discussion; next friction batch to be agreed.
+
 ## 2026-11-26 — Persona panel for blind spots, and the navigation buttons
 "I want you to run through the user panels and see if there's any blind spots in terms of quality of life
 adjustments and interpretation of the UI or UX of these user journeys that turn this batch. And let's

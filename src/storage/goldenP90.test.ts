@@ -268,7 +268,9 @@ describe('Plan first opened on a run from the build before (ruling 3): its this-
     await settle();
     const disk = await onDisk();
     expect(disk).toEqual(json(after));
-    expect(disk.runs[A]).toMatchObject({ changes: [], mode: 'plan', frames: BEFORE.data.runs[A].frames, reason: 'lunch' });
+    // P-101 (ruling 4; was `mode: 'plan'`): the fold writes no mode; the stored reason is kept.
+    expect(disk.runs[A]).toMatchObject({ changes: [], frames: BEFORE.data.runs[A].frames, reason: 'lunch' });
+    expect('mode' in disk.runs[A]).toBe(false);
     expect(disk.routines[JOBS]).toMatchObject({ repeatFrom: 1, repeat: 5 });
     expect((disk.routines[JOBS].items as { id: string }[]).map((i) => i.id)).toEqual(['p90-009', 'p90-011', 'p90-014', 'p90-012', 'p90-013']);
     expect('ownerRunId' in disk.routines[TAILOR] || 'ownerRunId' in disk.routines[JOB_AD]).toBe(false);
@@ -279,7 +281,7 @@ describe('Plan first opened on a run from the build before (ruling 3): its this-
     store = await load();
     expect(shown(store).data).toEqual(json(after));
     const { planView } = await import('@/domain/runView');
-    expect(planView(store.getState().data, { runId: A })).toMatchObject({ planning: true, unfolded: false, line: 'planning · at Find the right tab' });
+    expect(planView(store.getState().data, { runId: A })).toMatchObject({ planning: true, unfolded: false, line: 'at Find the right tab' });
   });
 
   it('Undo of it restores EVERY record exactly as the build before left it — on screen and on disk, and after a reload', async () => {
@@ -312,19 +314,19 @@ describe('Plan first opened on a run from the build before (ruling 3): its this-
     expect(env.ls.has('wanderment:journal')).toBe(false);
   });
 
-  it('the run at the edge, stored with no mode, opens in Plan with nothing written; its first step added there is where it stands, still in Plan, and Resume runs it', async () => {
+  it('the run at the edge, stored with no mode, opens in Plan with nothing written; its first step added there is where it stands, paused (P-101, ruling 4: no mode written), and Resume runs it', async () => {
     useDatabase();
     const before = readFileSync(env.state.dbPath);
     let store = await load();
     const { planView, runRoute, homeTiles } = await import('@/domain/runView');
     expect(runRoute(store.getState().data, AT_EDGE)).toBe('plan');
-    expect(planView(store.getState().data, { runId: AT_EDGE })).toMatchObject({ name: 'Learn Spanish', planning: true, edge: true, line: 'planning · nothing next yet', rows: [] });
-    expect(homeTiles(store.getState().data).find((x) => x.routineId === SPANISH)).toMatchObject({ state: 'planning', action: 'plan' });
+    expect(planView(store.getState().data, { runId: AT_EDGE })).toMatchObject({ name: 'Learn Spanish', planning: true, edge: true, line: 'nothing next yet', rows: [] });
+    expect(homeTiles(store.getState().data).find((x) => x.routineId === SPANISH)).toMatchObject({ state: 'paused', action: 'plan' });
     await settle();
     expect(readFileSync(env.state.dbPath).equals(before)).toBe(true);
     expect(store.getState().editRoutine(SPANISH, { kind: 'addStep', text: 'Find a tutor' }).ok).toBe(true);
     await settle();
-    expect((await onDisk()).runs[AT_EDGE]).toMatchObject({ mode: 'plan' });
+    expect('mode' in (await onDisk()).runs[AT_EDGE]).toBe(false);
     expect(planView(store.getState().data, { runId: AT_EDGE })).toMatchObject({ planning: true, edge: false, forward: { label: 'Resume at Find a tutor' } });
     store = await load();
     // (The other run is the one the app is on, paused: Resume of this one is allowed.)

@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import { isPlanning, readRoutine, readRun } from '@/domain/run';
+import { isPlanning, isRunning, readRoutine, readRun } from '@/domain/run';
 import { homeTiles, leftOff, planView, runnerView } from '@/domain/runView';
 import { Data, emptyData, Id } from '@/domain/types';
 
@@ -327,17 +327,18 @@ describe('after the audit', () => {
 // ───────── P-90: Plan ─────────
 
 describe('Plan (P-90)', () => {
-  it('from the runner: the run is paused and in Plan in one change; nothing is running; no Undo (like Pause) and the Undo there was is gone; the app reopens in Plan', () => {
+  it('from the runner: the run is paused in one change; nothing is running; no Undo (like Pause) and the Undo there was is gone — P-101 (ruling 4; was "in Plan … the app reopens in Plan"): no mode; it reads paused, and the app reopens home', () => {
     const id = started('report');
     st().nextStep(id);
     st().editRoutine('sketch', { kind: 'addStep', text: 'Shade' });
     expect(st().undo).toBeDefined();
     expect(st().planRun(id)).toEqual({ ok: true, runId: id });
-    expect(st().data.runs[id]).toMatchObject({ status: 'paused', mode: 'plan' });
+    expect(st().data.runs[id]).toMatchObject({ status: 'paused' });
+    expect('mode' in st().data.runs[id]).toBe(false);
     expect([st().undo, st().runNotice]).toEqual([undefined, undefined]);
-    expect(leftOff(st().data)).toEqual({ kind: 'plan', runId: id });
-    expect(homeTiles(st().data).map((x) => [x.name, x.state, x.action])).toEqual([['Report', 'planning', 'plan'], ['Sketch', 'idle', 'start']]);
-    expect(planView(st().data, { runId: id })).toMatchObject({ planning: true, line: 'planning · at a reply', forward: { kind: 'resume', label: 'Resume at a reply', runId: id } });
+    expect(leftOff(st().data)).toEqual({ kind: 'home' });
+    expect(homeTiles(st().data).map((x) => [x.name, x.state, x.action])).toEqual([['Report', 'waiting', 'resume'], ['Sketch', 'idle', 'start']]);
+    expect(planView(st().data, { runId: id })).toMatchObject({ planning: true, line: 'at a reply', forward: { kind: 'resume', label: 'Resume at a reply', runId: id } });
   });
 
   it('already in Plan: nothing changes — not the data, and not the Undo of the edit just made there', () => {
@@ -350,7 +351,7 @@ describe('Plan (P-90)', () => {
     expect(st().data).toBe(was.data);
   });
 
-  it('every Plan edit changes the ROUTINE, names itself in the notice, and its Undo lasts until the next action — the run stays in Plan through the edit and through its Undo', () => {
+  it('every Plan edit changes the ROUTINE, names itself in the notice, and its Undo lasts until the next action — the run stays paused (P-101, ruling 4; was "in Plan") through the edit and through its Undo', () => {
     const id = started('report');
     st().planRun(id);
     const edits: [Parameters<ReturnType<typeof st>['editRoutine']>[1], string][] = [
@@ -372,11 +373,11 @@ describe('Plan (P-90)', () => {
       expect(st().data.routines.report, text).not.toBe(before.routines.report);
       expect(st().runNotice, text).toMatchObject({ verb: 'editRoutine', text, label: 'Change' });
       expect(st().runNotice!.entry, text).toBe(st().undo);
-      expect(isPlanning(st().data, readRun(st().data, id)!), text).toBe(true);
+      expect(isRunning(st().data, readRun(st().data, id)!), text).toBe(false);
       // Nothing puts the notice or its Undo away by itself: only the next action does.
       st().undoLast();
       expect(json(st().data), `${text} undone`).toEqual(json(before));
-      expect(isPlanning(st().data, readRun(st().data, id)!), `${text} undone`).toBe(true);
+      expect(isRunning(st().data, readRun(st().data, id)!), `${text} undone`).toBe(false);
     }
     // No change was made for this run only.
     expect(readRun(st().data, id)!.changes).toEqual([]);
@@ -418,12 +419,14 @@ describe('Plan (P-90)', () => {
     expect(readRoutine(st().data, 'report')!.items).toHaveLength(4);
   });
 
-  it('from a tile, for a run that is not the one the app is on: in Plan without taking the slot — what is running goes on; its Resume is refused while that runs, saying what', () => {
+  it('from a tile, for a run that is not the one the app is on: P-101 (ruling 4; was "in Plan"): nothing written, the slot not taken — what is running goes on; its Resume is refused while that runs, saying what', () => {
     const first = started('report');
     st().pauseRun(first);
     const second = started('sketch');
+    const was = st().data;
     expect(st().planRun(first)).toEqual({ ok: true, runId: first });
-    expect(st().data.runs[first].mode).toBe('plan');
+    expect(st().data).toBe(was);
+    expect('mode' in st().data.runs[first]).toBe(false);
     expect('status' in st().data.runs[first]).toBe(false);
     expect(st().data.runs[second].status).toBe('running');
     expect(leftOff(st().data)).toEqual({ kind: 'runner', runId: second });
@@ -451,7 +454,7 @@ describe('Plan (P-90)', () => {
     const f = readRun(st().data, id)!.frames[0];
     useStore.setState({ data: { ...st().data, runs: { ...st().data.runs, [id]: { ...st().data.runs[id], frames: [{ ...f, at: null }], status: 'paused', mode: 'plan' } } }, undo: undefined, runNotice: undefined });
     expect(st().data.runs[id]).toMatchObject({ status: 'paused', mode: 'plan' });
-    expect(planView(st().data, { runId: id })).toMatchObject({ planning: true, edge: true, canDone: true, line: 'planning · nothing next yet' });
+    expect(planView(st().data, { runId: id })).toMatchObject({ planning: true, edge: true, canDone: true, line: 'nothing next yet' });
     expect(planView(st().data, { runId: id })!.forward).toBeUndefined();
     expect(st().resumeRun(id)).toEqual({ ok: false, reason: 'asking' });
     expect(st().nextStep(id)).toEqual({ ok: false, reason: 'asking' });
@@ -467,9 +470,10 @@ describe('Plan (P-90)', () => {
     expect(json(st().data)).toEqual(json(edge));
   });
 
-  it('while planning, Next, Step in, Back and (off the edge) Done are refused, and change nothing', () => {
+  it('on a run an earlier build stored in Plan (P-101, ruling 4: the stored mode is read, never written now), Next, Step in, Back and (off the edge) Done are refused, and change nothing', () => {
     const id = started('report');
     st().planRun(id);
+    useStore.setState({ data: { ...st().data, runs: { ...st().data.runs, [id]: { ...st().data.runs[id], mode: 'plan' } } } });
     const was = st();
     for (const press of [() => st().nextStep(id), () => st().stepIn(id), () => st().backTo(id), () => st().doneLevel(id)]) expect(press()).toEqual({ ok: false, reason: 'planning' });
     expect([st().data, st().undo, st().runNotice]).toEqual([was.data, was.undo, was.runNotice]);
@@ -517,10 +521,11 @@ describe('Plan (P-90)', () => {
       expect(st().runNotice!.entry).toBe(st().undo);
       expect(readRun(st().data, A)!.changes).toEqual([]);
       expect(st().data.routines['p90-007']).toMatchObject({ repeat: 5 });
-      expect(planView(st().data, { runId: A })).toMatchObject({ planning: true, unfolded: false, line: 'planning · at Find the right tab' });
+      expect(planView(st().data, { runId: A })).toMatchObject({ planning: true, unfolded: false, line: 'at Find the right tab' });
       expect(st().undoLast()).toBe(true);
       expect(json(st().data)).toEqual(BEFORE);
-      expect(planView(st().data, { runId: A })).toMatchObject({ planning: false, unfolded: true });
+      // P-101 (ruling 4; was `planning: false`): it is not running, so Plan's to show — with its changes back.
+      expect(planView(st().data, { runId: A })).toMatchObject({ planning: true, unfolded: true });
     });
 
     it('opened again after the fold: nothing more happens, and the fold’s Undo is still there', () => {
@@ -559,7 +564,7 @@ describe('after the P-90 audit', () => {
   };
   const runningIds = () => Object.values(st().data.runs).filter((r) => r.status === 'running').map((r) => r.id);
 
-  it('F1: a run stored "running" at the edge reads as planning and blocks nothing — Start elsewhere starts, and that run is stored in Plan, not running', () => {
+  it('F1: a run stored "running" at the edge reads as planning and blocks nothing — Start elsewhere starts, and that run is stored not running (P-101, ruling 4: no mode; it reads paused)', () => {
     useStore.setState({ data: legacyEdge() });
     expect(leftOff(st().data)).toEqual({ kind: 'plan', runId: 'edge' });
     const did = st().startRoutine('sketch');
@@ -567,8 +572,8 @@ describe('after the P-90 audit', () => {
     expect(st().runNotice?.text ?? '').not.toContain('is running');
     expect(runningIds()).toEqual([did.runId]);
     expect(st().data.runs.edge.status).toBeUndefined();
-    expect(st().data.runs.edge.mode).toBe('plan');
-    expect(homeTiles(st().data).map((x) => [x.name, x.state])).toEqual([['Notes', 'paused'], ['Report', 'planning'], ['Sketch', 'running']]);
+    expect('mode' in st().data.runs.edge).toBe(false);
+    expect(homeTiles(st().data).map((x) => [x.name, x.state])).toEqual([['Notes', 'paused'], ['Report', 'paused'], ['Sketch', 'running']]);
     // A start has no Undo (P-95).
     expect(st().undo).toBeUndefined();
   });
@@ -578,7 +583,7 @@ describe('after the P-90 audit', () => {
     expect(st().resumeRun('edge')).toEqual({ ok: false, reason: 'asking' });
     expect(st().resumeRun('left')).toEqual({ ok: true, runId: 'left' });
     expect(runningIds()).toEqual(['left']);
-    expect(st().data.runs.edge.mode).toBe('plan');
+    expect('mode' in st().data.runs.edge).toBe(false);
     expect(st().data.runs.edge.status).toBeUndefined();
   });
 

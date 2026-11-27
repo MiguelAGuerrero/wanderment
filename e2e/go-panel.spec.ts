@@ -12,7 +12,7 @@ const IN_LOOP = [{ id: 'r3', routine: 'drawing', at: 1, inner: [{ routine: 'hand
 test('J04-h, J38-a: over a step in a loop — the round, then, and the actions, in order; the buttons beneath do not move', async ({ page }) => {
   await startGo(page, IN_LOOP, 'runner');
   const r = runner(page);
-  const fixed = { pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), handle: await place(r.handle) };
+  const fixed = { pause: await place(r.pause), plan: await place(r.plan), next: await place(r.next), handle: await place(r.handle) };
   await expect(r.handle).toHaveAccessibleName('More about this step');
   await expect(r.handle).toHaveAttribute('aria-expanded', 'false');
   await r.handle.click();
@@ -22,11 +22,12 @@ test('J04-h, J38-a: over a step in a loop — the round, then, and the actions, 
   await expect(where).toContainText('Round 2 of 3');
   await expect(where).toContainText('then: Add the shadows');
   await expect(where.getByText('Last step of the round')).toHaveCount(0);
-  // (P-96: and Finish <level> now, last — finishing early is the panel's.)
-  await expect(r.panel.getByRole('button')).toHaveText(['Back to Block in the big shapes', 'Jump to…', 'Finish Hand studies of my left hand now']);
+  // (P-101, ruling 1; was P-96: and Finish <level> now, last — finishing early is Step out, beside Next.)
+  // (P-101 amendment, ruling 9: then Start <level> over and Start <routine> over.)
+  await expect(r.panel.getByRole('button')).toHaveText(['Back to Block in the big shapes', 'Jump to…', 'Start Hand studies of my left hand over', 'Start Practise drawing over']);
   // Read first on opening: where you are.
   await expect(where).toBeFocused();
-  expect({ pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), handle: await place(r.handle) }).toEqual(fixed);
+  expect({ pause: await place(r.pause), plan: await place(r.plan), next: await place(r.next), handle: await place(r.handle) }).toEqual(fixed);
   // The panel is over the note only: it ends above the handle.
   const p = (await r.panel.boundingBox())!;
   expect(p.y + p.height).toBeLessThanOrEqual(fixed.handle.y + 1);
@@ -148,7 +149,7 @@ test('J29-b: Back to <step> from the panel (P-95: with no Undo); the words are n
   await expect(r.screen.getByRole('textbox')).toHaveCount(0);
 });
 
-test('J38: Jump to… is reached from the panel and comes back to the runner; the sequence is reached by Plan, in the middle slot', async ({ page }) => {
+test('J38: Jump to… is reached from the panel and comes back to the runner; the sequence is reached by Plan (P-101: on the top line — inside a call, that routine’s; was: the middle slot)', async ({ page }) => {
   await startGo(page, IN_LOOP, 'runner');
   const r = runner(page);
   await r.handle.click();
@@ -159,8 +160,8 @@ test('J38: Jump to… is reached from the panel and comes back to the runner; th
   await expect(r.panel).toHaveCount(0);
   // Plan with the panel open: the panel goes, Plan comes; Resume is back on the step.
   await r.handle.click();
-  await r.middle.click();
-  await expect(plan(page).title).toHaveText('Practise drawing');
+  await r.plan.click();
+  await expect(plan(page).title).toHaveText('Hand studies of my left hand');
   await plan(page).forward.click();
   await expect(r.words).toHaveText('Check your proportions');
   await expect(r.panel).toHaveCount(0);
@@ -189,7 +190,7 @@ test('keys: Return on the note is Next, Ctrl/⌘+Z is Undo (P-95: of what has on
   await page.keyboard.press('Control+z');
   await expect(r.words).toHaveText('Tailor the CV');
   // While typing (in Plan: the runner has no field), the letters are letters; Esc leaves the field and nothing else.
-  await r.middle.click();
+  await r.plan.click();
   const p = plan(page);
   await p.more('Read the job ad twice').click();
   await page.getByTestId('go-plan-menu').getByRole('button', { name: 'Change the words', exact: true }).click();

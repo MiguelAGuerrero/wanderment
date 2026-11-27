@@ -8,8 +8,9 @@
  * P-90: a change made in Plan changes the ROUTINE. Nothing writes a "this run only" change any more.
  * Runs stored by the build before still carry them (`changes`), and are read through them (`view`)
  * exactly as before, until Plan is first opened on such a run: then they are folded into the routine
- * in that one write (`plan`). A run is in Plan when its body says `mode: 'plan'` and it is not
- * running, or when it has nothing to stand on (the edge): see `isPlanning`.
+ * in that one write (`plan`). P-101 (ruling 4): Plan is a view — a run is running or paused; nothing
+ * writes `mode: 'plan'` any more (one stored by an earlier build is kept and read as paused). A run is
+ * "planning" (`isPlanning`) only at the edge: nothing to stand on.
  *
  * P-85's tables keep everything here in a routine's or a run's JSON body, so there is no migration.
  * Storage does not check that body, and a damaged row loads with none of it: every read goes through
@@ -91,8 +92,9 @@ export interface RunState {
   /** Only the one run the app is on has a status (see `setStatus`); an ended run never has. */
   status?: 'running' | 'paused';
   /**
-   * It was left in Plan. Never on a run that is running or ended (a stored one there is ignored).
-   * Absent says nothing by itself: a run at the edge is planning too (`isPlanning`).
+   * An earlier build left it in Plan. Never on a run that is running or ended (a stored one there is
+   * ignored). P-101 (ruling 4): read and kept, never written; it no longer makes the run "planning" — it
+   * reads as paused (still refusing Next, Step in, Back and Done until Resume clears it, as before).
    */
   mode?: 'plan';
   /** Why it was paused, as typed. */
@@ -172,6 +174,12 @@ export type Verb =
   | { kind: 'stepIn'; runId: Id }
   | { kind: 'back'; runId: Id }
   | { kind: 'jump'; runId: Id; to: JumpTo }
+  /**
+   * P-101 amendment (ruling 9): Start over — the level `level` (0 = the whole run) from its first step, round
+   * one; the levels above it left; the values given inside it gone. The same run record, replaced in place
+   * (same id, its status kept: no new run is made); one write, so one Undo restores place and values.
+   */
+  | { kind: 'restart'; runId: Id; level: number }
   /**
    * P-96: a value given, changed or cleared (blank text clears it). `item`: typed in the field of that
    * step — the step the run is on, which gives the name or reads it — so it is that step's value (where it
@@ -418,7 +426,8 @@ export function place(data: Data, run: RunState): Place | undefined {
  */
 export function isPlanning(data: Data, run: RunState): boolean {
   if (run.endedAt) return false;
-  if (run.mode === 'plan') return true;
+  // P-101 (ruling 4): Plan is a view, not a state. A stored `mode: 'plan'` (earlier builds) is read and
+  // kept, never written again, and no longer makes a run "planning": it reads as paused.
   const at = place(data, run);
   return !!at && !at.item;
 }
@@ -512,6 +521,47 @@ export function visibleValue(data: Data, run: RunState, key: string, at: Frame[]
     if (e) return e;
     if (j === 0 || givenIn(data, run, at[j].seq).has(key)) return undefined;
   }
+}
+
+/**
+ * P-101 amendment (ruling 10): the names given by steps the run has already passed (at every level it is in;
+ * a step broken down, by its smaller steps) that have no value where the run is, each with the level its
+ * value belongs to — not the step's own (it has its field). They can be given now, from the step the run is on.
+ */
+export function passedGives(data: Data, run: RunState, at: Place | undefined = place(data, run)): { name: string; level: number; item: Id }[] {
+  if (!at?.item) return [];
+  const out: { name: string; level: number; item: Id }[] = [];
+  const { frames } = at;
+  const own_ = outOf(at.item);
+  const reads = isRef(at.item) ? [] : namesIn(wordsOf(data, run, at.item)).map((n) => n.key);
+  frames.forEach((f, i) => {
+    const s = view(data, run, f.seq);
+    if (!s) return;
+    const idx = s.items.findIndex((it) => it.id === f.at);
+    const scope = scopeLevel(data, run, frames, i);
+    for (const item of s.items.slice(0, Math.max(0, idx))) {
+      // Each name with the step that gives it (a step broken down: the smaller step that does).
+      const inner = isRef(item) && view(data, run, item.ref)?.named === false ? routineBody(data, run, item.ref).flatMap((b) => b.items) : [];
+      const givers: [string | undefined, Id][] = [[outOf(item), item.id], ...inner.map((i): [string | undefined, Id] => [outOf(i), i.id])];
+      for (const [name, giverId] of givers) {
+        if (!name) continue;
+        const key = nameKey(name);
+        if ((own_ && nameKey(own_) === key) || reads.includes(key) || out.some((o) => nameKey(o.name) === key)) continue;
+        if (visibleValue(data, run, key, frames)) continue;
+        // Only where the run reads it from that routine (a nearer routine that gives it too has its own).
+        let owner = -1;
+        for (let j = scopeLevel(data, run, frames, frames.length - 1); ; j = scopeLevel(data, run, frames, j - 1)) {
+          if (givenIn(data, run, frames[j].seq).has(key)) {
+            owner = j;
+            break;
+          }
+          if (j === 0) break;
+        }
+        if (owner === scope) out.push({ name, level: scope, item: giverId });
+      }
+    }
+  });
+  return out;
 }
 
 /** Every value the step the run is on can see — the values in play — the level below's first, each in the order it was given. */
@@ -630,10 +680,10 @@ function setStatus(data: Data, id: Id | undefined, status?: 'running' | 'paused'
     if (mine ? r.status === status : r.status === undefined || (id !== undefined && !status)) continue;
     if (runs === data.runs) runs = { ...data.runs };
     // A running run has no mode: one stored there (an old tab's Resume) goes when it stops running, so it can't come back as planning.
-    // But one stored running with nothing to stand on (the edge, as the build before left it) was in Plan all along: now it is stored so.
+    // P-101 (ruling 4): one stored running at the edge (as the build before left it) is the edge by itself: no mode is written for it.
     const read = r.status === 'running' ? readRun(data, r.id) : undefined;
     const edge = !!read && isPlanning(data, read);
-    runs[r.id] = patched(r, { status: mine ? status : undefined, ...(edge ? { mode: 'plan' } : r.status === 'running' && 'mode' in r && { mode: undefined }) });
+    runs[r.id] = patched(r, { status: mine ? status : undefined, ...(!edge && r.status === 'running' && 'mode' in r && { mode: undefined }) });
   }
   return runs === data.runs ? data : { ...data, runs };
 }
@@ -665,11 +715,12 @@ function load(data: Data, runId: Id): Loaded | Refusal {
   return at ? { raw, run, at } : 'gone';
 }
 
-/** In Plan as stored: the mode, and not running (the one the app is on is paused; any other run keeps no status). */
+/**
+ * Plan is opened on it: not running (the one the app is on is paused, plainly; any other run keeps no
+ * status). P-101 (ruling 4): no mode is written — Plan is a view, and a run is running or paused.
+ */
 function markPlan(data: Data, runId: Id): Data {
-  const next = own(data.runs, runId)?.status === 'running' ? setStatus(data, runId, 'paused') : data;
-  const raw = own(next.runs, runId)!;
-  return raw.mode === 'plan' ? next : putRun(next, patched(raw, { mode: 'plan' }));
+  return own(data.runs, runId)?.status === 'running' ? setStatus(data, runId, 'paused') : data;
 }
 
 /**
@@ -774,16 +825,21 @@ function resume(data: Data, runId: Id, env: Env): Result {
 function plan(data: Data, runId: Id, env: Env): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
-  if (l.raw.mode === 'plan' && l.raw.status !== 'running' && !l.run.changes.length) return done(data);
+  if (l.raw.status !== 'running' && !l.run.changes.length) return done(data);
   const { data: next, folded } = enterPlan(data, runId, env);
   return done(putRun(next, patched(own(next.runs, runId)!, { touchedAt: env.now })), { ...(folded !== undefined && { folded }) });
 }
 
+/**
+ * Pause. P-101 (ruling 3): `why` is the Pause sheet's note, prefilled with the stored reason — kept as
+ * typed but trimmed (one or more lines); blank takes the stored reason away. No `why` at all (a press
+ * kept while reconnecting): the reason is left as it is.
+ */
 function pause(data: Data, runId: Id, why: string | undefined, env: Env): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
-  const reason = tidy(why);
-  return done(setStatus(putRun(data, patched(l.raw, { touchedAt: env.now, ...(reason && { reason }) })), runId, 'paused'));
+  const reason = text(why) ? why.trim() || undefined : l.raw.reason;
+  return done(setStatus(putRun(data, patched(l.raw, { touchedAt: env.now, reason })), runId, 'paused'));
 }
 
 /** The reason edited in place: kept as typed (the field is bound to it); blank deletes it. Nothing else changes. */
@@ -792,6 +848,26 @@ function setReason(data: Data, runId: Id, typed: string): Result {
   if (typeof l === 'string') return refuse(data, l);
   const reason = text(typed) && typed.trim() ? typed : undefined;
   return done(reason === l.raw.reason ? data : putRun(data, patched(l.raw, { reason })));
+}
+
+/** P-101 amendment (ruling 9): Start over at `level`. Its place: `moved` (as Jump to the start of a level), then the values inside it go. */
+function restart(data: Data, runId: Id, level: number, env: Env): Result {
+  const l = load(data, runId);
+  if (typeof l === 'string') return refuse(data, l);
+  const was = l.at.frames;
+  if (!Number.isInteger(level) || level < 0 || level >= was.length) return refuse(data, 'no-such-level');
+  const s = view(data, l.run, was[level].seq)!;
+  const moved_ = moved(data, l, { frames: [...was.slice(0, level), { ...was[level], at: s.items[0]?.id ?? null, round: 1 }] }, env);
+  // Audit F4: the pause note is the person's own words, not a value given inside the level: it stays.
+  const out = l.raw.reason === undefined ? moved_ : { ...moved_, data: putRun(moved_.data, patched(own(moved_.data.runs, runId)!, { reason: l.raw.reason })) };
+  const raw = own(out.data.runs, runId)!;
+  if (!Array.isArray(raw.values)) return out;
+  // Inside it: every value of a routine entered at or above it; and, for a step broken down (part of the routine
+  // below), what its own smaller steps gave.
+  const scope = scopeLevel(data, l.run, was, level);
+  const body = scope === level ? undefined : new Set(routineBody(data, l.run, was[level].seq).flatMap((b) => b.items.map((i) => i.id)));
+  const kept = raw.values.filter((v) => !isEntry(v) || (v.level < level && !(body && v.level === scope && body.has(v.item))));
+  return kept.length === raw.values.length ? out : { ...out, data: putRun(out.data, patched(raw, { values: kept.length ? kept : undefined })) };
 }
 
 /** Home, after "Stop <name>?": no run is the one the app is on. The run stays exactly where it is. */
@@ -1210,11 +1286,15 @@ function setValue(data: Data, runId: Id, typedName: string, typed: string, itemI
     const words = wordsOf(data, l.run, item);
     const gives = outOf(item);
     const reads = isRef(item) ? undefined : namesIn(words).find((x) => x.key === key);
-    if (!(gives && nameKey(gives) === key) && !reads) return refuse(data, 'cannot');
+    // P-101 amendment (ruling 10): a name a step already passed gives, with no value yet — given now, here.
+    const passed = !(gives && nameKey(gives) === key) && !reads ? passedGives(data, l.run, l.at).find((p) => nameKey(p.name) === key) : undefined;
+    if (!(gives && nameKey(gives) === key) && !reads && !passed) return refuse(data, 'cannot');
     // The step that gives it, or asks for it (nothing visible): its own level's value, from it. A step reading a value there is: that value.
     const own_ = (gives && nameKey(gives) === key) || !visible;
-    level = own_ ? scopeLevel(data, l.run, frames, frames.length - 1) : visible!.level;
-    if (own_) from = { item: item.id, words, name: gives && nameKey(gives) === key ? gives : reads!.name };
+    level = passed ? passed.level : own_ ? scopeLevel(data, l.run, frames, frames.length - 1) : visible!.level;
+    // Audit F2: a value given late is the giving step's (it is scoped, and cleared by a new round, exactly
+    // as one given there); `words` keeps the step it was given at ("given at <step>").
+    if (own_) from = { item: passed ? passed.item : item.id, words, name: passed ? passed.name : gives && nameKey(gives) === key ? gives : reads!.name };
   } else {
     if (!visible) return refuse(data, 'cannot');
     level = visible.level;
@@ -1285,6 +1365,8 @@ export function runVerb(data: Data, verb: Verb, env: Env): Result {
       return stepIn(data, verb.runId, env);
     case 'back':
       return back(data, verb.runId, env);
+    case 'restart':
+      return restart(data, verb.runId, verb.level, env);
     case 'jump':
       return jump(data, verb.runId, verb.to, env);
     case 'value':

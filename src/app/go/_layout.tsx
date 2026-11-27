@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 
+import { NoticeWatch } from '@/components/go/Notice';
 import { FAMILY, G } from '@/components/go/tokens';
 
 /**
@@ -31,9 +32,9 @@ export default function GoLayout() {
   const [loaded, error] = useFonts(faces());
   if (!loaded && !error) return null;
   return (
-    <>
+    <NoticeWatch>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false, animation: 'none', contentStyle: { backgroundColor: G.bg } }} />
-    </>
+    </NoticeWatch>
   );
 }

@@ -6,7 +6,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { exported, home, MAYA, runner, seedGo, settled } from './goFixture';
+import { exported, home, MAYA, runner, seedGo, settled, tileBody } from './goFixture';
 import { legacyBlob, seedScript } from './graphFixture';
 
 const AT_GO = /\/wanderment\/go$/;
@@ -70,7 +70,8 @@ test.describe('the app’s address opens the new home', () => {
     await page.goto('./');
     await expect(home(page).screen).toBeVisible();
     await expect(page).toHaveURL(AT_GO);
-    await expect(home(page).resume).toHaveText('Resume Apply to Initech');
+    // (P-101: its tile's body resumes it; was: the filled Resume bar.)
+    await expect(tileBody(page, 'Apply to Initech')).toHaveAccessibleName(/^Resume Apply to Initech/);
   });
 
   test('the address replaces itself: one history entry, so Back never loops through it', async ({ page }) => {

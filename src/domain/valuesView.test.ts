@@ -175,7 +175,7 @@ describe('home (ruling 8)', () => {
     expect(tileLine(tile)).toMatchObject({ line: 'at Write it', says: 'Report, paused at Write it' });
   });
 
-  it('where the app opens: never the paused screen — a paused run is home (it is first there); running: the runner; in Plan: Plan', () => {
+  it('where the app opens: never the paused screen — a paused run is home; running: the runner — P-101 (ruling 4; was "in Plan: Plan"): opened in Plan it is paused, so home', () => {
     let { d, id } = start(drawing(), 'D');
     expect(leftOff(d)).toEqual({ kind: 'runner', runId: id });
     d = ok(d, { kind: 'pause', runId: id });
@@ -183,7 +183,7 @@ describe('home (ruling 8)', () => {
     expect(opensAt(d)).toEqual({ kind: 'home' });
     expect(runRoute(d, id)).toBe('home');
     d = ok(d, { kind: 'plan', runId: id });
-    expect(leftOff(d)).toEqual({ kind: 'plan', runId: id });
+    expect(leftOff(d)).toEqual({ kind: 'home' });
   });
 });
 

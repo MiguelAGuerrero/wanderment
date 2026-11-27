@@ -69,7 +69,8 @@ function invariants(d: Data, label: string) {
     expect(!!r.waitingSince, `${label}: waiting-since exactly on a wait`).toBe(!!p.item && 'wait' in p.item);
     // P-90: a run in Plan is never running; and at the edge (nothing to stand on) it is in Plan as stored.
     if (isPlanning(d, r)) expect(r.status, `${label}: a run in Plan is not running`).not.toBe('running');
-    if (!p.item) expect(raw.mode, `${label}: at the edge it is in Plan`).toBe('plan');
+    // P-101 (ruling 4; was P-90 "at the edge it is in Plan as stored"): nothing writes a mode any more.
+    expect(raw.mode, `${label}: no mode is written`).toBeUndefined();
   }
   // After the audit (F1): "running" has one definition — stored running and not in Plan — and it agrees with what is stored.
   expect(runs.filter((r) => isRunning(d, r)).map((r) => r.id), `${label}: running as the engine defines it is running as stored`).toEqual(Object.values(d.runs).filter((r) => r.status === 'running' && !r.endedAt).map((r) => r.id));
@@ -216,7 +217,8 @@ describe('random walks', () => {
           if (out.ok) {
             count('legacy:running at the edge');
             expect(out.data.runs[id].status, `${label0}: the edge run is not stored running`).toBeUndefined();
-            expect(out.data.runs[id].mode, `${label0}: the edge run is stored in Plan`).toBe('plan');
+            // P-101 (ruling 4; was "the edge run is stored in Plan"): it is the edge by itself — no mode is written.
+            expect(out.data.runs[id].mode, `${label0}: no mode is written for the edge run`).toBeUndefined();
             invariants(out.data, `${label0} a start past a run stored running at the edge`);
             expect(saved(applyUndo(out.data, undoEntry(legacy, out.data))), `${label0}: undone`).toEqual(saved(legacy));
             d = out.data;
@@ -317,8 +319,8 @@ describe('random walks', () => {
             });
             expect(readRun(d, was.id)!.endedAt, `${label}: an edit never ends a run`).toBeUndefined();
           }
-          // …and never takes a run in Plan out of Plan.
-          for (const was of openRuns(prev)) if (isPlanning(prev, was)) expect(isPlanning(d, readRun(d, was.id)!), `${label}: run ${was.id} is still in Plan`).toBe(true);
+          // …and never sets a run running (P-101, ruling 4; was "never takes a run in Plan out of Plan": Plan is a view, not a state).
+          for (const was of openRuns(prev)) if (!isRunning(prev, was)) expect(isRunning(d, readRun(d, was.id)!), `${label}: run ${was.id} is still not running`).toBe(false);
         }
         // P-90: nothing writes a this-run change any more.
         for (const r of Object.keys(d.runs)) expect(readRun(d, r)!.changes.length, `${label}: no new this-run change`).toBeLessThanOrEqual(readRun(prev, r)?.changes.length ?? 0);
@@ -330,11 +332,13 @@ describe('random walks', () => {
           expect(run.changes.length, `${label}: there was something to fold`).toBeGreaterThan(0);
           expect(after.changes, `${label}: nothing left to fold`).toEqual([]);
           expect(reading(d, after), `${label}: the fold left the run reading the same`).toEqual(reading(prev, run));
-          expect(isPlanning(d, after), `${label}: folded, so in Plan`).toBe(true);
+          // P-101 (ruling 4; was "folded, so in Plan"): Plan pauses it, plainly.
+          expect(isRunning(d, after), `${label}: folded by Plan, so not running`).toBe(false);
         } else if (verb?.kind === 'plan') {
           expect(run.changes, `${label}: Plan with changes folds`).toEqual([]);
         }
-        if (verb?.kind === 'plan') expect(isPlanning(d, readRun(d, id)!), `${label}: in Plan`).toBe(true);
+        // P-101 (ruling 4; was "in Plan"): Plan leaves the run not running (paused if it was running).
+        if (verb?.kind === 'plan') expect(isRunning(d, readRun(d, id)!), `${label}: not running after Plan`).toBe(false);
         if (verb?.kind === 'resume' || verb?.kind === 'jump') expect(isPlanning(d, readRun(d, id)!) ? readRun(d, id)!.frames[0].at : null, `${label}: out of Plan (unless at the edge)`).toBeNull();
         // New makes the routine only: never a run.
         if (verb?.kind === 'new') expect(d.runs, `${label}: no run`).toBe(prev.runs);

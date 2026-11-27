@@ -1551,6 +1551,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       stepIn: { args: ['n1'], setup: going({ frames: [{ seq: 'g1', at: 'k', round: 1 }] }) },
       jumpTo: { args: ['n1', { path: ['b'] }], setup: going() },
       backTo: { args: ['n1'], setup: going({ frames: [{ seq: 'g1', at: 'b', round: 1 }] }) },
+      // P-101 amendment (ruling 9): Start over.
+      restartRun: { args: ['n1', 0], setup: going({ frames: [{ seq: 'g1', at: 'b', round: 1 }] }) },
       editRoutine: { args: ['g1', { kind: 'addStep', text: 'File it' }], setup: going() },
       // P-96: typed in the field of the step that gives a name, and the value sheet changing a value there is.
       typeValue: {
@@ -1575,6 +1577,9 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       verbMarked: [],
       // P-96 audit F3: names an edit already written by `typeValue` and makes it undoable (the Undo slot and the notice only).
       typedOver: ['n1', 'a', 'topic', 'the ad'],
+      // P-101 (ruling 6): the notice put away by a screen change or a tap (session only).
+      screenChanged: [],
+      tapped: [],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>
@@ -2808,7 +2813,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ step: { kind: 'edge' }, next: 'edge', planning: true });
       expect(runRoute(store.getState().data, ids.runId)).toBe('plan');
       expect(store.getState().editRoutine(ids.routineId, { kind: 'addStep', text: 'Start again from here' }).ok).toBe(true);
-      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ planning: true, step: { kind: 'step', words: 'Start again from here' } });
+      // P-101 (ruling 4; was `planning: true`): on a step now, it is paused — Plan is a view, not a state.
+      expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ planning: false, status: 'paused', step: { kind: 'step', words: 'Start again from here' } });
       expect(store.getState().resumeRun(ids.runId).ok).toBe(true);
       expect(runnerView(store.getState().data, ids.runId)).toMatchObject({ status: 'running', planning: false, step: { words: 'Start again from here' } });
     });
@@ -2941,6 +2947,10 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
      * step, then Plan (from the runner: paused, in Plan), with edits made there — a step added, the
      * divider put in, HERE broken down. "Evening" was started first, paused, and planned from its tile
      * (in Plan, without being the run the app is on).
+     *
+     * P-101 (ruling 4): nothing writes `mode: 'plan'` any more. Both runs are then stored as the build
+     * before left them (Plan pressed on each: the mode in the body), so this proves a stored mode is
+     * kept exactly — never deleted or converted — through every path, and read as paused.
      */
     function build(store: Store) {
       const g = () => store.getState();
@@ -2965,24 +2975,27 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       const here = body(store, runId).frames[0].at!;
       all.push(g().editRoutine(morning, { kind: 'addStep', text: 'Walk' }), g().editRoutine(morning, { kind: 'divider', from: 1 }), g().editRoutine(morning, { kind: 'breakDown', item: here, steps: ['Warm water', 'Cold water'] }), g().planRun(tile));
       expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      expect(['mode' in g().data.runs[runId], 'mode' in g().data.runs[tile]]).toEqual([false, false]);
+      const d = g().data;
+      expect(g().replaceData({ ...d, runs: { ...d.runs, [runId]: { ...d.runs[runId], mode: 'plan' }, [tile]: { ...d.runs[tile], mode: 'plan' } } })).toBe(true);
       return { runId, tile, morning, evening };
     }
-    /** What "in Plan" is, as stored and as the screens read it. */
+    /** P-101 (ruling 4; was: what "in Plan" is): a mode an earlier build stored — kept as stored, read as paused. */
     async function isInPlan(data: Store extends { getState(): { data: infer D } } ? D : never, { runId, tile, morning }: ReturnType<typeof build>) {
       const { planView, leftOff, homeTiles, runRoute, pausedView } = await import('@/domain/runView');
       // As stored: the mode is in the run's body; the run the app is on is paused, the other has no status.
       expect(data.runs[runId]).toMatchObject({ status: 'paused', mode: 'plan' });
       expect(data.runs[tile].mode).toBe('plan');
       expect('status' in data.runs[tile]).toBe(false);
-      // As read.
-      expect(leftOff(data)).toEqual({ kind: 'plan', runId });
-      expect([runRoute(data, runId), runRoute(data, tile)]).toEqual(['plan', 'plan']);
-      expect(planView(data, { runId })).toMatchObject({ name: 'Morning', planning: true, line: 'planning · at Warm water', forward: { kind: 'resume', label: 'Resume at Warm water', runId } });
+      // As read (P-101): paused, never "planning" — home on reopening; Plan shows both, "at <step>".
+      expect(leftOff(data)).toEqual({ kind: 'home' });
+      expect([runRoute(data, runId), runRoute(data, tile)]).toEqual(['home', 'runner']);
+      expect(planView(data, { runId })).toMatchObject({ name: 'Morning', planning: true, line: 'at Warm water', forward: { kind: 'resume', label: 'Resume at Warm water', runId } });
       expect(planView(data, { runId })!.divider).toMatchObject({ seq: morning, from: 1 });
-      expect(planView(data, { runId: tile })).toMatchObject({ planning: true, line: 'planning · at Tidy up' });
+      expect(planView(data, { runId: tile })).toMatchObject({ planning: true, line: 'at Tidy up' });
       // (Both routines were made in the same instant here, so their order is by id: compared by name.)
-      expect(homeTiles(data).map((x) => [x.name, x.state, x.action]).sort()).toEqual([['Evening', 'planning', 'plan'], ['Morning', 'planning', 'plan']]);
-      expect(pausedView(data, runId)).toMatchObject({ kind: 'planning', action: 'plan' });
+      expect(homeTiles(data).map((x) => [x.name, x.state, x.action]).sort()).toEqual([['Evening', 'paused', 'resume'], ['Morning', 'paused', 'resume']]);
+      expect(pausedView(data, runId)).toMatchObject({ kind: 'paused', action: 'resume' });
     }
 
     it('reload: saved to SQLite as it is made (the mode in the run’s body), the same after a reload; Resume takes it out of Plan on disk too, exactly where it was', async () => {
@@ -3048,7 +3061,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       for (const d of [store.getState().data, await onDisk()]) {
         expect(running(d)).toEqual([first.runId]);
         expect(d.runs.edge.status).toBeUndefined();
-        expect(d.runs.edge.mode).toBe('plan');
+        // P-101 (ruling 4; was "stored in Plan"): no mode is written for it.
+        expect('mode' in d.runs.edge).toBe(false);
       }
       expect(await onDisk()).toEqual(store.getState().data);
       // A start has no Undo (P-95): the edge run is put back exactly as it was stored by importing it again.
@@ -3067,7 +3081,7 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       store = await reload();
       expect(running(store.getState().data)).toEqual([second.runId]);
       expect(body(store, 'edge').status).toBeUndefined();
-      expect(body(store, 'edge').mode).toBe('plan');
+      expect('mode' in body(store, 'edge')).toBe(false);
       expect(await onDisk()).toEqual(store.getState().data);
       expect(leftOff(store.getState().data)).toEqual({ kind: 'runner', runId: second.runId });
     });
@@ -3165,8 +3179,10 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       page.show();
       await tick(100);
       expect(store.getState().data.runs[ids.runId]).toEqual(planned);
-      expect(store.getState().data.runs[ids.runId]).toMatchObject({ status: 'paused', mode: 'plan' });
-      expect(runRoute(store.getState().data, ids.runId)).toBe('plan');
+      // P-101 (ruling 4; was "in Plan"): Plan elsewhere pauses it, plainly — this page's runner goes home.
+      expect(store.getState().data.runs[ids.runId]).toMatchObject({ status: 'paused' });
+      expect('mode' in store.getState().data.runs[ids.runId]).toBe(false);
+      expect(runRoute(store.getState().data, ids.runId)).toBe('home');
       expect(await onDisk()).toEqual(store.getState().data);
       const next = await reload();
       expect(next.getState().data).toEqual(store.getState().data);
@@ -3248,7 +3264,9 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         release();
         await tick(30);
         expect(store.getState().storage).toEqual(READY);
-        expect(store.getState().data.runs[runId]).toMatchObject({ status: 'paused', mode: 'plan' });
+        // P-101 (ruling 4; was "paused, in Plan"): paused, and no mode is written.
+        expect(store.getState().data.runs[runId]).toMatchObject({ status: 'paused' });
+        expect('mode' in store.getState().data.runs[runId]).toBe(false);
         expect(store.getState().toVerb).toBeUndefined();
         expect(await onDisk()).toEqual(store.getState().data);
       });
@@ -3266,7 +3284,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         expect(store.getState().toVerb).toBeUndefined();
         expect(store.getState().undo).toBeUndefined();
         const { runnerView } = await import('@/domain/runView');
-        expect(runnerView(store.getState().data, runId)).toMatchObject({ planning: true, step: { words: 'Stretch' } });
+        // P-101 (ruling 4; was `planning: true`): it is paused there — the runner goes home.
+        expect(runnerView(store.getState().data, runId)).toMatchObject({ planning: false, status: 'paused', step: { words: 'Stretch' } });
       });
 
       it('Plan kept here, and the other page moved the run on meanwhile: the press is dropped — the run is where that page left it, running', async () => {
@@ -3361,6 +3380,40 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       });
       expect(valueDetail(data, ids.runId, 'tool')).toMatchObject({ from: 'Pick a pencil', text: '2B' });
     }
+
+    it('P-101 amendment (rulings 9–10): a value given late (at a step after the one that gives it) and a Start over are saved as they are made, and the same after a reload; the Start over’s Undo brings place and values back, on disk too', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const { runnerView, valueDetail } = await import('@/domain/runView');
+      const g = () => store.getState();
+      // Back to where {subject} was given, cleared there (the sheet), and on: the reader's place, {subject} not given yet.
+      expect(g().resumeRun(ids.runId).ok).toBe(true);
+      expect(g().changeValue(ids.runId, 'subject', '').ok).toBe(true);
+      // (The reader asks for it where it stands; the step after it, which does not read it, offers it.)
+      expect(g().nextStep(ids.runId).ok).toBe(true);
+      expect(runnerView(g().data, ids.runId)!.missing).toEqual(['subject']);
+      const here = runnerView(g().data, ids.runId)!.step.itemId!;
+      expect(g().typeValue(ids.runId, here, 'subject', 'given late').ok).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(g().data);
+      store = await reload();
+      expect(valueDetail(store.getState().data, ids.runId, 'subject')).toMatchObject({ text: 'given late', late: true });
+      const before = store.getState().data;
+      expect(store.getState().restartRun(ids.runId, 0).ok).toBe(true);
+      await tick(30);
+      const restarted = await onDisk();
+      expect(restarted.runs[ids.runId]).toMatchObject({ frames: [{ seq: ids.routineId, at: ids.sel, round: 1 }] });
+      expect('values' in restarted.runs[ids.runId]).toBe(false);
+      store = await reload();
+      expect(store.getState().data).toEqual(restarted);
+      expect(store.getState().restartRun(ids.runId, 0).ok).toBe(true);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(restarted);
+      expect(Object.keys(before.runs)).toEqual(Object.keys(restarted.runs));
+    });
 
     it('reload: saved to SQLite as it is made, the same after a reload; a value typed writes the run’s row and nothing else; the next round asks again, and that too is saved', async () => {
       fakeLocks();

@@ -2,7 +2,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { addStep, anotherTab, arrived, exported, home, plan, RoutineSpec, runner, saved, setVisibility, settled, startGo, turn } from './goFixture';
+import { addStep, anotherTab, arrived, exported, home, plan, RoutineSpec, runner, saved, setVisibility, settled, startGo, turn, typeValue } from './goFixture';
 
 /**
  * P-29 part B: a page holds the data only while it's visible. Headless Chromium keeps every page
@@ -253,58 +253,50 @@ test('a save that keeps failing, then a tab switch and back: nothing vanishes, a
   expect(await spanishSteps(page)).toEqual(['alpha', 'unsaved', 'saved again']);
 });
 
-test('a field that saves as you type (P-96: a value’s, on the runner; was: a pause’s reason) shows what another page changed once it takes the data back, and typing adds to that (audit 2 F2, P-29)', async ({ page, context }) => {
+// P-101 (ruling 7): a value is no longer a field that saves as you type — it is typed in its own sheet and
+// kept with Keep. (Was: two tests of a field saving keystroke by keystroke, audit 2 F2 and audit 3 D2: no
+// such field is left on the runner.) What stays to prove: a value kept in one page is what the other shows,
+// and what its sheet opens with, once it takes the data back — and a value ending in a space too.
+test('a value kept in one page (P-101: from its sheet; was: a field that saves as you type) is what the other shows once it takes the data back, and its sheet opens with it (audit 2 F2, P-29)', async ({ page, context }) => {
   await startGo(page, ON_GIVING, 'runner', GIVING);
-  // A was typing the value when it went to the background (the field keeps focus).
-  const reason = runner(page).field('gift');
-  await reason.fill('from A');
+  await typeValue(page, 'gift', 'from A');
   await saved(page);
   const b = await context.newPage();
   await handTo(page, b, 'runner');
 
-  // B edits the same value.
-  await expect(runner(b).field('gift')).toHaveValue('from A');
-  await runner(b).field('gift').fill('from B');
+  // B changes the same value.
+  await expect(runner(b).field('gift')).toHaveAccessibleName('gift: from A');
+  await typeValue(b, 'gift', 'from B');
   await saved(b);
 
-  // A comes back: its field shows B's words, not what it had.
+  // A comes back: its field reads B's words; its sheet opens with them, and adding to them keeps both.
   await setVisibility(b, 'hidden');
   await turn(page, 'visible');
-  await expect(reason).toHaveValue('from B', { timeout: 15_000 });
-  // Typing adds to B's words instead of replacing them with what A showed before.
-  await reason.focus();
-  await reason.press('End');
-  await reason.pressSequentially(' and A');
-  await expect(reason).toHaveValue('from B and A');
+  await expect(runner(page).field('gift')).toHaveAccessibleName('gift: from B', { timeout: 15_000 });
+  await runner(page).field('gift').click();
+  const sheet = await arrived(page, 'go-entry-sheet');
+  const field = sheet.getByTestId('go-entry-field');
+  await expect(field).toHaveValue('from B');
+  await field.press('End');
+  await field.pressSequentially(' and A');
+  await sheet.getByTestId('go-entry-keep').click();
   await saved(page);
 
   // Saved that way: B, shown again, reads it.
   await setVisibility(page, 'hidden');
   await turn(b, 'visible');
-  await expect(runner(b).field('gift')).toHaveValue('from B and A', { timeout: 15_000 });
+  await expect(runner(b).field('gift')).toHaveAccessibleName('gift: from B and A', { timeout: 15_000 });
 });
 
-test('a value ending in a space (as phone keyboards leave it; P-96: was a reason) still shows another page’s edit once the data is back, so typing adds to it (audit 3 D2, P-29)', async ({ page, context }) => {
+test('a value ending in a space (as phone keyboards leave it) is kept as given and read by the other page (audit 3 D2, P-29; P-101: from its sheet)', async ({ page, context }) => {
   await startGo(page, ON_GIVING, 'runner', GIVING);
-  const reason = runner(page).field('gift');
-  await reason.fill('went well ');
+  await typeValue(page, 'gift', 'went well ');
   await saved(page);
   const b = await context.newPage();
   await handTo(page, b, 'runner');
-  await expect(runner(b).field('gift')).toHaveValue(/^went well ?$/);
-  await runner(b).field('gift').fill('B wrote a long careful reason');
-  await saved(b);
-
-  await setVisibility(b, 'hidden');
-  await turn(page, 'visible');
-  await expect(reason).toHaveValue('B wrote a long careful reason', { timeout: 15_000 });
-  await reason.focus();
-  await reason.press('End');
-  await reason.pressSequentially(', and A');
-  await saved(page);
-  await setVisibility(page, 'hidden');
-  await turn(b, 'visible');
-  await expect(runner(b).field('gift')).toHaveValue('B wrote a long careful reason, and A', { timeout: 15_000 });
+  await expect(runner(b).field('gift')).toHaveAccessibleName(/^gift: went well ?$/);
+  await runner(b).field('gift').click();
+  await expect((await arrived(b, 'go-entry-sheet')).getByTestId('go-entry-field')).toHaveValue(/^went well ?$/);
 });
 
 test('a name emptied in one page doesn’t put back its old text over another page’s edit when it’s left (audit 3 D3, P-29)', async ({ page, context }) => {
@@ -423,9 +415,10 @@ test.describe('without the service worker (the wasm comes from the network)', ()
 });
 
 test('the waiting screen is drawn over the app: the screen beneath, the route and focus survive it (P-29)', async ({ page, context }) => {
-  // (P-96: the field is a value's on the runner; was the paused screen's reason.)
+  // (P-96: the field is a value's on the runner; was the paused screen's reason. P-101: in its sheet.)
   await startGo(page, ON_GIVING, 'runner', GIVING);
-  const reason = runner(page).field('gift');
+  await runner(page).field('gift').click();
+  const reason = (await arrived(page, 'go-entry-sheet')).getByTestId('go-entry-field');
   await reason.fill('need the job ad');
   await reason.focus();
   const url = page.url();

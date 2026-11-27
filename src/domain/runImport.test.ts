@@ -81,7 +81,9 @@ describe('import: the structure of steps, frames and changes', () => {
       expect(r.ok, String(i)).toBe(true);
       d = r.data;
     }
-    expect(readRun(d, id)).toMatchObject({ status: 'paused', mode: 'plan', reason: 'lunch 🍜 “quoted”', waitingSince: at });
+    // P-101 (ruling 4; was `mode: 'plan'`): Plan pauses it and writes no mode.
+    expect(readRun(d, id)).toMatchObject({ status: 'paused', reason: 'lunch 🍜 “quoted”', waitingSince: at });
+    expect('mode' in d.runs[id]).toBe(false);
     expect(Object.keys(d.routines)).toHaveLength(2);
     expect(fromBackup(toBackup(d, new Date(at)))).toEqual(d);
   });

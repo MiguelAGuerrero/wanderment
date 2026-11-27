@@ -51,7 +51,7 @@ const inPlan = (frames?: unknown[], extra?: Record<string, unknown>) => ok(runni
 describe('Plan’s view of a run', () => {
   it('the heading is the routine’s name; beneath it "planning · at <step>"; the one filled button will say "Resume at <step>" and resume that run', () => {
     const v = planView(inPlan(), { runId: 'A' })!;
-    expect(v).toMatchObject({ routineId: 'acme', runId: 'A', name: 'Apply to Acme', named: true, planning: true, line: 'planning · at Tailor the CV', at: 'Tailor the CV', edge: false, canDone: false, unfolded: false });
+    expect(v).toMatchObject({ routineId: 'acme', runId: 'A', name: 'Apply to Acme', named: true, planning: true, line: 'at Tailor the CV', at: 'Tailor the CV', edge: false, canDone: false, unfolded: false });
     expect(v.forward).toEqual({ kind: 'resume', label: 'Resume at Tailor the CV', runId: 'A' });
   });
 
@@ -72,7 +72,7 @@ describe('Plan’s view of a run', () => {
     const v = planView(inPlan([{ seq: 'acme', at: 's', round: 2 }, { seq: 'send', at: 's2', round: 1, from: 's' }]), { runId: 'A' })!;
     expect(v.rows.filter((r) => r.here).map((r) => r.words)).toEqual(['Press send']);
     expect(v.rows.filter((r) => r.within).map((r) => r.words)).toEqual(['Send it off']);
-    expect([v.line, v.forward]).toEqual(['planning · at Press send', { kind: 'resume', label: 'Resume at Press send', runId: 'A' }]);
+    expect([v.line, v.forward]).toEqual(['at Press send', { kind: 'resume', label: 'Resume at Press send', runId: 'A' }]);
   });
 
   it('the divider: where it stands (before which row), its count, and whether it can move up or down; "until I’m done" has no count', () => {
@@ -122,23 +122,23 @@ describe('Plan’s view of a run', () => {
 
   it('a wait as HERE is still "planning · at <its words>" and "Resume at <its words>" (one wording); `hereKind` says it is a wait', () => {
     const v = planView(inPlan([{ seq: 'acme', at: 'w', round: 1 }]), { runId: 'A' })!;
-    expect([v.line, v.forward?.label, v.hereKind]).toEqual(['planning · at a reply', 'Resume at a reply', 'wait']);
+    expect([v.line, v.forward?.label, v.hereKind]).toEqual(['at a reply', 'Resume at a reply', 'wait']);
   });
 
   it('the edge: "planning · nothing next yet"; no filled button (nothing to resume at); Done has its slot; no row is HERE', () => {
     const d = world([seq('g', 'Learn Spanish', [step('a', 'Find a tutor')], { open: true, home: true })], [aRun('A', 'g', [{ seq: 'g', at: null, round: 1 }], { status: 'paused', mode: 'plan' })]);
     const v = planView(d, { runId: 'A' })!;
-    expect(v).toMatchObject({ planning: true, line: 'planning · nothing next yet', edge: true, canDone: true });
+    expect(v).toMatchObject({ planning: true, line: 'nothing next yet', edge: true, canDone: true });
     expect([v.at, v.forward, v.hereKind]).toEqual([undefined, undefined, undefined]);
     expect(v.rows.map((r) => [r.words, r.here])).toEqual([['Find a tutor', false]]);
     // The same for a run the build before left at the edge with nothing stored about a mode.
     const legacy = world([seq('g', 'Learn Spanish', [], { open: true })], [aRun('A', 'g', [{ seq: 'g', at: null, round: 1 }], { status: 'running' })]);
-    expect(planView(legacy, { runId: 'A' })).toMatchObject({ planning: true, line: 'planning · nothing next yet', edge: true, rows: [] });
+    expect(planView(legacy, { runId: 'A' })).toMatchObject({ planning: true, line: 'nothing next yet', edge: true, rows: [] });
   });
 
   it('after each Plan edit the view follows: removing HERE moves HERE and the label to the next step; breaking HERE down puts HERE on the first small step', () => {
     const removed = planView(edit(inPlan(), 'acme', { kind: 'remove', item: 'b' }), { runId: 'A' })!;
-    expect([removed.line, removed.forward?.label]).toEqual(['planning · at Send it off', 'Resume at Send it off']);
+    expect([removed.line, removed.forward?.label]).toEqual(['at Send it off', 'Resume at Send it off']);
     expect(removed.rows.filter((r) => r.here).map((r) => r.words)).toEqual(['Send it off']);
     const broken = planView(edit(inPlan(), 'acme', { kind: 'breakDown', item: 'b', steps: ['Open the CV', 'Cut a page'] }), { runId: 'A' })!;
     expect(broken.rows.slice(1, 4).map((r) => [r.depth, r.kind, r.words, r.here, r.within])).toEqual([
@@ -149,9 +149,9 @@ describe('Plan’s view of a run', () => {
     expect(broken.forward?.label).toBe('Resume at Open the CV');
   });
 
-  it('a run that is not in Plan (running, paused, left): `planning` is false — the Plan route follows the data; an ended run or one that is gone has no Plan', () => {
+  it('P-101 (ruling 4; was "paused or left: `planning` is false"): Plan is a view — a running run is not Plan’s to show (`planning` false, the route follows the data); a paused one is, "at <step>"; an ended run or one that is gone has no Plan', () => {
     expect(planView(running(), { runId: 'A' })).toMatchObject({ planning: false, line: '', runId: 'A' });
-    expect(planView(ok(running(), { kind: 'pause', runId: 'A' }).data, { runId: 'A' })!.planning).toBe(false);
+    expect(planView(ok(running(), { kind: 'pause', runId: 'A' }).data, { runId: 'A' })).toMatchObject({ planning: true, line: 'at Tailor the CV' });
     expect(planView(ok(running(), { kind: 'done', runId: 'A' }).data, { runId: 'A' })).toBeUndefined();
     expect(planView(running(), { runId: 'nope' })).toBeUndefined();
   });
@@ -177,11 +177,12 @@ describe('Plan’s view of a run', () => {
   it('a run from the build before that still carries this-run changes says so (`unfolded`): Plan reads what the run reads until `plan` folds them', () => {
     const BEFORE = JSON.parse(readFileSync(join(__dirname, '../storage/fixtures/golden/p90-expected.json'), 'utf8')).data as Data;
     const v = planView(BEFORE, { runId: 'p90-008' })!;
-    expect(v).toMatchObject({ planning: false, unfolded: true, name: 'Apply for jobs' });
+    // P-101 (ruling 4; was `planning: false`): a run left on a step, not running, is Plan's to show.
+    expect(v).toMatchObject({ planning: true, unfolded: true, name: 'Apply for jobs' });
     expect(v.rows.filter((r) => r.depth === 0).map((r) => r.words)).toEqual(['Open the tracker', 'Tailor the CV', 'Ask Sam to proofread', 'a reply', 'Log it in the sheet']);
     const folded = ok(BEFORE, { kind: 'plan', runId: 'p90-008' }).data;
     const after = planView(folded, { runId: 'p90-008' })!;
-    expect(after).toMatchObject({ planning: true, unfolded: false, line: 'planning · at Find the right tab' });
+    expect(after).toMatchObject({ planning: true, unfolded: false, line: 'at Find the right tab' });
     expect(after.rows.map((r) => [r.depth, r.words])).toEqual(v.rows.map((r) => [r.depth, r.words]));
     expect(after.divider).toEqual({ seq: 'p90-007', from: 1, repeat: 5, canUp: true, canDown: true });
   });
@@ -241,7 +242,7 @@ describe('Plan’s view of a routine with no run', () => {
 
   it('a routine that has an open run reads as that run’s Plan (one surface per run): the route goes to the run', () => {
     const v = planView(inPlan(), { routineId: 'acme' })!;
-    expect(v).toMatchObject({ runId: 'A', planning: true, line: 'planning · at Tailor the CV' });
+    expect(v).toMatchObject({ runId: 'A', planning: true, line: 'at Tailor the CV' });
   });
 
   it('a removed routine, or one that is not there, has no Plan', () => {
@@ -261,8 +262,8 @@ describe('the runner’s view, without planning', () => {
     expect('thisRunOnly' in on('a')).toBe(false);
   });
 
-  it('a run in Plan, and a run at the edge, say `planning`: the runner never shows them (the route goes to Plan)', () => {
-    expect(runnerView(inPlan(), 'A')).toMatchObject({ planning: true, status: 'paused' });
+  it('P-101 (ruling 4; was "a run in Plan says `planning`"): Plan pauses it, plainly — `planning` is the edge only; a run at the edge says `planning`: the runner never shows it (the route goes to Plan)', () => {
+    expect(runnerView(inPlan(), 'A')).toMatchObject({ planning: false, status: 'paused' });
     const edge = world([seq('g', 'Goal', [], { open: true })], [aRun('A', 'g', [{ seq: 'g', at: null, round: 1 }], { status: 'running' })]);
     expect(runnerView(edge, 'A')).toMatchObject({ planning: true, step: { kind: 'edge' }, middle: 'plan' });
   });
@@ -282,11 +283,12 @@ describe('the runner’s view, without planning', () => {
 describe('where a run’s screen is (routes follow the data and write nothing)', () => {
   it('Plan for a run in Plan or at the edge; the runner for one running or left on a step; home for the one paused (P-96, ruling 7; was: the paused screen), for an ended one or none', () => {
     expect(runRoute(running(), 'A')).toBe('runner');
-    expect(runRoute(inPlan(), 'A')).toBe('plan');
+    // P-101 (ruling 4; was 'plan'): opened in Plan it is paused — the runner's address sends it home.
+    expect(runRoute(inPlan(), 'A')).toBe('home');
     const paused = ok(running(), { kind: 'pause', runId: 'A' }).data;
     expect(runRoute(paused, 'A')).toBe('home');
     expect(runRoute(ok(paused, { kind: 'home', runId: 'A' }).data, 'A')).toBe('runner');
-    expect(runRoute(ok(inPlan(), { kind: 'home', runId: 'A' }).data, 'A')).toBe('plan');
+    expect(runRoute(ok(inPlan(), { kind: 'home', runId: 'A' }).data, 'A')).toBe('runner');
     expect(runRoute(ok(inPlan(), { kind: 'resume', runId: 'A' }).data, 'A')).toBe('runner');
     expect(runRoute(ok(running(), { kind: 'done', runId: 'A' }).data, 'A')).toBe('home');
     expect(runRoute(running(), 'nope')).toBe('home');
@@ -294,9 +296,9 @@ describe('where a run’s screen is (routes follow the data and write nothing)',
     expect(runRoute(edge, 'A')).toBe('plan');
   });
 
-  it('reopening the app returns to the mode you were in: Plan for the run the app is on when it is in Plan; home for a run left in Plan from a tile', () => {
+  it('reopening the app: the runner while running; P-101 (ruling 4; was "Plan for the run the app is on when it is in Plan"): opened in Plan it is paused, so home; Plan only for a run at the edge', () => {
     expect(leftOff(running())).toEqual({ kind: 'runner', runId: 'A' });
-    expect(leftOff(inPlan())).toEqual({ kind: 'plan', runId: 'A' });
+    expect(leftOff(inPlan())).toEqual({ kind: 'home' });
     // P-96 (ruling 7; was: the paused screen): a paused run reopens home.
     expect(leftOff(ok(running(), { kind: 'pause', runId: 'A' }).data)).toEqual({ kind: 'home' });
     expect(leftOff(ok(inPlan(), { kind: 'home', runId: 'A' }).data)).toEqual({ kind: 'home' });
@@ -308,29 +310,29 @@ describe('where a run’s screen is (routes follow the data and write nothing)',
 describe('home tiles and the prompt show the mode', () => {
   const tile = (d: Data, routineId = 'acme') => homeTiles(d).find((x) => x.routineId === routineId)!;
 
-  it('a run left in Plan: "planning · at <step>" with Plan; its screen-reader line says planning, never paused', () => {
+  it('P-101 (ruling 4; was "a run left in Plan: planning · at <step> with Plan"): opened in Plan it reads paused — "at <step>" with Resume; its screen-reader line says paused, never planning', () => {
     const t1 = tile(inPlan());
-    expect(t1).toMatchObject({ state: 'planning', action: 'plan', at: 'Tailor the CV', runId: 'A', current: true });
-    expect(tileLine(t1)).toEqual({ line: 'planning · at Tailor the CV', button: 'Plan', spoken: 'Plan Apply to Acme', says: 'Apply to Acme, planning, at Tailor the CV' });
+    expect(t1).toMatchObject({ state: 'paused', action: 'resume', at: 'Tailor the CV', runId: 'A', current: true });
+    expect(tileLine(t1)).toEqual({ mark: 'paused', line: 'at Tailor the CV', button: 'Resume', spoken: 'Resume Apply to Acme', says: 'Apply to Acme, paused at Tailor the CV' });
     // Left by Home, or demoted by another start, it still says so.
     const left = ok(inPlan(), { kind: 'home', runId: 'A' }).data;
-    expect(tileLine(tile(left)).line).toBe('planning · at Tailor the CV');
+    expect(tileLine(tile(left)).line).toBe('at Tailor the CV');
     const other = ok(inPlan(), { kind: 'start', routineId: 'draw' }).data;
-    expect(tile(other)).toMatchObject({ state: 'planning', action: 'plan', current: false });
+    expect(tile(other)).toMatchObject({ state: 'paused', action: 'resume', current: false });
     expect(tile(other, 'draw')).toMatchObject({ state: 'running', action: 'resume', current: true });
   });
 
-  it('a run in Plan resting on a wait, or with a pause reason, still reads "planning · at <step>"', () => {
+  it('P-101 (ruling 4; was "still reads planning · at <step>"): opened in Plan resting on a wait, with a pause reason, it reads as any waiting run does — the wait, and the reason', () => {
     const t1 = tile(inPlan([{ seq: 'acme', at: 'w', round: 1 }], { waitingSince: '2026-11-24T10:00:00.000Z', reason: 'lunch' }));
-    expect(t1.state).toBe('planning');
-    expect(tileLine(t1)).toEqual({ line: 'planning · at a reply', button: 'Plan', spoken: 'Plan Apply to Acme', says: 'Apply to Acme, planning, at a reply' });
+    expect(t1).toMatchObject({ state: 'waiting', action: 'resume', reason: 'lunch' });
+    expect(tileLine(t1, new Date('2026-11-25T10:00:00.000Z'))).toMatchObject({ mark: 'wait', line: 'waiting for a reply · since yesterday', button: 'Resume', reason: 'lunch' });
   });
 
-  it('a run at the edge: "planning · nothing next yet" (the same words as Plan and the paused screen), with Plan', () => {
+  it('a run at the edge: "nothing next yet" (the same words as Plan), with Plan — P-101 (ruling 4; was "planning · nothing next yet"): it reads paused', () => {
     const d = world([seq('g', 'Learn Spanish', [], { open: true, home: true })], [aRun('A', 'g', [{ seq: 'g', at: null, round: 1 }])]);
     const t1 = homeTiles(d)[0];
-    expect(t1).toMatchObject({ state: 'planning', action: 'plan', asking: true });
-    expect(tileLine(t1)).toEqual({ line: 'planning · nothing next yet', button: 'Plan', spoken: 'Plan Learn Spanish', says: 'Learn Spanish, planning, nothing next yet' });
+    expect(t1).toMatchObject({ state: 'paused', action: 'plan', asking: true });
+    expect(tileLine(t1)).toEqual({ mark: 'paused', line: 'nothing next yet', button: 'Plan', spoken: 'Plan Learn Spanish', says: 'Learn Spanish, paused, nothing next yet' });
     // One wording per meaning: the tile, Plan's line and the paused screen's read the same.
     expect(planView(d, { runId: 'A' })!.line).toBe(tileLine(t1).line);
   });
@@ -350,23 +352,23 @@ describe('home tiles and the prompt show the mode', () => {
     expect(tileLine(tile(d, 'new'))).toEqual({ line: '', button: 'Start', spoken: 'Start Learn Spanish', says: 'Learn Spanish' });
   });
 
-  it('the prompt: a planning run’s row takes you into its Plan (action "plan", with the run); P-95: no "New: <words>" row', () => {
+  it('the prompt: P-101 (ruling 4; was "a planning run’s row takes you into its Plan"): a run opened in Plan is paused — its row resumes it; P-95: no "New: <words>" row', () => {
     const rows = searchStarts(inPlan(), 'apply');
-    expect(rows.map((r) => [r.kind, r.words, r.action, r.runId])).toEqual([['tile', 'Apply to Acme', 'plan', 'A']]);
-    expect(searchStarts(inPlan(), '').map((r) => r.action)).toEqual(['plan', 'start']);
+    expect(rows.map((r) => [r.kind, r.words, r.action, r.runId])).toEqual([['tile', 'Apply to Acme', 'resume', 'A']]);
+    expect(searchStarts(inPlan(), '').map((r) => r.action)).toEqual(['resume', 'start']);
   });
 });
 
 describe('the paused screen for a run left in Plan', () => {
-  it('shows it as planning, with Plan as its action — never "Paused"; the others under it show their own mode', () => {
+  it('P-101 (ruling 4; was "shows it as planning, with Plan"): a run opened in Plan is paused, with Resume; the others under it show their own state', () => {
     let d = inPlan();
-    expect(pausedView(d, 'A')).toMatchObject({ kind: 'planning', action: 'plan', at: 'Tailor the CV', name: 'Apply to Acme' });
+    expect(pausedView(d, 'A')).toMatchObject({ kind: 'paused', action: 'resume', at: 'Tailor the CV', name: 'Apply to Acme' });
     d = ok(d, { kind: 'start', routineId: 'draw' }).data;
     const other = Object.keys(d.runs).find((id) => id !== 'A')!;
     d = ok(d, { kind: 'pause', runId: other }).data;
     const v = pausedView(d, other)!;
     expect(v).toMatchObject({ kind: 'paused', action: 'resume' });
-    expect(v.others.map((x) => [x.name, x.state, x.action])).toEqual([['Apply to Acme', 'planning', 'plan']]);
+    expect(v.others.map((x) => [x.name, x.state, x.action])).toEqual([['Apply to Acme', 'paused', 'resume']]);
   });
 
   it('a paused run that is not in Plan is "paused" (or "waiting") with Resume, as before', () => {

@@ -1,6 +1,6 @@
 # B-16 — A thread with its own queue: open work that a process keeps moving
 
-**Status:** draft for the owner (no decision entry yet) · **Theme:** Reuse; Written by running ·
+**Status:** go (D-23, 2026-11-26) — after P-97 and a week of real use · **Theme:** Reuse; Written by running ·
 **Date:** 2026-11-26 · **Builds on:** B-14 slice 2 (threads that hold threads) · **Would reorder:**
 P-98, P-99, P-100
 

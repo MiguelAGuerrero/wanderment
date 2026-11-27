@@ -12,7 +12,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, MAYA, plan, RoutineSpec, startGo } from './goFixture';
+import { arrived, MAYA, plan, RoutineSpec, startGo, undoEdit } from './goFixture';
 
 const TEST: RoutineSpec = { id: 'test', name: 'Test out the app', steps: ['Select a feature to test', 'Vibe check', 'Write down concerns'], repeatFrom: 1 };
 /** Left in Plan on "Vibe check": Plan has its notice slot and its filled button (Resume at Vibe check). */
@@ -115,14 +115,13 @@ for (const [label, size] of [
       await p.add.press('Enter');
       await expect(p.row(words)).toHaveCount(1);
       await expect(p.add).toBeFocused();
-      await expect(p.notice).toContainText(`Added “${words}”`);
+      // P-101 (ruling 6; was: the notice "Added …", under which nothing may sit): a step added in Plan gives no notice.
+      await expect(p.notice).toHaveCount(0);
       await seen(page, p.row(words), `“${words}”, just added`);
       await seen(page, p.add, `the add field, after “${words}”`);
     }
-    // The Undo stays in reach (scrolled to), and works.
-    await p.undo.scrollIntoViewIfNeeded();
-    await expect(p.undo).toBeInViewport();
-    await p.undo.click();
+    // The Undo stays in reach — P-101 (ruling 6; was: the notice's, scrolled to): the routine's menu — and works.
+    await undoEdit(page);
     await expect(p.row('Empty the boot')).toHaveCount(0);
   });
 

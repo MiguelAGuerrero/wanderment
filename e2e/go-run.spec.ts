@@ -10,16 +10,17 @@ import { expectInside, focused, goBackup, home, importBackup, MAYA, openGo, plac
 const LONG =
   'Write to the landlord about the boiler, the window latch and the stair light, attach the three photographs from Sunday, say which days someone is in, and ask for a date in writing before the end of the month, then copy the letting agent and put a note in the calendar to chase it';
 
-test('J04-a, J04-b: a plain step — the context line (P-96: the path only; was: with Home and Done), the note, Pause · Plan · Next in fixed places; Next goes on (P-95: with no Undo and no notice)', async ({ page }) => {
+test('J04-a, J04-b: a plain step — the context line (P-96: the path only; was: with Home and Done; P-101: ❚❚ and Plan at its right), the note, Next in fixed places; Next goes on (P-95: with no Undo and no notice)', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 0, status: 'running' }], 'runner');
   const r = runner(page);
   await expect(r.words).toHaveText('Read the job ad twice');
   await expect(r.context).toHaveText('Apply to Initech');
   // The context line is words, not a control (P-90: the sequence is Plan's, reached by the Plan button).
-  await expect(r.screen.getByRole('button')).toHaveText(['', '', 'Plan', 'Next']);
+  // P-101 (ruling 2; was: the handle, ❚❚, Plan, Next): ❚❚ and Plan on the top line, then the handle and Next.
+  await expect(r.screen.getByRole('button')).toHaveText(['', 'Plan', '', 'Next']);
   await expect(r.pause).toBeVisible();
-  await expect(r.middle).toHaveText('Plan');
-  await expect(r.middle).toBeEnabled();
+  await expect(r.plan).toHaveText('Plan');
+  await expect(r.plan).toBeEnabled();
   await expect(r.next).toHaveText('Next');
   // The level's name is the screen's heading (there for a screen reader; the context line shows it).
   await expect(r.screen.getByRole('heading', { level: 1 })).toHaveText('Apply to Initech');
@@ -28,47 +29,47 @@ test('J04-a, J04-b: a plain step — the context line (P-96: the path only; was:
   // Next is THE filled button; nothing else on the screen is.
   const paper = 'rgb(244, 241, 232)';
   expect(await r.next.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(paper);
-  for (const b of [r.pause, r.middle]) expect(await b.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(paper);
+  for (const b of [r.pause, r.plan]) expect(await b.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(paper);
   // No notice yet, and nothing about what comes next or repeats on the surface.
   await expect(r.screen.getByTestId('go-last')).toHaveCount(0);
 
-  const before = { pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), note: await place(r.note) };
+  const before = { pause: await place(r.pause), plan: await place(r.plan), next: await place(r.next), note: await place(r.note) };
   await r.next.click();
   await expect(r.words).toHaveText('Tailor the CV');
   // P-95: moving on is not something to take back — no notice, no Undo (not in the panel either).
   await expect(r.notice).toHaveCount(0);
   await expect(r.screen.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
   // Nothing moved: the three buttons and the note are where they were.
-  expect({ pause: await place(r.pause), middle: await place(r.middle), next: await place(r.next), note: await place(r.note) }).toEqual(before);
+  expect({ pause: await place(r.pause), plan: await place(r.plan), next: await place(r.next), note: await place(r.note) }).toEqual(before);
   // Focus stays on Next, which is in its fixed place.
   await expect(r.next).toBeFocused();
   await r.handle.click();
   await expect(r.panel.getByRole('button', { name: /^Undo/ })).toHaveCount(0);
 });
 
-test('J04-c, J04-d: a routine as the step reads Step in, in the same slot; Finish <level> now (P-96: in the panel; was: Done on the context line) leaves the level for the parent’s next step, with Undo', async ({ page }) => {
+test('J04-c, J04-d: a routine as the step has Step in (P-101, ruling 1: a move beside Next; was: in the middle slot); Step out (P-101; was: Finish <level> now, in the panel) leaves the level for the parent’s next step, with Undo', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 2, status: 'running' }], 'runner');
   const r = runner(page);
-  const slot = await place(r.middle);
+  await expect(r.stepIn).toHaveCount(0);
   await r.next.click();
   await expect(r.words).toHaveText('Proofread out loud');
   await expect(r.note).toHaveAttribute('data-kind', 'routine');
-  await expect(r.middle).toHaveText('Step in');
-  await expect(r.middle).toHaveAccessibleName('Step in: Proofread out loud');
-  expect(await place(r.middle)).toEqual(slot);
+  await expect(r.stepIn).toHaveText('Step in');
+  await expect(r.stepIn).toHaveAccessibleName('Step in: Proofread out loud');
+  await expect(r.plan).toHaveText('Plan');
 
-  await r.middle.click();
+  await r.stepIn.click();
   await expect(r.words).toHaveText('Read it aloud once');
   // P-95: Step in leaves no Undo.
   await expect(r.notice).toHaveCount(0);
   // The level and its parent, in words.
   await expect(r.context).toHaveText('Apply to Initech ›Proofread out loud');
-  await expect(r.middle).toHaveText('Plan');
+  // P-101 (ruling 2): inside a call, Plan names the routine it opens.
+  await expect(r.plan).toHaveText('Plan Proofread out loud');
   await expect(r.note).toBeFocused();
 
-  await r.handle.click();
-  await expect(r.finish).toHaveText('Finish Proofread out loud now');
-  await r.finish.click();
+  await expect(r.stepOut).toHaveAccessibleName('Step out of Proofread out loud');
+  await r.stepOut.click();
   await expect(r.words).toHaveText('Send the application');
   await expect(r.context).toHaveText('Apply to Initech');
   await expect(r.notice).toContainText('Done with Proofread out loud');
@@ -78,17 +79,13 @@ test('J04-c, J04-d: a routine as the step reads Step in, in the same slot; Finis
   await expect(r.context).toHaveText('Apply to Initech ›Proofread out loud');
 });
 
-test('J04-e: Finish <name> now at the top (P-96: in the panel) ends the run — home, with Undo, which brings the run back where it was', async ({ page }) => {
+test('J04-e, P-101 (ruling 1; was: "Finish <name> now at the top ends the run"): on the first layer there is no Step out and no Finish now — Next, and Done on the last step, cover it', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
-  await runner(page).handle.click();
-  await runner(page).finish.click();
-  const h = home(page);
-  await expect(h.notice).toContainText('Done with Apply to Initech');
-  await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'idle');
-  await expect(h.title).toBeFocused();
-  await h.notice.getByRole('button', { name: 'Undo Done', exact: true }).click();
-  await expect(runner(page).words).toHaveText('Tailor the CV');
-  await expect(runner(page).note).toBeFocused();
+  const r = runner(page);
+  await expect(r.stepOut).toHaveCount(0);
+  await r.handle.click();
+  await expect(r.panel.getByRole('button', { name: /^Finish/ })).toHaveCount(0);
+  await expect(r.screen.getByRole('button', { name: /^Finish/ })).toHaveCount(0);
 });
 
 test('J04-f, J04-g, J37-e: the last step of a round has its mark and spoken name; a round comes again silently; a counted loop finishes by itself', async ({ page }) => {
@@ -138,8 +135,8 @@ test('J04-i, J25-b: a long step fills the note and scrolls inside it, with Plan 
   await expect(r.note).toHaveAttribute('data-size', '32');
   await expect(r.note).toHaveAttribute('data-full', 'false');
   const few = await inside();
-  await expect(r.middle).toHaveAttribute('data-marked', 'false');
-  await expect(r.middle).toHaveAccessibleName('Plan');
+  await expect(r.plan).toHaveAttribute('data-marked', 'false');
+  await expect(r.plan).toHaveAccessibleName('Plan');
 
   // Three lines: smaller type, the same note, the words inside it.
   await r.next.click();
@@ -162,9 +159,9 @@ test('J04-i, J25-b: a long step fills the note and scrolls inside it, with Plan 
   expect(['auto', 'scroll']).toContain(sizes.overflow);
   await expect(r.words).toHaveText(LONG);
   // No count, no warning — only the mark on Plan, with its spoken name.
-  await expect(r.middle).toHaveAttribute('data-marked', 'true');
-  await expect(r.middle).toHaveAccessibleName('Plan. This step is long');
-  await expect(r.middle).toHaveText('Plan');
+  await expect(r.plan).toHaveAttribute('data-marked', 'true');
+  await expect(r.plan).toHaveAccessibleName('Plan. This step is long');
+  await expect(r.plan).toHaveText('Plan');
   await expect(r.screen.getByText(/\d+ ?(\/|of|characters|left)/)).toHaveCount(0);
 });
 
@@ -228,13 +225,15 @@ test('must-handle: a frame ten deep and a thirty-step routine — the context li
   const r = runner(page);
   await expect(r.words).toHaveText('Bottom step 13');
   await expect(r.context).toHaveText('Level 9 of the deep thing ›Level 10 of the deep thing');
-  await expectInside(page, [r.context, r.note, r.pause, r.middle, r.next]);
-  // Its Plan: every level it is inside is open, down to HERE — in view, and nothing wider than the window.
-  await r.middle.click();
+  await expectInside(page, [r.context, r.note, r.pause, r.plan, r.next]);
+  // Its Plan — P-101 (ruling 2; was: the whole run's, every level open): the innermost routine's, with HERE in view, nothing wider than the window.
+  await expect(r.plan).toHaveText('Plan Level 10 of the deep thing');
+  await r.plan.click();
   const p = plan(page);
+  await expect(p.title).toHaveText('Level 10 of the deep thing');
   await expect(p.here).toHaveAccessibleName('Here, Bottom step 13');
   await expect(p.here).toBeInViewport({ ratio: 1 });
-  await expect(p.rows).toHaveCount(3 * 9 + 30);
+  await expect(p.rows).toHaveCount(30);
   await expect(p.forward).toHaveText('Resume at Bottom step 13');
   for (const row of [p.rows.first(), p.here]) {
     const b = (await row.boundingBox())!;

@@ -60,7 +60,7 @@ export function noteType(words: string, side: number, scale = 1): NoteType {
 export interface TileLine {
   /** The one mark before its line: ‖ paused, ⧖ a wait. */
   mark?: 'paused' | 'wait';
-  /** "at <step>", "waiting for <words> · since <day>", or in Plan "planning · at <step>" ("planning · nothing next yet" at the edge); '' when there is nothing to say. */
+  /** "at <step>", "waiting for <words> · since <day>", or "nothing next yet" at the edge (P-101, ruling 4: never "planning"); '' when there is nothing to say. */
   line: string;
   /** Why it was paused. */
   reason?: string;
@@ -83,9 +83,6 @@ export function tileLine(tile: Tile, now = new Date()): TileLine {
   const at = tile.at === undefined ? undefined : partsText(atParts);
   const valued = atParts.some((p) => p.kind !== 'text');
   const parts = (before: string, after = ''): { parts?: StepPart[] } => (valued ? { parts: [{ kind: 'text', text: before }, ...atParts, ...(after ? [{ kind: 'text' as const, text: after }] : [])] } : {});
-  // Left in Plan: it says planning, never paused or waiting, and has no mark of theirs.
-  // At the edge it reads as Plan and the paused screen do (one wording per meaning): "planning · nothing next yet".
-  if (tile.state === 'planning') return { line: `planning · ${at ? `at ${at}` : 'nothing next yet'}`, button, spoken, says: [tile.name, 'planning', at ? `at ${at}` : 'nothing next yet'].join(', '), ...(at && parts('planning · at ')) };
   if (tile.state === 'waiting') {
     // A date that is not one is left out (never "since undefined").
     const since = tile.since ? sinceWords(tile.since, now) : '';
@@ -93,7 +90,8 @@ export function tileLine(tile: Tile, now = new Date()): TileLine {
     const line = `waiting for ${at ?? tile.waitingFor ?? ''}${tail}`;
     return { mark: 'wait', line, ...(tile.reason && { reason: tile.reason }), button, spoken, says: [tile.name, line, tile.reason].filter(Boolean).join(', '), ...parts('waiting for ', tail) };
   }
-  const line = at ? `at ${at}` : '';
+  // P-101 (ruling 4): every paused run reads the same way — at the edge, as Plan says it: "nothing next yet".
+  const line = at ? `at ${at}` : tile.asking && tile.action === 'plan' ? 'nothing next yet' : '';
   const paused = tile.state === 'paused';
   return {
     ...(paused && { mark: 'paused' as const }),
@@ -102,7 +100,7 @@ export function tileLine(tile: Tile, now = new Date()): TileLine {
     button,
     spoken,
     // The one that is running says so (the others say paused, or waiting).
-    says: [tile.name, paused ? `paused${line ? ` ${line}` : ''}` : ['running', line].filter(Boolean).join(', '), tile.reason].filter(Boolean).join(', '),
-    ...(line && parts('at ')),
+    says: [tile.name, paused ? `paused${line ? `${at ? ' ' : ', '}${line}` : ''}` : ['running', line].filter(Boolean).join(', '), tile.reason].filter(Boolean).join(', '),
+    ...(at && parts('at ')),
   };
 }
