@@ -389,9 +389,9 @@ claim, `{standard}` as tests. A fault becoming a case is a change of role, and t
   the same thing with the value typed in Plan.
 - **An input is the callee's own copy.** Choose marks and strikes `{options}`, which it was handed. That
   must change only its copy; the caller's list is untouched and the result comes back as `{choice}`.
-- **Two calls in one routine that give the same name** (Make a decision's two checks both give
-  `{doubts}`; a routine calling itself gives `{answer}` inside a step that also gives `{answer}`). Either a
-  call's output can be renamed at the call, or what parts and loops give is collected under the name.
+- **Two calls in one routine that give the same name** are collected into one list under that name
+  (settled by the owner, 2026-11-27; B-16). Make a decision's closing step reads `{doubts}` from both
+  checks; Research a question's closing step is shown the collected `{answer}` to adjust into one.
 - **An input that never asks.** `{rule}` is required only because optional inputs (DESIGN.md's designed
   "blank") are not built; with them, a bare call to Check and mend would not ask for a rule.
 

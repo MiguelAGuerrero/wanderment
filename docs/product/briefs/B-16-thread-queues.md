@@ -112,6 +112,11 @@ regenerate the list … so we don't have to necessarily support write operations
 - **A for each collects.** A value given inside the loop is, after the block, a list of what each item
   gave (already in P-98: "a value given inside is collected after it"). A closing step that needs the
   results reads that name. No step may ask the person to act on results from memory.
+- **One name, given more than once, is one list.** When two calls in a routine give the same name,
+  or the parts of an In any order block do, or a routine that calls itself does, what they give is
+  collected under that name, in the order it was given, as a for each already collects (owner,
+  2026-11-27: "Proceed with that"). No output is renamed at a call. A later step that gives the name
+  again is shown the collected list to adjust, which is how "State the answer" ends with one answer.
 - **For each is the consumer.** Taking an item, doing the work and carrying on with the rest needs no
   routine that calls itself with a shorter list; the block does it.
 
@@ -302,10 +307,14 @@ asks by itself. This is how a method is sharpened by running it.
   were reached, show a field for each name it gives that is still empty (for a breakdown: only names
   read outside it); the value's trace names that step; left empty, a later reader asks as today.
 
+- What calls give under one name in the same routine is collected into one list under that name, in
+  the order given; nothing is renamed at a call.
+
 **P-99**
 - A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:
   "Yes, a finished part takes up again when its list changes"): it reads as ready again, at that
   item, and a block it belongs to is no longer finished until it returns.
+- What the parts of a block give under one name is collected into one list after the block.
 - A consequence, stated as a test: a step that stands after an In any order block, and that the run had
   already been able to reach, waits again if a part of that block takes up again before the step is
   done. The run's place is not moved back by this; the step simply reads as waiting on that part, in
