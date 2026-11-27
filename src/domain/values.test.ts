@@ -268,7 +268,8 @@ describe('moving keeps values in their round (rows 5, 6, 7, 8, 10)', () => {
     expect([seen(d, id, 'feature'), seen(d, id, 'base')]).toEqual(['', 'web']);
   });
 
-  it('row 7: Done on a routine entered as a step: what it gave goes with it; what the level below gave stays', () => {
+  // P-98 (rewritten; was: what it gave goes with it): Step out of a call hands back what its row gives.
+  it('row 7: Done on a routine entered as a step: what it gave is handed back, given by the call row; what the level below gave stays', () => {
     const d0 = world(
       seq('P', 'Practice', [step('a', 'Choose >subject'), ref('call', 'S'), step('z', 'Review {subject} and {ref}')]),
       seq('S', 'Sketch', [step('s1', 'Find >ref'), step('s2', 'Draw {subject} from {ref}')]),
@@ -282,22 +283,26 @@ describe('moving keeps values in their round (rows 5, 6, 7, 8, 10)', () => {
     const before = d;
     d = ok(d, { kind: 'done', runId: id });
     expect(here(d, id)).toBe('z');
-    expect(entries(d, id)).toEqual(['0:subject=hands@a']);
-    expect([seen(d, id, 'subject'), seen(d, id, 'ref')]).toEqual(['hands', '']);
+    expect(entries(d, id)).toEqual(['0:subject=hands@a', '0:ref=photo 1@call']);
+    expect([seen(d, id, 'subject'), seen(d, id, 'ref')]).toEqual(['hands', 'photo 1']);
     // Done's Undo (the whole record) brings them back.
     expect(undone(before, d)).toEqual(json(before));
   });
 
+  // P-98 (rewritten; was: nothing left after it): Next off the end hands back too; a second call giving the name adds to it (one list).
   it('row 7: Next off the end of a routine entered as a step does the same; entered again it starts empty', () => {
-    const d0 = world(seq('P', 'P', [ref('call', 'S'), step('b'), ref('again', 'S')]), seq('S', 'S', [step('s1', 'Find >ref')]));
+    const d0 = world(seq('P', 'P', [ref('call', 'S'), step('b'), ref('again', 'S'), step('c')]), seq('S', 'S', [step('s1', 'Find >ref')]));
     let { d, id } = start(d0, 'P');
     d = walk(d, id, 'stepIn');
     d = typed(d, id, 'ref', 'one');
     d = walk(d, id, 'next');
     expect(here(d, id)).toBe('b');
-    expect(entries(d, id)).toEqual([]);
+    expect(entries(d, id)).toEqual(['0:ref=one@call']);
     d = walk(d, id, 'next', 'stepIn');
     expect(seen(d, id, 'ref')).toBe('');
+    d = typed(d, id, 'ref', 'two');
+    d = walk(d, id, 'next');
+    expect(entries(d, id)).toEqual(['0:ref=one|two@call']);
   });
 
   it('row 6: a Jump into the same routine entered from another step is a new time through it (its values go); within the same one they stay', () => {
@@ -473,19 +478,21 @@ describe('scope: no collision, asks (ruling 2)', () => {
     expect(seen(d, id, 'ref')).toBe('');
   });
 
-  it('no collision: what the routine gives never overwrites the level below’s; after it, the level below reads its own again', () => {
+  // P-98 (rewritten; was: after it, the level below reads only its own): what the call hands back joins the caller's own under that name.
+  it('no collision: what the routine gives never overwrites the level below’s; after it, the level below reads its own and what was handed back, as one list', () => {
     let { d, id } = start(calls(), 'P');
     d = typed(d, id, 'subject', 'hands');
     d = walk(d, id, 'next');
     d = typed(d, id, 'ref', 'mine');
     d = walk(d, id, 'next', 'stepIn', 'next');
     d = typed(d, id, 'ref', 'theirs');
-    expect(entries(d, id)).toEqual(['0:subject=hands@a', '0:ref=mine@pr', '1:ref=theirs@s1']);
+    // (P-98: Sketch's input {subject} is its own copy, put there by the call.)
+    expect(entries(d, id)).toEqual(['0:subject=hands@a', '0:ref=mine@pr', '1:subject=hands@call', '1:ref=theirs@s1']);
     d = walk(d, id, 'next');
     expect(seen(d, id, 'ref')).toBe('theirs');
     d = walk(d, id, 'next');
     expect(here(d, id)).toBe('z');
-    expect(seen(d, id, 'ref')).toBe('mine');
+    expect(seen(d, id, 'ref')).toBe('mine and theirs');
   });
 
   it('asks: a step reading a name nothing above gives — the step asks; typed there it is that level’s value, from that step', () => {
@@ -520,6 +527,7 @@ describe('scope: no collision, asks (ruling 2)', () => {
     expect(entries(d, id)).toEqual(['0:feature=signup@pick']);
   });
 
+  // P-98 (rewritten; was: the outer level reads only its own after it): leaving the inner time through hands back its {x}.
   it('the same routine inside itself (recursion): each time through is its own level', () => {
     const d0 = world(seq('R', 'R', [step('g', 'Give >x'), ref('self', 'R'), step('u', 'Use {x}')]));
     let { d, id } = start(d0, 'R');
@@ -529,7 +537,7 @@ describe('scope: no collision, asks (ruling 2)', () => {
     d = typed(d, id, 'x', 'inner');
     expect(entries(d, id)).toEqual(['0:x=outer@g', '1:x=inner@g']);
     d = ok(d, { kind: 'done', runId: id });
-    expect(seen(d, id, 'x')).toBe('outer');
+    expect(seen(d, id, 'x')).toBe('outer and inner');
   });
 });
 

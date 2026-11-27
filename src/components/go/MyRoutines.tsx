@@ -12,11 +12,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { allTags, findRows, myRoutines, RoutineRow, routineSections } from '@/domain/routines';
+import { callersOf, routineNamed } from '@/domain/run';
 import { leftOff } from '@/domain/runView';
 import { tagKey } from '@/domain/tags';
 import { useStore } from '@/store/useStore';
 
 import { decorative } from '../a11y';
+import { copyName, CopySheet, removeBody } from './Calls';
 import { NewSheet } from './GoHome';
 import { Notice, useRunUndo } from './Notice';
 import { TagsSheet, tagWords } from './Tags';
@@ -58,6 +60,8 @@ export function MyRoutines() {
   const [menu, setMenu] = useState<RoutineRow | null>(null);
   const [tagging, setTagging] = useState<RoutineRow | null>(null);
   const [removing, setRemoving] = useState<RoutineRow | null>(null);
+  /** P-98: Copy… open on this routine. */
+  const [copying, setCopying] = useState<RoutineRow | null>(null);
   const [naming, setNaming] = useState(false);
   const [mores] = useState<Record<string, unknown>>(() => ({}));
   /** Each row's body (its Plan), by routine: where the focus goes after a Remove (P-97 audit F3). */
@@ -92,7 +96,7 @@ export function MyRoutines() {
 
   const can = useRunUndo();
   useKeys(
-    focused && !menu && !tagging && !removing && !naming,
+    focused && !menu && !tagging && !removing && !naming && !copying,
     {
       'mod+z': () => {
         if (!can) return;
@@ -103,7 +107,19 @@ export function MyRoutines() {
     true,
   );
 
-  const layer = naming ? (
+  const layer = copying ? (
+    <CopySheet
+      name={copying.name}
+      suggested={copyName(copying.name, (w) => !!routineNamed(data, w))}
+      fallback={title}
+      onClose={() => setCopying(null)}
+      onCopy={(words) => {
+        const did = act().editRoutine(copying.routineId, { kind: 'copy', words });
+        if (did.ok) setCopying(null);
+        return did;
+      }}
+    />
+  ) : naming ? (
     <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newBtn} />
   ) : tagging ? (
     <TagsSheet
@@ -119,7 +135,7 @@ export function MyRoutines() {
     // P-103 (5): the one confirm — it reaches beyond this screen (every routine using it).
     <Confirm
       title={`Remove “${removing.name}”?`}
-      body="It goes from My routines, with its steps."
+      body={removeBody(callersOf(data, removing.routineId).map((c) => c.words))}
       action="Remove"
       testID="go-remove-routine-confirm"
       onCancel={() => setRemoving(null)}
@@ -165,6 +181,16 @@ export function MyRoutines() {
         }}
       />
       )}
+      {/* P-98: Copy — the same routine under a new name. */}
+      <MenuItem
+        label="Copy…"
+        spoken={`Copy ${menu.name}`}
+        testID="go-routine-copy"
+        onPress={() => {
+          setCopying(menu);
+          setMenu(null);
+        }}
+      />
       {/* (Removing a routine with a run going is refused by the engine: end the run first, from home.) */}
       {!menu.runId && (
         <>

@@ -28,6 +28,7 @@ import { NOTE_PAD, NOTE_SIZES, noteType } from '@/domain/goText';
 import { panelView, partsText, routineHue, runnerView, RunnerView, sinceWords, StepPart, ValueField, wordsShown } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
+import { OwedSheet } from './Calls';
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
 import { decideWhere } from './session';
@@ -74,7 +75,9 @@ export function Runner({ runId }: { runId: string }) {
   const [pausing, setPausing] = useState(false);
   /** P-101 (ruling 7): a value field's entry sheet is open on this field (it holds the screen like the value sheet). */
   const [entry, setEntry] = useState<ValueField | null>(null);
-  const typing = !!entry;
+  /** P-98: Next or Step out pressed past what still owes names — its fields first. */
+  const [owing, setOwing] = useState<'next' | 'out' | null>(null);
+  const typing = !!entry || !!owing;
   /** P-101 (ruling 2): Plan was pressed here — once the run is paused, its Plan (this address), in this screen's place. */
   const toPlan = useRef<string | null>(null);
   /** P-103 (3): Plan was opened from here, over this screen — coming back (its Back, the browser's) resumes where you were. */
@@ -144,6 +147,8 @@ export function Runner({ runId }: { runId: string }) {
   }, [doneKey, focused]);
   const next = () => {
     if (!v) return;
+    // P-98: past a call (or a step broken down) not stepped into, what it still owes is asked first — as a consequence of the press, never on the step.
+    if (v.nextOwes.length && !v.ends) return setOwing('next');
     act().nextStep(runId);
   };
   const plan = () => {
@@ -157,6 +162,8 @@ export function Runner({ runId }: { runId: string }) {
   // P-101 (ruling 1): Step out — the level the run is in ends and the run carries on above it (an Undo: it can skip steps).
   const stepOut = () => {
     setPanel(false);
+    // P-98: leaving before what this level owes was given — its fields first.
+    if (v?.stepOutOwes.length) return setOwing('out');
     act().doneLevel(runId);
     toNote();
   };
@@ -217,7 +224,23 @@ export function Runner({ runId }: { runId: string }) {
         }}
       />
     ) : null;
-  const layer = restartSheet ?? (pausing ? <PauseSheet name={v.name} reason={v.reason ?? ''} onPause={pause} onClose={() => setPausing(false)} fallback={pauseBtn} /> : (entrySheet ?? valueSheet));
+  const owedSheet = owing ? (
+    <OwedSheet
+      title={owing === 'next' ? v.step.words : v.level}
+      names={owing === 'next' ? v.nextOwes : v.stepOutOwes}
+      move={owing === 'next' ? 'Next' : 'Step out'}
+      fallback={nextBtn}
+      onClose={() => setOwing(null)}
+      onMove={(owed) => {
+        const did = owing === 'next' ? act().nextStep(runId, owed) : act().doneLevel(runId, owed);
+        // Refused (reconnecting): the sheet stays, with what was typed.
+        if (!did.ok && did.reason === 'reconnecting') return;
+        setOwing(null);
+        toNote();
+      }}
+    />
+  ) : null;
+  const layer = owedSheet ?? restartSheet ?? (pausing ? <PauseSheet name={v.name} reason={v.reason ?? ''} onPause={pause} onClose={() => setPausing(false)} fallback={pauseBtn} /> : (entrySheet ?? valueSheet));
   // P-101 (ruling 2): "Plan <routine>" inside a call. In a window too narrow for it beside the path (200 %
   // text) the button says "Plan" and its spoken name keeps the routine (the path beside it names it too).
   const planSpoken = v.planIn ? `Plan ${v.planIn.name}` : 'Plan';

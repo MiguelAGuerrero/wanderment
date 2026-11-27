@@ -89,3 +89,22 @@ only the runs going; this data has no tags, so it must load exactly as before an
 | `p97-expected.json` | that build's store | what those four must read as |
 
 `freeze-p97.ts.txt` is the script that wrote them.
+
+## P-98 (frozen 2026-11-27, before calls)
+
+Written the same way by the build before P-98 (`671e654`), where a routine used as a step was a plain `{id,
+ref}` item that only an import could make, run with Step in and its values dropped on leaving. It started from
+`p97-schema4.sqlite` (so everything above is in it) and was then used through its own store actions — and its
+Import, for what only an import could make there. P-98 reads a call's bindings (`with`), its name snapshot
+(`words`), returns what a call gives and refuses to step into a removed routine; this data must load exactly as
+before and write nothing by loading, and every field that build did not know must survive.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p98-schema4.sqlite` | that build, ordinary saves (and two Imports), over `p97-schema4.sqlite` | everything in `p97-schema4.sqlite`, plus "Research" (reads `{concerns}`, gives `{findings}`) used as a step of "Improve my workout routine" after "List out my doubts" (gives `{concerns}`) — the row carrying `with`, `words` and `later`, which that build did not know; "Old helper", removed, used as the last step of "Weekend plan", beside a step with an unknown field; a run of Improve paused inside Research with `{concerns}` given above and `{findings}` inside (its level and a value carrying fields that build did not know); a run of Weekend plan resting on the removed routine's row; and P-96's "Read a chapter" running again |
+| `p98-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p98-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p98-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p98-expected.json` | that build's store | what those four must read as |
+
+`freeze-p98.ts.txt` is the script that wrote them.

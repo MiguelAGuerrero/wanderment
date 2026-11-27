@@ -140,13 +140,14 @@ test('scope (ruling 2): a routine inside reads a name given above it, but a name
   await give(page, 'colour', 'gold');
   await expect(r.words).toHaveText('Mix gold');
   await r.next.click();
-  // Back out: the outer {colour} is still blue.
-  await expect(r.words).toHaveText('Paint the wall blue');
+  // P-98 (rewritten; was: the outer {colour} is still blue, Mix's gold gone with it): the call hands back what it
+  // gives, and one name given more than once is one list — the outer blue first, never overwritten.
+  await expect(r.words).toHaveText('Paint the wall blue and gold');
   await saved(page);
   const values = Object.values((await exported(page)).runs)[0].values!;
   expect(values.map((v) => [v.name, v.items])).toEqual([
     ['base', ['white']],
-    ['colour', ['blue']],
+    ['colour', ['blue', 'gold']],
   ]);
 });
 

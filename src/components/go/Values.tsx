@@ -67,7 +67,7 @@ export function ValuesRow({ values, missing = [], onOpen, onGive }: { values: Va
           key={`${v.level}:${v.name}`}
           onPress={() => onOpen(v.name)}
           accessibilityRole="button"
-          accessibilityLabel={`${v.name}: ${v.text}`}
+          accessibilityLabel={`${v.name}: ${v.text}${v.from !== undefined ? ` · from ${v.from}` : ''}`}
           testID="go-value"
           {...{ dataSet: { name: v.name } }}
           style={(state) => [styles.value, (state as { focused?: boolean }).focused && RING]}>
@@ -75,6 +75,8 @@ export function ValuesRow({ values, missing = [], onOpen, onGive }: { values: Va
           <T style={styles.shrink}>
             <T dim>{`${v.name}: `}</T>
             {v.text}
+            {/* P-98 (ruling 4): an input of the routine the run is in — where it came from. */}
+            {v.from !== undefined && <T dim testID="go-value-from-step">{` · from ${v.from}`}</T>}
           </T>
         </Pressable>
       ))}

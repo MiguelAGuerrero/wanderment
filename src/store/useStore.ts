@@ -201,12 +201,14 @@ interface State {
   /** Home, after "Stop <name>?": nothing is running; the run stays where it is. No Undo. */
   leaveRun: (runId: Id) => Did;
   /** Next ("It's happened" on a wait). An Undo only when it ended the run (P-95). */
-  nextStep: (runId: Id) => Did;
+  /** P-98: `owed` — what Next asked for, on a call or a step broken down not stepped into (given by that row, in the same write). */
+  nextStep: (runId: Id, owed?: { name: string; text: string }[]) => Did;
   /** Done: leaves the level it is in; at the top ends the run. Undo. */
-  doneLevel: (runId: Id) => Did;
+  /** P-98: `owed` — what Step out asked for (the names the level still owed), given by the row it was entered from. */
+  doneLevel: (runId: Id, owed?: { name: string; text: string }[]) => Did;
   /** P-103: "End this run" (a paused tile's ···, asked first): the existing end verb, Done, for the whole run where it stands. Final, as every finish: × only. */
   endRun: (runId: Id) => Did;
-  /** Step in. No Undo (P-95). */
+  /** Step in. No Undo (P-95). P-98: refused past the depth it can go, or into a removed routine — said in words (a notice). */
   stepIn: (runId: Id) => Did;
   /** Jump to…: `{ level }` the start of a level it is in; `{ path }` a step (a Jump row's path). The run is running afterwards (out of Plan). Undo: it can leave levels and reset the round (P-95 audit F4). */
   jumpTo: (runId: Id, to: JumpTo) => Did;
@@ -241,6 +243,8 @@ interface State {
    * First giving (`was` empty) and an edit that ends where it began leave nothing.
    */
   typedOver: (runId: Id, itemId: Id, name: string, was: string) => Did;
+  /** P-98: a refusal said in words, in the notice's row (nothing changed, nothing to undo): Plan's "a routine as a step of itself". */
+  say: (text: string) => void;
   /** The notice was put away. Session only. */
   dismissRunNotice: () => void;
   /** P-102: the notice's × — put away, as a tap elsewhere would (an Undo it had stays in the panel and Ctrl/⌘+Z); the quiet line goes too. */
@@ -328,6 +332,8 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   if (!r.ok) {
     // One thing runs at a time: say what is running.
     if (r.running) useStore.setState({ runNotice: { verb: verb.kind, text: `${r.running.name} is running`, label: '' } });
+    // P-98: the depth refusal, and a removed routine, in words.
+    else if (verb.kind === 'stepIn' && (r.reason === 'too-deep' || r.reason === 'gone')) useStore.setState({ runNotice: { verb: 'stepIn', text: r.reason === 'too-deep' ? STEP_IN_TOO_DEEP : 'That routine was removed', label: '' } });
     return { ok: false, reason: r.reason ?? 'cannot', ...(r.running && { running: r.running }) };
   }
   // P-96 (ruling 7): finishing ends the run and Pause puts it down — either way the screen goes home.
@@ -357,7 +363,8 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
           // Plan's fold of an earlier build's changes: its Plan; Jump to…: the runner; the routine removed: home)
           // carries its notice there, once.
           // P-103 (audit F-4): removing a step is said, with its Undo, as every Remove (the conventional snackbar).
-          ...(verb.kind === 'editRoutine' && verb.edit.kind !== 'removeRoutine' && verb.edit.kind !== 'remove' && { quiet: true as const }),
+          // P-98: Copy is said too ("Copied “X” as “Y”" with its Undo): it makes a routine that is not on this screen.
+          ...(verb.kind === 'editRoutine' && verb.edit.kind !== 'removeRoutine' && verb.edit.kind !== 'remove' && verb.edit.kind !== 'copy' && { quiet: true as const }),
           ...((r.said?.kind === 'ended' || verb.kind === 'new' || verb.kind === 'plan' || verb.kind === 'jump' || (verb.kind === 'editRoutine' && verb.edit.kind === 'removeRoutine')) && { follows: true as const }),
         }
       : undefined,
@@ -366,6 +373,9 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   });
   return did;
 }
+
+/** P-98: what Step in says when the run is as deep as it can go. */
+export const STEP_IN_TOO_DEEP = 'Can’t step in any deeper';
 
 /** P-96 audit F2: the names of the run's values a write took away (one name at one level each, as given). */
 function clearedNames(before: Data, after: Data, runId: Id): string[] {
@@ -508,13 +518,15 @@ export const useStore = create<State>()((set, get) => ({
   leaveRun: gated<State['leaveRun']>(refused, (runId) => act({ kind: 'home', runId }, 'clear')),
   nextStep: gated<State['nextStep']>(
     refused,
-    (runId) => act({ kind: 'next', runId }, 'ends'),
-    (runId) => keepPress('next', runId),
+    (runId, owed) => act({ kind: 'next', runId, ...(owed?.length && { owed }) }, 'ends'),
+    // P-98: a press that carries typed values is refused like any typed text (the sheet keeps them); a bare one is kept.
+    (runId, owed) => (owed?.length ? sayReconnecting() : keepPress('next', runId)),
   ),
   doneLevel: gated<State['doneLevel']>(
     refused,
-    (runId) => act({ kind: 'done', runId }, 'set'),
-    (runId) => keepPress('done', runId),
+    (runId, owed) => act({ kind: 'done', runId, ...(owed?.length && { owed }) }, 'set'),
+    // P-98: a press that carries typed values is refused like any typed text (the sheet keeps them); a bare one is kept.
+    (runId, owed) => (owed?.length ? sayReconnecting() : keepPress('done', runId)),
   ),
   endRun: gated<State['endRun']>(refused, (runId) => act({ kind: 'done', runId, whole: true }, 'set')),
   stepIn: gated<State['stepIn']>(
@@ -530,6 +542,7 @@ export const useStore = create<State>()((set, get) => ({
   typeValue: gated<State['typeValue']>(refused, (runId, itemId, name, text) => act({ kind: 'value', runId, name, text, item: itemId }, 'keep')),
   changeValue: gated<State['changeValue']>(refused, (runId, name, text) => act({ kind: 'value', runId, name, text }, 'set')),
   typedOver: gated<State['typedOver']>(refused, typedOverValue),
+  say: (text) => set({ runNotice: { verb: 'editRoutine', text, label: '' } }),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
   hideNotice: () => set((s) => ({ ...(s.runNotice && !s.runNotice.hidden && { runNotice: { ...s.runNotice, hidden: true as const } }), ...(s.toast?.notice && { toast: undefined }) })),
   screenChanged: () =>

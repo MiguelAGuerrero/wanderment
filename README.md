@@ -13,7 +13,10 @@ in play (and what a passed step gives that is not given yet), and the value's sh
 from. Planning has its own view, Plan, which looks nothing like running: the whole sequence, where steps
 are added, reworded, moved (drag a row by its grip, or use its menu), removed, broken into smaller ones
 and made to repeat — changes there change the routine, each with an Undo in the routine's menu — and
-"Resume at <step>" takes you back exactly where you were. Pause asks for an optional note, puts the run
+"Resume at <step>" takes you back exactly where you were. A routine can be a step of another (Add's "A
+routine", or "@" as you type): its row says what it asks — `with {concerns}`, typed words, or `asks` — and what
+it gives; stepped into, it gets its own copy of what it asks and hands back what it gives. Copy… makes a routine
+over under a new name. Pause asks for an optional note, puts the run
 down and goes home, which shows only what is in motion — **Ongoing** (a routine that repeats until you're
 done) and **Finishing** (one with an end) — where every run keeps its place, the one touched last says
 "last", and tapping a run's tile picks it up again (its note with it). A run can be started over, whole or from the level
@@ -59,10 +62,10 @@ npm run e2e        # Playwright end-to-end tests against the built web app
 
 | Path | What lives there |
 |---|---|
-| `src/domain/` | Pure TypeScript: the execution engine (`run.ts`: a run plus a verb gives the next run), the views the screens read (`runView.ts`; My routines and home's groups, `routines.ts`; tags, `tags.ts`), values in words (`values.ts`), the search the retired prompt used (`starts.ts`), backup and migration. No React. Unit-tested. |
+| `src/domain/` | Pure TypeScript: the execution engine (`run.ts`: a run plus a verb gives the next run), the views the screens read (`runView.ts`; calls — what a routine asks and gives, its bindings, what it hands back — are in `run.ts`; My routines and home's groups, `routines.ts`; tags, `tags.ts`), values in words (`values.ts`), the search the retired prompt used (`starts.ts`), backup and migration. No React. Unit-tested. |
 | `src/store/` | Zustand store: data, actions, notices, single-step undo. |
 | `src/storage/` | SQLite schema and migrations, the repository, persistence with a write-ahead journal on web, the localStorage fallback, tab hand-over. |
-| `src/app/go/`, `src/components/go/` | The screens: home (the runs going, Ongoing and Finishing; My routines, + New), My routines (A–Z, Find, tags; the Tags sheet), the runner (moves, Pause's sheet, values, the entry and value sheets), Plan (with Gives…, the names bar and Insert), Jump to…, Settings. |
+| `src/app/go/`, `src/components/go/` | The screens: home (the runs going, Ongoing and Finishing; My routines, + New), My routines (A–Z, Find, tags; the Tags sheet), the runner (moves, Pause's sheet, values, the entry and value sheets), Plan (with Gives…, the names bar and Insert; calls, their inputs and Copy…, `Calls.tsx`), Jump to…, Settings. |
 | `src/pwa/` | Service-worker registration and update detection (web only). |
 | `public/` | Web HTML template, PWA manifest and icons. |
 | `e2e/` | Playwright specs and a static server that mimics GitHub Pages. |

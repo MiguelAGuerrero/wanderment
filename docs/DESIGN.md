@@ -48,8 +48,25 @@ routines in their own words — and runs them with the person, one small step at
   name nothing gave asks for it in place. A new round after "Repeat from here" clears the values given
   after the divider (those steps ask again) — and a value whose giving step was removed in Plan; starting
   a routine again starts empty. A value is at most
-  2,000 characters. (Designed, not built yet: for each, values passed to a routine used as a step
-  ("with"), values that arrive later.)
+  2,000 characters. *(P-98, built: values passed to a routine used as a step — see **Calls**.)* (Designed, not
+  built yet: for each, values that arrive later.)
+- **Calls** *(built, P-98; B-16, B-15 journey 5)*: a routine used as a step is a **call row** — stored as the
+  routine's id with its name then (`words`) and, per input, what fills it (`with`). Its **inputs** are the names
+  its steps read that nothing in it gives (its own calls' unbound inputs too); it **gives** every name it gives.
+  The row reads the routine's name with ▤, then a line per input — `with {x}` (by name), `with {y} as x`, `with
+  <words> as x`, or `asks {x}` (asked where it is read) — each a target opening its sheet ("<routine> with {x}": the
+  names given above, Ask when it runs, Words with the filled Keep, Close), then "gives {a}, {b}". An input
+  resolves typed words → the bound name where the call runs → asked; on Step in each is the called routine's
+  **own copy** (changed inside, the caller's stays), and the values row says where it came from ("· from <step>").
+  Leaving it (Next past its last step, or Step out) **hands back** only what its row gives; its other names stay
+  its own. One name given more than once in a routine — two calls, or a call and a step — is **one list**, in the
+  order given. **A step owes what its insides give**: Next on a call (or a step broken down: only names read
+  outside it) not stepped into, or Step out before its giving steps, first shows a sheet with a field for each
+  owed name still empty and the filled move (Next / Step out) — never anything extra on the step itself (the
+  owner: no options while running a step); left empty, a later step asks. Renaming a name renames it in the
+  calls' bindings (and a call that took it by name keeps getting it). A call to a **removed** routine reads
+  "<name> (removed)", shows no inputs and can't be stepped into (Next passes it). Older builds read a call as a
+  plain Step in. Optional inputs (blanks) are not built: an input with no value asks where it is read.
 - **Wait step** *(built, plain)*: a deliberate step, "Wait for: <words>". Reaching it means
   everything before it is done, to the person's knowledge. A run resting on one reads as *waiting*,
   with since when, in words only. *(P-102, the owner: "'Make it wait' is retired now".)* Nothing makes a
@@ -57,7 +74,10 @@ routines in their own words — and runs them with the person, one small step at
 - **Routine** *(built)*: a named, ordered sequence. Each item is a step, a wait step or another
   routine. It has one divider, **Repeat from here**: items above run once, items below repeat —
   **until I'm done** (the default) or **a number of times** the person sets. With no divider it runs
-  once through. A routine can't contain itself. *(P-96: its last Next finishes it either way; an
+  once through. A routine can't contain itself: *(P-98)* Plan refuses to add a routine as a step of itself,
+  directly or through another, in words ("“X” can’t be a step of itself" / "“Y” uses “X”, so it can’t be a step of
+  it"); data an import brings that holds itself is run, and past the depth limit Step in says "Can’t step in any
+  deeper". *(P-96: its last Next finishes it either way; an
   "ends here" stored by an earlier build is kept and read, and no longer offered.)*
 - **Run** *(built)*: a routine being carried out — where the person is at every level (including the
   round), running or paused *(P-101: a `mode: 'plan'` stored by an earlier build is kept and read as paused; nothing writes it)*, a pause reason (the Pause note), and a definite
@@ -75,15 +95,17 @@ routines in their own words — and runs them with the person, one small step at
   chip, each chip "#tag ×" removes itself, **Keep** (filled) keeps them — with what is still typed — and Close
   leaves them as they were. Keep is one Plan edit (its Undo in the routine's menu, and Ctrl/⌘+Z). Plan shows
   them under the heading.
-- **One version per name.** A name always means one routine. To vary, copy *(copying: designed, not
-  built yet)*.
+- **One version per name.** A name always means one routine. To vary, copy — *(built, P-98)* **Copy…** on Plan's
+  routine ··· and a My routines row's ···: a sheet with the name (suggested "<name> (copy)"), the filled Copy (a
+  name in use is refused: "! Another routine has this name"); the copy has the same steps (its steps broken down
+  copied too, its calls the same routines) and is said, "Copied “X” as “Y”", with Undo.
 - **Designed, not built yet:** **blanks** (an optional input in a routine's name or steps, "Apply to
   ▢ employer"; it never asks); **child runs** (the same routine for different values, each at its own
   place); **reactions** (a named outcome on a wait step that holds one or more steps or routines —
   never empty, never a bare yes/no); **things set going** ("Wait for this later…" on a step makes a
   wait tied to it; until it is waited for, that thing is listed as "waiting on: <the wait's words>");
-  adding an existing routine into another in the editor, and Group. Running a routine that is
-  already an item (Step in) is built.
+  and Group. Running a routine that is already an item (Step in) is built; *(P-98)* so is adding one in
+  Plan.
 - The first layer — a routine shown on home — is nothing special and has no name in the app.
 - **Never shown as words:** frame, thread, stack, pointer, parameter, foundation, async, promise.
 
@@ -190,9 +212,10 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   one once, A–Z, "#tag" — each a toggle (pressed, never filled) that narrows the list; with two or more chosen a
   routine must carry all of them. A **row**: its colour (a small block), its name and a second line — its tags,
   "gives {a}, {b}", "asks {c}" — and its **···**, an anchored menu: **Start** (Resume, for a routine with a run
-  going; none with no steps; unavailable while another run is running) · **Plan** · **Tags…** · a line ·
-  **Remove** (with no run going; the one confirm, "Remove “<name>”?" · "It goes from My routines, with its
-  steps.", then "Removed “<name>”" with Undo, here). Tapping a row opens its Plan, whose way out, top-left in
+  going; none with no steps; unavailable while another run is running) · **Plan** · **Tags…** · **Copy…**
+  *(P-98)* · a line · **Remove** (with no run going; the one confirm, "Remove “<name>”?" · "It goes from My
+  routines, with its steps." — *P-98:* and, for one used as a step, "“<caller>” uses it as a step; there it will
+  read “(removed)”." — then "Removed “<name>”" with Undo, here). Tapping a row opens its Plan, whose way out, top-left in
   Home's place, reads **← My routines** and goes back there. **+ New routine** is the one filled button, lowest
   (New's own sheet; its Plan comes back here). With no routines: "No routines yet."; with nothing matching: "No
   routines match." and Clear. Room is kept for a second view later (B-17's "Yours | Library", P-104): the list is
@@ -255,8 +278,11 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   screen is only lightly dimmed; a tap outside, Esc, Tab and Back close it; focus goes to its first item
   (↑/↓ between items) and back to the button; rows ≥ 48 px. A step's menu reads **Edit · Add a step after ·
   Break it down** (not on a step that gives a name) **· Gives…** *(P-96)* **·** a line **· Remove** (red,
-  last); a wait from an earlier build has **Make it a step** in Gives…' place; a routine used as a step,
-  Add a step after · Remove. **Move up / Move down are not on the step menu** where there is a grip: the grip,
+  last); a wait from an earlier build has **Make it a step** in Gives…' place; a routine used as a step
+  *(P-98)*, **Open** (its Plan) · **Edit inputs** · Add a step after · Remove. *(P-98)* The "Add a step" row has
+  **A routine** beneath its field (not while there is almost no room: the keyboard up, large text), a sheet of the
+  person's routines, A–Z with what each asks and gives; and **"@"** at a word's start there lists the routines
+  that match after the names — only when summoned; typed words alone list none. Its placeholder is one string. **Move up / Move down are not on the step menu** where there is a grip: the grip,
   pressed, opens its own small menu, **Move up · Move down** (each unavailable at its end) — the way to
   reorder without a drag *(P-102 audit: nothing by gesture alone)*; under 340 px, with no grip, they are on
   the step menu, before the line. They are also a row's screen-reader actions (on its ···) and, on the web,
@@ -283,7 +309,7 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   button, "Insert {name}"; ←/→ between them; Return inserts and goes back to the field; Esc goes back
   without inserting); typing the braces works anywhere. One press moves one row: next to "Repeat from
   here" a step passes it and nothing else moves. The routine's own menu holds **Undo <edit>** (the last
-  Plan edit's, while it is the last action), its name, **Start over** (with a run), adding "Repeat from
+  Plan edit's, while it is the last action), its name, Tags…, **Copy…** *(P-98)*, **Start over** (with a run), adding "Repeat from
   here", and — with no run going — Remove *(P-96: no "Ends here")*. **Removing a step that gives a name
   other steps read** *(P-101 amendment, ruling 11)* asks first, naming them — "Remove “<step>”? It gives
   {name}, which N steps read. They'll ask for it when run." — *(P-103: the one confirm, Cancel filled and Remove
@@ -309,7 +335,7 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   addresses land there). The break-down sheet, the runner's blank "next small step" note and the
   Keep sheet are gone with them.
 - **Not built in Plan yet** (B-12, each needs its own item): declaring a routine where you stand
-  ("Make a routine from here…"), "Also in" for a routine used elsewhere, inputs ("With"), more than
+  ("Make a routine from here…"), "Also in" for a routine used elsewhere, more than
   one Undo, adding "Repeat from here" to a routine nested as a step from its
   parent's Plan.
 - **Designed, not built yet:** *(Your routines is built as My routines, P-97.)* Looking back ("a set, not a log": one line per ended

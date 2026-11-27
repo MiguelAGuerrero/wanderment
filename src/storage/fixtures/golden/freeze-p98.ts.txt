@@ -1,0 +1,210 @@
+/**
+ * P-98 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE calls (671e654: schema 4, data format 2; a
+ * routine used as a step was a plain `{id, ref}` item that only an import could make, run with Step in, its
+ * values dropped on leaving). Run once, in that commit, with P98_OUT set; never part of the suite. It starts
+ * from `p97-schema4.sqlite` (everything frozen before) and uses that build's own store actions — and its
+ * Import, for what only an import could make there: a routine used as a step ("Research", inside "Improve my
+ * workout routine") carrying fields that build does not know (`with`, `words`, `later`), a step with an
+ * unknown field, a routine used as a step that is then removed, and a run whose level and value carry fields
+ * that build does not know. A run is left inside the called routine with a value at each level; another is
+ * left on the row of the removed one.
+ */
+import { copyFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const OUT = process.env.P98_OUT!;
+
+const env = vi.hoisted(() => {
+  const ls = new Map<string, string>();
+  const state = { dbPath: '', openError: undefined as Error | undefined, hangWrites: false };
+  const localStorage = {
+    get length() {
+      return ls.size;
+    },
+    key: (i: number) => [...ls.keys()][i] ?? null,
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => void ls.set(k, String(v)),
+    removeItem: (k: string) => void ls.delete(k),
+  };
+  (globalThis as { localStorage?: unknown }).localStorage = localStorage;
+  return { ls, state, localStorage };
+});
+
+vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => env.localStorage.getItem(k),
+    setItem: async (k: string, v: string) => env.localStorage.setItem(k, v),
+    removeItem: async (k: string) => env.localStorage.removeItem(k),
+  },
+}));
+vi.mock('./expoDb', async () => {
+  const { nodeDb } = await import('./nodeDb');
+  return {
+    openExpoDb: async () => {
+      if (env.state.openError) throw env.state.openError;
+      const db = nodeDb(env.state.dbPath);
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+    },
+  };
+});
+vi.mock('./nativeBackup', () => ({ scheduleBackup: () => {} }));
+
+const settle = () => new Promise((r) => setTimeout(r, 40));
+
+async function load() {
+  vi.resetModules();
+  const { startPersistence } = await import('./persistence');
+  const { useStore } = await import('@/store/useStore');
+  await startPersistence();
+  return useStore;
+}
+type Store = Awaited<ReturnType<typeof load>>;
+
+/** Ids are a counter and the clock is fixed and stepped, so every session makes the same records. */
+let n = 0;
+let clock = 0;
+const T0 = Date.parse('2026-11-27T08:00:00.000Z');
+const tick = (minutes = 3) => vi.setSystemTime(new Date((clock += minutes * 60000)));
+
+beforeEach(() => {
+  env.ls.clear();
+  env.state.openError = undefined;
+  env.state.hangWrites = false;
+  env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-freeze98-')), 'db.sqlite');
+  n = 0;
+  clock = T0;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(T0));
+  vi.stubGlobal('crypto', { randomUUID: () => `p98-${String(++n).padStart(3, '0')}` });
+});
+afterEach(async () => {
+  (await import('./persistence')).stopPersistence();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+/** What a person did with the build before calls, through its own actions (and Import). */
+async function drive(store: Store) {
+  const s = () => store.getState();
+  const ok = (d: { ok: boolean; runId?: string; routineId?: string }) => {
+    expect(d).toMatchObject({ ok: true });
+    s().dismissRunNotice();
+    tick();
+    return (d.runId ?? d.routineId)!;
+  };
+  const items = (routineId: string) => s().data.routines[routineId].items as { id: string; text?: string; wait?: string; ref?: string }[];
+  const item = (routineId: string, words: string) => items(routineId).find((i) => (i.text ?? i.wait) === words)!.id;
+  const make = (name: string, steps: string[]) => {
+    const id = ok(s().createRoutine(name));
+    for (const st of steps) ok(s().editRoutine(id, { kind: 'addStep', text: st }));
+    return id;
+  };
+  const { toBackup } = await import('@/domain/backup');
+  const { previewImport, confirmImport } = await import('@/store/importBackup');
+  /** Exported, changed by hand, imported back (Settings' Import, Replace). */
+  const reimport = (change: (d: import('@/domain/types').Data) => void) => {
+    const file = JSON.parse(toBackup(s().data));
+    change(file.data);
+    const r = confirmImport(previewImport(JSON.stringify(file)));
+    expect(r.ok).toBe(true);
+    tick();
+  };
+  // The run the app was on ("Read a chapter") is put down first: one thing runs at a time.
+  ok(s().pauseRun('p96-050'));
+
+  // The owner's case: "List out my doubts" gives {concerns}; "Research" reads it and gives {findings}.
+  const research = make('Research', ['Look into {concerns}', 'Note what I found']);
+  ok(s().editRoutine(research, { kind: 'gives', item: item(research, 'Note what I found'), name: 'findings' }));
+  const improve = make('Improve my workout routine', ['List out my doubts', 'Decide using {findings}']);
+  ok(s().editRoutine(improve, { kind: 'gives', item: item(improve, 'List out my doubts'), name: 'concerns' }));
+  const helper = make('Old helper', ['Do the old thing']);
+  const weekend = make('Weekend plan', ['Clean up']);
+  // Only an import could put a routine in as a step: Research after "List out my doubts" (with fields this
+  // build does not know), Old helper at the end of Weekend plan, and a step with an unknown field.
+  const doubts = item(improve, 'List out my doubts');
+  reimport((d) => {
+    const imp = d.routines[improve].items as unknown[];
+    imp.splice(1, 0, { id: 'p98-call-research', ref: research, with: [{ input: 'concerns', name: 'concerns' }], words: 'Research', later: { kept: true } });
+    (d.routines[weekend].items as unknown[]).push({ id: 'p98-stretch', text: 'Stretch', future: { x: 1 } }, { id: 'p98-call-helper', ref: helper, words: 'Old helper' });
+  });
+  expect(items(improve).map((i) => i.id)).toEqual([doubts, 'p98-call-research', item(improve, 'Decide using {findings}')]);
+  // Old helper is removed (nothing runs it): the row that uses it stays.
+  ok(s().editRoutine(helper, { kind: 'removeRoutine' }));
+
+  // A run inside the called routine: {concerns} given above, Step in, {findings} given inside, paused with a note.
+  const improveRun = ok(s().startRoutine(improve));
+  ok(s().typeValue(improveRun, doubts, 'concerns', 'form, time'));
+  ok(s().nextStep(improveRun));
+  ok(s().stepIn(improveRun));
+  ok(s().nextStep(improveRun));
+  ok(s().typeValue(improveRun, item(research, 'Note what I found'), 'findings', 'shorter sets'));
+  ok(s().pauseRun(improveRun, 'mid research'));
+  // A run resting on the row of the removed routine.
+  const weekendRun = ok(s().startRoutine(weekend));
+  ok(s().nextStep(weekendRun));
+  ok(s().nextStep(weekendRun));
+  ok(s().pauseRun(weekendRun));
+  // Fields this build does not know on a run's level and on a value (an import again).
+  reimport((d) => {
+    const r = d.runs[improveRun] as { frames: Record<string, unknown>[]; values: Record<string, unknown>[] };
+    r.frames[1].later = { i: 0 };
+    r.values[0].later = ['kept'];
+  });
+  // Last: the run the app is on, running.
+  ok(s().resumeRun('p96-050'));
+  await settle();
+  return { research, improve, improveRun, helper, weekend, weekendRun };
+}
+const settingsOf = (store: Store) => {
+  const s = store.getState();
+  return { showShading: s.showShading, recentSearches: s.recentSearches, leftAsIs: s.leftAsIs, whyOfferOff: s.whyOfferOff, firstRunDone: s.firstRunDone };
+};
+const snapshot = (store: Store) => JSON.parse(JSON.stringify({ data: store.getState().data, settings: settingsOf(store) }));
+let expected: { data: import('@/domain/types').Data; settings: ReturnType<typeof settingsOf> };
+
+it('1. the database (schema 4), the backup and what the store held', async () => {
+  // From the data the build before values left (everything frozen before it).
+  copyFileSync(join(__dirname, 'fixtures/golden/p97-schema4.sqlite'), env.state.dbPath);
+  let store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+  await drive(store);
+  await settle();
+  expected = snapshot(store);
+  expect(env.ls.has('wanderment:journal')).toBe(false);
+  store = await load();
+  expect(snapshot(store)).toEqual(expected);
+  const { nodeDb } = await import('./nodeDb');
+  const db = nodeDb(env.state.dbPath);
+  expect(await db.all('PRAGMA user_version')).toEqual([{ user_version: 4 }]);
+  await db.exec('VACUUM');
+  db.close();
+  copyFileSync(env.state.dbPath, join(OUT, 'p98-schema4.sqlite'));
+  writeFileSync(join(OUT, 'p98-expected.json'), JSON.stringify(expected, null, 2) + '\n');
+  const { toBackup } = await import('@/domain/backup');
+  writeFileSync(join(OUT, 'p98-backup.json'), toBackup(store.getState().data, new Date('2026-11-27T10:30:00.000Z')));
+});
+
+it('2. the pending journal (eight keys): everything, never committed', async () => {
+  const store = await load();
+  env.state.hangWrites = true;
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  // (Replace brings the data only: the settings stay this page's.)
+  expect(snapshot(store).data).toEqual(expected.data);
+  const raw = env.ls.get('wanderment:journal')!;
+  expect(Object.keys(JSON.parse(raw).changes).sort()).toEqual(['deleteActivities', 'deleteRoutines', 'deleteRuns', 'deleteThreads', 'upsertActivities', 'upsertRoutines', 'upsertRuns', 'upsertThreads']);
+  writeFileSync(join(OUT, 'p98-journal.json'), raw);
+});
+
+it('3. the fallback blob (a browser that can’t run SQLite)', async () => {
+  env.state.openError = new Error('no OPFS');
+  const store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  writeFileSync(join(OUT, 'p98-fallback.json'), env.ls.get('wanderment')!);
+});

@@ -41,14 +41,17 @@ import { router, useIsFocused } from 'expo-router';
 import { ComponentRef, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { RoutineEdit } from '@/domain/run';
+import { callersOf, Refusal, routineNamed, RoutineEdit } from '@/domain/run';
+import { myRoutines } from '@/domain/routines';
 import { namesOffered, PlanDivider, PlanRow, planView, readersOf, rowMoves } from '@/domain/runView';
 import { tagsOf, tagsWritable } from '@/domain/tags';
 import { isName, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
 import { useStore } from '@/store/useStore';
 
 import { decorative } from '../a11y';
+import { BindSheet, CallLines, copyName, CopySheet, InputsSheet, removeBody, RoutinesSheet } from './Calls';
 import { Mark } from './marks';
+import { rowLine } from './MyRoutines';
 import { Notice, useRunUndo } from './Notice';
 import { Repeat } from './Repeat';
 import { goHome } from './Runner';
@@ -66,6 +69,15 @@ const parentOf = (key: string) => key.slice(0, Math.max(0, key.lastIndexOf('/'))
 /** `key` is `parent` or beneath it. */
 const under = (key: string, parent: string) => key === parent || key.startsWith(`${parent}/`);
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ');
+/** The "Add a step" row's placeholder and spoken name: one string, nothing keyed to its words (a later composer may ask a question here). */
+export const ADD_PLACEHOLDER = 'Add a step';
+
+/** P-98: why a routine was not added as a step, in words. */
+export function callRefused(reason: Refusal | 'reconnecting' | undefined, routine: string, into: string): string | undefined {
+  if (reason === 'self') return routine === into ? `“${routine}” can’t be a step of itself` : `“${routine}” uses “${into}”, so it can’t be a step of it`;
+  if (reason === 'gone') return `“${routine}” was removed`;
+  return undefined;
+}
 
 /**
  * Words being typed in place: a step's words (`words`), the routine's name (`name`), a step added
@@ -88,7 +100,7 @@ function readTyping(key: string): Typing | null {
   }
 }
 
-type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true };
+type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true } | { addRoutine: true } | { bind: string; input: string } | { inputs: string } | { copy: true };
 
 export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: string; routineId?: string; inSeq?: string; fromRun?: boolean; fromList?: boolean }) {
   const data = useStore((s) => s.data);
@@ -130,6 +142,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     writeDraft(addKey, text);
   };
   const [nameTaken, setNameTaken] = useState(false);
+  /** P-98: why the last routine chosen in Add's "a routine" was refused. */
+  const [routineError, setRoutineError] = useState<string | undefined>(undefined);
   const [addFocused, setAddFocused] = useState(false);
   /** P-96 audit F6: the field the names bar was entered from (by the keyboard), so a chip inserts there. */
   const lastField = useRef<HTMLInputElement | null>(null);
@@ -417,7 +431,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
 
   const addIt = () => {
     // P-103 (11; audit F3): Return puts in the name chosen in the open list; with none chosen it adds, as always.
-    if (chosen >= 0) return insertName(matching[chosen]);
+    if (chosen >= 0) return choose(chosen);
     setPicking(null);
     if (!adding.trim()) return;
     // Refused (reconnecting): the words stay in the field.
@@ -429,6 +443,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   const menuRow = menu && 'row' in menu ? rowAt(menu.row) : undefined;
   const reorderRow = menu && 'reorder' in menu ? rowAt(menu.reorder) : undefined;
   const givesRow = menu && 'gives' in menu ? rowAt(menu.gives) : undefined;
+  const bindRow = menu && 'bind' in menu ? rowAt(menu.bind) : undefined;
+  const inputsRow = menu && 'inputs' in menu ? rowAt(menu.inputs) : undefined;
+  /** P-98: where the routine being removed is a step (the confirm names them). */
+  const callers = menu && 'removeRoutine' in menu ? callersOf(data, v.routineId) : [];
   const removingRow = menu && 'removing' in menu ? rowAt(menu.removing) : undefined;
   const removing = removingRow ? readersOf(data, removingRow.scope, removingRow.itemId) : undefined;
   const menuDivider = menu && 'divider' in menu ? (menu.divider === '' ? v.divider : v.rows.find((r) => r.divider && parentOf(keyOf(r.path)) === menu.divider)?.divider) : undefined;
@@ -442,9 +460,15 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   const typingIndex = typing && typing.mode !== 'name' ? v.rows.findIndex((r) => keyOf(r.path) === typing.path) : -1;
   const offered = typing && typing.mode !== 'name' ? (typingIndex >= 0 ? namesOffered(v.rows, { mode: typing.mode, index: typingIndex }) : []) : addFocused ? namesOffered(v.rows, { mode: 'end' }) : [];
   const matching = picking ? offered.filter((n) => nameKey(n).includes(nameKey(picking.query))) : [];
-  const picked = !!picking && matching.length > 0;
-  /** The name Return puts in: one the person chose (↑/↓), or — once part of one is typed — the first match. */
-  const chosen = !picked ? -1 : lit >= 0 ? Math.min(lit, matching.length - 1) : picking!.query ? 0 : -1;
+  // P-98: "@" at a word's start in Add a step (or a step added after a row) lists the person's routines too — only when summoned.
+  const typedNow = typing ? typing.text : adding;
+  const atSign = !!picking && typedNow.charAt(picking.start) === '@' && (typing ? typing.mode === 'after' : addFocused);
+  const routineMatches = atSign ? myRoutines(data).filter((r) => nameKey(r.name).includes(nameKey(picking!.query))).slice(0, 6) : [];
+  const picks = matching.length + routineMatches.length;
+  const picked = !!picking && picks > 0;
+  /** The name (or routine) Return puts in: one the person chose (↑/↓), or — once part of one is typed — the first match. */
+  const chosen = !picked ? -1 : lit >= 0 ? Math.min(lit, picks - 1) : picking!.query ? 0 : -1;
+  const choose = (i: number) => (i < matching.length ? insertName(matching[i]) : addRoutineHere(routineMatches[i - matching.length].routineId));
   /** The words the caret is in: the add field's or the row's being typed (the caret moved: the names may close). */
   // (Read from the field itself: a caret event can come before the words it follows are rendered.)
   const caretMoved = () => readPick(WEB && lastField.current?.isConnected ? lastField.current.value : live.current ? live.current.text : adding);
@@ -475,6 +499,31 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     // (No later focus here: a frame later the person may have moved on — Tab to Insert — and it would take the
     // focus back. The commit that shows the name puts the focus and the caret back, once: `caretAfter`.)
   };
+  /**
+   * P-98: a routine chosen from "@" — added as a step where the words were going (the end, or after the row typed
+   * after), the "@…" typed for it taken out; what else was typed stays in the field. Refused: said, in words.
+   */
+  const addRoutineHere = (target: string) => {
+    const now = live.current ? live.current.text : adding;
+    const rest = picking ? (now.slice(0, picking.start) + now.slice(picking.start + 1 + picking.query.length)).replace(/\s+$/, '') : now;
+    setPicking(null);
+    const t = live.current;
+    const row = t && t.mode === 'after' ? rowAt(t.path) : undefined;
+    const did = row ? edit(row.seq, { kind: 'addCall', routine: target, after: row.itemId }) : edit(v.routineId, { kind: 'addCall', routine: target });
+    if (!did.ok) {
+      const words = callRefused(did.reason, myRoutines(data).find((r) => r.routineId === target)?.name ?? '', v.name);
+      if (words) act().say(words);
+      return;
+    }
+    if (!row || !t) {
+      setAdding(rest);
+      return;
+    }
+    const now2 = planView(act().data, v.runId ? { runId: v.runId } : { routineId: v.routineId });
+    const siblings = (now2?.rows ?? []).filter((r) => parentOf(keyOf(r.path)) === parentOf(t.path));
+    const added = siblings[siblings.findIndex((r) => r.itemId === row.itemId) + 1];
+    setTyping(added ? { mode: 'after', path: keyOf(added.path), text: rest } : null);
+  };
   /** The focus left the bar for somewhere that is not the field it came from: the typing is over, as if the field had been left. */
   const leftBar = () => {
     if (live.current) keep(false);
@@ -495,6 +544,26 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   const layer = menuRow ? (
     <Menu anchor={() => mores[keyOf(menuRow.path)]} label={menuRow.words} onClose={close} testID="go-plan-menu" fallback={title}>
       {(menuRow.kind !== 'routine' || menuRow.broken) && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
+      {/* P-98: a call — Open (that routine's Plan), Edit inputs. */}
+      {!!menuRow.call && !menuRow.call.removed && menuRow.ref && (
+        <MenuItem
+          label="Open"
+          spoken={`Open ${menuRow.words}`}
+          testID="go-plan-open-call"
+          onPress={() => {
+            close();
+            router.push(`/go/routine/${menuRow.ref}`);
+          }}
+        />
+      )}
+      {!!menuRow.call && menuRow.call.inputs.length > 0 && (
+        <MenuItem
+          label="Edit inputs"
+          spoken={`Edit inputs of ${menuRow.words}`}
+          testID="go-plan-edit-inputs"
+          onPress={() => setMenu(menuRow.call!.inputs.length === 1 ? { bind: keyOf(menuRow.path), input: menuRow.call!.inputs[0].input } : { inputs: keyOf(menuRow.path) })}
+        />
+      )}
       <MenuItem label="Add a step after" onPress={() => startTyping({ mode: 'after', path: keyOf(menuRow.path), text: '' })} />
       {/* P-96: a step that gives a name is not broken down (its value would have nowhere to be typed). */}
       {menuRow.canBreakDown && <MenuItem label="Break it down" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
@@ -555,7 +624,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     // P-103 (5): removing a routine asks first (it reaches beyond this screen: home, and every routine using it).
     <Confirm
       title={`Remove “${v.name}”?`}
-      body="It goes from My routines, with its steps."
+      body={removeBody(callers.map((c) => c.words))}
       action="Remove"
       testID="go-remove-routine-confirm"
       onCancel={close}
@@ -591,6 +660,51 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
         }}
       />
     </Menu>
+  ) : bindRow?.call && menu && 'bind' in menu ? (
+    <BindSheet
+      routine={bindRow.words}
+      input={menu.input}
+      current={bindRow.call.inputs.find((i) => nameKey(i.input) === nameKey(menu.input))}
+      names={bindRow.above}
+      fallback={title}
+      onClose={close}
+      onBind={(to) => {
+        if (edit(bindRow.seq, { kind: 'bind', item: bindRow.itemId, input: menu.input, to }).ok) close();
+      }}
+    />
+  ) : inputsRow?.call ? (
+    <InputsSheet routine={inputsRow.words} inputs={inputsRow.call.inputs} fallback={title} onClose={close} onInput={(input) => setMenu({ bind: keyOf(inputsRow.path), input })} />
+  ) : menu && 'addRoutine' in menu ? (
+    <RoutinesSheet
+      routines={myRoutines(data).map((r) => ({ routineId: r.routineId, name: r.name, line: rowLine({ ...r, tags: [], going: undefined }) }))}
+      error={routineError}
+      fallback={addField}
+      onClose={() => {
+        setRoutineError(undefined);
+        close();
+      }}
+      onPick={(target) => {
+        const did = edit(v.routineId, { kind: 'addCall', routine: target });
+        if (did.ok) {
+          setRoutineError(undefined);
+          close();
+          return;
+        }
+        setRoutineError(callRefused(did.reason, myRoutines(data).find((r) => r.routineId === target)?.name ?? '', v.name));
+      }}
+    />
+  ) : menu && 'copy' in menu ? (
+    <CopySheet
+      name={v.name}
+      suggested={copyName(v.name, (w) => !!routineNamed(data, w))}
+      fallback={title}
+      onClose={close}
+      onCopy={(words) => {
+        const did = edit(v.routineId, { kind: 'copy', words });
+        if (did.ok) close();
+        return did;
+      }}
+    />
   ) : givesRow ? (
     <GivesSheet row={givesRow} edit={edit} onClose={close} fallback={title} />
   ) : menu && 'tags' in menu ? (
@@ -623,6 +737,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
       <MenuItem label="Change the name" onPress={() => startTyping({ mode: 'name', path: '', text: v.name })} />
       {/* P-97: tags, for My routines' filter. */}
       {v.named && tagsWritable(v ? data.routines[v.routineId]?.tags : undefined) && <MenuItem label="Tags…" spoken={`Tags for ${v.name}`} testID="go-plan-tags-item" onPress={() => setMenu({ tags: true })} />}
+      {/* P-98: Copy — the same routine under a new name (to vary, copy). */}
+      {v.named && <MenuItem label="Copy…" spoken={`Copy ${v.name}`} testID="go-plan-copy-item" onPress={() => setMenu({ copy: true })} />}
       {/* P-101 amendment (ruling 9): its run, from this routine's first step (asked first; Undo). */}
       {!!v.runId && <MenuItem label="Start over" spoken={`Start over: ${v.name}`} onPress={() => setMenu({ restart: true })} testID="go-plan-restart" />}
       {!v.divider && v.rows.length > 0 && (
@@ -659,7 +775,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
           readPick(text);
         }}
         onSubmit={() => {
-          if (chosen >= 0) return insertName(matching[chosen]);
+          if (chosen >= 0) return choose(chosen);
           setPicking(null);
           keep(true);
         }}
@@ -833,10 +949,19 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
                           </View>
                         )}
                         <View style={narrow ? styles.wordsNarrow : styles.words}>
-                          <T testID="go-plan-words">
-                            {row.kind === 'wait' && <T dim>Wait for </T>}
-                            <Chips words={row.words} asks={row.asks} />
-                          </T>
+                          <View style={styles.callName}>
+                            {/* P-98: a call reads the routine's name with the routine's mark. */}
+                            {!!row.call && (
+                              <View {...decorative}>
+                                <Mark name="routine" color={G.dim} />
+                              </View>
+                            )}
+                            <T testID="go-plan-words" style={styles.shrink}>
+                              {row.kind === 'wait' && <T dim>Wait for </T>}
+                              <Chips words={row.words} asks={row.asks} />
+                            </T>
+                          </View>
+                          {!!row.call && <CallLines name={row.words} call={row.call} onInput={(input) => setMenu({ bind: key, input })} />}
                           {!!row.gives && (
                             <T dim testID="go-plan-gives">
                               {'gives '}
@@ -896,14 +1021,17 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
                 if (WEB) lastField.current = e.target as unknown as HTMLInputElement;
               }}
               onBlur={(e) => !toBar(e) && setAddFocused(false)}
-              placeholder="Add a step"
-              accessibilityLabel="Add a step"
+              placeholder={ADD_PLACEHOLDER}
+              accessibilityLabel={ADD_PLACEHOLDER}
               onSubmit={addIt}
               style={styles.addField}
               testID="go-plan-add"
             />
-            {((addFocused && !!insertBtn) || !!adding.trim()) && (
+            {/* P-98: Add's "a routine" — the person's routines, only when asked for (D-24). With almost no room (the
+                keyboard up, large text) it gives way to the words — nothing moves under a press — and "@" is there. */}
+            {(!floor || (addFocused && !!insertBtn) || !!adding.trim()) && (
               <View style={styles.addTools}>
+                {!floor && <Btn kind="plain" mark="routine" label="A routine" spoken="Add a routine as a step" onPress={() => setMenu({ addRoutine: true })} style={styles.addBtn} testID="go-plan-add-routine" />}
                 {addFocused && insertBtn}
                 {!!adding.trim() && <Btn kind="plain" label="Add" spoken="Add this step" onPress={addIt} style={styles.addBtn} testID="go-plan-add-btn" />}
               </View>
@@ -912,7 +1040,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
         </View>
         {floor && foot}
       </ScrollView>
-      {offered.length > 0 && <NamesBar names={picked ? matching : offered} picking={picked} lit={chosen} onMove={(by) => setLit(chosen < 0 ? (by > 0 ? 0 : matching.length - 1) : (chosen + by + matching.length) % matching.length)} onPick={insertName} lastField={lastField} onLeave={leftBar} />}
+      {(offered.length > 0 || routineMatches.length > 0) && <NamesBar names={picked ? matching : offered} routines={picked ? routineMatches.map((r) => ({ id: r.routineId, name: r.name })) : []} picking={picked} lit={chosen} onMove={(by) => setLit(chosen < 0 ? (by > 0 ? 0 : picks - 1) : (chosen + by + picks) % picks)} onPick={insertName} onRoutine={addRoutineHere} lastField={lastField} onLeave={leftBar} />}
       {!floor && foot}
     </GoScreen>
   );
@@ -1170,7 +1298,7 @@ function InsertBtn({ lastField, onLeave }: { lastField: { current: HTMLInputElem
  * keyboard (audit F6): Alt+↓ in the field goes to the first name (Tab reaches them too); ←/→ move
  * between them; Return or Space inserts and goes back to the field; Esc goes back without inserting.
  */
-function NamesBar({ names, picking, lit = -1, onMove, onPick, lastField, onLeave }: { names: string[]; picking?: boolean; lit?: number; onMove?: (by: 1 | -1) => void; onPick: (name: string) => void; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
+function NamesBar({ names, routines = [], picking, lit = -1, onMove, onPick, onRoutine, lastField, onLeave }: { names: string[]; routines?: { id: string; name: string }[]; picking?: boolean; lit?: number; onMove?: (by: 1 | -1) => void; onPick: (name: string) => void; onRoutine?: (routineId: string) => void; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
   const box = useRef<ViewRef>(null);
   const leave = useRef(onLeave);
   const move = useRef<{ picking?: boolean; onMove?: (by: 1 | -1) => void }>({});
@@ -1182,7 +1310,7 @@ function NamesBar({ names, picking, lit = -1, onMove, onPick, lastField, onLeave
     const el = box.current as unknown as HTMLElement | null;
     if (!WEB || !el || typeof el.addEventListener !== 'function') return;
     const isField = (t: EventTarget | null): t is HTMLInputElement => !!t && ((t as Element).tagName === 'INPUT' || (t as Element).tagName === 'TEXTAREA');
-    const chips = () => Array.from(el.querySelectorAll<HTMLElement>('[data-testid="go-names-chip"]'));
+    const chips = () => Array.from(el.querySelectorAll<HTMLElement>('[data-testid="go-names-chip"], [data-testid="go-names-routine"]'));
     const keep = (e: Event) => e.preventDefault();
     const into = (e: FocusEvent) => {
       if (isField(e.relatedTarget)) lastField.current = e.relatedTarget;
@@ -1245,6 +1373,15 @@ function NamesBar({ names, picking, lit = -1, onMove, onPick, lastField, onLeave
               {'}'}
             </T>
           </T>
+        </Pressable>
+      ))}
+      {/* P-98: after "@", the person's routines that match — a tap adds one as a step. */}
+      {routines.map((r, j) => (
+        <Pressable key={r.id} onPress={() => onRoutine?.(r.id)} accessibilityRole="button" accessibilityLabel={`Add ${r.name} as a step`} style={(state) => [styles.chip, styles.routineChip, picking && names.length + j === lit && styles.chipFirst, (state as { focused?: boolean }).focused && RING]} testID="go-names-routine" {...{ dataSet: { lit: picking && names.length + j === lit ? 'true' : 'false', routine: r.id } }}>
+          <View {...decorative}>
+            <Mark name="routine" color={G.dim} />
+          </View>
+          <T bold>{r.name}</T>
         </Pressable>
       ))}
     </View>
@@ -1379,6 +1516,7 @@ function toRow(list: { current: unknown }, key: string, title: { current: unknow
 const styles = StyleSheet.create({
   flex: { flex: 1, minHeight: 0 },
   shrink: { flexShrink: 1 },
+  callName: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', gap: SP.s1 },
   gap: { gap: SP.s2 },
   // The band: light, one line, in one place on every Plan screen. Home is always its last control
   // (top right); Done, at the edge only, has the slot before it. In a window too narrow for both,
@@ -1428,6 +1566,7 @@ const styles = StyleSheet.create({
   door: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   bar: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2, paddingHorizontal: SP.s3, paddingVertical: SP.s2, backgroundColor: G.surf, borderTopWidth: 2, borderTopColor: G.line },
   chipFirst: { borderColor: G.text },
+  routineChip: { flexDirection: 'row', alignItems: 'center', gap: SP.s1 },
   chip: { minHeight: TARGET, minWidth: TARGET, justifyContent: 'center', paddingHorizontal: SP.s3, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf2 },
   forward: { minHeight: 56 },
   // As tall as the filled button and the room its shadow keeps.

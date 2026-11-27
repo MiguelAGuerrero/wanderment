@@ -30,14 +30,15 @@ describe('the bar above the keyboard (ruling 5, journey 2): names given above th
   it('changing a step’s words: what is given above it — never its own name, never a name given below', () => {
     expect(namesOffered(rows, { mode: 'words', index: at('sel') })).toEqual([]);
     expect(namesOffered(rows, { mode: 'words', index: at('find') })).toEqual(['subject', 'tool']);
-    expect(namesOffered(rows, { mode: 'words', index: at('last') })).toEqual(['subject', 'tool']);
+    // P-98 (rewritten; was ['subject', 'tool']): the call above hands back what Sketch gives, {ref}.
+    expect(namesOffered(rows, { mode: 'words', index: at('last') })).toEqual(['subject', 'tool', 'ref']);
   });
 
   it('a step added after a row: that row’s own name and its smaller steps’ too; a named routine’s names stay its own', () => {
     expect(namesOffered(rows, { mode: 'after', index: at('sel') })).toEqual(['subject']);
     expect(namesOffered(rows, { mode: 'after', index: at('b') })).toEqual(['subject', 'tool']);
-    // After the call row: Sketch's {ref} is Sketch's (no collision), so it is not offered outside it.
-    expect(namesOffered(rows, { mode: 'after', index: at('call') })).toEqual(['subject', 'tool']);
+    // P-98 (rewritten; was: Sketch's {ref} stays Sketch's): the call row gives what Sketch gives — handed back, it is offered after it.
+    expect(namesOffered(rows, { mode: 'after', index: at('call') })).toEqual(['subject', 'tool', 'ref']);
     // Inside Sketch: only what Sketch gives above (it reads {subject} from outside, but gives only {ref}).
     expect(namesOffered(rows, { mode: 'after', index: at('s2') })).toEqual(['ref']);
     expect(namesOffered(rows, { mode: 'words', index: at('s3') })).toEqual(['ref']);
@@ -48,7 +49,8 @@ describe('the bar above the keyboard (ruling 5, journey 2): names given above th
   });
 
   it('"Add a step" at the end: every name the routine gives, in order', () => {
-    expect(namesOffered(rows, { mode: 'end' })).toEqual(['subject', 'tool', 'rank']);
+    // P-98 (rewritten; was without 'ref'): the call's {ref}, in its place.
+    expect(namesOffered(rows, { mode: 'end' })).toEqual(['subject', 'tool', 'ref', 'rank']);
     expect(namesOffered([], { mode: 'end' })).toEqual([]);
   });
 

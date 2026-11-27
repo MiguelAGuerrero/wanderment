@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** A step; a wait; another routine; P-96: a step that gives a name (`{ text, gives }`). */
-export type StepSpec = string | { wait: string } | { routine: string } | { text: string; gives: string };
+export type StepSpec = string | { wait: string } | { routine: string; with?: unknown[] } | { text: string; gives: string };
 
 export interface RoutineSpec {
   id: string;
@@ -77,7 +77,7 @@ export function goBackup(routines: RoutineSpec[], runs: RunSpec[] = [], now = Da
       named: true,
       createdAt: iso(now - (r.madeDaysAgo ?? 100 - i) * DAY),
       items: r.steps.map((s, k) =>
-        typeof s === 'string' ? { id: stepId(r.id, k), text: s } : 'wait' in s ? { id: stepId(r.id, k), wait: s.wait } : 'gives' in s ? { id: stepId(r.id, k), text: s.text, out: s.gives } : { id: stepId(r.id, k), ref: s.routine },
+        typeof s === 'string' ? { id: stepId(r.id, k), text: s } : 'wait' in s ? { id: stepId(r.id, k), wait: s.wait } : 'gives' in s ? { id: stepId(r.id, k), text: s.text, out: s.gives } : { id: stepId(r.id, k), ref: s.routine, ...(s.with && { with: s.with }) },
       ),
       ...(r.repeatFrom !== undefined && { repeatFrom: r.repeatFrom }),
       ...(r.repeat !== undefined && { repeat: r.repeat }),
@@ -705,4 +705,16 @@ export async function expectNoEdit(page: Page) {
   const menu = await arrived(page, 'go-plan-routine');
   await expect(menu.getByTestId('go-plan-undo')).toHaveCount(0);
   await closeMenu(page, 'go-plan-routine');
+}
+
+/**
+ * P-98: Step out (or Next) past a call that still owes a name: the press first shows a field for each (the owed
+ * sheet); its move, with the fields left empty, carries on as the bare press did before P-98.
+ */
+export async function pastOwed(page: Page, press: Locator) {
+  await press.click();
+  const sheet = page.getByTestId('go-owed-sheet');
+  await expect(sheet).toHaveAttribute('data-moving', 'false');
+  await sheet.getByTestId('go-owed-move').click();
+  await expect(sheet).toHaveCount(0);
 }

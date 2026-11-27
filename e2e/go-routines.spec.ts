@@ -164,7 +164,8 @@ for (const size of [
       await r.more('apple pie').click();
       const menu = await arrived(page, 'go-routine-menu');
       await expect(menu).toHaveRole('menu');
-      await expect(menuItems(menu)).toHaveText(['Start', 'Plan', 'Tags…', 'Remove']);
+      // (P-98, rewritten: and Copy…, before the line.)
+      await expect(menuItems(menu)).toHaveText(['Start', 'Plan', 'Tags…', 'Copy…', 'Remove']);
       await expect(menu.getByRole('separator')).toHaveCount(1);
       await expect(menuItems(menu).last()).toHaveAttribute('data-danger', 'true');
       await expectNoSeriousViolations(page);
@@ -174,7 +175,8 @@ for (const size of [
       await page.goBack();
       await expect(routines(page).screen).toBeVisible();
       await r.more('apple pie').click();
-      await expect(menuItems(await arrived(page, 'go-routine-menu'))).toHaveText(['Resume', 'Plan', 'Tags…']);
+      // (P-98, rewritten: and Copy….)
+      await expect(menuItems(await arrived(page, 'go-routine-menu'))).toHaveText(['Resume', 'Plan', 'Tags…', 'Copy…']);
       await page.keyboard.press('Escape');
       // Another routine: its Start is unavailable while that one runs (one thing at a time).
       await r.more('zine issue').click();
@@ -182,7 +184,8 @@ for (const size of [
       await page.keyboard.press('Escape');
       // A routine with no steps: nothing to start.
       await r.more('Éclair practice').click();
-      await expect(menuItems(await arrived(page, 'go-routine-menu'))).toHaveText(['Plan', 'Tags…', 'Remove']);
+      // (P-98, rewritten: and Copy…, before the line.)
+      await expect(menuItems(await arrived(page, 'go-routine-menu'))).toHaveText(['Plan', 'Tags…', 'Copy…', 'Remove']);
     });
 
     test('Remove asks first with the one confirm; Cancel keeps it; Remove takes it off My routines, with Undo', async ({ page }) => {
