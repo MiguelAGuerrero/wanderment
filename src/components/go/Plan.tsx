@@ -141,10 +141,15 @@ export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; rou
   const caretAfter = useRef<{ field: HTMLInputElement; text: string; at: number } | null>(null);
   useLayoutEffect(() => {
     const c = caretAfter.current;
-    if (!c || c.field.value !== c.text) return;
+    if (!c) return;
+    // Once, at the commit that shows the name (never on a later render: by then the focus is the person's).
     caretAfter.current = null;
-    if (document.activeElement !== c.field) c.field.focus();
-    c.field.setSelectionRange(c.at, c.at);
+    if (!c.field.isConnected || c.field.value !== c.text) return;
+    // Back to the field only from where the name was chosen (a chip, Insert) or from nowhere — never from elsewhere.
+    const at = document.activeElement as HTMLElement | null;
+    const fromBar = !at || at === document.body || !!at.closest?.('[data-testid="go-names-bar"], [data-insert]');
+    if (at !== c.field && fromBar) c.field.focus();
+    if (document.activeElement === c.field) c.field.setSelectionRange(c.at, c.at);
   });
   const shutAt = useRef(-1);
 
@@ -461,10 +466,8 @@ export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; rou
     if (field) caretAfter.current = { field, text, at: from + token.length };
     if (live.current) type(text);
     else setAdding(text);
-    if (field)
-      requestAnimationFrame(() => {
-        if (document.activeElement !== field) field.focus();
-      });
+    // (No later focus here: a frame later the person may have moved on — Tab to Insert — and it would take the
+    // focus back. The commit that shows the name puts the focus and the caret back, once: `caretAfter`.)
   };
   /** The focus left the bar for somewhere that is not the field it came from: the typing is over, as if the field had been left. */
   const leftBar = () => {
