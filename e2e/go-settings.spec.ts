@@ -10,7 +10,7 @@ import { expect, test } from './fixtures';
 import { chooseBackup, expectInside, goBackup, home, IMPORTED, MAYA, openGo, openSettings, seedGo, settled, startRun, startThing, tileBody } from './goFixture';
 import { legacyBlob, seedScript } from './graphFixture';
 
-const EARLIER = 'Your earlier wanders and lines are kept, and are in every export.';
+const EARLIER = 'Earlier data from the previous app is kept in your backup files.';
 const settings = (page: import('@playwright/test').Page) => settled(page, 'settings');
 /** An existing person: two wanders (one hidden by the old app's blob is not needed here) and two lines. */
 const world = () =>
@@ -103,7 +103,7 @@ test('Export downloads everything as a dated .json backup, and says so', async (
   const download = page.waitForEvent('download');
   await settings(page).getByRole('button', { name: 'Export everything (.json)', exact: true }).click();
   const file = await download;
-  expect(file.suggestedFilename()).toMatch(/^wanderment-\d{4}-\d\d-\d\d\.json$/);
+  expect(file.suggestedFilename()).toMatch(/^routines-backup-\d{4}-\d\d-\d\d\.json$/);
   await expect(page.getByTestId('go-settings-said')).toHaveText('Exported.');
   const backup = JSON.parse(readFileSync((await file.path())!, 'utf8'));
   expect(backup.app).toBe('wanderment');
@@ -167,7 +167,7 @@ test.describe('the “earlier data is kept” line shows only when such data exi
     await expect(page.getByTestId('go-settings-earlier')).toHaveCount(0);
     const old = JSON.parse(world()).state.data;
     await chooseBackup(page, JSON.stringify({ app: 'wanderment', exportedAt: '2026-01-04T00:00:00.000Z', data: old }));
-    await expect(page.getByTestId('import-preview')).toContainText('This backup has 2 activities and 2 wanders');
+    await expect(page.getByTestId('import-preview')).toContainText('This backup has 4 items from the previous app'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
     await page.getByRole('button', { name: 'Replace', exact: true }).click();
     await expect(page.getByText(IMPORTED, { exact: true })).toBeVisible();
     await expect(page.getByTestId('go-settings-earlier')).toHaveText(EARLIER);

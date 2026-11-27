@@ -313,7 +313,8 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     await p.names.first().click();
     // The field kept the focus; the name went in at the caret.
     await expect(p.typed).toBeFocused();
-    await expect(p.typed).toHaveValue('Find three reference photos of {subject}');
+    // P-103 (11; was: no space after it): an inserted name gets a space after it (the step's words are tidied when kept).
+    await expect(p.typed).toHaveValue('Find three reference photos of {subject} ');
     await p.typed.press('Enter');
     await expect(p.row('Find three reference photos of {subject}').getByTestId('go-name-chip')).toHaveText('{subject}');
     // On "Add a step" at the end: every name the routine gives.
@@ -455,7 +456,8 @@ test.describe('fixes after the audit', () => {
     await p.typed.press('Alt+ArrowDown');
     await page.keyboard.press('Enter');
     await expect(p.typed).toBeFocused();
-    await expect(p.typed).toHaveValue('Find three reference photos of {subject}');
+    // P-103 (11; was: no space after it): an inserted name gets a space after it.
+    await expect(p.typed).toHaveValue('Find three reference photos of {subject} ');
     await p.typed.press('Enter');
     await expect(p.row('Find three reference photos of {subject}')).toHaveCount(1);
   });

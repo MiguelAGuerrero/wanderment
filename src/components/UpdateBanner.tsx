@@ -3,11 +3,15 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { applyUpdate, onUpdateReady } from '@/pwa/serviceWorker';
-import { C } from '@/theme';
+
+import { setBannerRoom } from './bannerRoom';
+import { BODY, face, G, SP, TARGET } from './go/tokens';
 
 /**
  * A non-blocking note when a new version of the web app is ready and couldn't apply by itself
  * (P-30: the person had typed, or it came later). Nothing reloads until "Update now".
+ * P-103 (12; audit F-23: it was a light pill drawn over Plan's band): a strip at the top, in the app's dark look;
+ * the screen beneath starts below it (`bannerRoom`), so it never covers a control.
  */
 export function UpdateBanner() {
   const [ready, setReady] = useState(false);
@@ -22,28 +26,36 @@ export function UpdateBanner() {
       }),
     [],
   );
-  if (!ready || dismissed) return null;
+  const shown = ready && !dismissed;
+  useEffect(() => {
+    if (!shown) setBannerRoom(0);
+    return () => setBannerRoom(0);
+  }, [shown]);
+  if (!shown) return null;
   return (
-    <View style={[styles.wrap, { top: insets.top + 6 }]} pointerEvents="box-none">
+    <View style={[styles.wrap, { paddingTop: insets.top }]} onLayout={(e) => setBannerRoom(e.nativeEvent.layout.height)} testID="update-banner">
       <View style={styles.banner} accessibilityRole="alert">
         <Text style={styles.text}>A new version is ready</Text>
-        <Pressable onPress={applyUpdate} style={styles.primary} accessibilityRole="button" accessibilityLabel="Update now — reload to update">
-          <Text style={styles.primaryText}>Update now</Text>
-        </Pressable>
-        <Pressable onPress={() => setDismissed(true)} style={styles.btn} accessibilityRole="button" accessibilityLabel="Not now">
-          <Text style={styles.later}>Not now</Text>
-        </Pressable>
+        <View style={styles.actions}>
+          <Pressable onPress={applyUpdate} style={styles.primary} accessibilityRole="button" accessibilityLabel="Update now — reload to update">
+            <Text style={styles.primaryText}>Update now</Text>
+          </Pressable>
+          <Pressable onPress={() => setDismissed(true)} style={styles.btn} accessibilityRole="button" accessibilityLabel="Not now">
+            <Text style={styles.later}>Not now</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 12, right: 12, alignItems: 'center', zIndex: 10 },
-  banner: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingLeft: 14, paddingRight: 4, paddingVertical: 4, minHeight: 44, borderRadius: 27, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, maxWidth: 616 },
-  text: { fontSize: 14, color: C.ink, marginRight: 4 },
-  btn: { minHeight: 44, paddingHorizontal: 10, justifyContent: 'center' },
-  primary: { minHeight: 44, paddingHorizontal: 14, borderRadius: 22, backgroundColor: C.ink, justifyContent: 'center' },
-  primaryText: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
-  later: { fontSize: 14, color: C.muted },
+  wrap: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, backgroundColor: G.surf2, borderBottomWidth: 2, borderBottomColor: G.line },
+  banner: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', columnGap: SP.s2, paddingHorizontal: SP.s3, paddingVertical: SP.s1 },
+  text: { fontSize: BODY, lineHeight: 22, color: G.text, fontFamily: face.words, flexShrink: 1, paddingVertical: SP.s1 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: SP.s1 },
+  btn: { minHeight: TARGET, minWidth: TARGET, paddingHorizontal: SP.s2, justifyContent: 'center' },
+  primary: { minHeight: TARGET, paddingHorizontal: SP.s3, backgroundColor: G.paper, justifyContent: 'center' },
+  primaryText: { fontSize: BODY, fontWeight: '600', color: G.ink, fontFamily: face.words },
+  later: { fontSize: BODY, color: G.text, fontFamily: face.words },
 });

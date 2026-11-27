@@ -39,7 +39,7 @@ async function openSettings(page: Page) {
 }
 
 /** The line said only to someone who has wanders or lines from before. */
-const earlier = (page: Page) => page.getByText('Your earlier wanders and lines are kept, and are in every export.', { exact: true });
+const earlier = (page: Page) => page.getByText('Earlier data from the previous app is kept in your backup files.', { exact: true });
 
 /** The backup Settings exports now (the file's text). */
 async function exportNow(page: Page) {
@@ -86,8 +86,8 @@ test('choosing a file shows what it holds and what would change; Cancel changes 
   await choose(page, OTHER);
   // Focus moves to it, so it's announced.
   await expect(page.getByRole('group', { name: REPLACE_TITLE })).toBeFocused();
-  await expect(preview(page)).toContainText(/This backup has 3 activities and 1 wander, from \S.*2026\./);
-  await expect(preview(page)).toContainText('Replacing would add 3 and remove 2 activities, and add 1 and remove 2 wanders.');
+  await expect(preview(page)).toContainText(/This backup has 4 items from the previous app, from \S.*2026\./); // P-103: "items from the previous app" (was activities / wanders).
+  await expect(preview(page)).toContainText('Replacing would add 4 and remove 4 items from the previous app.'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
   await expect(preview(page)).toContainText(NO_UNDO);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/import-preview.png`, fullPage: true });
 
@@ -134,7 +134,7 @@ test('a file with two wanders of the same name (one hidden) is refused, naming b
   await openSettings(page);
   await choose(page, backup([thread('a', 'draw'), thread('b', 'Draw', { hidden: true })], []));
   await expect(
-    page.getByText('Two wanders have the same name: “draw” and “Draw” (hidden). Rename one in the file, or in the app the backup came from and export it again.'),
+    page.getByText('Two items from the previous app have the same name: “draw” and “Draw” (hidden). Rename one in the file, or in the app the backup came from and export it again.'),
   ).toBeVisible();
   await expect(preview(page)).toHaveCount(0);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/import-refused.png`, fullPage: true });
@@ -195,7 +195,7 @@ test('a backup holding only routines, over earlier lines and wanders: it says wh
   await expect(group).toBeFocused();
   // No "0 activities, 0 wanders": only what the backup has.
   await expect(preview(page)).toContainText('This backup has 1 routine and 1 run.');
-  await expect(preview(page)).toContainText('Replacing would remove 2 activities, and remove 2 wanders, and add 1 routine, and add 1 run.');
+  await expect(preview(page)).toContainText('Replacing would add 1 routine, and add 1 run, and remove 4 items from the previous app.'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
   await expect(preview(page)).toContainText(NO_UNDO);
   const cancelBtn = page.getByRole('button', { name: 'Cancel', exact: true });
   const style = (el: Element) => ({ fill: getComputedStyle(el).backgroundColor, border: getComputedStyle(el).borderTopColor });
@@ -237,7 +237,7 @@ test('an empty backup over data warns plainly, and can still be confirmed', asyn
   await openSettings(page);
   await choose(page, backup([], []));
   await expect(preview(page)).toContainText('This backup is empty.');
-  await expect(preview(page)).toContainText('Replacing would remove all 2 activities and 2 wanders here.');
+  await expect(preview(page)).toContainText('Replacing would remove all 4 items from the previous app here.'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
   await expect(preview(page)).toContainText(NO_UNDO);
   if (SHOTS) await page.screenshot({ path: `${SHOTS}/import-empty.png`, fullPage: true });
   // It would remove everything: Cancel is the first step and the filled (safe) button (audit F3; B-11 §6).
@@ -262,11 +262,11 @@ test('an empty backup over data warns plainly, and can still be confirmed', asyn
 test('choosing another file while a preview is open replaces the preview; a big file previews promptly', async ({ page }) => {
   await openSettings(page);
   await choose(page, OTHER);
-  await expect(preview(page)).toContainText('This backup has 3 activities');
+  await expect(preview(page)).toContainText('This backup has 4 items from the previous app'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
   const big = JSON.parse(bigBlob()).state.data;
   const t0 = Date.now();
   await choose(page, JSON.stringify({ app: 'wanderment', exportedAt: at(1), data: big }), 'big.json');
-  await expect(preview(page)).toContainText('This backup has 4000 activities and 220 wanders');
+  await expect(preview(page)).toContainText('This backup has 4220 items from the previous app'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
   expect(Date.now() - t0).toBeLessThan(5000);
   await expect(preview(page)).toHaveCount(1);
   await expect(page.getByRole('group', { name: REPLACE_TITLE })).toBeFocused();
@@ -306,7 +306,7 @@ test('while reconnecting, Replace is refused with the quiet note and the preview
   await expect(notice).toHaveCount(0);
   await expect(preview(page)).toBeVisible();
   // Nothing was replaced meanwhile: the comparison is the same one.
-  await expect(preview(page)).toContainText('Replacing would add 3 and remove 2 activities, and add 1 and remove 2 wanders.');
+  await expect(preview(page)).toContainText('Replacing would add 4 and remove 4 items from the previous app.'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
   await replaceBtn(page).click();
   await expect(page.getByText(IMPORTED, { exact: true })).toBeVisible();
   await page.reload();

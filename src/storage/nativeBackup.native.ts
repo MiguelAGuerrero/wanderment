@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 import { toBackup } from '@/domain/backup';
 import { Data } from '@/domain/types';
+import { BACKUP_FILE, backupFileName, newestFirst } from './backupNames';
 
 /**
  * iOS/Android: after changes settle, write a dated JSON backup into the app's Documents folder.
@@ -13,14 +14,14 @@ import { Data } from '@/domain/types';
  */
 const KEEP = 7;
 const DEBOUNCE_MS = 5000;
-const NAME = /^wanderment-\d{4}-\d{2}-\d{2}\.json$/;
+const NAME = BACKUP_FILE;
 
 let timer: ReturnType<typeof setTimeout> | undefined;
 
 const dir = () => new Directory(Paths.document, 'backups');
 const localDate = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-const fileFor = (now: Date) => new File(dir(), `wanderment-${localDate(now)}.json`);
+const fileFor = (now: Date) => new File(dir(), backupFileName(localDate(now)));
 
 function writeBackup(data: Data, now = new Date()): File {
   const d = dir();
@@ -31,7 +32,7 @@ function writeBackup(data: Data, now = new Date()): File {
   const old = d
     .list()
     .filter((f): f is File => f instanceof File && NAME.test(f.name))
-    .sort((a, b) => b.name.localeCompare(a.name))
+    .sort((a, b) => newestFirst(a.name, b.name))
     .slice(KEEP);
   for (const f of old) f.delete();
   return file;
@@ -58,5 +59,5 @@ export async function shareBackup(data: Data): Promise<boolean> {
 
 export const backupsLocation =
   Platform.OS === 'ios'
-    ? 'Files app → On My iPhone → Wanderment → backups (last 7 days)'
+    ? 'Files app → On My iPhone → Routines → backups (last 7 days)'
     : 'kept inside the app for 7 days; use Export to keep a copy elsewhere';

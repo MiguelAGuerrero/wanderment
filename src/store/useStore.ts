@@ -204,6 +204,8 @@ interface State {
   nextStep: (runId: Id) => Did;
   /** Done: leaves the level it is in; at the top ends the run. Undo. */
   doneLevel: (runId: Id) => Did;
+  /** P-103: "End this run" (a paused tile's ···, asked first): the existing end verb, Done, for the whole run where it stands. Final, as every finish: × only. */
+  endRun: (runId: Id) => Did;
   /** Step in. No Undo (P-95). */
   stepIn: (runId: Id) => Did;
   /** Jump to…: `{ level }` the start of a level it is in; `{ path }` a step (a Jump row's path). The run is running afterwards (out of Plan). Undo: it can leave levels and reset the round (P-95 audit F4). */
@@ -354,7 +356,8 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
           // P-101 (ruling 6): Plan's edits say nothing. What changes the screen itself (the run ended: home; New, and
           // Plan's fold of an earlier build's changes: its Plan; Jump to…: the runner; the routine removed: home)
           // carries its notice there, once.
-          ...(verb.kind === 'editRoutine' && verb.edit.kind !== 'removeRoutine' && { quiet: true as const }),
+          // P-103 (audit F-4): removing a step is said, with its Undo, as every Remove (the conventional snackbar).
+          ...(verb.kind === 'editRoutine' && verb.edit.kind !== 'removeRoutine' && verb.edit.kind !== 'remove' && { quiet: true as const }),
           ...((r.said?.kind === 'ended' || verb.kind === 'new' || verb.kind === 'plan' || verb.kind === 'jump' || (verb.kind === 'editRoutine' && verb.edit.kind === 'removeRoutine')) && { follows: true as const }),
         }
       : undefined,
@@ -513,6 +516,7 @@ export const useStore = create<State>()((set, get) => ({
     (runId) => act({ kind: 'done', runId }, 'set'),
     (runId) => keepPress('done', runId),
   ),
+  endRun: gated<State['endRun']>(refused, (runId) => act({ kind: 'done', runId, whole: true }, 'set')),
   stepIn: gated<State['stepIn']>(
     refused,
     (runId) => act({ kind: 'stepIn', runId }, 'clear'),

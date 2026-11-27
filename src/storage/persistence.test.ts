@@ -1548,6 +1548,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       leaveRun: { args: ['n1'], setup: going({ status: 'paused' }) },
       nextStep: { args: ['n1'], setup: going() },
       doneLevel: { args: ['n1'], setup: going() },
+      // P-103: "End this run", from a paused tile.
+      endRun: { args: ['n1'], setup: going({ status: 'paused' }) },
       stepIn: { args: ['n1'], setup: going({ frames: [{ seq: 'g1', at: 'k', round: 1 }] }) },
       jumpTo: { args: ['n1', { path: ['b'] }], setup: going() },
       backTo: { args: ['n1'], setup: going({ frames: [{ seq: 'g1', at: 'b', round: 1 }] }) },

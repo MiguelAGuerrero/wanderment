@@ -5,7 +5,7 @@
  */
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { runnerView, seeItAll } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
@@ -37,6 +37,28 @@ export function Jump({ runId }: { runId: string }) {
   const gone = !all || !run || run.status === 'ended';
   const [pick, setPick] = useState<Pick | undefined>();
   const title = useRef<TextRef>(null);
+  // P-103 (12; audit F-21) — the WAI-ARIA radio group: ↓/→ and ↑/← move to the next or previous row and choose it.
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof document === 'undefined' || !focused) return;
+    const onKey = (e: KeyboardEvent) => {
+      const by = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' || e.key === 'ArrowLeft' ? -1 : 0;
+      if (!by || e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = e.target as HTMLElement | null;
+      if (!t?.closest?.('[data-testid="go-jump-row"]')) return;
+      const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-testid="go-jump"] [data-testid="go-jump-row"]')).filter((r) => r.getClientRects().length > 0);
+      const i = rows.indexOf(t.closest('[data-testid="go-jump-row"]') as HTMLElement);
+      const to = rows[(i + by + rows.length) % rows.length];
+      // A row's choice, from its key: "level:<n>" or a step's path.
+      const key = to?.dataset.key ?? '';
+      const pick: Pick | undefined = !key ? undefined : key.startsWith('level:') ? { level: Number(key.slice(6)) } : { path: key.split('/') };
+      if (!to || !pick) return;
+      e.preventDefault();
+      to.focus();
+      setPick(pick);
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [focused]);
   useGone(gone, focused);
   useEffect(() => {
     if (focused) focusSoon(title);
@@ -54,7 +76,7 @@ export function Jump({ runId }: { runId: string }) {
         accessibilityState={{ checked: on }}
         aria-checked={on}
         testID="go-jump-row"
-        {...{ dataSet: { here: here ? 'true' : 'false', picked: on ? 'true' : 'false' } }}
+        {...{ dataSet: { here: here ? 'true' : 'false', picked: on ? 'true' : 'false', key } }}
         style={[styles.jumpRow, { paddingLeft: SP.s3 + indent(depth) }, on && styles.jumpOn]}>
         {children}
         {here && (

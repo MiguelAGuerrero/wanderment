@@ -38,7 +38,7 @@ import {
   startThing,
   tile,
   turn,
-  expectEdit,
+  expectEdit, expectRemoved,
   expectNoEdit,
   undoEdit,
   tileBody,
@@ -97,9 +97,10 @@ test.describe('plan ↔ run', () => {
 
     const p = plan(page);
     await expect(p.screen).toBeVisible();
-    await expect(page).toHaveURL(/\/go\/run\/r1\/plan$/);
+    // P-103 (3; was: the plain address, and ⌂ Home): opened from the runner it says so — its address, and its way out.
+    await expect(page).toHaveURL(/\/go\/run\/r1\/plan\?from=run$/);
     await expect(p.word).toHaveText('PLAN');
-    await expect(p.home).toHaveText('Home');
+    await expect(p.back).toHaveText('Back to the run');
     await expect(p.title).toHaveText('Test out the app');
     // A screen reader hears "Plan" and the routine, on the heading, which has the focus.
     await expect(p.title).toHaveAccessibleName('Plan: Test out the app');
@@ -748,7 +749,8 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     const p = plan(page);
     await planMenu(page, 'Select a feature to test', 'Remove');
     await expectSteps(page, ['Vibe check', 'Write down concerns']);
-    await expectEdit(page, 'Removed “Select a feature to test”');
+    // P-103 (5; was expectEdit — no notice): removing a step says so, with Undo (and its Undo stays in the menu).
+    await expectRemoved(page, 'Removed “Select a feature to test”');
     await expect(p.forward).toHaveText('Resume at Vibe check');
     // Focus is never lost to nothing.
     expect(await focused(page)).not.toBe('BODY');
@@ -779,7 +781,8 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await planMenu(page, 'Vibe check', 'Remove');
     // The last step: the one before.
     await planMenu(page, 'Write down concerns', 'Remove');
-    await expectEdit(page, 'Removed “Write down concerns” — Repeat from here went with it');
+    // P-103 (5; was expectEdit — no notice): removing a step says so, with Undo (and its Undo stays in the menu).
+    await expectRemoved(page, 'Removed “Write down concerns” — Repeat from here went with it');
     await expect(p.divider).toHaveCount(0);
     await expect(p.here).toHaveAccessibleName('Here, Select a feature to test');
     await expect(p.forward).toHaveText('Resume at Select a feature to test');
@@ -831,6 +834,9 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expect(sheet.getByRole('separator')).toHaveCount(1);
     await expect(menuItems(sheet).last()).toHaveAttribute('data-danger', 'true');
     await sheet.getByRole('menuitem', { name: 'Remove Apply to Initech', exact: true }).click();
+    // P-103 (5; was: removed at once): it asks first — the one confirm — then Remove.
+    await expect(page.getByRole('alertdialog').getByRole('heading')).toHaveText('Remove “Apply to Initech”?');
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove', exact: true }).click();
     // The screen goes with the routine; its Undo is on home.
     const h = home(page);
     await expect(h.screen).toBeVisible();
@@ -971,7 +977,8 @@ test.describe('Break it down', () => {
     await planType(page, 'Write the concerns down');
     await expectEdit(page, 'Changed “Write down concerns”');
     await planMenu(page, 'Write the concerns down', 'Remove');
-    await expectEdit(page, 'Removed “Write the concerns down” and its smaller steps');
+    // P-103 (5; was expectEdit — no notice): removing a step says so, with Undo (and its Undo stays in the menu).
+    await expectRemoved(page, 'Removed “Write the concerns down” and its smaller steps');
     await expectSteps(page, ['Select a feature to test', 'Vibe check']);
     await undoEdit(page);
     await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write the concerns down', 'Open the doc']);
@@ -1459,7 +1466,8 @@ test.describe('data written by the build before', () => {
     await expectSteps(page, ['A for this run', 'b', 'only this run']);
     await planMenu(page, 'only this run', 'Remove');
     await expectSteps(page, ['A for this run', 'b']);
-    await expectEdit(page, 'Removed “only this run”');
+    // P-103 (5; was expectEdit — no notice): removing a step says so, with Undo (and its Undo stays in the menu).
+    await expectRemoved(page, 'Removed “only this run”');
     await planMenu(page, 'A for this run', 'Edit');
     await planType(page, 'A planned');
     await expectSteps(page, ['A planned', 'b']);

@@ -26,6 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useReduceMotion } from '@/components/a11y';
+import { useBannerRoom } from '@/components/bannerRoom';
 
 import { Mark, MarkName } from './marks';
 import { decideWhere } from './session';
@@ -312,6 +313,8 @@ export interface BtnProps {
   markAfter?: MarkName;
   /** Unavailable: dashed, lighter, and disabled. */
   disabled?: boolean;
+  /** P-103 (1): held for a moment — presses do nothing and it says so (disabled), but it keeps its look (Done just shown). */
+  hold?: boolean;
   /** Drawn on a routine's colour or on paper: ink outline, ink words, and an ink focus ring. */
   ink?: boolean;
   /** For "cannot be undone" only. */
@@ -334,7 +337,7 @@ export interface BtnProps {
   onAction?: (name: string) => void;
 }
 
-export function Btn({ label, spoken, kind = 'outline', mark, markAfter, disabled, ink, danger, onPress, style, testID, ref, pressed, expanded, selected, size, dataSet, keys, actions, onAction }: BtnProps) {
+export function Btn({ label, spoken, kind = 'outline', mark, markAfter, disabled, hold, ink, danger, onPress, style, testID, ref, pressed, expanded, selected, size, dataSet, keys, actions, onAction }: BtnProps) {
   const filled = kind === 'filled' && !disabled;
   // Unavailable is lighter (and dashed, and disabled): on a routine's colour, lighter ink.
   const color = filled ? G.ink : disabled ? (ink ? 'rgba(17,18,22,0.6)' : G.dim) : danger ? G.err : ink ? G.ink : G.text;
@@ -342,11 +345,18 @@ export function Btn({ label, spoken, kind = 'outline', mark, markAfter, disabled
     <Pressable
       ref={ref}
       testID={testID}
-      onPress={disabled ? undefined : onPress}
-      disabled={disabled}
+      onPress={disabled || hold ? undefined : onPress}
+      disabled={disabled || hold}
+      // (Held, it keeps the focus it has: said unavailable, not taken out of the tab order.)
+      {...(hold && !disabled && WEB && ({ tabIndex: 0, onKeyDown: (e: { key: string; repeat?: boolean; preventDefault: () => void }) => {
+        // A key press on it, focused, is deliberate: it is never held.
+        if (e.repeat || (e.key !== 'Enter' && e.key !== ' ')) return;
+        e.preventDefault();
+        onPress?.();
+      } } as object))}
       accessibilityRole="button"
       accessibilityLabel={spoken ?? label}
-      accessibilityState={{ disabled: !!disabled, ...(selected !== undefined && { selected }) }}
+      accessibilityState={{ disabled: !!disabled || !!hold, ...(selected !== undefined && { selected }) }}
       {...(pressed !== undefined && { 'aria-pressed': pressed })}
       {...(expanded !== undefined && { 'aria-expanded': expanded })}
       {...(dataSet && { dataSet })}
@@ -449,6 +459,8 @@ export function GrowField({ onSubmit, style, ref, ...rest }: FieldProps & { onSu
 export function GoScreen({ children, layer, testID, settled = true }: { children: ReactNode; layer?: ReactNode; testID: string; settled?: boolean }) {
   const seen = useVisibleHeight();
   const insets = useSafeAreaInsets();
+  // P-103 (12): the update banner's room — the screen starts below it.
+  const banner = useBannerRoom();
   const under = useRef<ViewRef>(null);
   const covered = !!layer;
   // Any `/go` screen shown: from now on `/go` itself is home, never a redirect (Back from here must land there).
@@ -466,7 +478,7 @@ export function GoScreen({ children, layer, testID, settled = true }: { children
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         testID={testID}
         {...{ dataSet: { settled: settled ? 'true' : 'false' } }}
-        style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }, seen ? { height: seen.height, transform: [{ translateY: seen.top }] } : styles.flex]}>
+        style={[styles.screen, { paddingTop: Math.max(insets.top, banner), paddingBottom: insets.bottom, paddingLeft: insets.left, paddingRight: insets.right }, seen ? { height: seen.height, transform: [{ translateY: seen.top }] } : styles.flex]}>
         <View ref={under} style={styles.flex} importantForAccessibility={covered ? 'no-hide-descendants' : 'auto'} accessibilityElementsHidden={covered}>
           {children}
         </View>
@@ -535,6 +547,23 @@ export function Sheet({ title, onClose, children, confirm, testID, fallback }: S
   const heading = useRef<TextRef>(null);
   useBackCloses(true, onClose);
   useKeys(true, { Escape: onClose }, true);
+
+  // P-103 (8; audit F-28): a confirm keeps the focus inside it — Tab past its last control comes round to its first.
+  useEffect(() => {
+    if (!WEB || !confirm || typeof document === 'undefined') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+      const el = box.current as unknown as HTMLElement | null;
+      if (!el) return;
+      const stops = Array.from(el.querySelectorAll<HTMLElement>('[tabindex="0"], input, textarea, button')).filter((x) => x.getClientRects().length > 0 && x.getAttribute('aria-disabled') !== 'true');
+      if (!stops.length) return;
+      const i = stops.indexOf(document.activeElement as HTMLElement);
+      e.preventDefault();
+      stops[i < 0 ? 0 : (i + (e.shiftKey ? stops.length - 1 : 1)) % stops.length].focus();
+    };
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [confirm]);
 
   useEffect(() => {
     if (reduce) {
@@ -783,15 +812,19 @@ export function MenuSep() {
 }
 
 /**
- * A confirm (B-11 §9b): the act and the thing as its title, Cancel filled and first, the action
- * beside it. Focus lands on Cancel; Esc, Back and the scrim cancel.
+ * P-103 (8; audit F-8, F-28): the one confirm, for everything destructive — modelled on the import preview. A
+ * question as its title, the consequence in one line (`body`; `children` may name what it reaches), Cancel —
+ * filled, first, with the focus — and the destructive verb in red (never the filled paper button). Focus stays
+ * inside it (Tab and Shift+Tab go round); Esc, Back and the scrim cancel.
  */
-export function Confirm({ title, action, onAct, onCancel, testID }: { title: string; action: string; onAct: () => void; onCancel: () => void; testID?: string }) {
+export function Confirm({ title, body, action, spoken, onAct, onCancel, testID, actionTestID, children }: { title: string; body: string; action: string; spoken?: string; onAct: () => void; onCancel: () => void; testID?: string; actionTestID?: string; children?: ReactNode }) {
   return (
     <Sheet title={title} onClose={onCancel} confirm testID={testID}>
+      <T testID="go-confirm-body">{body}</T>
+      {children}
       <View style={styles.pair}>
         <Btn kind="filled" label="Cancel" onPress={onCancel} style={styles.grow} dataSet={{ first: 'true' }} />
-        <Btn label={action} onPress={onAct} style={styles.grow} />
+        <Btn danger label={action} spoken={spoken} onPress={onAct} style={styles.grow} testID={actionTestID} />
       </View>
     </Sheet>
   );

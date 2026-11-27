@@ -86,9 +86,9 @@ function readTyping(key: string): Typing | null {
   }
 }
 
-type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true };
+type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true };
 
-export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: string; inSeq?: string }) {
+export function Plan({ runId, routineId, inSeq, fromRun }: { runId?: string; routineId?: string; inSeq?: string; fromRun?: boolean }) {
   const data = useStore((s) => s.data);
   const act = useStore.getState;
   const focused = useIsFocused();
@@ -129,6 +129,43 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
   const [addFocused, setAddFocused] = useState(false);
   /** P-96 audit F6: the field the names bar was entered from (by the keyboard), so a chip inserts there. */
   const lastField = useRef<HTMLInputElement | null>(null);
+  /**
+   * P-103 (11; the owner typed "@{concerns}"): "@" or "{" typed opens the names (as @ does in Notion and Slack) —
+   * the bar shows the names that match what is typed after it; Return or a tap puts the name there. Esc closes it
+   * (that one stays closed); a "}" typed, a space, or the caret moving away does too. `start`: where the "@"/"{" is.
+   */
+  const [picking, setPicking] = useState<{ start: number; query: string } | null>(null);
+  /** P-103 audit F3: the name the person has chosen in it (↑/↓), -1 for none yet; typing part of a name chooses the first match. */
+  const [lit, setLit] = useState(-1);
+  /** A name just put in: where the caret goes, set as soon as the field holds the new words (before the next key). */
+  const caretAfter = useRef<{ field: HTMLInputElement; text: string; at: number } | null>(null);
+  useLayoutEffect(() => {
+    const c = caretAfter.current;
+    if (!c) return;
+    // Once, at the commit that shows the name (never on a later render: by then the focus is the person's).
+    caretAfter.current = null;
+    if (!c.field.isConnected || c.field.value !== c.text) return;
+    // Back to the field only from where the name was chosen (a chip, Insert) or from nowhere — never from elsewhere.
+    const at = document.activeElement as HTMLElement | null;
+    const fromBar = !at || at === document.body || !!at.closest?.('[data-testid="go-names-bar"], [data-insert]');
+    if (at !== c.field && fromBar) c.field.focus();
+    if (document.activeElement === c.field) c.field.setSelectionRange(c.at, c.at);
+  });
+  const shutAt = useRef(-1);
+
+  const readPick = (text: string) => {
+    const el = WEB ? lastField.current : null;
+    const caret = el && typeof el.selectionStart === 'number' ? Math.min(el.selectionStart, text.length) : text.length;
+    // P-103 audit F3: only at a word's start (after a space, or first), and only while what follows is a name's
+    // letters — "me@co", "x@y.z" and a lone "{" at a word's end never insert by themselves.
+    const m = /(?:^|\s)([@{])([\p{L}\p{N}_-]*)$/u.exec(text.slice(0, caret));
+    setLit(-1);
+    if (!m) return setPicking(null);
+    const start = caret - m[2].length - 1;
+    if (start === shutAt.current) return setPicking(null);
+    shutAt.current = -1;
+    setPicking({ start, query: m[2] });
+  };
   /** Routines opened or closed by hand (by row key); the rest follow `opened`. */
   const [folds, setFolds] = useState<Record<string, boolean>>({});
   /** A row being dragged by its grip (P-95): its key and how far the pointer has moved. */
@@ -156,10 +193,12 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
   useEffect(() => {
     if (!focused || here) return;
     if (gone || !runOf || undone) goHome();
+    // P-103 (3): opened from the runner, it is over it — back to it (the runner beneath is where you were).
+    else if (route === 'runner' && fromRun && router.canGoBack()) router.back();
     else if (route === 'runner') router.replace(`/go/run/${runOf}`);
     // A routine's address while it has a run: that run's Plan.
     else router.replace(`/go/run/${runOf}/plan`);
-  }, [focused, here, gone, runOf, route, undone]);
+  }, [focused, here, gone, runOf, route, undone, fromRun]);
 
   // The one write this route makes (ruling 4): a run from the build before, at the edge, still
   // carrying this-run changes. Once: an Undo of it is not folded again while this screen is up (it leaves).
@@ -189,7 +228,8 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
 
   const can = useRunUndo();
   // P-101 (ruling 6): a Plan edit's Undo (it gives no notice) — the routine's menu row, while it is the last action.
-  const quietEdit = useStore((s) => (s.runNotice?.quiet && s.runNotice.entry === s.undo ? s.runNotice.text : undefined));
+  // P-103: a removed step's Undo is on its notice too — and still here (the notice can be put away).
+  const quietEdit = useStore((s) => ((s.runNotice?.quiet || s.runNotice?.verb === 'editRoutine') && s.runNotice.entry && s.runNotice.entry === s.undo ? s.runNotice.text : undefined));
   const undo = () => {
     if (!can) return;
     can.undo();
@@ -209,6 +249,12 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
     {
       'mod+z': undo,
       Escape: () => {
+        // P-103 (11): the names opened by "@" / "{" close first; the words stay as typed.
+        if (picking && typeof document !== 'undefined' && document.querySelector('[data-testid="go-names-bar"][data-picking="true"]')) {
+          shutAt.current = picking.start;
+          setPicking(null);
+          return;
+        }
         if (!live.current) return;
         const was = live.current;
         setTyping(null);
@@ -364,6 +410,9 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
   const type = (text: string) => live.current && setTyping({ ...live.current, text });
 
   const addIt = () => {
+    // P-103 (11; audit F3): Return puts in the name chosen in the open list; with none chosen it adds, as always.
+    if (chosen >= 0) return insertName(matching[chosen]);
+    setPicking(null);
     if (!adding.trim()) return;
     // Refused (reconnecting): the words stay in the field.
     if (edit(v.routineId, { kind: 'addStep', text: adding }).ok) setAdding('');
@@ -386,26 +435,39 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
   // P-96 (ruling 5, journey 2): the bar above the keyboard — names given above where the words will stand.
   const typingIndex = typing && typing.mode !== 'name' ? v.rows.findIndex((r) => keyOf(r.path) === typing.path) : -1;
   const offered = typing && typing.mode !== 'name' ? (typingIndex >= 0 ? namesOffered(v.rows, { mode: typing.mode, index: typingIndex }) : []) : addFocused ? namesOffered(v.rows, { mode: 'end' }) : [];
+  const matching = picking ? offered.filter((n) => nameKey(n).includes(nameKey(picking.query))) : [];
+  const picked = !!picking && matching.length > 0;
+  /** The name Return puts in: one the person chose (↑/↓), or — once part of one is typed — the first match. */
+  const chosen = !picked ? -1 : lit >= 0 ? Math.min(lit, matching.length - 1) : picking!.query ? 0 : -1;
+  /** The words the caret is in: the add field's or the row's being typed (the caret moved: the names may close). */
+  // (Read from the field itself: a caret event can come before the words it follows are rendered.)
+  const caretMoved = () => readPick(WEB && lastField.current?.isConnected ? lastField.current.value : live.current ? live.current.text : adding);
+
   /**
    * A name from the bar, at the caret of the field being typed in. A pointer press never takes the focus
    * from the field; from the keyboard (a chip reached by Alt+↓ or Tab) the focus goes back to the field.
    */
   const insertName = (name: string) => {
-    const token = `{${name}}`;
     const now = live.current ? live.current.text : adding;
     const el = (WEB && typeof document !== 'undefined' ? document.activeElement : null) as HTMLInputElement | null;
     const isField = (x: HTMLInputElement | null) => !!x && (x.tagName === 'INPUT' || x.tagName === 'TEXTAREA') && typeof x.selectionStart === 'number';
     const field = isField(el) ? el : isField(lastField.current) && lastField.current!.isConnected ? lastField.current : null;
-    const from = field ? Math.min(field.selectionStart ?? now.length, now.length) : now.length;
+    let from = field ? Math.min(field.selectionStart ?? now.length, now.length) : now.length;
     const to = field ? Math.min(field.selectionEnd ?? from, now.length) : from;
-    const text = now.slice(0, from) + token + now.slice(to);
+    // P-103 (11): picked after "@" or "{": the name takes the place of what was typed from there.
+    if (picking && picking.start <= from && now.slice(picking.start, from) === now.charAt(picking.start) + picking.query) from = picking.start;
+    setPicking(null);
+    // P-103 (11): a space after it (unless one is there), so the next word is not run into it.
+    const tail = now.slice(to);
+    // P-103 audit F4: a space before it too, after a word (never at the start or after a space).
+    const lead = from === 0 || /\s/.test(now.charAt(from - 1)) ? '' : ' ';
+    const token = `${lead}{${name}}${/^\s/.test(tail) ? '' : ' '}`;
+    const text = now.slice(0, from) + token + tail;
+    if (field) caretAfter.current = { field, text, at: from + token.length };
     if (live.current) type(text);
     else setAdding(text);
-    if (field)
-      requestAnimationFrame(() => {
-        if (document.activeElement !== field) field.focus();
-        field.setSelectionRange(from + token.length, from + token.length);
-      });
+    // (No later focus here: a frame later the person may have moved on — Tab to Insert — and it would take the
+    // focus back. The commit that shows the name puts the focus and the caret back, once: `caretAfter`.)
   };
   /** The focus left the bar for somewhere that is not the field it came from: the typing is over, as if the field had been left. */
   const leftBar = () => {
@@ -463,8 +525,18 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
       <MoveItems row={reorderRow} onMove={(by) => { close(); moveRow(reorderRow, by); }} />
     </Menu>
   ) : removingRow && removing ? (
-    <Sheet title={`Remove “${removingRow.words}”?`} onClose={close} testID="go-plan-removing" fallback={title}>
-      <T>{`It gives {${removing.name}}, which ${removing.readers.length === 1 ? '1 step reads' : `${removing.readers.length} steps read`}. They’ll ask for it when run.`}</T>
+    // P-103 (8): the one confirm — a question, its reach in one line (and the steps that read it), Cancel, Remove in red.
+    <Confirm
+      title={`Remove “${removingRow.words}”?`}
+      body={`It gives {${removing.name}}, which ${removing.readers.length === 1 ? '1 step reads' : `${removing.readers.length} steps read`}. They’ll ask for it when run.`}
+      action="Remove"
+      testID="go-plan-removing"
+      actionTestID="go-plan-remove"
+      onCancel={close}
+      onAct={() => {
+        edit(removingRow.seq, { kind: 'remove', item: removingRow.itemId });
+        close();
+      }}>
       <View style={styles.gap} testID="go-plan-readers">
         {removing.readers.map((w, i) => (
           <T key={i} dim>
@@ -472,22 +544,25 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
           </T>
         ))}
       </View>
-      <Btn
-        kind="filled"
-        label="Remove"
-        spoken={`Remove ${removingRow.words}`}
-        size={18}
-        testID="go-plan-remove"
-        onPress={() => {
-          edit(removingRow.seq, { kind: 'remove', item: removingRow.itemId });
-          close();
-        }}
-      />
-      <Btn label="Close" onPress={close} />
-    </Sheet>
+    </Confirm>
+  ) : menu && 'removeRoutine' in menu && !v.runId ? (
+    // P-103 (5): removing a routine asks first (it reaches beyond this screen: home, and every routine using it).
+    <Confirm
+      title={`Remove “${v.name}”?`}
+      body="It goes from home, with its steps."
+      action="Remove"
+      testID="go-remove-routine-confirm"
+      onCancel={close}
+      onAct={() => {
+        close();
+        // Its Undo is on home's notice (this screen goes with the routine).
+        edit(v.routineId, { kind: 'removeRoutine' });
+      }}
+    />
   ) : menu && 'restart' in menu && v.runId ? (
     <Confirm
-      title={`Start ${v.name} over? Your place and values in it go.`}
+      title={`Start ${v.name} over?`}
+      body="Your place and values in it go."
       action="Start over"
       testID="go-restart-confirm"
       onCancel={close}
@@ -544,15 +619,7 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
       {!v.runId && (
         <>
           <MenuSep />
-          <MenuItem
-            label={`Remove ${v.name}`}
-            danger
-            onPress={() => {
-              // Its Undo is on home's notice (this screen goes with the routine).
-              edit(v.routineId, { kind: 'removeRoutine' });
-              close();
-            }}
-          />
+          <MenuItem label={`Remove ${v.name}`} danger testID="go-plan-remove-routine" onPress={() => setMenu({ removeRoutine: true })} />
         </>
       )}
     </Menu>
@@ -568,8 +635,16 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
         value={typing.text}
         label={label}
         placeholder={placeholder}
-        onChange={type}
-        onSubmit={() => keep(true)}
+        onChange={(text) => {
+          type(text);
+          readPick(text);
+        }}
+        onSubmit={() => {
+          if (chosen >= 0) return insertName(matching[chosen]);
+          setPicking(null);
+          keep(true);
+        }}
+        onCaret={caretMoved}
         onBlur={() => keep(false)}
         onField={(el) => {
           lastField.current = el;
@@ -581,6 +656,20 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
   // The rows of the repeating part of each sequence carry a rail (which steps come round again).
   const repeating = new Set<string>();
   const forward = v.forward && (v.forward.kind === 'resume' || v.forward.ready) ? v.forward : undefined;
+  /** The filled button: the runner, exactly where it was (the route follows the data). */
+  const goForward = () => {
+    if (!forward) return;
+    // Words still open in a row are kept by this press (the blur it causes, or here). That edit
+    // must not be silent: its notice and Undo go with you to the runner. Refused (a name that
+    // is taken, reconnecting): the field is still open — nothing runs, nothing is lost.
+    if (live.current) keep(false);
+    if (live.current) return;
+    const kept = !!act().undo && act().undo === leftEdit.current;
+    if (forward.kind === 'resume') act().resumeRun(forward.runId, kept);
+    else act().startRoutine(forward.routineId, kept);
+  };
+  /** P-103 (3): Back to the run — Resume, by another name (nothing to go back to: home). */
+  const backToRun = () => (forward?.kind === 'resume' ? goForward() : goHome());
   const foot = (
     <>
       <Notice onUndone={() => focusOn(title)} reserve={!floor} />
@@ -602,17 +691,7 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
             size={18}
             style={styles.forward}
             testID="go-plan-forward"
-            onPress={() => {
-              // The route follows the data: the runner, exactly where it was. Refused: nothing changes.
-              // Words still open in a row are kept by this press (the blur it causes, or here). That edit
-              // must not be silent: its notice and Undo go with you to the runner. Refused (a name that
-              // is taken, reconnecting): the field is still open — nothing runs, nothing is lost.
-              if (live.current) keep(false);
-              if (live.current) return;
-              const kept = !!act().undo && act().undo === leftEdit.current;
-              if (forward.kind === 'resume') act().resumeRun(forward.runId, kept);
-              else act().startRoutine(forward.routineId, kept);
-            }}
+            onPress={goForward}
           />
         ) : (
           <View style={styles.emptySlot} />
@@ -624,11 +703,16 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
   return (
     <GoScreen testID="go-plan" layer={layer}>
       <View style={styles.band} testID="go-plan-band">
+        {/* P-103 (2, 3; was P-101 ruling 2: Home at the band's right edge): the one way out, first at the top-left. Opened
+            from the runner it says so and goes back there, where you were; else ⌂ Home, which changes nothing. */}
+        {fromRun && v.runId ? (
+          <Btn ink mark="back" label="Back to the run" spoken={`Back to the run: ${v.name}`} onPress={backToRun} testID="go-plan-back" style={styles.out} />
+        ) : (
+          <Btn ink mark="home" label="Home" onPress={goHome} testID="go-plan-home" style={styles.out} />
+        )}
         <T title ink size={20} style={styles.word} testID="go-plan-word">
           PLAN
         </T>
-        {/* P-101 (ruling 2): Home, at the band's right edge — one fixed place on every Plan screen. Nothing changes. */}
-        <Btn ink mark="home" label="Home" onPress={goHome} testID="go-plan-home" />
       </View>
       {/* Web: the heading ("Plan: <name>") takes the focus and is read, unless the open row has it. Native: focus is not moved, so it is always said. */}
       {(openFirst || !WEB) && <Said text={`Plan: ${v.name}`} />}
@@ -699,7 +783,8 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
                       {row.kind === 'routine' && (
                         <Btn
                           kind="plain"
-                          mark="routine"
+                          // P-103 (10; was ▤, the routine's mark, as a button): the disclosure chevron — › shut, ⌄ open.
+                          mark={open ? 'chevronDown' : 'chevron'}
                           spoken={`${open ? 'Close' : 'Open'} ${row.words}`}
                           expanded={open}
                           onPress={() => setFolds({ ...folds, [key]: !open })}
@@ -764,6 +849,7 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
           {drag?.line !== undefined && <View style={[styles.dropLine, { top: drag.line - 2 }]} testID="go-plan-drop" pointerEvents="none" />}
 
           <View ref={addBox} style={[styles.addRow, addFocused && RING]} {...{ dataSet: { typing: '' } }}>
+            {/* P-103 (11): the field has the row's whole width and grows with its words; Insert and Add sit below it. */}
             <View style={styles.addMark}>
               <Mark name="add" color={G.dim} />
             </View>
@@ -772,7 +858,11 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
               ref={addField}
               bare
               value={adding}
-              onChangeText={setAdding}
+              onChangeText={(text) => {
+                setAdding(text);
+                readPick(text);
+              }}
+              onSelectionChange={caretMoved}
               onFocus={(e) => {
                 setAddFocused(true);
                 if (WEB) lastField.current = e.target as unknown as HTMLInputElement;
@@ -784,13 +874,17 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
               style={styles.addField}
               testID="go-plan-add"
             />
-            {addFocused && insertBtn}
-            {!!adding.trim() && <Btn kind="plain" label="Add" spoken="Add this step" onPress={addIt} style={styles.addBtn} />}
+            {((addFocused && !!insertBtn) || !!adding.trim()) && (
+              <View style={styles.addTools}>
+                {addFocused && insertBtn}
+                {!!adding.trim() && <Btn kind="plain" label="Add" spoken="Add this step" onPress={addIt} style={styles.addBtn} testID="go-plan-add-btn" />}
+              </View>
+            )}
           </View>
         </View>
         {floor && foot}
       </ScrollView>
-      {offered.length > 0 && <NamesBar names={offered} onPick={insertName} lastField={lastField} onLeave={leftBar} />}
+      {offered.length > 0 && <NamesBar names={picked ? matching : offered} picking={picked} lit={chosen} onMove={(by) => setLit(chosen < 0 ? (by > 0 ? 0 : matching.length - 1) : (chosen + by + matching.length) % matching.length)} onPick={insertName} lastField={lastField} onLeave={leftBar} />}
       {!floor && foot}
     </GoScreen>
   );
@@ -946,7 +1040,7 @@ function Grip({ words, onStart, onMove, onDrop, onPress, gripRef }: { words: str
 }
 
 /** A field typed in, in place: it has the focus from the start; Return keeps the words, leaving it keeps them too. P-101: "{ } Insert" beside it. */
-function Typed({ value, label, placeholder, onChange, onSubmit, onBlur, onField, insert }: { value: string; label: string; placeholder?: string; onChange: (text: string) => void; onSubmit: () => void; onBlur: () => void; onField: (el: HTMLInputElement) => void; insert: React.ReactNode }) {
+function Typed({ value, label, placeholder, onChange, onSubmit, onBlur, onField, onCaret, insert }: { value: string; label: string; placeholder?: string; onChange: (text: string) => void; onSubmit: () => void; onBlur: () => void; onField: (el: HTMLInputElement) => void; onCaret?: () => void; insert: React.ReactNode }) {
   const box = useRef<ViewRef>(null);
   // Taken off the screen while it has the focus (its words were kept, or it moved beneath a new row):
   // the blur that causes is not the person leaving it.
@@ -970,6 +1064,7 @@ function Typed({ value, label, placeholder, onChange, onSubmit, onBlur, onField,
         value={value}
         onChangeText={onChange}
         onSubmit={onSubmit}
+        onSelectionChange={onCaret}
         onFocus={(e) => {
           if (WEB) onField(e.target as unknown as HTMLInputElement);
         }}
@@ -1047,11 +1142,13 @@ function InsertBtn({ lastField, onLeave }: { lastField: { current: HTMLInputElem
  * keyboard (audit F6): Alt+↓ in the field goes to the first name (Tab reaches them too); ←/→ move
  * between them; Return or Space inserts and goes back to the field; Esc goes back without inserting.
  */
-function NamesBar({ names, onPick, lastField, onLeave }: { names: string[]; onPick: (name: string) => void; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
+function NamesBar({ names, picking, lit = -1, onMove, onPick, lastField, onLeave }: { names: string[]; picking?: boolean; lit?: number; onMove?: (by: 1 | -1) => void; onPick: (name: string) => void; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
   const box = useRef<ViewRef>(null);
   const leave = useRef(onLeave);
+  const move = useRef<{ picking?: boolean; onMove?: (by: 1 | -1) => void }>({});
   useEffect(() => {
     leave.current = onLeave;
+    move.current = { picking, onMove };
   });
   useEffect(() => {
     const el = box.current as unknown as HTMLElement | null;
@@ -1069,6 +1166,13 @@ function NamesBar({ names, onPick, lastField, onLeave }: { names: string[]; onPi
     };
     const key = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null;
+      // P-103 audit F3: while "@" / "{" has the names open, ↑/↓ in the field choose one (Return then puts it in).
+      if (!e.altKey && !e.ctrlKey && !e.metaKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && isField(t) && !el.contains(t) && move.current.picking) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        move.current.onMove?.(e.key === 'ArrowDown' ? 1 : -1);
+        return;
+      }
       if (e.altKey && e.key === 'ArrowDown' && isField(t) && !el.contains(t)) {
         lastField.current = t;
         e.preventDefault();
@@ -1100,9 +1204,10 @@ function NamesBar({ names, onPick, lastField, onLeave }: { names: string[]; onPi
     };
   }, [lastField]);
   return (
-    <View ref={box} style={styles.bar} testID="go-names-bar" role="toolbar" aria-label="Names">
-      {names.map((n) => (
-        <Pressable key={n} onPress={() => onPick(n)} accessibilityRole="button" accessibilityLabel={`Insert {${n}}`} style={(state) => [styles.chip, (state as { focused?: boolean }).focused && RING]} testID="go-names-chip">
+    // P-103 (11): opened by "@" / "{" (`picking`), it shows the names that match, the first marked: Return puts it in.
+    <View ref={box} style={styles.bar} testID="go-names-bar" role="toolbar" aria-label="Names" {...{ dataSet: { picking: picking ? 'true' : 'false' } }}>
+      {names.map((n, i) => (
+        <Pressable key={n} onPress={() => onPick(n)} accessibilityRole="button" accessibilityLabel={`Insert {${n}}`} style={(state) => [styles.chip, picking && i === lit && styles.chipFirst, (state as { focused?: boolean }).focused && RING]} testID="go-names-chip" {...{ dataSet: { lit: picking && i === lit ? 'true' : 'false' } }}>
           <T bold>
             <T dim {...decorative}>
               {'{'}
@@ -1250,7 +1355,8 @@ const styles = StyleSheet.create({
   // The band: light, one line, in one place on every Plan screen. Home is always its last control
   // (top right); Done, at the edge only, has the slot before it. In a window too narrow for both,
   // the word goes beneath — Home does not move.
-  band: { minHeight: 64, flexDirection: 'row', flexWrap: 'wrap-reverse', alignItems: 'center', justifyContent: 'flex-end', gap: SP.s2, paddingHorizontal: SP.s3, paddingVertical: SP.s2, backgroundColor: G.paper },
+  band: { minHeight: 64, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: SP.s3, paddingHorizontal: SP.s2, paddingVertical: SP.s2, backgroundColor: G.paper },
+  out: { flexShrink: 1, paddingHorizontal: SP.s2 },
   word: { flexGrow: 1, letterSpacing: 1 },
   body: { flexGrow: 1, padding: SP.s3, paddingBottom: SP.s2 },
   rows: { gap: SP.s2 },
@@ -1277,19 +1383,23 @@ const styles = StyleSheet.create({
   divider: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: SP.s2, borderTopWidth: 2, borderTopColor: G.dim, borderStyle: 'dashed', paddingTop: SP.s2 },
   dividerWords: { flexDirection: 'row', alignItems: 'center', gap: SP.s2, flexGrow: 1, flexShrink: 1, flexBasis: 120, minHeight: TARGET },
   addRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', borderWidth: 2, borderColor: G.line, backgroundColor: G.surf },
+  // A line of their own, below the field (`flexBasis` 100 %), at its end.
+  addTools: { flexBasis: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: SP.s1 },
   addMark: { width: 24, marginLeft: SP.s3 - 4, alignItems: 'center' },
   // Too narrow for the words and Add on one line (large text): Add goes beneath, at the end.
-  addBtn: { minWidth: TARGET + SP.s3, justifyContent: 'center', marginLeft: 'auto' },
-  addField: { flex: 1, minWidth: 96, paddingHorizontal: SP.s2 },
+  addBtn: { minWidth: TARGET + SP.s3, justifyContent: 'center' },
+  addField: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 0, paddingHorizontal: SP.s2 },
   // P-101 (ruling 8): the field and "{ } Insert" beside it; with too little room, Insert goes beneath, at the end.
-  typedRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-start', gap: SP.s1 },
-  typedField: { flexGrow: 1, flexShrink: 1, flexBasis: 200, minWidth: 0 },
-  insert: { marginLeft: 'auto' },
+  // P-103 (11): the field its whole width; Insert below it, at the end.
+  typedRow: { gap: SP.s1 },
+  typedField: { alignSelf: 'stretch', minWidth: 0 },
+  insert: { alignSelf: 'flex-end' },
   foot: { paddingHorizontal: SP.s3, paddingBottom: SP.s3, paddingTop: SP.s1 },
   // The side doors: two halves, left and right, always in the same places (P-96).
   doors: { flexDirection: 'row', gap: SP.s2, paddingHorizontal: SP.s3, paddingTop: SP.s1, paddingBottom: SP.s2 },
   door: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   bar: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2, paddingHorizontal: SP.s3, paddingVertical: SP.s2, backgroundColor: G.surf, borderTopWidth: 2, borderTopColor: G.line },
+  chipFirst: { borderColor: G.text },
   chip: { minHeight: TARGET, minWidth: TARGET, justifyContent: 'center', paddingHorizontal: SP.s3, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf2 },
   forward: { minHeight: 56 },
   // As tall as the filled button and the room its shadow keeps.

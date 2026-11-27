@@ -12,7 +12,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, expectApart, expectFinal, expectInside, exported, home, openGo, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody } from './goFixture';
+import { arrived, expectApart, expectFinal, expectInside, exported, home, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody } from './goFixture';
 
 /** The owner's MyStack: a call (Vibe check) that gives {mood}, a step that reads it. */
 const STACK: RoutineSpec = { id: 'stack', name: 'MyStack', steps: [{ routine: 'vibe' }, 'Pick a task for {mood}', 'Do it'] };
@@ -164,10 +164,12 @@ for (const size of SIZES) {
       await page.keyboard.press('Enter');
       const r = runner(page);
       await expect(r.words).toHaveText('Vibe check');
-      // Plan from the runner, then Home: paused, never "planning"; same order; it is "last" now.
+      // Plan from the runner, then home: paused, never "planning"; same order; it is "last" now.
+      // (P-103 (3; was: Plan's Home): Plan opened from the runner goes back to it — then Pause goes home.)
       await r.plan.click();
       await expect(plan(page).line).toHaveText('at Vibe check');
-      await plan(page).home.click();
+      await plan(page).back.click();
+      await pauseRun(page);
       await expect(home(page).screen).not.toContainText('planning');
       expect(await names()).toEqual(order);
       await expect(tile(page, 'MyStack').getByTestId('go-tile-last')).toHaveText('last');
@@ -335,7 +337,8 @@ for (const size of SIZES) {
       await page.keyboard.press('Escape');
       await expect(p.typed).toBeFocused();
       await p.typed.press('Enter');
-      await expect(p.row('Gesture drawing{lines}')).toHaveCount(1);
+      // P-103 (audit F4; was 'Gesture drawing{lines}'): a name put in after a word gets a space before it.
+      await expect(p.row('Gesture drawing {lines}')).toHaveCount(1);
       // And on the runner, the context line says it too.
       await p.forward.click();
       await expect(runner(page).screen.getByTestId('go-context-gives')).toHaveText('gives {lines}');

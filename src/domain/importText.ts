@@ -8,20 +8,27 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
 const list = (parts: string[]) => (parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}` : parts.join(''));
 
 /**
- * "98 activities and 12 wanders (2 hidden)", "…, 12 wanders, 3 routines and 1 run", "3 routines and
- * 2 runs": every kind of record only when there are any (P-89: someone who never had activities or
- * wanders is not told they have none).
+ * P-103 (the owner: no retired-app words in Settings): the previous app's records (its activities and wanders)
+ * are counted together, plainly, as "N items from the previous app" — kept and imported exactly as before.
+ */
+const EARLIER = (n: number) => `${count(n, 'item', 'items')} from the previous app`;
+/** The two collections the previous app kept. */
+const EARLIER_COLLECTIONS: Collection[] = ['activities', 'threads'];
+
+/**
+ * "3 routines and 2 runs", "3 routines, 1 run and 110 items from the previous app": every kind of record only
+ * when there are any (P-89: someone who never had earlier data is not told they have none).
  */
 function held(plan: ImportPlan, side: 'here' | 'incoming'): string {
   const c = plan[side];
-  const hidden = side === 'incoming' && c.hidden ? ` (${c.hidden} hidden)` : '';
   const later = LATER_COLLECTIONS.map((k) => [k, (side === 'here' ? heldHere : heldIncoming)(plan[k])] as const)
     .filter(([, n]) => n > 0)
     .map(([k, n]) => count(n, COLLECTION_INFO[k].one, COLLECTION_INFO[k].many));
-  return list([...(c.activities ? [count(c.activities, 'activity', 'activities')] : []), ...(c.wanders ? [`${count(c.wanders, 'wander', 'wanders')}${hidden}`] : []), ...later]);
+  const earlier = c.activities + c.wanders;
+  return list([...later, ...(earlier ? [EARLIER(earlier)] : [])]);
 }
 
-/** "This backup has 98 activities and 12 wanders (2 hidden), from 3 Jan to 9 Mar 2026." */
+/** "This backup has 3 routines and 110 items from the previous app, from 3 Jan to 9 Mar 2026." */
 export function importHolds(plan: ImportPlan): string {
   if (plan.empty) return 'This backup is empty.';
   return `This backup has ${held(plan, 'incoming')}${when(plan.dateRange)}.`;
@@ -38,15 +45,16 @@ function when(range: ImportPlan['dateRange']): string {
   return `, from ${from.toLocaleDateString(undefined, sameYear ? day : full)} to ${to.toLocaleDateString(undefined, full)}`;
 }
 
-/** An empty backup: "Replacing would remove all 98 activities and 12 wanders here." */
+/** An empty backup: "Replacing would remove all 3 routines and 110 items from the previous app here." */
 export const importRemovesAll = (plan: ImportPlan): string => `Replacing would remove all ${held(plan, 'here')} here.`;
 
-/** "Replacing would add 4, change 2 and remove 22 activities, and add 1 wander." */
+/** "Replacing would add 1 routine, and add 4, change 2 and remove 23 items from the previous app." */
 export function importChanges(plan: ImportPlan): string {
-  // Activities first, then wanders, as the sentence always read; then every other collection.
-  const order: Collection[] = ['activities', 'threads', ...LATER_COLLECTIONS];
-  const parts = order.map((c) => phrase(plan[c], (n) => count(n, COLLECTION_INFO[c].one, COLLECTION_INFO[c].many))).filter(Boolean);
-  return `Replacing would ${parts.join(', and ')}.`;
+  const parts = LATER_COLLECTIONS.map((c) => phrase(plan[c], (n) => count(n, COLLECTION_INFO[c].one, COLLECTION_INFO[c].many)));
+  // P-103: the previous app's two collections as one (each diff summed).
+  const sum = (k: keyof ImportDiff) => EARLIER_COLLECTIONS.reduce((n, c) => n + plan[c][k], 0);
+  parts.push(phrase({ added: sum('added'), changed: sum('changed'), removed: sum('removed'), unchanged: sum('unchanged') }, EARLIER));
+  return `Replacing would ${parts.filter(Boolean).join(', and ')}.`;
 }
 
 function phrase(d: ImportDiff, noun: (n: number) => string): string {

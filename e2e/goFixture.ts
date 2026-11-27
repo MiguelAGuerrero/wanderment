@@ -273,7 +273,7 @@ export const runner = (page: Page) => {
     note: screen.getByTestId('go-note'),
     words: screen.getByTestId('go-note-words'),
     next: screen.getByTestId('go-next'),
-    /** P-101 (ruling 2): the doors, at the top line's right — ❚❚ (opens "Pausing <name>") and Plan ("Plan <routine>" inside a call). */
+    /** P-103 (2; was P-101 ruling 2: both at the top line's right): ❚❚ Pause first at its left (opens "Pausing <name>"); Plan at its right ("Plan <routine>" inside a call). */
     pause: screen.getByTestId('go-pause'),
     plan: screen.getByTestId('go-plan-door'),
     doors: screen.getByTestId('go-side-doors'),
@@ -308,6 +308,8 @@ export const plan = (page: Page) => {
     band: screen.getByTestId('go-plan-band'),
     word: screen.getByTestId('go-plan-word'),
     home: screen.getByTestId('go-plan-home'),
+    /** P-103 (3): Plan opened from the runner — its way out, top-left in Home's place, "Back to the run". */
+    back: screen.getByTestId('go-plan-back'),
     done: screen.getByTestId('go-plan-done'),
     title: screen.getByRole('heading', { level: 1 }),
     line: screen.getByTestId('go-plan-line'),
@@ -611,6 +613,21 @@ export async function expectEdit(page: Page, text: string) {
   const menu = await arrived(page, 'go-plan-routine');
   await expect(menu.getByTestId('go-plan-undo')).toContainText(undoOf(text));
   // P-102 (was: its sheet's Close): the menu is put away with Esc.
+  await closeMenu(page, 'go-plan-routine');
+}
+
+/**
+ * P-103 (5; audit F-4; was: no notice, as every Plan edit): removing a step says so — "Removed “<step>”" with a
+ * labelled Undo — and its Undo is in the routine's menu too ("Undo <edit>"). Checks both; closes the menu (opening
+ * it is a tap: the notice is put away, its Undo stays).
+ */
+export async function expectRemoved(page: Page, text: string) {
+  const notice = plan(page).notice;
+  await expect(notice).toContainText(text);
+  await expect(notice.getByRole('button', { name: /^Undo/ })).toHaveText('Undo');
+  await plan(page).screen.getByTestId('go-plan-more').click();
+  const menu = await arrived(page, 'go-plan-routine');
+  await expect(menu.getByTestId('go-plan-undo')).toContainText(undoOf(text));
   await closeMenu(page, 'go-plan-routine');
 }
 

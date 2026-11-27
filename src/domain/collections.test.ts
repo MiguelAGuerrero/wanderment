@@ -277,7 +277,7 @@ describe('the import preview’s words name routines and runs', () => {
 
   it('what a backup holds: routines and runs are named when it has any, and the sentence is unchanged when it has none', () => {
     expect(importHolds(planImport(emptyData(), data({ threads: { t1: thread('t1', 'draw') }, activities: { a1: act('a1', 'x', { occurredAt: new Date(0).toISOString() }), a2: act('a2', 'y', { occurredAt: new Date(0).toISOString() }) } })))).toBe(
-      'This backup has 2 activities and 1 wander.',
+      'This backup has 3 items from the previous app.' /* P-103: was "2 activities and 1 wander" */,
     );
     const both = data({ routines: { r1: routine('r1'), r2: routine('r2') }, runs: { n1: run('n1') } });
     expect(importHolds(planImport(emptyData(), both))).toBe('This backup has 2 routines and 1 run.');
@@ -287,17 +287,17 @@ describe('the import preview’s words name routines and runs', () => {
 
   it('what replacing would do: a format-1 backup says the routines and runs here would be removed', () => {
     const old = fromBackup(backup({ version: 1, threads: { t1: thread('t1', 'draw') }, activities: { a1: act('a1', 'sketched'), a2: act('a2', 'new') } }));
-    expect(importChanges(planImport(here, old))).toBe('Replacing would add 1 activity, and remove 1 routine, and remove 1 run.');
+    expect(importChanges(planImport(here, old))).toBe('Replacing would remove 1 routine, and remove 1 run, and add 1 item from the previous app.' /* P-103 */);
     const more = data({ ...here, routines: { r1: routine('r1', { words: 'Apply' }), r2: routine('r2'), r3: routine('r3') } });
     expect(importChanges(planImport(here, more))).toBe('Replacing would add 2 and change 1 routine.');
     // Unchanged from before P-85 when no routine or run is involved.
     const plain = data({ threads: { t2: thread('t2', 'run') }, activities: { a1: act('a1', 'sketched'), a3: act('a3', 'z') } });
-    expect(importChanges(planImport(data({ threads: here.threads, activities: here.activities }), plain))).toBe('Replacing would add 1 activity, and add 1 and remove 1 wander.');
+    expect(importChanges(planImport(data({ threads: here.threads, activities: here.activities }), plain))).toBe('Replacing would add 2 and remove 1 item from the previous app.' /* P-103: was "add 1 activity, and add 1 and remove 1 wander" */);
   });
 
   it('an empty backup: everything here would go, routines and runs named when there are any', () => {
-    expect(importRemovesAll(planImport(here, emptyData()))).toBe('Replacing would remove all 1 activity, 1 wander, 1 routine and 1 run here.');
-    expect(importRemovesAll(planImport(data({ threads: here.threads, activities: here.activities }), emptyData()))).toBe('Replacing would remove all 1 activity and 1 wander here.');
+    expect(importRemovesAll(planImport(here, emptyData()))).toBe('Replacing would remove all 1 routine, 1 run and 2 items from the previous app here.' /* P-103 */);
+    expect(importRemovesAll(planImport(data({ threads: here.threads, activities: here.activities }), emptyData()))).toBe('Replacing would remove all 2 items from the previous app here.' /* P-103 */);
   });
 });
 

@@ -13,7 +13,7 @@ const READ: { [K in Collection]: (raw: unknown, key: string, bad: Bad) => Record
   threads(raw, key, bad) {
     const t = raw as Partial<Thread> | undefined;
     if (!t || typeof t.name !== 'string' || !t.name.trim()) {
-      bad('A wander in the backup is malformed.');
+      bad('An item from the previous app in the backup is malformed.');
       return undefined;
     }
     return {
@@ -122,11 +122,11 @@ export function migrateData(raw: unknown, opts: { skipInvalid?: boolean } = {}):
   if (typeof d.version !== 'number' || !Number.isInteger(d.version) || d.version < 1) throw new Error('That file isn’t a backup from this app.');
   const version = d.version;
   if (!d.threads || typeof d.threads !== 'object' || !d.activities || typeof d.activities !== 'object') {
-    throw new Error('The backup is missing wanders or activities.');
+    throw new Error('The backup is missing the previous app’s items.');
   }
   // The checks below are for imports only: saved data loads as it always has (P-04).
   if (strict && (Array.isArray(d.threads) || Array.isArray(d.activities))) {
-    throw new Error('The backup’s wanders or activities aren’t in the right shape.');
+    throw new Error('The backup’s items from the previous app aren’t in the right shape.');
   }
 
   const data = emptyData();
@@ -195,7 +195,7 @@ function refuseSameNames(threads: Record<Id, Thread>) {
   const shown = groups.slice(0, SHOWN).map(list).join('; ');
   const more = groups.length > SHOWN ? `; and ${groups.length - SHOWN} more` : '';
   const fix = 'in the file, or in the app the backup came from and export it again.';
-  throw new Error(one ? `Two wanders have the same name: ${shown}. Rename one ${fix}` : `Some wanders have the same name: ${shown}${more}. Rename them ${fix}`);
+  throw new Error(one ? `Two items from the previous app have the same name: ${shown}. Rename one ${fix}` : `Some items from the previous app have the same name: ${shown}${more}. Rename them ${fix}`);
 }
 
 /** At most this many characters of a name in a message; longer ones end in "…" (never cut through a character). */

@@ -18,6 +18,19 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — A neutral name for now; Settings still says the old name
+"A neutral placeholder, or you can offer a suggestion. Also, notice that the settings of the app still
+reference Wonders, and that has to be updated."
+Interpretation (ours): the visible name becomes the placeholder "Routines" until the owner names the app;
+Settings' wording is cleared of the retired app's words; stored-data identifiers stay.
+Led to: P-103 (13).
+
+## 2026-11-27 — The library and the composer: go after P-98 (relayed)
+"write a brief for the library and quick composer"; answers: "Go, after P-98 (Recommended)"; "Library and
+Copy (Recommended)"; "Only when summoned (Recommended)"; "Conventions in, waits out (Recommended)".
+Interpretation: see D-24 and B-17.
+Led to: D-24; P-104, P-105, P-106.
+
 ## 2026-11-27 — Confirmed: a for each that applies a routine to each item
 "Yes I was trying to write a for each and apply a function over them"
 Interpretation (ours): real use needs P-98 (for each over a list, calling a routine per item) — the

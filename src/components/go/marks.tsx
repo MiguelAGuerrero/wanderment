@@ -34,12 +34,20 @@ export type MarkName =
   /** P-96: Home, a side door on Plan (the conventional house, in blocks). */
   | 'home'
   /** P-96: a value — the braces of `{name}` (a name, a field that gives it, the values row). */
-  | 'braces';
+  | 'braces'
+  /** P-103: Done — the conventional check (its own mark: never Next's arrow). */
+  | 'check'
+  /** P-103: open / close a routine row in Plan — the conventional disclosure chevron (› shut, ⌄ open). */
+  | 'chevron'
+  | 'chevronDown'
+  /** P-103: the pause note (a note: ❚❚ is the Pause button's alone). */
+  | 'note';
 
 const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corner' | 'grip'>, string> = {
   wait: 'M6 3h12M6 21h12M7 3v4l5 5-5 5v4M17 3v4l-5 5 5 5v4',
   forward: 'M4 12h15M13 6l6 6-6 6',
-  repeat: 'M4 9h13l-3-3M20 15H7l3 3',
+  // P-103 (audit F-18; was ⇄, which means swap): ↻, the conventional repeat — a circle's arc and its arrowhead.
+  repeat: 'M19 12a7 7 0 1 1-2.05-4.95M19 3v5h-5',
   back: 'M20 12H5M11 6l-6 6 6 6',
   backStep: 'M6 5v14M19 5l-9 7 9 7V5z',
   jump: 'M5 4v9h13M13 8l5 5-5 5',
@@ -56,6 +64,10 @@ const D: Record<Exclude<MarkName, 'pause' | 'here' | 'more' | 'routine' | 'corne
   // Settings: the conventional cog, in blocks (eight teeth, a square hub).
   home: 'M3 11l9-8 9 8M6 9v11h12V9M10 20v-6h4v6',
   braces: 'M9 4H7v6l-2 2 2 2v6h2M15 4h2v6l2 2-2 2v6h-2',
+  check: 'M4 12l5 5L20 6',
+  chevron: 'M9 5l7 7-7 7',
+  chevronDown: 'M5 9l7 7 7-7',
+  note: 'M5 3h10l4 4v14H5zM8 11h8M8 15h6',
   gear: 'M10 3h4v3h1l2-2 3 3-2 2v1h3v4h-3v1l2 2-3 3-2-2h-1v3h-4v-3H9l-2 2-3-3 2-2v-1H3v-4h3V9L4 7l3-3 2 2h1zM10 10h4v4h-4z',
 };
 
