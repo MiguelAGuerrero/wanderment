@@ -11,9 +11,13 @@
  * P-101 (ruling 5): the filled "Resume <name>" bar is gone — a run's tile BODY resumes it ("Resume
  * <name>"); the order never changes for a pause (runs by when each was started); the run touched last is
  * marked "last"; Pause opens its own sheet first (e2e/go-moves.spec.ts). Each rewrite says what it was.
+ *
+ * P-97 (owner, 2026-11-26): home shows only the runs going (Ongoing / Finishing); a routine with nothing going is
+ * on My routines (e2e/go-routines.spec.ts), where its Start and Plan now are. The tests that counted every routine
+ * as a tile, or reached an idle routine's Start or Plan from its tile, are rewritten to that; each says so.
  */
 import { expect, test } from './fixtures';
-import { addStep, arrived, expectInside, home, MAYA, openGo, pauseRun, plan, RoutineSpec, runner, settled, startGo, startThing, tile, tileBody, sinceDate } from './goFixture';
+import { addStep, arrived, expectInside, home, MAYA, openGo, openRoutines, pauseRun, plan, planFromRoutines, routines, RoutineSpec, runner, RunSpec, settled, startGo, startThing, tile, tileBody, sinceDate } from './goFixture';
 
 const THREE = [
   { id: 'r1', routine: 'apply', at: 1, reason: 'need the job ad open', touchedMinutesAgo: 30 },
@@ -78,39 +82,38 @@ test('J01-b, P-95 (3): a start leaves no Undo and no notice (it is not something
   await expect(tile(page, 'Learn the ukulele')).toHaveCount(0);
 });
 
-test('J02-a, J34-d: tiles in a fixed order, each in its own colour, with its name, where it is and Resume or Start — and Plan, in words (a routine with no steps: Plan only)', async ({ page }) => {
+test('J02-a, J34-d: tiles in a fixed order, each in its own colour, with its name, where it is and Resume — and Plan, in words (P-97; was: and every routine with nothing going, with Start)', async ({ page }) => {
   await startGo(page, THREE);
   const h = home(page);
-  await expect(h.tiles).toHaveCount(4);
+  // P-97 (was: 4, "Feel at home in Spanish" with nothing going among them): the three runs going.
+  await expect(h.tiles).toHaveCount(3);
   // The order they were first made in: nothing is ranked, the run touched last is marked, not moved.
   // P-101 (ruling 5; was: Resume / Plan buttons): a run's body resumes it; every tile has Plan.
   await expect(h.tiles.getByTestId('go-tile-body')).toHaveCount(3);
-  await expect(h.tiles.getByRole('button', { name: /^Plan / })).toHaveCount(4);
+  await expect(h.tiles.getByRole('button', { name: /^Plan / })).toHaveCount(3);
   const names = await h.tiles.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
   expect(names).toEqual([
     'Apply to Initech, paused at Tailor the CV, need the job ad open',
     `Apply to Acme, waiting for a reply from Acme · since ${SINCE}`,
     'Practise drawing, paused at Warm-up lines',
-    'Feel at home in Spanish',
   ]);
   await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-line')).toHaveText('at Tailor the CV');
   await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-reason')).toHaveText('need the job ad open');
   await expect(tile(page, 'Apply to Acme').getByTestId('go-tile-line')).toHaveText(`waiting for a reply from Acme · since ${SINCE}`);
-  await expect(tile(page, 'Feel at home in Spanish').getByTestId('go-tile-line')).toHaveCount(0);
+  // P-97: nothing going there — not on home (it is on My routines).
+  await expect(tile(page, 'Feel at home in Spanish')).toHaveCount(0);
   await expect(tile(page, 'Practise drawing')).toHaveAttribute('data-current', 'true');
   await expect(h.screen.locator('[data-testid="go-tile"][data-current="true"]')).toHaveCount(1);
   // Spoken names for the repeated buttons.
   await expect(h.screen.getByRole('button', { name: /^Resume Apply to Initech, at Tailor the CV/ })).toBeVisible();
   await expect(h.screen.getByRole('button', { name: 'Plan Apply to Initech', exact: true })).toBeVisible();
-  // Nothing to start yet (no steps): no Start, dimmed or otherwise.
-  await expect(h.screen.getByRole('button', { name: 'Start Feel at home in Spanish', exact: true })).toHaveCount(0);
-  await expect(h.screen.getByRole('button', { name: 'Plan Feel at home in Spanish', exact: true })).toBeVisible();
+  // (P-97: a routine with no steps has no Start on My routines either — e2e/go-routines.spec.ts.)
   // Each in its own colour.
   const colours = await h.tiles.evaluateAll((els) => els.map((e) => getComputedStyle(e).backgroundColor));
-  expect(new Set(colours).size).toBe(4);
+  expect(new Set(colours).size).toBe(3);
   // Nothing is counted: the only figures on a tile are a date.
   for (const text of await h.tiles.allInnerTexts()) expect(text.replace(`since ${SINCE}`, '')).not.toMatch(/\d/);
-  // Resume, Start and Plan are outlined: home has no filled button.
+  // Resume and Plan are outlined: home has no filled button.
   for (const b of await h.tiles.getByRole('button').all()) expect(await b.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
 });
 
@@ -152,7 +155,7 @@ test('J02-b (P-96; was: with a paused run /go opens its paused screen): with a p
   await expect(page.getByTestId('go-resume')).toHaveCount(0);
 });
 
-test('one thing at a time: a start while something is running is unavailable; Plan and New stay; the running run is resumed by its tile (P-101; was: by the bottom bar)', async ({ page }) => {
+test('one thing at a time: a start while something is running is unavailable (P-97: on My routines; was: on idle tiles); Plan and New stay; the running run is resumed by its tile (P-101; was: by the bottom bar)', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
   await page.goBack();
   const h = home(page);
@@ -162,23 +165,27 @@ test('one thing at a time: a start while something is running is unavailable; Pl
   await expect(own).toHaveAccessibleName(/^Resume Apply to Initech/);
   await expect(own).toBeEnabled();
   expect(await own.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe('rgb(244, 241, 232)');
-  // Everything else is shown but unavailable (dashed AND disabled) until you pause: no way to switch from here.
-  for (const name of ['Start Practise drawing', 'Start Apply to Acme']) {
-    const b = h.screen.getByRole('button', { name, exact: true });
-    await expect(b).toBeVisible();
-    await expect(b).toBeDisabled();
-    expect(await b.evaluate((e) => getComputedStyle(e).borderTopStyle)).toBe('dashed');
+  // P-97 (was: the idle tiles' Start, dashed and disabled): on My routines every other Start is shown but
+  // unavailable until you pause — no way to switch from there; Plan stays.
+  const list = await openRoutines(page);
+  for (const name of ['Practise drawing', 'Apply to Acme']) {
+    await list.more(name).click();
+    const menu = await arrived(page, 'go-routine-menu');
+    await expect(menu.getByRole('menuitem', { name: `Start ${name}`, exact: true })).toBeDisabled();
+    await expect(menu.getByRole('menuitem', { name: `Plan ${name}`, exact: true })).toBeEnabled();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('go-routine-menu')).toHaveCount(0);
   }
-  // Plan and New stay available: they run nothing (P-90: New makes the routine only).
+  await list.home.click();
+  // New stays available: it runs nothing (P-90: New makes the routine only).
   await expect(h.newBtn).toBeEnabled();
-  await expect(h.screen.getByRole('button', { name: 'Plan Practise drawing', exact: true })).toBeEnabled();
   // New starts nothing, so it is not refused: Plan opens on the new routine — and the run goes on running.
   await startThing(page, 'bake bread');
   await expect(plan(page).forward).toHaveCount(0);
   await plan(page).home.click();
-  await expect(h.tiles).toHaveCount(5);
+  // P-97 (was: 5 tiles): only the run going.
+  await expect(h.tiles).toHaveCount(1);
   await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'running');
-  await expect(tile(page, 'Practise drawing')).toHaveAttribute('data-state', 'idle');
   // Its Resume goes back in.
   await own.click();
   await expect(runner(page).words).toHaveText('Tailor the CV');
@@ -198,7 +205,8 @@ test('P-95 (2): New asks for the name in a sheet of its own; Plan there makes th
   // (The sheet's handle is a Close too: the one in words is the last.)
   await sheet.getByRole('button', { name: 'Close', exact: true }).last().click();
   await expect(page.getByTestId('go-new-sheet')).toHaveCount(0);
-  await expect(h.tiles).toHaveCount(4);
+  // P-97 (was: 4, with the routine that had nothing going): the three runs going.
+  await expect(h.tiles).toHaveCount(3);
   // Named, Plan (the filled one) makes it and opens its Plan; Return does the same.
   await h.screen.getByTestId('go-new').click();
   sheet = await arrived(page, 'go-new-sheet');
@@ -216,7 +224,10 @@ test('P-95 (2): New asks for the name in a sheet of its own; Plan there makes th
   await sheet.getByTestId('go-new-name').press('Enter');
   await expect(plan(page).title).toHaveText('Bake bread');
   await plan(page).home.click();
-  await expect(h.tiles).toHaveCount(6);
+  // P-97 (was: 6 tiles): New makes the routine only, so home is as it was; both are on My routines.
+  await expect(h.tiles).toHaveCount(3);
+  await expect((await openRoutines(page)).row('Learn the ukulele')).toHaveCount(1);
+  await expect(routines(page).row('Bake bread')).toHaveCount(1);
 });
 
 test('P-95 (5), P-96 (was: Home on the runner): Pause pauses the run and home shows it in its place — P-101 (rulings 3, 5; was: "no ask", first, "Resume <name>" the one filled button): its sheet first, marked "last", its body resumes the same step', async ({ page }) => {
@@ -242,7 +253,8 @@ test('P-95 (5), P-96 (was: Home on the runner): Pause pauses the run and home sh
   expect(filled).toBe(0);
   // The other tiles keep their fixed order after it.
   const names = await h.tiles.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')?.split(',')[0]));
-  expect(names).toEqual(['Apply to Initech', 'Apply to Acme', 'Practise drawing', 'Feel at home in Spanish']);
+  // (P-97: the routine with nothing going is not among them.)
+  expect(names).toEqual(['Apply to Initech', 'Apply to Acme', 'Practise drawing']);
   // Nothing was ended or moved: Resume is the same step. Reopened, the app is home — the run still paused and first.
   await page.reload();
   await expect(settled(page, 'home')).toBeVisible();
@@ -269,9 +281,10 @@ test('P-95 (5): from every screen there is a visible way back to the paused run 
   await expect(settled(page, 'settings')).toBeVisible();
   await settled(page, 'settings').getByRole('button', { name: 'Back', exact: true }).click();
   await back();
-  // Another routine's Plan: Home.
-  await home(page).screen.getByRole('button', { name: 'Plan Practise drawing', exact: true }).click();
-  await plan(page).home.click();
+  // Another routine's Plan — P-97 (was: from its idle tile, then Home): from My routines, then back there and Home.
+  await planFromRoutines(page, 'Practise drawing');
+  await plan(page).toRoutines.click();
+  await routines(page).home.click();
   await back();
   // A reload: still home, the run first.
   await page.reload();
@@ -302,14 +315,16 @@ test('P-95 audit F3, P-96 (was: after Pause it reopens on the paused screen): af
   await expect(page).toHaveURL(/\/go$/);
 });
 
-test('one tile; and twenty tiles scroll while + New stays in reach (P-96; was: the prompt; P-101: no filled button — the paused run is first, by when it started)', async ({ page }) => {
+test('one tile; and twenty tiles scroll while + New stays in reach (P-96; was: the prompt; P-101: no filled button — the paused run is first, by when it started; P-97: each a run going — was: routines with nothing going)', async ({ page }) => {
   const one: RoutineSpec[] = [{ id: 'apply', name: 'Apply to Initech', steps: ['Read the job ad twice'] }];
-  await startGo(page, [], 'home', one);
+  await startGo(page, [{ id: 'r0', routine: 'apply', at: 0 }], 'home', one);
   await expect(home(page).tiles).toHaveCount(1);
   await expectInside(page, [home(page).tiles.first(), home(page).newBtn]);
 
   const twenty: RoutineSpec[] = Array.from({ length: 20 }, (_, i) => ({ id: `t${i}`, name: `Routine ${String.fromCharCode(65 + i)}`, steps: ['A step'] }));
-  await startGo(page, [{ id: 'r1', routine: 't19', at: 0, status: 'paused' }], 'home', twenty);
+  // (The paused one was started first: it is first.)
+  const runs: RunSpec[] = twenty.map((r, i) => ({ id: `r${i}`, routine: r.id, at: 0, ...(i === 19 && { status: 'paused' as const, startedDaysAgo: 2 }) }));
+  await startGo(page, runs, 'home', twenty);
   const h = home(page);
   await expect(h.tiles).toHaveCount(20);
   await expectInside(page, [h.newBtn, tileBody(page, 'Routine T')]);
@@ -318,16 +333,16 @@ test('one tile; and twenty tiles scroll while + New stays in reach (P-96; was: t
   await expectInside(page, [h.newBtn]);
 });
 
-test('a tile’s Plan opens its routine’s Plan; Settings is one control at the top right; there is no way “back” to an old app (P-89)', async ({ page }) => {
+test('a routine’s Plan (P-97: from My routines; was: an idle tile’s Plan) opens its Plan; Settings is one control at the top right; there is no way “back” to an old app (P-89)', async ({ page }) => {
   await startGo(page, []);
-  await home(page).screen.getByRole('button', { name: 'Plan Practise drawing', exact: true }).click();
-  await expect(plan(page).title).toHaveText('Practise drawing');
-  await expect(page).toHaveURL(/\/go\/routine\/drawing$/);
-  // Back from Plan is home (Plan's Home, and the browser's Back).
+  await planFromRoutines(page, 'Practise drawing');
+  await expect(page).toHaveURL(/\/go\/routine\/drawing\?from=routines$/);
+  // P-97 (was: Back from Plan is home): Back from it is My routines (its way out says so, and the browser's Back), then home.
   await page.goBack();
-  await expect(settled(page, 'home')).toBeVisible();
-  await home(page).screen.getByRole('button', { name: 'Plan Practise drawing', exact: true }).click();
-  await plan(page).home.click();
+  await expect(settled(page, 'routines')).toBeVisible();
+  await routines(page).row('Practise drawing').getByTestId('go-routine-body').click();
+  await plan(page).toRoutines.click();
+  await routines(page).home.click();
   const h = home(page);
   await expect(h.screen.getByRole('button', { name: /Back/ })).toHaveCount(0);
   await expect(page.getByText('Wanderment')).toHaveCount(0);
@@ -344,13 +359,16 @@ test('a tile’s Plan opens its routine’s Plan; Settings is one control at the
   await expect(page).toHaveURL(/\/wanderment\/go\/settings$/);
   // Back (the screen's own, as on every sub-screen) returns to the home, its tiles as they were.
   await settled(page, 'settings').getByRole('button', { name: 'Back', exact: true }).click();
-  await expect(home(page).tiles).toHaveCount(4);
+  // P-97 (was: its 4 tiles): nothing going — home says so, with My routines.
+  await expect(home(page).idle).toBeVisible();
+  await expect(home(page).routinesBtn).toBeVisible();
   await expect(page).toHaveURL(/\/wanderment\/go$/);
 });
 
-test('must-handle: MAYA’s data is what the specs think it is', async ({ page }) => {
+test('must-handle: MAYA’s data is what the specs think it is (P-97; was: a tile for each routine on home — now no tile, and every one on My routines)', async ({ page }) => {
   await startGo(page, []);
-  await expect(home(page).tiles).toHaveCount(MAYA.filter((r) => r.home !== false).length);
+  await expect(home(page).tiles).toHaveCount(0);
   await openGo(page);
-  await expect(home(page).tiles).toHaveCount(4);
+  await expect(home(page).tiles).toHaveCount(0);
+  await expect((await openRoutines(page)).rows).toHaveCount(MAYA.length);
 });

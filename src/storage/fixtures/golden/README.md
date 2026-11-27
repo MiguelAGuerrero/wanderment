@@ -72,3 +72,20 @@ this data has neither, so it must load and behave exactly as before, for good.
 | `p96-expected.json` | that build's store | what those four must read as |
 
 `freeze-p96.ts.txt` is the script that wrote them.
+
+## P-97 (frozen 2026-11-27, before tags and My routines)
+
+Written the same way by the build before P-97 (`3ac50af`), which had no `tags` on any routine and whose home
+was a tile for every routine. It started from `p96-schema4.sqlite` (so everything above is in it) and was then
+used through its own store actions. P-97 reads `tags` from a routine's body (missing = none) and shows on home
+only the runs going; this data has no tags, so it must load exactly as before and write nothing, for good.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p97-schema4.sqlite` | that build, ordinary saves, over `p96-schema4.sqlite` | everything in `p96-schema4.sqlite`, plus 9 routines (one unnamed breakdown) and 4 runs: an until-done loop from the top with a value given, paused with a note; an until-done loop only inside a step broken down, the run left inside it; a counted loop at the top, started over, then opened in Plan; a run ended with End this run; routines never started named "Écrire un poème", "apple pie" and "Éclair practice" (no steps); a removed routine; and P-96's "Read a chapter" running again |
+| `p97-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p97-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p97-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p97-expected.json` | that build's store | what those four must read as |
+
+`freeze-p97.ts.txt` is the script that wrote them.

@@ -3573,6 +3573,194 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(valueDetail(store.getState().data, ids.runId, 'tool')).toMatchObject({ text: 'ink' });
     });
   });
+
+  describe('P-97: tags survive reload, journal replay, the fallback, hand-over, export and import — and so does a field this version does not know', () => {
+    type Ids = { tagged: string; other: string };
+    const tagsIn = (data: { routines: Record<string, Record<string, unknown>> }, id: string) => data.routines[id].tags;
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * Through the store's actions, as a person would: two routines made with New, a step each, then the Tags
+     * sheet's Keep on one ("#Drawing ", "daily", "drawing" typed: two tags kept), and on the other (one tag,
+     * then none: the field goes).
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const a = g().createRoutine('Drawing practice');
+      const b = g().createRoutine('Make a game');
+      if (!a.ok || !a.routineId || !b.ok || !b.routineId) throw new Error('New: was refused');
+      const all = [
+        g().editRoutine(a.routineId, { kind: 'addStep', text: 'Warm up' }),
+        g().editRoutine(b.routineId, { kind: 'addStep', text: 'Sketch the HUD' }),
+        g().editRoutine(a.routineId, { kind: 'tags', tags: ['#Drawing ', 'daily', 'drawing'] }),
+        g().editRoutine(b.routineId, { kind: 'tags', tags: ['game'] }),
+        g().editRoutine(b.routineId, { kind: 'tags', tags: [] }),
+      ];
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { tagged: a.routineId, other: b.routineId };
+    }
+    const isAsBuilt = (data: { routines: Record<string, Record<string, unknown>> }, ids: Ids) => {
+      expect(tagsIn(data, ids.tagged)).toEqual(['Drawing', 'daily']);
+      expect('tags' in data.routines[ids.other]).toBe(false);
+    };
+
+    it('reload: saved to SQLite as kept (tidied, once without case), the same after a reload; a routine with none has no field', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      isAsBuilt(shown, ids);
+      expect(await onDisk()).toEqual(shown);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      const { myRoutines } = await import('@/domain/routines');
+      expect(myRoutines(store.getState().data).map((r) => [r.name, r.tags])).toEqual([
+        ['Drawing practice', ['Drawing', 'daily']],
+        ['Make a game', []],
+      ]);
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), the tags are there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const shown = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      isAsBuilt(store.getState().data, ids);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('the localStorage fallback keeps them, and moves them into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      expect(JSON.parse(env.ls.get('wanderment')!).state.data.routines[ids.tagged].tags).toEqual(['Drawing', 'daily']);
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      expect(store.getState().data).toEqual(shown);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(shown);
+      expect(await onDisk()).toEqual(shown);
+      isAsBuilt(store.getState().data, ids);
+    });
+
+    it('hand-over with a take-back: tags kept here, still only in the journal when the page is hidden, stay on top of another page’s change to another routine; the other page’s tags are taken', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      writeGate = deferred();
+      expect(store.getState().editRoutine(ids.tagged, { kind: 'tags', tags: ['Drawing', 'daily', 'hand'] }).ok).toBe(true);
+      await tick(0);
+      expect(store.getState().editRoutine(ids.tagged, { kind: 'tags', tags: ['Drawing', 'daily', 'hands'] }).ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRoutines.map((r: { id: string }) => r.id)).toEqual([ids.tagged]);
+      const mine = store.getState().data.routines[ids.tagged];
+
+      // The other page tags the other routine.
+      const { editRoutine } = await import('@/domain/run');
+      const other = editRoutine(await onDisk(), ids.other, { kind: 'tags', tags: ['game', 'side project'] }, { now: '2026-11-27T12:00:00.000Z', id: () => 'other-page-id' });
+      expect(other.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [other.data.routines[ids.other]] } as never);
+      db.close();
+
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.routines[ids.tagged]).toEqual(mine);
+      expect(tagsIn(store.getState().data, ids.tagged)).toEqual(['Drawing', 'daily', 'hands']);
+      expect(tagsIn(store.getState().data, ids.other)).toEqual(['game', 'side project']);
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('undo of a tags change is taken back on screen and on disk', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const before = store.getState().data;
+      expect(store.getState().editRoutine(ids.tagged, { kind: 'tags', tags: [] }).ok).toBe(true);
+      await tick(30);
+      expect('tags' in (await onDisk()).routines[ids.tagged]).toBe(false);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+    });
+
+    it('export → import: tags are in the backup; the same file is identical; one with other tags and a field this version does not know replaces it, and both survive a reload, the journal, the fallback and another export', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      const file = JSON.parse(json);
+      expect(file.data.routines[ids.tagged].tags).toEqual(['Drawing', 'daily']);
+      const same = previewImport(json);
+      expect(same.plan).toMatchObject({ identical: true });
+      expect(same.incoming).toEqual(exported);
+
+      file.data.routines[ids.other].tags = ['game'];
+      file.data.routines[ids.other].later = { kept: ['as', 'is'] };
+      const differs = previewImport(JSON.stringify(file));
+      expect(differs.plan).toMatchObject({ identical: false, routines: { changed: 1, unchanged: 1 } });
+      expect(confirmImport(differs).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      expect(store.getState().data.routines[ids.other]).toMatchObject({ tags: ['game'], later: { kept: ['as', 'is'] } });
+      // An edit to that routine (its tags) keeps the unknown field; through the journal, the fallback and out again.
+      env.state.hangWrites = true;
+      expect(store.getState().editRoutine(ids.other, { kind: 'tags', tags: ['game', 'daily'] }).ok).toBe(true);
+      await tick(30);
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data.routines[ids.other]).toMatchObject({ tags: ['game', 'daily'], later: { kept: ['as', 'is'] } });
+      const held = store.getState().data;
+      // Where SQLite can't run (a fresh browser): the same file imported there is kept in the fallback, as it is.
+      (await import('./persistence')).stopPersistence();
+      env.ls.clear();
+      env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-')), 'db.sqlite');
+      env.state.openError = new Error('no OPFS');
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      const fresh = await import('@/store/importBackup');
+      expect(fresh.confirmImport(fresh.previewImport(toBackup(held))).ok).toBe(true);
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment')!).state.data.routines[ids.other]).toMatchObject({ tags: ['game', 'daily'], later: { kept: ['as', 'is'] } });
+      store = await reload();
+      expect(store.getState().data).toEqual(held);
+      expect(JSON.parse(toBackup(store.getState().data)).data.routines[ids.other]).toMatchObject({ tags: ['game', 'daily'], later: { kept: ['as', 'is'] } });
+    });
+  });
 });
 
 // P-89: the control is gone with the old app; the saved setting is still a person's data, kept as it is.

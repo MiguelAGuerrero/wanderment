@@ -52,7 +52,9 @@ export const DONE_GUARD_MS = 600;
 /** Home, from any `/go` screen: back to it when it is beneath, else in its place. Never a redirect from there. */
 export function goHome() {
   decideWhere();
-  if (router.canGoBack()) router.back();
+  // P-97 audit F2: home, whatever came before (My routines, Plan opened from it): back down to it when it is
+  // beneath, else in this screen's place — never just one screen back.
+  if (router.canGoBack()) router.dismissTo('/go');
   else router.replace('/go');
 }
 

@@ -81,8 +81,10 @@ test('home: axe, targets, text, heading, names — empty, with tiles, and with a
   await startGo(page, [{ ...RUNS[1], status: 'paused' as const }, RUNS[2]]);
   await expectNoSeriousViolations(page);
   await expectRules(page, h.screen, 1, 0);
-  const order = await h.screen.evaluate((root) => [...root.querySelectorAll('[role="heading"], [data-testid="go-tile"], [data-testid="go-new"], [data-testid="go-resume"]')].map((e) => (e as HTMLElement).dataset.testid ?? 'heading'));
-  expect(order).toEqual(['heading', 'go-tile', 'go-tile', 'go-tile', 'go-tile', 'go-new']);
+  // P-97 (was: four tiles, two of routines with nothing going): the two runs going, under their group's heading
+  // (Finishing: neither repeats until done), then the side doors — My routines, + New.
+  const order = await h.screen.evaluate((root) => [...root.querySelectorAll('[role="heading"], [data-testid="go-tile"], [data-testid="go-my-routines"], [data-testid="go-new"], [data-testid="go-resume"]')].map((e) => (e.getAttribute('role') === 'heading' ? `heading ${e.textContent}` : (e as HTMLElement).dataset.testid)));
+  expect(order).toEqual(['heading Home', 'heading Finishing', 'go-tile', 'go-tile', 'go-my-routines', 'go-new']);
 });
 
 test('the runner and its panel: axe and the rules on each; reading order context → values → note → fields → notice → handle → buttons (P-96: no Done on the context line); it says "Running" and the step on arriving', async ({ page }) => {

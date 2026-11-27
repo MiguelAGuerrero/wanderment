@@ -22,6 +22,7 @@
  * has one test per row.
  */
 import { normalizeName } from './model';
+import { tagsOf, tagsWritable } from './tags';
 import { Data, Id, Routine, Run } from './types';
 import { capValue, isEntry, isName, MAX_VALUES, nameKey, namesIn, readValues, renameIn, tidyName, ValueEntry } from './values';
 
@@ -156,7 +157,12 @@ export type RoutineEdit =
    * left as they are (they then read it as unset and ask). Refused `same-name` for a name the routine
    * already gives or reads.
    */
-  | { kind: 'renameValue'; from: string; to: string };
+  | { kind: 'renameValue'; from: string; to: string }
+  /**
+   * P-97: the routine's tags, as the Tags sheet keeps them — each tidied (trimmed, no "#"), once without case
+   * (`routines.ts`). None at all takes the field away. Stored in the routine's body; nothing else changes.
+   */
+  | { kind: 'tags'; tags: string[] };
 
 export type Verb =
   | { kind: 'start'; routineId: Id }
@@ -1184,6 +1190,13 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     after = editItems(routine, s, { set: [item.id, name === undefined ? rest : { ...rest, out: name }] });
   } else if (edit.kind === 'renameValue') {
     return renameValue(data, routineId, edit.from, edit.to, env);
+  } else if (edit.kind === 'tags') {
+    // P-97 audit F4: what this version cannot read is never overwritten.
+    if (!tagsWritable(routine.tags)) return refuse(data, 'cannot');
+    const tags = tagsOf(edit.tags);
+    const had = Array.isArray(routine.tags) ? routine.tags : undefined;
+    if (had ? had.length === tags.length && had.every((t, i) => t === tags[i]) : !tags.length) return done(data);
+    after = patched(routine, { tags: tags.length ? tags : undefined });
   } else if (edit.kind === 'divider') {
     if (edit.from !== undefined && dividerAt(edit.from, s.items.length) === undefined) return refuse(data, 'cannot');
     after = patched(routine, { repeatFrom: edit.from });

@@ -41,13 +41,16 @@ test.describe('the app’s address opens the new home', () => {
     await expect(page.getByTestId('home-sheet-handle')).toHaveCount(0);
   });
 
-  test('with routines it shows their tiles (P-96: and + New; was: the prompt); a reload stays on the new home', async ({ page }) => {
+  test('with routines and nothing going (P-97; was: their tiles) it says so, with My routines and + New (P-96: was: the prompt); a reload stays on the new home', async ({ page }) => {
     await seedGo(page, MAYA);
     await page.goto('./');
     const h = home(page);
     await expect(h.screen).toBeVisible();
     await expect(page).toHaveURL(AT_GO);
-    await expect(h.tiles).toHaveCount(MAYA.filter((r) => r.home !== false).length);
+    // P-97 (was: a tile for each routine on home): only runs going are tiles; the routines are on My routines.
+    await expect(h.tiles).toHaveCount(0);
+    await expect(h.idle).toBeVisible();
+    await expect(h.routinesBtn).toBeVisible();
     await expect(h.newBtn).toBeVisible();
     await page.reload();
     await expect(home(page).screen).toBeVisible();

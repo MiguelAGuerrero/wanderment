@@ -43,32 +43,63 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-97 My routines: A–Z and tags; home shows only what is in motion `[feature]` `[data]` `[ux]` M
-*Status:* todo
-*Why:* owner, 2026-11-26: home mixes "something as grandiose as becoming a better drawer" with "research a
-question"; "maybe tags and alphabetical sorting might be good start in a 'my routines' page".
-*Done when:* a My routines page lists every named routine A–Z with Find and tags (typed on a routine,
-tap to filter); home shows only runs in motion, split by structure into Ongoing (no end) and Finishing
-(has an end), with My routines and + New at the bottom; tags survive every storage path. Canvas row 8.
+### P-98 Calls: a routine as a step, with what it asks and gives `[feature]` `[data]` `[ux]` L
+*Status:* in-progress
+*Why:* owner, 2026-11-26/27: "blocks and steps should be able to reference other routines … statements
+or function calls"; from real use (drawing): "there wasn't any idea of keeping multiple implementations of
+one function"; "a routine that could change underneath". D-23, B-16; scout `.polish/product/P-98-scout.md`
+(split P-98 into this, P-107 and P-108).
+*Done when:* Add's "a routine" and "@" (only when summoned — no list while typing words, D-24) add a
+routine as a step (a call row); a call row shows what it asks — `with {x}`, `with {y} as x`, `with
+<words> as x`, or `asks {x}` (asked where it runs) — and what it gives; inputs resolve typed → by name
+where it runs → asked; an input is the callee's own copy; the call returns only what its row gives (a
+called routine's other names stay its own); what calls give under one name in the same routine is
+collected into one list in the order given; Next or Step out past a call or a broken-down step without
+stepping in shows a field for each owed name still empty (a breakdown: only names read outside it; the
+trace names that step; left empty, a later reader asks); renaming a value renames it in call bindings;
+a call to a removed routine says so and can't be stepped into; Plan refuses to add a routine as a step
+of itself (directly or through another) — the self-call is parked (B-16); the depth refusal has words;
+Copy on a routine's menu makes a copy under a new name with Undo; DESIGN.md's "a routine can't contain
+itself" stays until the self-call is unparked. Persistence on every path; older builds read a call as
+Step in; golden fixture p98-* frozen first.
 
-### P-98 Routines as steps, and for each `[feature]` `[data]` `[ux]` L
+### P-107 For each over a list given above `[feature]` `[data]` `[ux]` L
 *Status:* todo
-*Why:* owner, 2026-11-26: "blocks and steps should be able to reference other routines … Just as any thread
-would allow, statements or function calls"; for each "should just be treated like a regular for loop".
-*Done when:* Add offers a step, a routine (only when summoned: "@" or Add's "a routine" — no list
-while the person types their own words; owner, D-24), For each… and Repeat; a call row shows
-`with {x}`, `with {y} as x` or `asks {x}` and what it gives; for each is a loop block over a list, its
-giving step shows a list editor, inside reads "photo 2 of 3", a value given inside is collected after it.
-Canvas rows 3–4. From B-16 (D-23, as revised by the owner 2026-11-27): a step that gives a name
-which already has a value shows that value to adjust — the only way a list changes (no "adds to"; no item
-leaves by itself); a for each keeps its place, carries on to items added after it, ends when it passes the
-last item and passes straight through an empty list; a for each can run over a list kept in the routine
-(rows under the block in Plan, + Add there and on the routine's tile; items stay across runs, reload,
-export and import; no count shown for a kept or growing list); a step can give a list held at its own
-level or above; a giving field offers the person's routines — a routine chosen there is a call with a
-field for each thing it asks, and a step reading that value steps into it (inputs: typed where given,
-then by name where it runs, then asked); a called routine hands back what its call row gives; an item
-added to a kept list comes round in the next sitting.
+*Why:* owner, 2026-11-27 (real use): "I was trying to write a for each and apply a function over them";
+B-16.
+*Done when:* Add's "For each…" makes a loop block over a name given above (the sheet lists ready-made
+sentences "item in {list}"); its giving step shows a list editor (one row per item, + Add another, paste
+offers to split); inside, the values row reads "item 2 of 3: <item>" and the item name reads in steps; a
+call inside receives the item; what each item gives is collected into a list readable after the block;
+giving a list again shows it to adjust — the only way a list changes; the for each keeps its place,
+carries on to added items, ends past the last, and passes straight through an empty list; each round
+clears values given inside the loop; Undo; persistence; an older build reads the block as a breakdown.
+
+### P-108 Kept lists, a for each's own list, and values that are routines `[feature]` `[data]` `[ux]` L
+*Status:* todo
+*Why:* owner, 2026-11-27: "A way … is actually a routine, not text … returning functions from
+functions"; "maybe there's better UX to have a for each loop declare its own values, like locally";
+real use: trying a method more than one way. B-16.
+*Done when:* a for each can run over a list kept in the routine (rows under the block in Plan, + Add
+there and on the routine's tile; items stay across runs, reload, export and import; an item added comes
+round in the next sitting; no count shown) or declare its own list in its header (asked on arrival,
+local to the block); a step can give a list held at its own level or above; a value can be a routine,
+held by reference (a Plan change follows); a list may hold routines with words beside them; a routine
+row can take a value's name (`▤ {name}`), shows the routine held on the runner with Step in, and held
+words read as words with no Step in; a step typed as words never steps in; Add's "a routine" / "@" list
+the names given above first; a routine value is drawn with the routine mark wherever values show; what
+an experiment chooses is never stored on the routine by itself (owner: "Edit Plan by hand").
+Parked until a real routine needs them (B-16): a routine calling itself (and naming deep levels by the
+value they were called with, "…" in long paths), a join that reopens when a finished part takes up again,
+kept lists shared between parts.
+
+### P-100 The work queue: leaves only, depth-first `[feature]` `[data]` `[ux]` L
+*Status:* todo
+*Why:* (replaces P-94, the flat queue halted on 2026-11-25) owner, 2026-11-25/26: queue up work across routines; "ensure that this is depth-first … we only
+queue up only the leafs."
+*Done when:* ↑ Queue on any routine, call, block or part puts its depth-first next step on Up next with
+its path; running it resumes that thread in place; finishing pops it; a waiting thread is not queued;
+taking an entry off never stops its thread. Canvas row 7.
 
 ### P-99 In any order: parts as threads, joined `[feature]` `[data]` `[ux]` L
 *Status:* todo
@@ -81,7 +112,8 @@ again when its list gains an item (it reads as ready again; its block is not fin
 reach waits again while such a part is going (it reads as waiting on that part in the tree view and on the
 tile) — designer's ruling, to confirm in P-99's contract: the run's place is not moved back and work
 already done is never undone;
-an In any order block inside a for each keeps each part's place per item; the step after the block cannot be
+what the parts of an In any order block give under one name is collected into one list in the order
+given (owner, 2026-11-27); an In any order block inside a for each keeps each part's place per item; the step after the block cannot be
 reached while any part has not returned or been stopped (stated as a test). The tree view (owner, 2026-11-27: "Scope the tree view
 alongside P-99"; B-16 §"With P-99"): the pull-up panel of a run inside an In any order block lists every
 part of every level the run is in, each with where it stands in existing wordings; tapping a part moves
@@ -90,14 +122,6 @@ routine's tile on home when the run is paused (the tile reads the part last touc
 a stopped part are told apart in words, and that record survives export and import; at 390 px and 200 %
 text every line wraps and none is cut, each row ≥ 48 px with a full spoken name; no count, percentage or
 "left" anywhere; no editing from it.
-
-### P-100 The work queue: leaves only, depth-first `[feature]` `[data]` `[ux]` L
-*Status:* todo
-*Why:* (replaces P-94, the flat queue halted on 2026-11-25) owner, 2026-11-25/26: queue up work across routines; "ensure that this is depth-first … we only
-queue up only the leafs."
-*Done when:* ↑ Queue on any routine, call, block or part puts its depth-first next step on Up next with
-its path; running it resumes that thread in place; finishing pops it; a waiting thread is not queued;
-taking an entry off never stops its thread. Canvas row 7.
 
 ### P-104 The library (B-17 slices 1 and 4) `[feature]` `[ux]` M
 *Status:* todo
@@ -402,6 +426,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-27 · P-97 — My routines and a calmer home: a My routines page (⌂ Home top-left) lists every named routine A–Z with accent-folded headings, Find and tag filters, rows saying when a run is going, and a ··· with Start, Plan, Tags…, Remove; tags are typed on a routine (Plan's ··· → Tags…) and stored in its body (no migration; a newer shape is never overwritten); home shows only runs in motion, split into Ongoing (no end) and Finishing (has an end), with My routines and + New as side doors; going home always lands on home. evidence: golden fixture p97-* frozen first, go-routines spec red on the base build, tags through reload / journal / fallback / hand-over / export / import, 887 unit tests, the whole e2e suite, every routine from older fixtures still reachable, `verify.sh --full`. audit: 6 reported · 4 reproduced · 6 fixed · 0 deferred.
 - 2026-11-27 · P-103 — conventions, from an exhaustive audit of the built UI: a quick second tap can never end a run (Done has its own ✓ and ignores presses for 0.6 s after it appears, wherever you arrive from); the way out is always top-left; Plan opened from the runner offers "Back to the run"; a paused tile shows Resume; removing a step shows Undo, removing a routine asks; a paused run can be ended from its tile (final, asks first, keeps its note); removing a routine or its last nested row never strands a routine (it keeps a home tile); one destructive dialog everywhere; an empty home offers + New; ↻ for repeat, › for open; the step field grows, Insert/Add sit below, @ or { at a word start opens the names list, inserted names are spaced; the update banner covers nothing, Jump moves by arrows, Settings errors look like errors; the visible name is the placeholder "Routines" (database, keys, base path and backup format unchanged; old exports still import). evidence: go-conventions spec red on the base build (incl. the double-tap ending the run), 853 unit tests, whole e2e suite, old exports and golden fixtures importing, `verify.sh --full`; not tried on a real phone. audit: 8 reported · 6 reproduced · 8 fixed · 0 deferred.
 - 2026-11-27 · P-102 — every ··· opens a small menu anchored to its button (Plan, home tiles), closing on an outside tap, Esc or Back (Back never leaves Plan), with a hidden Close for screen readers; the step menu reads Edit · Add a step after · Break it down · Gives… · Remove (red, last); a wait offers "Make it a step"; Move up / down by pressing the grip (or in the menu under 340 px), Alt+↑/↓ and screen-reader actions; finishing a run is final — "Done with <name>" has only a ×, every notice has a ×, Undo is a labelled button apart from it; Step out reads "Left <level>". Also fixes P-101's CI races: the runner's late focus stole focus (focusSoon gives up once focus has moved), menus return focus at once. evidence: go-menu and rewritten go-plan / go-notice specs red on the base build, the three CI flakes 55/55 under the slow mode, 840 unit tests, the whole e2e suite, `verify.sh --full`. audit: 9 reported · 5 reproduced · 9 fixed · 0 deferred.
 - 2026-11-27 · P-101 — moves like a debugger and a calmer home: the runner's bottom row is Step in · Step out · Next (Done only on the press that ends the run), Pause and Plan in the top line; Pause asks for an optional note; home keeps its order, marks the last run, and a paused tile resumes on tap; "planning" is gone as a state; Plan's Home back in the band; notices hide on the next tap while Undo stays until the next change (panel, Ctrl/⌘+Z, Plan's ···); values typed in a sheet, a trace of where a value came from, hoisted gives, an Insert button; Start over (the run or one level) with a confirm and Undo; a value for a step already passed can be given from the values row; removing a giving step names its readers, which then ask (dashed in Plan). No new stored fields. evidence: go-moves and go-restart specs red on the base build, 833 unit tests, the whole e2e suite, golden fixtures loading, `verify.sh --full`; not tried on a real phone. audit: 9 reported · 7 reproduced · 9 fixed · 0 deferred.

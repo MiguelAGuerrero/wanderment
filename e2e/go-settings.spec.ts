@@ -34,7 +34,9 @@ test('from the home: the Settings control opens it, the title has the focus, and
   await s.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(home(page).screen).toBeVisible();
   await expect(page).toHaveURL(/\/wanderment\/go$/);
-  await expect(home(page).tiles).not.toHaveCount(0);
+  // P-97 (was: its tiles — MAYA's routines, none going): as it was, nothing going, with My routines.
+  await expect(home(page).idle).toBeVisible();
+  await expect(home(page).routinesBtn).toBeVisible();
   // By the keyboard too: the control is a button, reached by Tab, pressed with Enter; browser Back returns.
   await expect(home(page).title).toBeFocused();
   await home(page).screen.getByRole('button', { name: 'Settings', exact: true }).focus();

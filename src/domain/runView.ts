@@ -1036,6 +1036,8 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     if (e.kind === 'open') return 'Changed Ends here';
     if (e.kind === 'gives') return `${item(e.item)} gives ${e.name !== undefined ? `{${tidyName(e.name)}}` : 'nothing'}`;
     if (e.kind === 'renameValue') return `Renamed {${tidyName(e.from)}} to {${tidyName(e.to)}}`;
+    // P-97: the Tags sheet's Keep.
+    if (e.kind === 'tags') return `Changed the tags of ${quoted(s?.words ?? '')}`;
     return 'Changed Repeat from here';
   }
   if (verb.kind === 'new') return `Made ${quoted(verb.words)}`;

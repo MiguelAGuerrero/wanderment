@@ -12,16 +12,18 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, closeMenu, expectEdit, expectSteps, home, menuItems, plan, RoutineSpec, startGo, tile, undoEdit } from './goFixture';
+import { arrived, closeMenu, expectEdit, expectSteps, menuItems, plan, planFromRoutines, routines, RoutineSpec, startGo, tile, undoEdit } from './goFixture';
 
 const FIVE = ['One', 'Two', 'Three', 'Four', 'Five'];
 const DRAG: RoutineSpec = { id: 'drag', name: 'Five steps', steps: FIVE, repeatFrom: 3 };
 const gripOf = (page: Page, words: string) => plan(page).screen.getByRole('button', { name: `Reorder ${words}`, exact: true });
-/** Plan reached from home (so Back has somewhere to go, and must not go there while a layer is open). */
+/**
+ * Plan reached from the app (so Back has somewhere to go, and must not go there while a layer is open). P-97
+ * (was: from its idle tile on home): from its row on My routines.
+ */
 async function planFromHome(page: Page) {
   await startGo(page, [], 'home', [DRAG]);
-  await tile(page, 'Five steps').getByRole('button', { name: 'Plan Five steps', exact: true }).click();
-  await expect(plan(page).title).toHaveText('Five steps');
+  await planFromRoutines(page, 'Five steps');
 }
 
 test('(1) ≥ 340 px: the grip pressed opens Move up · Move down (unavailable at the ends) — one place, one Undo each; the step’s ··· menu stays trimmed', async ({ page }) => {
@@ -142,9 +144,9 @@ test('(3) browser Back with a menu or a sheet open closes only it — Plan stays
   await expect(page.getByTestId('go-gives-sheet')).toHaveCount(0);
   await expect(p.title).toHaveText('Five steps');
   await expect(page).toHaveURL(url);
-  // Nothing open: Back goes back (home).
+  // Nothing open: Back goes back (P-97, was: home — to My routines, where it was opened from).
   await page.goBack();
-  await expect(home(page).screen).toBeVisible();
+  await expect(routines(page).screen).toBeVisible();
 });
 
 test('(3) Plan opened at its own address (the first screen: nothing beneath it in the app) — Back with a menu open closes only the menu', async ({ page }) => {

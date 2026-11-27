@@ -11,7 +11,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, expectSteps, focused, home, pauseRun, place, plan, planMenu, planMove, planType, RoutineSpec, runner, startGo, startThing, tile, tileBody, undoEdit } from './goFixture';
+import { arrived, expectSteps, focused, home, pauseRun, place, plan, planFromRoutines, planMenu, planMove, planType, RoutineSpec, runner, startGo, startThing, tile, tileBody, undoEdit } from './goFixture';
 
 /** Focus is somewhere: never on nothing. */
 const somewhere = async (page: Page) => expect.poll(() => page.evaluate(() => document.activeElement !== null && document.activeElement !== document.body)).toBe(true);
@@ -39,7 +39,7 @@ test.describe('B1: at the edge of a goal Plan’s open row has the focus, howeve
     // Nothing started, nothing ended: a routine with one step, and Start.
     await expect(plan(page).forward).toHaveText('Start');
     await plan(page).home.click();
-    await expect(tile(page, 'Plan dinner')).toHaveAttribute('data-state', 'idle');
+    await expect(tile(page, 'Plan dinner')).toHaveCount(0); // P-97 (was: its tile, idle): nothing going, it is not on home — it is on My routines
   });
 
   test('by a cold open of /go, and by a reload', async ({ page }) => {
@@ -302,7 +302,8 @@ test.describe('U1: typed text survives a reload', () => {
 test('U3: Plan shows a long step whole — it wraps and its row grows, and so does the field its words are changed in; the words are never cut', async ({ page }) => {
   const LONG = 'Open the job ad beside the CV and mark what they ask for in yellow, then note the answer in the tracker';
   await startGo(page, [], 'home', [{ id: 'long', name: 'A long one', steps: [LONG, 'Stretch'] }]);
-  await home(page).screen.getByRole('button', { name: 'Plan A long one', exact: true }).click();
+  // P-97 (was: its idle tile's Plan): from My routines.
+  await planFromRoutines(page, 'A long one');
   const p = plan(page);
   const words = p.words.first();
   await expect(words).toHaveText(LONG);

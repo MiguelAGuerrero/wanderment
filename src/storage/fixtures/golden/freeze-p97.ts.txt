@@ -1,0 +1,199 @@
+/**
+ * P-97 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE tags and My routines (3ac50af: schema 4, data
+ * format 2, no `tags` on any routine; home was a tile for every routine). Run once, in that commit, with
+ * P97_OUT set; never part of the suite. It starts from `p96-schema4.sqlite` (everything frozen before: the
+ * retired app's wanders and activities, runs with this-run changes from before P-90, every kind of run P-94
+ * and P-96 froze) and then uses that build's own store actions: values given, Start over, End this run, an
+ * until-done loop at the top, one only inside a step broken down, a counted loop, names with accents and
+ * lower case, a routine never started and one removed.
+ */
+import { copyFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const OUT = process.env.P97_OUT!;
+
+const env = vi.hoisted(() => {
+  const ls = new Map<string, string>();
+  const state = { dbPath: '', openError: undefined as Error | undefined, hangWrites: false };
+  const localStorage = {
+    get length() {
+      return ls.size;
+    },
+    key: (i: number) => [...ls.keys()][i] ?? null,
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => void ls.set(k, String(v)),
+    removeItem: (k: string) => void ls.delete(k),
+  };
+  (globalThis as { localStorage?: unknown }).localStorage = localStorage;
+  return { ls, state, localStorage };
+});
+
+vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => env.localStorage.getItem(k),
+    setItem: async (k: string, v: string) => env.localStorage.setItem(k, v),
+    removeItem: async (k: string) => env.localStorage.removeItem(k),
+  },
+}));
+vi.mock('./expoDb', async () => {
+  const { nodeDb } = await import('./nodeDb');
+  return {
+    openExpoDb: async () => {
+      if (env.state.openError) throw env.state.openError;
+      const db = nodeDb(env.state.dbPath);
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+    },
+  };
+});
+vi.mock('./nativeBackup', () => ({ scheduleBackup: () => {} }));
+
+const settle = () => new Promise((r) => setTimeout(r, 40));
+
+async function load() {
+  vi.resetModules();
+  const { startPersistence } = await import('./persistence');
+  const { useStore } = await import('@/store/useStore');
+  await startPersistence();
+  return useStore;
+}
+type Store = Awaited<ReturnType<typeof load>>;
+
+/** Ids are a counter and the clock is fixed and stepped, so every session makes the same records. */
+let n = 0;
+let clock = 0;
+const T0 = Date.parse('2026-11-27T08:00:00.000Z');
+const tick = (minutes = 3) => vi.setSystemTime(new Date((clock += minutes * 60000)));
+
+beforeEach(() => {
+  env.ls.clear();
+  env.state.openError = undefined;
+  env.state.hangWrites = false;
+  env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-freeze97-')), 'db.sqlite');
+  n = 0;
+  clock = T0;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(T0));
+  vi.stubGlobal('crypto', { randomUUID: () => `p97-${String(++n).padStart(3, '0')}` });
+});
+afterEach(async () => {
+  (await import('./persistence')).stopPersistence();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+/** What a person did with the build before tags, through its own actions. */
+async function drive(store: Store) {
+  const s = () => store.getState();
+  const ok = (d: { ok: boolean; runId?: string; routineId?: string }) => {
+    expect(d).toMatchObject({ ok: true });
+    s().dismissRunNotice();
+    tick();
+    return (d.runId ?? d.routineId)!;
+  };
+  const items = (routineId: string) => s().data.routines[routineId].items as { id: string; text?: string; wait?: string; ref?: string }[];
+  const item = (routineId: string, words: string) => items(routineId).find((i) => (i.text ?? i.wait) === words)!.id;
+  const make = (name: string, steps: string[]) => {
+    const id = ok(s().createRoutine(name));
+    for (const st of steps) ok(s().editRoutine(id, { kind: 'addStep', text: st }));
+    return id;
+  };
+  // The run the app was on (P-96's "Read a chapter") is put down first: one thing runs at a time.
+  ok(s().pauseRun('p96-050'));
+
+  // Ongoing: an until-done loop from the top, a step that gives {subject}, a value given, paused with a note.
+  const draw = make('Draw every day', ['Pick a subject', 'Draw it for ten minutes']);
+  ok(s().editRoutine(draw, { kind: 'gives', item: item(draw, 'Pick a subject'), name: 'subject' }));
+  ok(s().editRoutine(draw, { kind: 'reword', item: item(draw, 'Draw it for ten minutes'), text: 'Draw {subject} for ten minutes' }));
+  ok(s().editRoutine(draw, { kind: 'divider', from: 0 }));
+  const drawRun = ok(s().startRoutine(draw));
+  ok(s().typeValue(drawRun, item(draw, 'Pick a subject'), 'subject', 'hands'));
+  ok(s().nextStep(drawRun));
+  ok(s().pauseRun(drawRun, 'after dinner'));
+  // Finishing: an until-done loop only inside a step broken down (the routine itself has an end), left inside it.
+  const piano = make('practise piano', ['Drill', 'Play a piece']);
+  ok(s().editRoutine(piano, { kind: 'breakDown', item: item(piano, 'Drill'), steps: ['Scales', 'Arpeggios'] }));
+  const drill = items(piano)[0].ref!;
+  ok(s().editRoutine(drill, { kind: 'divider', from: 0 }));
+  const pianoRun = ok(s().startRoutine(piano));
+  ok(s().stepIn(pianoRun));
+  ok(s().nextStep(pianoRun));
+  ok(s().pauseRun(pianoRun));
+  // Finishing: a counted loop at the top, started over once, then left in Plan.
+  const zine = make('Zine issue', ['Write a page', 'Lay it out']);
+  ok(s().editRoutine(zine, { kind: 'divider', from: 0 }));
+  ok(s().editRoutine(zine, { kind: 'repeat', times: 4 }));
+  const zineRun = ok(s().startRoutine(zine));
+  ok(s().nextStep(zineRun));
+  ok(s().nextStep(zineRun));
+  ok(s().restartRun(zineRun, 0));
+  ok(s().planRun(zineRun));
+  // A run ended where it stood (End this run, from its paused tile).
+  const errand = make('Errands', ['Post office', 'Bank']);
+  const errandRun = ok(s().startRoutine(errand));
+  ok(s().pauseRun(errandRun, 'closed today'));
+  ok(s().endRun(errandRun));
+  // Never started: names with an accent and in lower case (for A–Z), and one with no steps.
+  make('Écrire un poème', ['Choisir un mot']);
+  make('apple pie', ['Peel the apples']);
+  make('Éclair practice', []);
+  // Removed, never started.
+  const gone = make('Old routine', ['Something']);
+  ok(s().editRoutine(gone, { kind: 'removeRoutine' }));
+  // Last: the run the app is on, running.
+  ok(s().resumeRun('p96-050'));
+  await settle();
+  return { draw, drawRun, piano, pianoRun, zine, zineRun, errand, errandRun };
+}
+const settingsOf = (store: Store) => {
+  const s = store.getState();
+  return { showShading: s.showShading, recentSearches: s.recentSearches, leftAsIs: s.leftAsIs, whyOfferOff: s.whyOfferOff, firstRunDone: s.firstRunDone };
+};
+const snapshot = (store: Store) => JSON.parse(JSON.stringify({ data: store.getState().data, settings: settingsOf(store) }));
+let expected: { data: import('@/domain/types').Data; settings: ReturnType<typeof settingsOf> };
+
+it('1. the database (schema 4), the backup and what the store held', async () => {
+  // From the data the build before values left (everything frozen before it).
+  copyFileSync(join(__dirname, 'fixtures/golden/p96-schema4.sqlite'), env.state.dbPath);
+  let store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+  await drive(store);
+  await settle();
+  expected = snapshot(store);
+  expect(env.ls.has('wanderment:journal')).toBe(false);
+  store = await load();
+  expect(snapshot(store)).toEqual(expected);
+  const { nodeDb } = await import('./nodeDb');
+  const db = nodeDb(env.state.dbPath);
+  expect(await db.all('PRAGMA user_version')).toEqual([{ user_version: 4 }]);
+  await db.exec('VACUUM');
+  db.close();
+  copyFileSync(env.state.dbPath, join(OUT, 'p97-schema4.sqlite'));
+  writeFileSync(join(OUT, 'p97-expected.json'), JSON.stringify(expected, null, 2) + '\n');
+  const { toBackup } = await import('@/domain/backup');
+  writeFileSync(join(OUT, 'p97-backup.json'), toBackup(store.getState().data, new Date('2026-11-27T09:30:00.000Z')));
+});
+
+it('2. the pending journal (eight keys): everything, never committed', async () => {
+  const store = await load();
+  env.state.hangWrites = true;
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  // (Replace brings the data only: the settings stay this page's.)
+  expect(snapshot(store).data).toEqual(expected.data);
+  const raw = env.ls.get('wanderment:journal')!;
+  expect(Object.keys(JSON.parse(raw).changes).sort()).toEqual(['deleteActivities', 'deleteRoutines', 'deleteRuns', 'deleteThreads', 'upsertActivities', 'upsertRoutines', 'upsertRuns', 'upsertThreads']);
+  writeFileSync(join(OUT, 'p97-journal.json'), raw);
+});
+
+it('3. the fallback blob (a browser that can’t run SQLite)', async () => {
+  env.state.openError = new Error('no OPFS');
+  const store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  writeFileSync(join(OUT, 'p97-fallback.json'), env.ls.get('wanderment')!);
+});
