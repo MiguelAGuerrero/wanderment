@@ -105,7 +105,8 @@ research task. I provide the inputs into the routine for research, and it [queue
 ### A called routine returns; it never writes
 The owner (2026-11-27): "I'm more in style of a functional style approach … where you just kind of
 regenerate the list … so we don't have to necessarily support write operations."
-- **A called routine only returns what its call row gives.** It cannot adjust a list it was handed.
+- **A called routine only returns what its call row gives.** What it is handed is its own copy: it may
+  mark or strike a list it asked for, and that changes nothing for the caller.
   Only the routine that holds a list gives it again. (This narrows "Reach" above: reach is for steps
   and parts written inside the routine that holds the list, not for a routine called from it.)
 - **A for each collects.** A value given inside the loop is, after the block, a list of what each item
