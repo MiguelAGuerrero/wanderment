@@ -229,6 +229,15 @@ name asks for it in place, far from where it was made.
     appear. Turning it off returns to one step.
   - With it on, the step in view can be extended with the step that follows it, and again, as far as
     the person likes. What is shown together is the chunk.
+  - **With it on, the view is a condensed list**, not a stack of notes. (Owner: "let's make it
+    condensed, as in like an actual outline or list view, so that the screen space can be optimized
+    for more steps … a very simplified form without the needs for all the paddings or margins or even
+    the big text. Maybe at most 16 pixels. And this could be a responsive thing. As you include more
+    and more steps, the view shrinks in a way where it's compact but doesn't lose visual
+    information.") One sheet; each step a row at 16 px; a field on one line beside its name; thin
+    rules between rows. As rows are added the spacing and the fields' height tighten in steps; the
+    text stays 16 px, which is also DESIGN.md's floor for body text. A list longer than the screen
+    scrolls.
   - A shown step that has insides (a step broken down, a called routine, a turn of a loop) can be
     opened in place to show its smaller steps. Several levels opened read as an outline.
   - **Next takes the whole chunk as done** and goes to the step after the last one shown. It is a skip
@@ -244,7 +253,9 @@ name asks for it in place, far from where it was made.
   look alike" still holds: an outline on the runner is read and passed over, never edited, and must
   keep the runner's look. The pull-up panel's "then: <next step>" and Jump to… already show and move
   to later steps; this brings the same two things onto the step itself.
-  *(Designer's rulings: the button reads "See ahead" and sits in the bottom bar; the view stays on
+  *(Designer's rulings: three steps of tightening, by the number of rows; at the tightest the
+  fields and the Open control are 32 px tall, under DESIGN.md's 48 px for targets, which needs the
+  owner's word or a looser floor; the button reads "See ahead" and sits in the bottom bar; the view stays on
   after Next until turned off; the chunk resets after Next; a turn's end extends into the next turn; under
   P-110's "only steps above the place hold values", what a passed chunk gave stays because the place
   is then below it.)*
