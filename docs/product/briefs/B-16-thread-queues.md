@@ -222,8 +222,13 @@ name asks for it in place, far from where it was made.
   chunk, you go to the next step after the chunk. This doesn't have to be like a first class thing. It
   just has to be a quality of life UI affordance."
   So, on the runner:
-  - The step in view can be extended with the step that follows it, and again, as far as the person
-    likes. What is shown together is the chunk.
+  - **It is a toggled view.** (Owner, on the mock-up: "I want that to be a toggled view. It looks like
+    there's going to be a persistent then, and I don't want that. I just want that to be like a button
+    you click, and then it offers the controls to add steps into view.") By default the runner is one
+    step with nothing added to it. One button turns the view on; only then do the controls below
+    appear. Turning it off returns to one step.
+  - With it on, the step in view can be extended with the step that follows it, and again, as far as
+    the person likes. What is shown together is the chunk.
   - A shown step that has insides (a step broken down, a called routine, a turn of a loop) can be
     opened in place to show its smaller steps. Several levels opened read as an outline.
   - **Next takes the whole chunk as done** and goes to the step after the last one shown. It is a skip
@@ -239,7 +244,8 @@ name asks for it in place, far from where it was made.
   look alike" still holds: an outline on the runner is read and passed over, never edited, and must
   keep the runner's look. The pull-up panel's "then: <next step>" and Jump to… already show and move
   to later steps; this brings the same two things onto the step itself.
-  *(Designer's rulings: the chunk resets after Next; a turn's end extends into the next turn; under
+  *(Designer's rulings: the button reads "See ahead" and sits in the bottom bar; the view stays on
+  after Next until turned off; the chunk resets after Next; a turn's end extends into the next turn; under
   P-110's "only steps above the place hold values", what a passed chunk gave stays because the place
   is then below it.)*
   Research on guidance and skill points the same way: step-by-step help turns from aid to hindrance
@@ -393,7 +399,8 @@ asks by itself. This is how a method is sharpened by running it.
   named by the value it was called with, in the path, Step out's notice, Start over and Jump to…; a
   long path collapses its middle to a plain-text "…"; the closed self-call row in Plan carries words.
 
-- (P-112, a runner affordance; nothing stored:) the step in view can be extended with the steps that
+- (P-112, a runner affordance; nothing stored:) a toggled view, off by default, with no control added
+  to the runner until one button turns it on; with it on, the step in view can be extended with the steps that
   follow, one at a time; a shown step with insides opens in place, to any depth; Next takes everything
   shown as done and goes to the step after it; giving steps in view show their fields; the chunk resets
   after Next. DESIGN.md's "the runner is the step and nothing else" is reworded to allow it.
