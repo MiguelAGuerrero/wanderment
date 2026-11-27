@@ -37,3 +37,37 @@ export function routineInWords(words: string, routines: { routineId: string; nam
   const want = loose(m[1]);
   return routines.find((r) => loose(r.name) === want)?.routineId;
 }
+
+/**
+ * P-111 (the P-110 investigator: with "Archive doc" and "Doc", "@Doc" then Return took "Archive doc"): the routines
+ * what is typed after "@" matches, in the order Return takes them — the one it names exactly (case and spacing aside)
+ * first, then those it begins, then those that hold it; within each, as given. `first`: same-named routines (only an
+ * import makes them) in the order `routineInWords` prefers, so Return and words typed whole take the same one.
+ */
+export function rankRoutines<T extends { routineId: string; name: string }>(query: string, routines: T[], first: string[] = []): T[] {
+  const q = loose(query);
+  const rank = (r: T) => {
+    const n = loose(r.name);
+    return n === q ? 0 : n.startsWith(q) ? 1 : 2;
+  };
+  const at = (r: T) => {
+    const i = first.indexOf(r.routineId);
+    return i < 0 ? first.length : i;
+  };
+  return routines
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => loose(r.name).includes(q))
+    .sort((a, b) => rank(a.r) - rank(b.r) || (rank(a.r) === 0 ? at(a.r) - at(b.r) : 0) || a.i - b.i)
+    .map(({ r }) => r);
+}
+
+/**
+ * P-111 (the P-110 investigator: a step reading exactly "@<routine>", opened to edit and left, became a call): what
+ * keeping a step's words does — nothing when they did not change (a step stored as "@<name>" is made a call only by its
+ * ··· Make it a call); a call when the new words name a routine (`target`); else they are its new words.
+ */
+export function wordsKept(before: string, typed: string, target: string | undefined): 'none' | 'call' | 'reword' {
+  const words = typed.trim().replace(/\s+/g, ' ');
+  if (!words || words === before) return 'none';
+  return target ? 'call' : 'reword';
+}

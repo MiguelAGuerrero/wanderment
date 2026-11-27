@@ -96,7 +96,8 @@ for (const [label, size] of [
       await p.typed.fill('Deliberate practice on {subject}');
       await p.typed.press('Enter');
       await page.keyboard.press('Escape');
-      await expect(p.words).toHaveText(['Warm up', 'For each subject in {subjects}', 'Deliberate practice on {subject}']);
+      // (P-111, rewritten: was with 'Deliberate practice on {subject}' after the block — its steps are in its own view once the field is left.)
+      await expect(p.words).toHaveText(['Warm up', 'For each subject in {subjects}']);
       // + Add under the block: the list sheet, its new row focused.
       const add = p.row('For each subject in {subjects}').getByTestId('go-plan-kept-add');
       await expect(add).toHaveAccessibleName('Add to subjects');
@@ -216,7 +217,8 @@ for (const [label, size] of [
       await p.typed.fill('Find a guide on {topic}');
       await p.typed.press('Enter');
       await page.keyboard.press('Escape');
-      await expect(p.words).toHaveText(['Pick a subject', 'Choose a way to draw', '{way}', 'For each topic in {topics}', 'Find a guide on {topic}']);
+      // (P-111, rewritten: was with 'Find a guide on {topic}' after the block — its steps are in its own view once the field is left.)
+      await expect(p.words).toHaveText(['Pick a subject', 'Choose a way to draw', '{way}', 'For each topic in {topics}']);
       await noSerious(page);
       await rules(page, p.screen);
       if (size.width > 300) await page.screenshot({ path: `${SHOTS}/plan-slot.png` });

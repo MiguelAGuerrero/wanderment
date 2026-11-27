@@ -4705,7 +4705,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       store = await reload();
       store.setState({ data: before });
       await tick(30);
-      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      // (P-111, rewritten: owner ruling Back keeps it — was backTo, which no longer clears; a Jump onto the giving step does.)
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.pick] }).ok).toBe(true);
       await tick(30);
       expect([atOf(await onDisk() as never, ids), valuesOf_(await onDisk() as never, ids)]).toEqual([ids.pick, []]);
       expect(store.getState().undoLast()).toBe(true);
@@ -4713,13 +4714,40 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(await onDisk()).toEqual(before);
     });
 
-    it('journal replay: a Back that clears {feature}, kept while no write commits (the tab dies), is there after a reload', async () => {
+    // P-111 (owner rulings "Back keeps it", "A Plan edit never clears a run's values"): what Back and a Plan edit keep is on disk, across reloads and later moves.
+    it('P-111: Back onto the giving step keeps {feature} on disk; a Plan edit that puts its step below the place keeps it stored across a reload and the moves before it is reached', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      await tick(30);
+      expect([atOf(await onDisk() as never, ids), valuesOf_(await onDisk() as never, ids)]).toEqual([ids.pick, ['feature=checkout']]);
+      store = await reload();
+      expect(valuesOf_(store.getState().data as never, ids)).toEqual(['feature=checkout']);
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      // Plan: "Pick a feature" dragged below "@Document Iteration" — below the place ("Build checkout").
+      expect(store.getState().editRoutine(ids.iterate, { kind: 'move', item: ids.pick, by: 2 }).ok).toBe(true);
+      await tick(30);
+      expect(valuesOf_(await onDisk() as never, ids)).toEqual(['feature=checkout']);
+      store = await reload();
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      await tick(30);
+      expect([atOf(await onDisk() as never, ids), valuesOf_(await onDisk() as never, ids)]).toEqual([ids.at, ['feature=checkout']]);
+      store = await reload();
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      await tick(30);
+      expect([atOf(await onDisk() as never, ids), valuesOf_(await onDisk() as never, ids)]).toEqual([ids.pick, ['feature=checkout']]);
+    });
+
+    // (P-111, rewritten: owner ruling Back keeps it — was "a Back that clears {feature}" with backTo; a Jump onto its giving step clears it.)
+    it('journal replay: a Jump that clears {feature}, kept while no write commits (the tab dies), is there after a reload', async () => {
       fakeLocks();
       let store = await load();
       const ids = build(store);
       await tick(30);
       env.state.hangWrites = true;
-      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.pick] }).ok).toBe(true);
       await tick(30);
       const data = store.getState().data;
       env.state.hangWrites = false;

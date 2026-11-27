@@ -312,12 +312,18 @@ for (const size of SIZES) {
       await p.typed.fill('Draw ten lines');
       await p.typed.press('Enter');
       await page.keyboard.press('Escape');
+      // (P-111, rewritten: was its ··· straight away, the smaller step open in place — a step broken down opens as its own view.)
+      await p.screen.getByRole('button', { name: 'Open Warm-up lines', exact: true }).click();
+      await expect(p.title).toHaveText('Warm-up lines');
       await p.more('Draw ten lines').click();
       menu = await arrived(page, 'go-plan-menu');
       await menu.getByRole('menuitem', { name: 'Gives…', exact: true }).click();
       const gives = await arrived(page, 'go-gives-sheet');
       await gives.getByTestId('go-gives-name').fill('lines');
       await gives.getByTestId('go-gives-apply').click();
+      // (P-111: and back up by its path.)
+      await p.screen.getByTestId('go-plan-up').click();
+      await expect(p.title).toHaveText('Practise drawing');
       await expect(p.row('Warm-up lines').getByTestId('go-plan-hoisted')).toHaveText('gives {lines}');
       // Insert beside the field: the names, then Return puts {lines} in.
       await phoneKeyboard(page);

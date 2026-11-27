@@ -49,15 +49,17 @@ describe('a move back clears what was given at or below the new place — said, 
     expect(vals(id)).toEqual(['feature=checkout']);
   });
 
-  it('Back onto the giving step: "Cleared {feature}" with Undo (P-95: Back that clears nothing still says nothing)', () => {
+  // (P-111, rewritten: owner ruling Back keeps it — was "Back onto the giving step: "Cleared {feature}" with Undo":
+  // Back clears nothing, so it says nothing and leaves no Undo, and the value is kept.)
+  it('Back onto the giving step keeps {feature}: no notice, no Undo (P-95: Back that clears nothing says nothing)', () => {
     const id = started('I');
     st().nextStep(id);
     st().typeValue(id, 'pick', 'feature', 'checkout');
     st().nextStep(id);
     st().backTo(id);
     expect(here(id)).toBe('pick');
-    expect(st().runNotice?.text).toBe('Cleared {feature}');
-    expect(st().undoLast()).toBe(true);
+    expect(st().runNotice).toBeUndefined();
+    expect(st().undo).toBeUndefined();
     expect(vals(id)).toEqual(['feature=checkout']);
   });
 

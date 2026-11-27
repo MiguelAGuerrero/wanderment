@@ -37,14 +37,14 @@
  * there) with its changes back: the rows would be the run's reading and the edits the routine's, so
  * this screen leaves for home instead (Plan opened again folds again, saying so).
  */
-import { router, useIsFocused } from 'expo-router';
+import { router, useIsFocused, useNavigation } from 'expo-router';
 import { ComponentRef, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { callersOf, Refusal, routineNamed, RoutineEdit } from '@/domain/run';
-import { atPick, routineInWords } from '@/domain/atPick';
+import { atPick, rankRoutines, routineInWords, wordsKept } from '@/domain/atPick';
 import { myRoutines } from '@/domain/routines';
-import { namesOffered, PlanDivider, PlanRow, planView, readersOf, rowMoves, StepPart } from '@/domain/runView';
+import { insidesOf, namesOffered, PLAN_TOP, planAt, PlanDivider, PlanRow, planView, readersOf, routinesByAge, rowMoves, StepPart } from '@/domain/runView';
 import { placesShown, placesWritable } from '@/domain/places';
 import { tagsOf, tagsWritable } from '@/domain/tags';
 import { isName, itemNameFor, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
@@ -63,6 +63,7 @@ import { TagsSheet, tagWords } from './Tags';
 import { G, SP, TARGET } from './tokens';
 import { Btn, caretToEnd, Confirm, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Menu, MenuItem, MenuSep, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
 import { Gives, KeptSheet, NameChip, ValueText } from './Values';
+import { InsidesBtn } from './Insides';
 
 const WEB = Platform.OS === 'web';
 /** The focus ring: its own colour, with a gap (never the white of HERE). */
@@ -103,13 +104,33 @@ function readTyping(key: string): Typing | null {
   }
 }
 
+/**
+ * P-111: the row whose insides were opened as a view, in the view it was opened from — so coming back (the path, the
+ * browser's Back) puts the focus on it. `view`: that view (`viewOf`); `key`: the row.
+ */
+let backTo: { view: string; key: string } | null = null;
+const setBackTo = (to: { view: string; key: string } | null) => {
+  backTo = to;
+};
+const viewOf = (id: string, inSeq: string | undefined, key: string) => `${id}|${inSeq ?? ''}|${key}`;
+
 type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true } | { addRoutine: true } | { addEach: true } | { kept: string } | { bind: string; input: string } | { inputs: string } | { copy: true } | { places: true; at?: string };
 
-export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: string; routineId?: string; inSeq?: string; fromRun?: boolean; fromList?: boolean }) {
+export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId?: string; routineId?: string; inSeq?: string; fromRun?: boolean; fromList?: boolean; at?: string }) {
   const data = useStore((s) => s.data);
   const act = useStore.getState;
   const focused = useIsFocused();
+  const navigation = useNavigation();
   const v = planView(data, runId ? { runId, ...(inSeq && { in: inSeq }) } : { routineId: routineId ?? '' });
+  /**
+   * P-111: with no `?at=`, where the run is — chosen once, on arriving (an edit that moves HERE into a step broken down
+   * never moves this screen into it).
+   */
+  const [dove, setDove] = useState<string | undefined>(undefined);
+  if (at === undefined && v && dove === undefined) setDove(planAt(v, undefined).key || PLAN_TOP);
+  /** P-111: this view — the routine's own steps, or the insides of a step broken down or a for each (`?at=`). */
+  const pv = v ? planAt(v, at ?? dove ?? PLAN_TOP) : undefined;
+  const sub = pv?.row;
   // P-101 (ruling 4): Plan is a view of a run that is not running (`planning`): running, the runner is
   // where it is (a routine's address: Plan's only while it has no run).
   const route = v?.runId ? (v.planning ? 'plan' : 'runner') : undefined;
@@ -120,6 +141,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   const undone = wasFolded && !!v?.planning && v.unfolded;
   const here = !!v && !undone && (v.runId ? !!runId && route === 'plan' : true);
   const id = runId ?? routineId ?? '';
+  const viewId = viewOf(id, inSeq, pv?.key ?? '');
   /** P-97: the routine's tags (read tolerantly: none stored = none). */
   const tags = tagsOf(v ? data.routines[v.routineId]?.tags : undefined);
   /** P-109: the routine's places (read tolerantly: none stored = none). */
@@ -226,8 +248,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     else if (route === 'runner' && fromRun && router.canGoBack()) router.back();
     else if (route === 'runner') router.replace(`/go/run/${runOf}`);
     // A routine's address while it has a run: that run's Plan.
-    else router.replace(`/go/run/${runOf}/plan`);
-  }, [focused, here, gone, runOf, route, undone, fromRun, fromList]);
+    else router.replace(`/go/run/${runOf}/plan${at === undefined ? '' : `?at=${encodeURIComponent(at)}`}`);
+  }, [focused, here, gone, runOf, route, undone, fromRun, fromList, at]);
 
   // The one write this route makes (ruling 4): a run from the build before, at the edge, still
   // carrying this-run changes. Once: an Undo of it is not folded again while this screen is up (it leaves).
@@ -240,12 +262,17 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   }, [focused, unfolded, runId]);
 
   // On arriving: the heading ("Plan: <name>") — or, with nothing to stand on, the open row. HERE is in view.
-  const openFirst = !!v && (v.edge || (!v.runId && v.rows.length === 0));
+  const openFirst = !!v && !sub && (v.edge || (!v.runId && v.rows.length === 0));
   useEffect(() => {
     if (!focused || !here) return;
-    if (openFirst) focusSoon(addBox);
+    // P-111: back from a row's own view (its path, the browser's Back) — the focus is on that row again.
+    const back = backTo && backTo.view === viewId ? backTo.key : undefined;
+    if (back !== undefined) {
+      setBackTo(null);
+      toInsides(list, back, title);
+    } else if (openFirst) focusSoon(addBox);
     else arrive(title, hereRow);
-  }, [focused, here, openFirst]);
+  }, [focused, here, openFirst, viewId]);
   // Native: HERE is in view once it has been laid out (the arrival effect runs before that), once.
   const hereShown = useRef(false);
   const hereLaid = (y: number) => {
@@ -266,7 +293,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   };
   // A narrow window (large text): levels step in less, and HERE stands above its words, so the words keep their room.
   const narrow = useWindowDimensions().width < 340;
-  const indent = (depth: number) => Math.min(depth, 6) * (narrow ? 8 : 24);
+  const indent = (depth: number) => Math.min(Math.max(0, depth - (pv?.base ?? 0)), 6) * (narrow ? 8 : 24);
   const seen = useVisibleHeight();
   // Almost no room (large text AND the keyboard up) — or a phone's keyboard up at all (P-93): the band
   // stays; everything else scrolls, the notice and the filled button after the rows, so nothing sits
@@ -313,12 +340,44 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     else b[part] = { y, h: height };
   };
 
-  // A routine row shows its steps when the run is inside it, when it is a step broken down, while
-  // smaller steps are being typed into it — or as it was last opened or closed by hand.
-  const opened = (row: PlanRow) => folds[keyOf(row.path)] ?? (row.within || !!row.broken || (typing?.mode === 'into' && typing.path === keyOf(row.path)));
+  // A routine used as a step shows its steps when the run is inside it, or as it was last opened or closed by hand.
+  // P-111: a step broken down and a for each open as a view of their own — in place only while smaller steps are being
+  // typed into them (Break it down, Add a step inside).
+  const typingInto = (row: PlanRow) => typing?.mode === 'into' && typing.path === keyOf(row.path);
+  const opened = (row: PlanRow) => (insidesOf(row) === 'view' ? typingInto(row) : (folds[keyOf(row.path)] ?? row.within));
+  const view = pv!;
+  /** P-111: where this view's own steps are added — its sequence (the routine's, or the row's insides). */
+  const ownSeq = sub?.ref ?? v.routineId;
+  /** The words this view is headed by (P-110: as shown, with the values held at the run's place). */
+  const headWords = sub ? (sub.shown ?? sub.words) : v.name;
+  /** P-111: the address of a view of this Plan (`?at=`; the routine's own: PLAN_TOP), keeping where it was opened from. */
+  const hrefAt = (key: string) => {
+    const q = [inSeq && `in=${encodeURIComponent(inSeq)}`, fromRun ? 'from=run' : fromList ? 'from=routines' : '', `at=${encodeURIComponent(key || PLAN_TOP)}`].filter(Boolean).join('&');
+    return `${runId ? `/go/run/${runId}/plan` : `/go/routine/${routineId}`}?${q}`;
+  };
+  /** P-111: a step broken down (or a for each) opened as a view of its own — pushed, so Back comes back here. */
+  const openView = (row: PlanRow) => {
+    if (live.current) keep(false);
+    setBackTo({ view: viewId, key: keyOf(row.path) });
+    router.push(hrefAt(keyOf(row.path)) as never);
+  };
+  /** P-111: the path back, one up — Back when that is the screen beneath (as it was pushed), else in this one's place. */
+  const goUp = () => {
+    if (!view.up) return;
+    if (live.current) keep(false);
+    const upKey = view.up.key;
+    setBackTo({ view: viewOf(id, inSeq, upKey), key: view.key });
+    const st = navigation.getState() as { index: number; routes: { name: string; params?: Record<string, unknown> }[] } | undefined;
+    const now = st?.routes[st.index];
+    const prev = st && st.index > 0 ? st.routes[st.index - 1] : undefined;
+    const p = (prev?.params ?? {}) as { id?: string; in?: string; at?: string };
+    const same = !!now && !!prev && prev.name === now.name && p.id === (now.params as { id?: string } | undefined)?.id && (p.in || undefined) === (inSeq || undefined);
+    if (same && planAt(v, typeof p.at === 'string' ? p.at : undefined).key === upKey) router.back();
+    else router.replace(hrefAt(upKey) as never);
+  };
   const shownRows: PlanRow[] = [];
   const shut: string[] = [];
-  for (const row of v.rows) {
+  for (const row of view.rows) {
     const key = keyOf(row.path);
     if (shut.some((s) => key !== s && under(key, s))) continue;
     shownRows.push(row);
@@ -397,7 +456,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     if (!stay && act().undo && act().undo !== was) leftEdit.current = act().undo;
   };
   /** P-110: the routine words name when they are exactly "@<routine name>" (case and spacing aside) — added, they are a call to it. */
-  const calledBy = (words: string) => routineInWords(words, myRoutines(act().data).map((r) => ({ routineId: r.routineId, name: r.name })));
+  // (P-111: same-named routines resolve as Plan's rows and Return in the "@" list do — the oldest first.)
+  const calledBy = (words: string) => routineInWords(words, routinesByAge(act().data));
   /** P-110: a call refused (itself, gone): said in words; the words stay where they were typed. */
   const refusedCall = (did: { ok: boolean; reason?: Refusal | 'reconnecting' }, target: string) => {
     if (did.ok) return false;
@@ -425,12 +485,14 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     const row = rowAt(t.path);
     if (!row) return leave();
     if (t.mode === 'words') {
-      // P-110: changed to "@<routine name>" — a plain step that gives nothing becomes the call.
-      if (target && row.kind === 'step' && !row.gives && !row.slot) {
-        if (!refusedCall(edit(row.seq, { kind: 'toCall', item: row.itemId, routine: target }), target)) leave(t.path);
+      // P-110: changed to "@<routine name>" — a plain step that gives nothing becomes the call. (P-111, the P-110
+      // investigator: only when the words changed — a step stored as "@<name>" is made a call by its ··· alone.)
+      const kept = wordsKept(row.words, t.text, row.kind === 'step' && !row.gives && !row.slot ? target : undefined);
+      if (kept === 'none') return leave(t.path);
+      if (kept === 'call') {
+        if (!refusedCall(edit(row.seq, { kind: 'toCall', item: row.itemId, routine: target! }), target!)) leave(t.path);
         return;
       }
-      if (!words || words === row.words) return leave(t.path);
       // A step broken down: its words are its own sequence's.
       const did = row.broken && row.ref ? edit(row.ref, { kind: 'rename', words }) : edit(row.seq, { kind: 'reword', item: row.itemId, text: words });
       if (did.ok) leave(t.path);
@@ -467,7 +529,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     // P-110: a step added as "@<routine name>" is a call to it.
     const target = calledBy(adding);
     // Refused (reconnecting): the words stay in the field.
-    if (target ? !refusedCall(edit(v.routineId, { kind: 'addCall', routine: target }), target) : edit(v.routineId, { kind: 'addStep', text: adding }).ok) {
+    // (P-111: in a row's own view, after its last step.)
+    if (target ? !refusedCall(edit(ownSeq, { kind: 'addCall', routine: target }), target) : edit(ownSeq, { kind: 'addStep', text: adding }).ok) {
       setAdding('');
       shutAt.current = -1;
     }
@@ -476,7 +539,9 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
 
   const close = () => setMenu(null);
   /** P-107: the names a for each added at the end can go through — every name given in the routine, as Add a step offers them. */
-  const eachLists = namesOffered(v.rows, { mode: 'end' });
+  // (P-111: in a row's own view, the names given above its end — its item, and what its steps give, too.)
+  const subIndex = sub ? v.rows.indexOf(sub) : -1;
+  const eachLists = subIndex >= 0 ? namesOffered(v.rows, { mode: 'into', index: subIndex }) : namesOffered(v.rows, { mode: 'end' });
   const menuRow = menu && 'row' in menu ? rowAt(menu.row) : undefined;
   const keptRow = menu && 'kept' in menu ? rowAt(menu.kept) : undefined;
   const reorderRow = menu && 'reorder' in menu ? rowAt(menu.reorder) : undefined;
@@ -498,15 +563,17 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
 
   // P-96 (ruling 5, journey 2): the bar above the keyboard — names given above where the words will stand.
   const typingIndex = typing && typing.mode !== 'name' ? v.rows.findIndex((r) => keyOf(r.path) === typing.path) : -1;
-  const offered = typing && typing.mode !== 'name' ? (typingIndex >= 0 ? namesOffered(v.rows, { mode: typing.mode, index: typingIndex }) : []) : addFocused ? namesOffered(v.rows, { mode: 'end' }) : [];
-  const matching = picking ? offered.filter((n) => nameKey(n).includes(nameKey(picking.query))) : [];
+  const offered = typing && typing.mode !== 'name' ? (typingIndex >= 0 ? namesOffered(v.rows, { mode: typing.mode, index: typingIndex }) : []) : addFocused ? eachLists : [];
+  // (P-111: as the routines are — the name typed exactly first, then those it begins: "{concern" is the item, not {concerns}.)
+  const matching = picking ? rankRoutines(picking.query, offered.map((n) => ({ routineId: n, name: n }))).map((n) => n.name) : [];
   // P-98: "@" at a word's start in Add a step (or a step added after a row) lists the person's routines too — only when summoned.
   const typedNow = typing ? typing.text : adding;
   // (P-107: and a step put into a for each — a routine called for each item.)
   // (P-110: and while changing a plain step's words — the step becomes the call, or the call comes after it.)
   const wordsAt = !!typing && typing.mode === 'words' && rowAt(typing.path)?.kind === 'step' && !rowAt(typing.path)?.gives && !rowAt(typing.path)?.slot;
   const atSign = !!picking && typedNow.charAt(picking.start) === '@' && (typing ? typing.mode === 'after' || (typing.mode === 'into' && !!rowAt(typing.path)?.each) || wordsAt : addFocused);
-  const routineMatches = atSign ? myRoutines(data).filter((r) => nameKey(r.name).includes(nameKey(picking!.query))).slice(0, 6) : [];
+  // P-111 (the P-110 investigator: "@Doc" then Return took "Archive doc"): the one named exactly first, then those it begins.
+  const routineMatches = atSign ? rankRoutines(picking!.query, myRoutines(data), routinesByAge(data).map((r) => r.routineId)).slice(0, 6) : [];
   // P-108: after "@", the names given above as routine rows too (`▤ {name}`), before the person's routines.
   const slotMatches = atSign && !wordsAt ? matching : [];
   const picks = matching.length + slotMatches.length + routineMatches.length;
@@ -572,7 +639,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     const into = t && t.mode === 'into' ? rowAt(t.path) : undefined;
     // (P-108: `slot` — a routine row whose routine is the value `{target}`.)
     const what: RoutineEdit = slot ? { kind: 'addSlot', name: target } : { kind: 'addCall', routine: target };
-    const did = into?.each && into.ref ? edit(into.ref, what) : row ? edit(row.seq, { ...what, after: row.itemId }) : edit(v.routineId, what);
+    const did = into?.each && into.ref ? edit(into.ref, what) : row ? edit(row.seq, { ...what, after: row.itemId }) : edit(ownSeq, what);
     if (!did.ok) {
       const words = callRefused(did.reason, myRoutines(data).find((r) => r.routineId === target)?.name ?? '', v.name);
       if (words) act().say(words);
@@ -694,8 +761,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
       actionTestID="go-plan-remove"
       onCancel={close}
       onAct={() => {
-        edit(removingRow.seq, { kind: 'remove', item: removingRow.itemId });
+        const did = edit(removingRow.seq, { kind: 'remove', item: removingRow.itemId });
         close();
+        // P-111: this view's own row removed — back to the view it is in.
+        if (did.ok && sub && removingRow === sub) goUp();
       }}>
       <View style={styles.gap} testID="go-plan-readers">
         {removing.readers.map((w, i) => (
@@ -763,7 +832,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     <RoutinesSheet
       names={eachLists}
       onName={(name) => {
-        if (edit(v.routineId, { kind: 'addSlot', name }).ok) close();
+        if (edit(ownSeq, { kind: 'addSlot', name }).ok) close();
       }}
       routines={myRoutines(data).map((r) => ({ routineId: r.routineId, name: r.name, line: rowLine({ ...r, tags: [], going: undefined }) }))}
       error={routineError}
@@ -773,7 +842,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
         close();
       }}
       onPick={(target) => {
-        const did = edit(v.routineId, { kind: 'addCall', routine: target });
+        const did = edit(ownSeq, { kind: 'addCall', routine: target });
         if (did.ok) {
           setRoutineError(undefined);
           close();
@@ -791,12 +860,12 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
       onPick={(list, own) => {
         const had = new Set(v.rows.map((r) => keyOf(r.path)));
         // P-108: a list of its own — asked each run, or kept in the routine.
-        const did = edit(v.routineId, { kind: 'addEach', item: itemNameFor(list), list, ...(own && { own }) });
+        const did = edit(ownSeq, { kind: 'addEach', item: itemNameFor(list), list, ...(own && { own }) });
         if (!did.ok) return did;
         close();
         // Its first step is typed inside it at once.
         const now = planView(act().data, v.runId ? { runId: v.runId } : { routineId: v.routineId });
-        const made = now?.rows.find((r) => r.each && r.depth === 0 && !had.has(keyOf(r.path)));
+        const made = now?.rows.find((r) => r.each && parentOf(keyOf(r.path)) === view.key && !had.has(keyOf(r.path)));
         if (made) startTyping({ mode: 'into', path: keyOf(made.path), text: '' });
         return did;
       }}
@@ -848,6 +917,25 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
           }}
         />
       )}
+      {sub ? (
+        // P-111: a row's own view — its own words (a step broken down), and Remove; the routine's own items are its Plan's.
+        <>
+          {!sub.each && <MenuItem label="Edit" spoken={`Edit ${sub.words}`} onPress={() => startTyping({ mode: 'words', path: view.key, text: sub.words })} />}
+          <MenuSep />
+          <MenuItem
+            label="Remove"
+            spoken={`Remove ${sub.words}`}
+            danger
+            testID="go-plan-remove-step"
+            onPress={() => {
+              if (readersOf(data, sub.scope, sub.itemId)) return setMenu({ removing: view.key });
+              close();
+              if (edit(sub.seq, { kind: 'remove', item: sub.itemId }).ok) goUp();
+            }}
+          />
+        </>
+      ) : (
+      <>
       <MenuItem label="Change the name" onPress={() => startTyping({ mode: 'name', path: '', text: v.name })} />
       {/* P-97: tags, for My routines' filter. */}
       {v.named && tagsWritable(v ? data.routines[v.routineId]?.tags : undefined) && <MenuItem label="Tags…" spoken={`Tags for ${v.name}`} testID="go-plan-tags-item" onPress={() => setMenu({ tags: true })} />}
@@ -873,8 +961,30 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
           <MenuItem label={`Remove ${v.name}`} danger testID="go-plan-remove-routine" onPress={() => setMenu({ removeRoutine: true })} />
         </>
       )}
+      </>
+      )}
     </Menu>
   ) : null;
+
+  /** P-108: a kept list — its items as rows under the block (no count), and + Add. (P-111: also under its own view's heading.) */
+  const keptRows = (row: PlanRow) =>
+    !!row.each?.kept && (
+      <View style={styles.kept} testID="go-plan-kept">
+        <View role="list" aria-label={row.each.list} style={styles.kept}>
+          {row.each.kept.map((x, k) => (
+            <View key={k} role="listitem" style={styles.keptItem} testID="go-plan-kept-item">
+              {!!x.routine && (
+                <View {...decorative}>
+                  <Mark name="routine" size={20} color={G.dim} />
+                </View>
+              )}
+              <T style={styles.shrink}>{x.text}</T>
+            </View>
+          ))}
+        </View>
+        <Btn kind="plain" mark="add" label="Add" spoken={`Add to ${row.each.list}`} onPress={() => setMenu({ kept: keyOf(row.path) })} testID="go-plan-kept-add" />
+      </View>
+    );
 
   /** P-101 (ruling 8): "{ } Insert" beside a field typed in — the names (the bar), from the first. */
   // Audit F7: the web only — on iOS/Android the names bar above the keyboard is the way (its chips are buttons there).
@@ -891,7 +1001,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
           readPick(text);
         }}
         onSubmit={() => {
-          if (chosen >= 0) return choose(chosen);
+          // P-111 (the P-110 investigator): a step's words opened unchanged ("@Doc", the caret after it) are not a pick —
+          // Return takes one only once the person has chosen it (↑/↓) or typed something new.
+          const same = typing.mode === 'words' && tidy(typing.text) === rowAt(typing.path)?.words;
+          if (chosen >= 0 && (lit >= 0 || !same)) return choose(chosen);
           setPicking(null);
           keep(true);
         }}
@@ -973,7 +1086,22 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
       {(openFirst || !WEB) && <Said text={`Plan: ${v.name}`} />}
       <ScrollView ref={scroller} style={styles.flex} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" testID="go-plan-list">
         <View ref={list} style={styles.rows}>
-          {typing?.mode === 'name' ? (
+          {/* P-111: a row's own view — the path back, one up (as the runner's path names the level it is in). */}
+          {!!view.up && (
+            <View style={styles.path} testID="go-plan-path">
+              <Btn kind="plain" mark="back" label={view.up.words} spoken={`Back to ${view.up.words}`} onPress={goUp} testID="go-plan-up" style={styles.up} />
+            </View>
+          )}
+          {sub && typing?.mode === 'words' && typing.path === view.key ? (
+            typed(`Step: ${sub.words}`)
+          ) : sub ? (
+            <View style={styles.head}>
+              <H1 own ref={title} spoken={`Plan: ${headWords}`} style={styles.name}>
+                <Chips words={sub.words} asks={sub.asks} parts={sub.parts} />
+              </H1>
+              <Btn ref={moreRef('')} kind="plain" mark="more" spoken={`More for ${sub.words}`} onPress={() => setMenu({ routine: true })} dataSet={{ more: '' }} testID="go-plan-more" />
+            </View>
+          ) : typing?.mode === 'name' ? (
             <View style={styles.gap}>
               {typed('Name')}
               {nameTaken && (
@@ -995,14 +1123,17 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
               {v.line}
             </T>
           )}
+          {/* P-111: what its steps give (hoisted), and a kept list's items, under its own heading. */}
+          {!!sub?.hoisted && <Gives names={sub.hoisted} testID="go-plan-hoisted" />}
+          {!!sub?.each?.kept && keptRows(sub)}
           {/* P-97: its tags, under the heading (Tags… on its ··· changes them). */}
-          {v.named && tags.length > 0 && typing?.mode !== 'name' && (
+          {!sub && v.named && tags.length > 0 && typing?.mode !== 'name' && (
             <T dim style={styles.line} testID="go-plan-tags">
               {tagWords(tags)}
             </T>
           )}
           {/* P-109: its places, by name — an address opens; words open the Places sheet at that row. */}
-          {v.named && places.length > 0 && typing?.mode !== 'name' && <PlacesLine places={places} onWords={(at) => setMenu({ places: true, at })} />}
+          {!sub && v.named && places.length > 0 && typing?.mode !== 'name' && <PlacesLine places={places} onWords={(at) => setMenu({ places: true, at })} />}
 
           {shownRows.map((row, i) => {
             const key = keyOf(row.path);
@@ -1014,6 +1145,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
             const shownWords = row.shown ?? row.words;
             const says = `${row.here ? 'Here, ' : row.within ? 'You are in this, ' : ''}${row.kind === 'wait' ? `Wait for: ${shownWords}` : shownWords}`;
             const moves = rowMoves(row);
+            const insides = insidesOf(row);
             return (
               <View
                 key={key}
@@ -1042,20 +1174,13 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
                         e.preventDefault();
                         moveRow(row, by);
                       } }) as object)}
-                      {...{ dataSet: { here: row.here ? 'true' : 'false', within: row.within ? 'true' : 'false', kind: row.kind, depth: String(row.depth), repeats: rail ? 'true' : 'false', dragging: drag?.key === key ? 'true' : 'false' } }}>
+                      {...{ dataSet: { here: row.here ? 'true' : 'false', within: row.within ? 'true' : 'false', kind: row.kind, depth: String(row.depth - view.base), repeats: rail ? 'true' : 'false', dragging: drag?.key === key ? 'true' : 'false' } }}>
                       {/* Too narrow (large text): no grip — the words keep their room (P-102: the moves are on the step's menu there). */}
                       {!narrow && (row.canUp || row.canDown) && <Grip words={row.words} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ reorder: key })} gripRef={moreRef(`grip:${key}`)} />}
-                      {row.kind === 'routine' && (
-                        <Btn
-                          kind="plain"
-                          // P-103 (10; was ▤, the routine's mark, as a button): the disclosure chevron — › shut, ⌄ open.
-                          mark={open ? 'chevronDown' : 'chevron'}
-                          spoken={`${open ? 'Close' : 'Open'} ${row.words}`}
-                          expanded={open}
-                          onPress={() => setFolds({ ...folds, [key]: !open })}
-                          style={styles.sq}
-                        />
-                      )}
+                      {/* P-103 (10; was ▤, the routine's mark, as a button): the disclosure chevron — › shut, ⌄ open. P-111: a
+                          step broken down or a for each goes into its own view (›); a routine used as a step opens in place. */}
+                      {insides === 'view' && <InsidesBtn words={shownWords} onPress={() => openView(row)} testID="go-plan-insides" dataSet={{ insides: key }} />}
+                      {insides === 'fold' && <InsidesBtn words={row.words} open={open} onPress={() => setFolds({ ...folds, [key]: !open })} />}
                       {row.kind === 'wait' && (
                         <View style={styles.rowMark}>
                           <Mark name="wait" color={G.dim} />
@@ -1070,7 +1195,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
                           </View>
                         )}
                         <View style={narrow ? styles.wordsNarrow : styles.words}>
-                          <View style={styles.callName}>
+                          {/* P-111: a step broken down (or a for each) — a tap on its words goes in too (its chevron is the named way in). */}
+                          <Pressable style={styles.callName} disabled={insides !== 'view'} onPress={() => openView(row)} accessible={false} focusable={false} testID={insides === 'view' ? 'go-plan-into' : undefined}>
                             {/* P-98: a call reads the routine's name with the routine's mark. */}
                             {(!!row.call || !!row.slot) && (
                               <View {...decorative}>
@@ -1081,7 +1207,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
                               {row.kind === 'wait' && <T dim>Wait for </T>}
                               <Chips words={row.words} asks={row.asks} parts={row.parts} />
                             </T>
-                          </View>
+                          </Pressable>
                           {!!row.call && <CallLines name={row.words} call={row.call} onInput={(input) => setMenu({ bind: key, input })} />}
                           {!!row.gives && (
                             <T dim testID="go-plan-gives">
@@ -1092,23 +1218,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
                           {/* P-101 (ruling 7): what its smaller steps give, hoisted. */}
                           {!!row.hoisted && <Gives names={row.hoisted} testID="go-plan-hoisted" />}
                           {/* P-108: a kept list — its items as rows under the block (no count), and + Add. */}
-                          {!!row.each?.kept && (
-                            <View style={styles.kept} testID="go-plan-kept">
-                              <View role="list" aria-label={row.each.list} style={styles.kept}>
-                              {row.each.kept.map((x, k) => (
-                                <View key={k} role="listitem" style={styles.keptItem} testID="go-plan-kept-item">
-                                  {!!x.routine && (
-                                    <View {...decorative}>
-                                      <Mark name="routine" size={20} color={G.dim} />
-                                    </View>
-                                  )}
-                                  <T style={styles.shrink}>{x.text}</T>
-                                </View>
-                              ))}
-                              </View>
-                              <Btn kind="plain" mark="add" label="Add" spoken={`Add to ${row.each.list}`} onPress={() => setMenu({ kept: key })} testID="go-plan-kept-add" />
-                            </View>
-                          )}
+                          {!!row.each?.kept && keptRows(row)}
                         </View>
                       </View>
                       <Btn
@@ -1690,6 +1800,20 @@ function toRow(list: { current: unknown }, key: string, title: { current: unknow
   });
 }
 
+/** P-111: back in a view from a row's own view — the focus on that row's way in (else its ···, else the heading). */
+function toInsides(list: { current: unknown }, key: string, title: { current: unknown }, tries = 30) {
+  if (!WEB || typeof requestAnimationFrame === 'undefined') return;
+  const go = (left: number) => {
+    const within = list.current as HTMLElement | null;
+    const all = Array.from(within?.querySelectorAll<HTMLElement>('[data-insides], [data-more]') ?? []);
+    const el = all.find((b) => b.getAttribute('data-insides') === key) ?? all.find((b) => b.getAttribute('data-more') === key);
+    if (el && el.getClientRects().length > 0) return el.focus();
+    if (left > 0) return requestAnimationFrame(() => go(left - 1));
+    focusOn(title);
+  };
+  requestAnimationFrame(() => go(tries));
+}
+
 const styles = StyleSheet.create({
   // P-110: a value held at the run's place, in a Plan row's words — inverted, as on the runner's note.
   valueInPlace: { backgroundColor: G.text, color: G.ink, paddingHorizontal: 2 },
@@ -1713,6 +1837,9 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.s2 },
   name: { flex: 1, minWidth: 0, paddingVertical: SP.s2 + 2 },
   line: { marginBottom: SP.s2 },
+  // P-111: the path back, one up, above a row's own view's heading (its words wrap; a full target).
+  path: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  up: { flexShrink: 1, marginLeft: -SP.s2 },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 52, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf, paddingLeft: SP.s3 - 4, gap: SP.s2 },
   // P-95: the grip, at the row's left edge (the row's own padding is its left half), a full target tall.
   grip: { marginLeft: -(SP.s3 - 4), alignSelf: 'stretch', justifyContent: 'center' },

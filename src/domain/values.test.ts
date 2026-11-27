@@ -242,14 +242,13 @@ describe('changing a value later (rows 3, 3b, 4)', () => {
 });
 
 describe('moving keeps values in their round (rows 5, 6, 7, 8, 10)', () => {
-  // (P-110, rewritten: was "the value stays (the step’s field shows it)"; the owner — moving the place back clears the
-  // values given at or below it: Back onto the giving step clears its value, and it asks again there.)
-  it('row 5: Back to the giving step: its value is cleared (the step asks again)', () => {
+  // (P-111, restored: owner ruling Back keeps it — P-110 had rewritten it to "its value is cleared (the step asks again)".)
+  it('row 5: Back to before the giving step: the value stays (the step’s field shows it)', () => {
     let { d, id } = start(feature(), 'R');
     d = typed(d, id, 'feature', 'login');
     d = walk(d, id, 'next', 'back');
     expect(here(d, id)).toBe('pick');
-    expect(seen(d, id, 'feature')).toBe('');
+    expect(seen(d, id, 'feature')).toBe('login');
   });
 
   it('row 6: Jump to a step of the same round keeps it; Jump to the start of a level that resets its round clears what the repeating part gave', () => {

@@ -947,7 +947,11 @@ test.describe('Break it down', () => {
     // The smaller steps sit one level in, under their step.
     await expect(p.row('Vibe check')).toHaveAttribute('data-kind', 'routine');
     await expect(p.row('Vibe check')).toHaveAccessibleName('You are in this, Vibe check');
-    await expect(p.row('Open the feature')).toHaveAttribute('data-depth', '1');
+    // (P-111, rewritten: was 'Open the feature' at data-depth 1 in this view — the field left (Undo's menu), its smaller
+    // steps are in its own view, opened from its row.)
+    await p.screen.getByRole('button', { name: 'Open Vibe check', exact: true }).click();
+    await expect(p.title).toHaveText('Vibe check');
+    await expect(p.row('Open the feature')).toHaveAttribute('data-depth', '0');
     await expect(p.here).toHaveAccessibleName('Here, Open the feature');
     await expect(p.line).toHaveText('at Open the feature');
     await expect(p.forward).toHaveText('Resume at Open the feature');
@@ -977,13 +981,14 @@ test.describe('Break it down', () => {
     await page.keyboard.press('Escape');
     await expect(p.here).toHaveAccessibleName('Here, Vibe check');
     await expect(p.forward).toHaveText('Resume at Vibe check');
-    // Its row opens and closes (the smaller steps are its own).
-    const fold = p.screen.getByRole('button', { name: 'Close Write down concerns', exact: true });
-    await expect(fold).toHaveAttribute('aria-expanded', 'true');
-    await fold.click();
+    // (P-111, rewritten: was "Its row opens and closes" — Close / Open by its chevron, in place. A step broken down opens
+    // as a view of its own: its smaller steps there, the path back to the routine.)
     await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write down concerns']);
     await p.screen.getByRole('button', { name: 'Open Write down concerns', exact: true }).click();
-    await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write down concerns', 'Open the doc']);
+    await expect(plan(page).title).toHaveText('Write down concerns');
+    await expectSteps(page, ['Open the doc']);
+    await plan(page).screen.getByTestId('go-plan-up').click();
+    await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write down concerns']);
     await planMenu(page, 'Write down concerns', 'Edit');
     await planType(page, 'Write the concerns down');
     await expectEdit(page, 'Changed “Write down concerns”');
@@ -992,7 +997,8 @@ test.describe('Break it down', () => {
     await expectRemoved(page, 'Removed “Write the concerns down” and its smaller steps');
     await expectSteps(page, ['Select a feature to test', 'Vibe check']);
     await undoEdit(page);
-    await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write the concerns down', 'Open the doc']);
+    // (P-111, rewritten: was with 'Open the doc' after it — its smaller steps are in its own view now.)
+    await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write the concerns down']);
   });
 
   test('the runner hosts no planning: no break-down sheet, no Keep ask, and its panel holds the round, then, Back to <step> and Jump to… only', async ({ page }) => {
@@ -1403,15 +1409,23 @@ test.describe('data written by the build before', () => {
     const t = tile(page, 'Apply for jobs');
     await t.getByRole('button', { name: 'Plan Apply for jobs', exact: true }).click();
     const p = plan(page);
-    await expect(p.title).toHaveText('Apply for jobs');
+    // (P-111, rewritten: was the title 'Apply for jobs' and the whole sequence, every step broken down open in place —
+    // Plan opens where the run is, the innermost step broken down it is in, as a view of its own; its path goes back up.)
+    await expect(p.title).toHaveText('Open the job ad');
     await expect(page).toHaveURL(/\/go\/run\/p90-008\/plan$/);
     await expect(p.notice).toContainText('Kept this run’s changes in Apply for jobs');
     // The sequence as that run read it: a step removed, one added, one reworded, two broken down, 5 times.
-    await expectSteps(page, ['Open the tracker', 'Tailor the CV', 'Open the job ad', 'Find the right tab', 'Copy the requirements', 'Rewrite the summary', 'Ask Sam to proofread', 'Wait for a reply', 'Log it in the sheet']);
+    await expectSteps(page, ['Find the right tab', 'Copy the requirements']);
     await expect(p.here).toHaveAccessibleName('Here, Find the right tab');
     await expect(p.line).toHaveText('at Find the right tab');
     await expect(p.forward).toHaveText('Resume at Find the right tab');
-    await expect(p.divider.first()).toHaveText('Repeat from here · 5 times');
+    await plan(page).screen.getByTestId('go-plan-up').click();
+    await expect(plan(page).title).toHaveText('Tailor the CV');
+    await expectSteps(page, ['Open the job ad', 'Rewrite the summary']);
+    await plan(page).screen.getByTestId('go-plan-up').click();
+    await expect(plan(page).title).toHaveText('Apply for jobs');
+    await expectSteps(page, ['Open the tracker', 'Tailor the CV', 'Ask Sam to proofread', 'Wait for a reply', 'Log it in the sheet']);
+    await expect(plan(page).divider.first()).toHaveText('Repeat from here · 5 times');
     await saved(page);
     const after = await exported(page);
     expect(after.routines['p90-007'].items!.map((i) => i.text ?? (i.wait !== undefined ? `wait:${i.wait}` : `ref:${i.ref}`))).toEqual(['Open the tracker', 'ref:p90-019', 'Ask Sam to proofread', 'wait:a reply', 'Log it in the sheet']);

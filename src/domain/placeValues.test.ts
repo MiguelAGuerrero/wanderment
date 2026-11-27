@@ -73,21 +73,19 @@ const post = () => world(seq('P', 'Write the post', [step('choose', 'Choose a su
 // ───────── 1. a value is held only while the step that gives it is above the place ─────────
 
 describe('moving the place back clears the values given at or below it, with Undo', () => {
-  it('Back onto the giving step clears its value (it asks again there); the move says what it cleared; one Undo restores it', () => {
+  // (P-111, rewritten: owner ruling Back keeps it — was "Back onto the giving step clears its value (it asks again
+  // there); the move says what it cleared; one Undo restores it": the value stays and shows in the step's own field.)
+  it('Back onto the giving step keeps its value: it shows in that step’s field to keep or change; nothing is cleared', () => {
     const s = start(post(), 'P');
     const d = next(give(s.d, s.id, 'subject', 'tides'), s.id);
     expect(shown(d, s.id)).toEqual(['subject: tides']);
     const r = go(d, { kind: 'back', runId: s.id });
     expect(r.ok).toBe(true);
     expect(here(r.data, s.id)).toBe('choose');
-    expect(shown(r.data, s.id)).toEqual([]);
-    expect(runnerView(r.data, s.id)!.fields).toEqual([{ name: 'subject', text: '', gives: true }]);
-    expect(stored(r.data, s.id)).toEqual([]);
-    expect(r.cleared).toEqual(['subject']);
-    // One Undo: the place and the value, together.
-    const back = undone(d, r.data);
-    expect(here(back, s.id)).toBe('draft');
-    expect(shown(back, s.id)).toEqual(['subject: tides']);
+    expect(shown(r.data, s.id)).toEqual(['subject: tides']);
+    expect(runnerView(r.data, s.id)!.fields).toEqual([{ name: 'subject', text: 'tides', gives: true }]);
+    expect(stored(r.data, s.id)).toHaveLength(1);
+    expect(r.cleared ?? []).toEqual([]);
   });
 
   it('Jump to a step before the giver clears it; Jump to a step after the giver keeps it', () => {

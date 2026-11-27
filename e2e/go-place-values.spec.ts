@@ -123,15 +123,15 @@ for (const [label, size] of [
       await expect(r.words).toHaveText('Build checkout');
       await expect(r.values).toHaveText(['feature: checkout']);
 
-      // Kept across a reload; Back onto the giving step clears it there too (it asks again).
+      // Kept across a reload; (P-111, rewritten: owner ruling Back keeps it — was: Back onto the giving step clears it
+      // there too, "Cleared {feature}") Back onto the giving step keeps it, in that step's field to keep or change.
       await page.reload();
       await expect(runner(page).words).toHaveText('Build checkout');
       await runner(page).handle.click();
       await runner(page).panel.getByRole('button', { name: /^Back to/ }).click();
       await expect(runner(page).words).toHaveText('Pick a feature');
-      await expect(runner(page).field('feature')).toContainText('feature');
-      await expect(runner(page).values).toHaveCount(0);
-      await expect(runner(page).notice).toContainText('Cleared {feature}');
+      await expect(runner(page).field('feature')).toHaveAccessibleName('feature: checkout');
+      await expect(runner(page).notice).toHaveCount(0);
 
       // Home: the run touched last reads "Last ran" (in words, and in its body's name).
       await runner(page).pause.click();

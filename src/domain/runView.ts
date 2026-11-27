@@ -1028,6 +1028,18 @@ export interface PlanView {
  * Plan (P-90). `{ runId }`: that run's Plan (undefined once it has ended or is gone). `{ routineId }`:
  * the routine's — which is its open run's Plan when it has one (one surface per run). Reads only.
  */
+/**
+ * The named routines, oldest first: the order "@<name>" resolves same-named routines in (only an import makes them) —
+ * Plan's rows offering Make it a call, a step added as "@<name>", and Return in the "@" list alike (P-111).
+ */
+export function routinesByAge(data: Data): { routineId: Id; name: string }[] {
+  return Object.keys(data.routines)
+    .map((id) => readRoutine(data, id))
+    .filter((x): x is Seq => !!x && x.named && !x.removedAt)
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1))
+    .map((x) => ({ routineId: x.id, name: x.words }));
+}
+
 export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: Id }): PlanView | undefined {
   const run = 'runId' in of ? readRun(data, of.runId) : openRuns(data).filter((r) => r.routineId === of.routineId && !!place(data, r)).sort(lastTouched)[0];
   if ('runId' in of && (!run || run.endedAt)) return undefined;
@@ -1135,11 +1147,7 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
   }
   // P-110: a step whose words are "@<routine name>" — offered as a call (only where the engine would make it one).
   {
-    const named = Object.keys(data.routines)
-      .map((id) => readRoutine(data, id))
-      .filter((x): x is Seq => !!x && x.named && !x.removedAt)
-      .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1))
-      .map((x) => ({ routineId: x.id, name: x.words }));
+    const named = routinesByAge(data);
     for (const r of rows) {
       if (r.kind !== 'step' || r.gives || r.slot || !/^\s*@/.test(r.words)) continue;
       const target = routineInWords(r.words, named);
@@ -1179,6 +1187,68 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
     restartLevel: inAt > 0 ? inAt : 0,
   };
 }
+
+/**
+ * P-111 (owner, 2026-11-27: "the breakdown step be its own view"): a Plan row that has insides, and how they open —
+ * `view`, as a view of its own (a step broken down, a for each: the routine's own smaller steps); `fold`, in place by its
+ * chevron (a routine used as a step: a routine of its own, with its own Plan). P-112 opens the same insides on the runner.
+ */
+export function insidesOf(row: Pick<PlanRow, 'kind' | 'broken' | 'each'>): 'view' | 'fold' | undefined {
+  if (row.kind !== 'routine') return undefined;
+  return row.broken || row.each ? 'view' : 'fold';
+}
+
+/** P-111: a Plan row's key — its path, its item ids joined (unique per row). */
+export const planKey = (path: Id[]): string => path.join('/');
+/** P-111: `?at=` for the routine's own steps (no row's insides); `at` absent is where the run is (`planAt`). */
+export const PLAN_TOP = 'top';
+
+/** P-111: what one view of Plan shows — the routine's steps, or one row's insides. */
+export interface PlanAt {
+  /** The row whose insides this is ('' for the routine's own steps). */
+  key: string;
+  row?: PlanRow;
+  /** The rows under it, in order (every depth): what this view lists. */
+  rows: PlanRow[];
+  /** Its rows' first depth (a row's `depth - base` is how far in it is drawn). */
+  base: number;
+  /** The view one up (the routine's: key ''), with its words — the path back. */
+  up?: { key: string; words: string };
+}
+
+/**
+ * P-111: the view of Plan at `at` — a row's key whose insides open as a view, or PLAN_TOP. Absent: where the run is —
+ * the innermost such row the run is in (as "Plan <routine>" opens the innermost routine), else the routine's. A key
+ * that is no longer one (removed, undone, made a step again) reads as the nearest view above it. Reads only.
+ */
+export function planAt(v: Pick<PlanView, 'rows' | 'name'>, at: string | undefined): PlanAt {
+  const byKey = new Map(v.rows.map((r) => [planKey(r.path), r]));
+  const opens = (k: string) => {
+    const r = byKey.get(k);
+    return !!r && insidesOf(r) === 'view';
+  };
+  /** `k` itself, or the nearest key above it that opens as a view ('' for none). */
+  const nearest = (k: string): string => {
+    const ids = k.split('/');
+    for (let n = ids.length; n > 0; n--) {
+      const c = ids.slice(0, n).join('/');
+      if (opens(c)) return c;
+    }
+    return '';
+  };
+  let key = '';
+  if (at === undefined) {
+    const deepest = v.rows.filter((r) => r.within && insidesOf(r) === 'view').sort((a, b) => b.path.length - a.path.length)[0];
+    if (deepest) key = planKey(deepest.path);
+  } else if (at !== PLAN_TOP && at !== '') key = nearest(at);
+  const row = key ? byKey.get(key) : undefined;
+  if (!row) return { key: '', rows: v.rows, base: 0 };
+  const rows = v.rows.filter((r) => r.path.length > row.path.length && row.path.every((id, i) => r.path[i] === id));
+  const upKey = nearest(row.path.slice(0, -1).join('/'));
+  const upRow = upKey ? byKey.get(upKey) : undefined;
+  return { key, row, rows, base: row.depth + 1, up: { key: upKey, words: upRow ? (upRow.shown ?? upRow.words) : v.name } };
+}
+
 
 /** A routine for the plain editor. Undefined when it is gone or removed. */
 export interface RoutineView {

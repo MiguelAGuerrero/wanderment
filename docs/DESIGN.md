@@ -50,9 +50,14 @@ routines in their own words — and runs them with the person, one small step at
   after the divider (those steps ask again) — and a value whose giving step was removed in Plan; starting
   a routine again starts empty. **Values follow the place** *(P-110; the owner: "the place where you are … establishes
   this as the intended or expected state at that point in terms of values declared")*: a value is held only while the
-  step that gives it is above the place (or is the place: its own field). **Moving the place back** — Back, Jump to,
+  step that gives it is above the place (or is the place: its own field). **Moving the place back** — Jump to,
   Start over, a new round — **clears the values given at or below where it lands**, said ("Cleared {name}"; after a
-  Jump, "Jumped from … · Cleared {name}") with the move's one Undo, which brings place and values back. **A value is
+  Jump, "Jumped from … · Cleared {name}") with the move's one Undo, which brings place and values back. *(P-111, the
+  owner: "Back keeps it")* **Back clears nothing**: Back onto the giving step shows its value in that step's field, to
+  keep or change; one passed back over is hidden until the run reaches it again. *(P-111, the owner: "A Plan edit never
+  clears a run's values")* A Plan edit (a drag, a move, a remove) that puts a giving step below the place leaves its
+  value stored — hidden while the step is below the place, shown again in its field when the run reaches it; no later
+  move deletes it (only a move of the place back over it, as above). **A value is
   asked only at its giving step, never ahead**: a step reading a name a later step of its routine gives does not ask
   for it (its words show `{name}` as written); a step reading a name whose giving step was passed and left empty
   still asks (the giving step is above). A for each's rounds, its collected lists, kept lists and a call's own copies
@@ -353,7 +358,15 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   number; remove it); an "Add a step" row, which **wraps and grows** so the whole step shows while it is
   typed *(P-101; P-103: the field has the row's whole width, and its Insert and Add sit below it, so it is never
   squeezed or clipped)*. A routine used as a step opens and closes by a chevron, › shut and ⌄ open *(P-103; was
-  ▤, which stays the routine's mark)*; "Repeat from here" is marked ↻ *(P-103; was ⇄, which means swap)*. Every step row that can move has a **grip** at its left edge *(P-95)* ("Reorder
+  ▤, which stays the routine's mark)*; *(P-111, the owner: "Opens its own view")* **a step broken down and a for each
+  open as a view of their own**: their row is shut, its chevron (› "Open <words>", the control P-112 uses for a step
+  with insides) or a tap on its words opens Plan at that row (`?at=<row>`, pushed: the browser's Back comes back) — its
+  words as the heading (focused), above it the **path back** one up ("← <the view it is in>", "Back to …"; the focus
+  returns to the row), its own steps, and its own **Add a step** (with A routine, For each…, "@" and "{"), which adds
+  after its last step; its ··· holds Undo, Edit (a step broken down) and Remove. While its first smaller steps are
+  typed (Break it down, Add a step inside) they show in place. Plan opened with a run, with no `?at=`, opens where the
+  run is — the innermost such row it is in (HERE among its rows), chosen on arriving; `?at=top` is the routine's own
+  steps. A routine used as a step stays a call: it opens in place, and Open is its own Plan; "Repeat from here" is marked ↻ *(P-103; was ⇄, which means swap)*. Every step row that can move has a **grip** at its left edge *(P-95)* ("Reorder
   <words>", a full target): dragged by touch or mouse the row stays in place, dashed, and a line shows
   where it will go (past an open routine: after its last step); nothing moves until it is let go, so
   nothing is covered and nothing reflows with animation (Reduce Motion or not). Let go, it is one move
@@ -399,7 +412,9 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   Insert"** button beside the field opens them (the first name has the focus); a tap puts `{name}` at the
   caret, *(P-103)* with a space after it, and the field keeps the focus. *(P-103, the owner typed "@{concerns}")*
   Typing **"@" or "{"** at a word's start opens the names, as @ does in Notion and Slack: the bar shows the names
-  matching what is typed after it; ↑/↓ choose one (typing part of a name chooses the first match), and Return or
+  matching what is typed after it *(P-111: the one typed exactly first, then those it begins, then those that hold it;
+  same-named routines resolve oldest first, as words typed whole do; a step's words opened unchanged are no pick — Return
+  takes one only once chosen or once something new is typed)*; ↑/↓ choose one (typing part of a name chooses the first match), and Return or
   a tap puts it in place of what was typed from the "@"/"{". With none chosen, Return does its usual job. Esc, the
   caret moving away, or any character that is not part of a name closes it and the words stay ("me@co", "json {"
   and braces typed by hand are just words). A name put in after a word gets a space before it too. From the keyboard, Alt+↓ in the field goes to the names (each a

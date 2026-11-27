@@ -18,6 +18,15 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — Back keeps a value; a Plan edit never clears a run's values
+Answered in chat on two P-110 behaviours the investigator flagged:
+- Back onto the giving step: "Back keeps it" — Back shows the value in the step's field to keep or change;
+  only Jump, Repeat, Start over and a new round clear it.
+- Dragging a giving step below the place in Plan: "Keep the value" — a Plan edit never clears a run's
+  values; the value stays hidden while its step is below the place and shows again in that step's field
+  when the run reaches it.
+Led to: corrections folded into P-111.
+
 ## 2026-11-27 — Defer full end-to-end testing to the end
 "It seems like P1-10 is taking a long time, and I suspect this is because of testing. So please batch all
 implementation work once and then defer testing at the end so that there's no redundancy here. At most,

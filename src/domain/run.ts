@@ -986,11 +986,13 @@ export function givenAhead(data: Data, run: RunState, frames: Frame[], key: stri
 }
 
 /**
- * P-110: after a move, the values whose giving step is no longer above the place go — below it (moved back past it, or
- * an earlier build's value given ahead); on it, when the move went back (`back`: Back, Jump, Start over — it asks again
- * there); and one an earlier build gave ahead that the move went past without reaching it (Jump). A Next that reaches a
- * giving step keeps the value an earlier build gave ahead: it shows there, in that step's own field. What cannot be read
- * is kept. The names cleared, for the notice (its Undo is the whole write).
+ * P-110: after a move, the values whose giving step the move took the place back over go — now below it, and held before
+ * it (P-111, owner: "A Plan edit never clears a run's values" — one a Plan edit put below the place stays stored, hidden,
+ * and shows again in its step's field when the run reaches it; no later move deletes it); on it, when the move went back
+ * (`back`: Jump, Start over — it asks again there); and one an earlier build gave AHEAD (at a reader) that the move went
+ * past without reaching its giving step (Jump). A Next that reaches a giving step keeps the value an earlier build gave
+ * ahead: it shows there, in that step's own field. (P-111, owner: "Back keeps it" — Back clears nothing: `runVerb` does
+ * not settle it.) What cannot be read is kept. The names cleared, for the notice (its Undo is the whole write).
  */
 function settlePlace(before: Data, after: Data, runId: Id, back: boolean): { data: Data; cleared: string[] } {
   const raw = own(after.runs, runId);
@@ -1006,12 +1008,15 @@ function settlePlace(before: Data, after: Data, runId: Id, back: boolean): { dat
     // (What cannot be read is kept — P-108: a value whose `refs` are in a shape this version cannot read too.)
     if (!isEntry(v) || ((v as { refs?: unknown }).refs !== undefined && !Array.isArray((v as { refs?: unknown }).refs))) return true;
     const b = valueStanding(after, run, now, v);
-    const skipped = () => {
-      if (!was || !then) return false;
-      const same = was.values.find((e) => e.level === v.level && e.seq === v.seq && nameKey(e.name) === nameKey(v.name) && e.item === v.item);
-      return !!same && valueStanding(before, was, then, same) === 'below';
+    const same = () => (was ? was.values.find((e) => e.level === v.level && e.seq === v.seq && nameKey(e.name) === nameKey(v.name) && e.item === v.item) : undefined);
+    /** It was below the place before this move (an earlier build's value given ahead; one a Plan edit put below). */
+    const wasBelow = () => {
+      const e = same();
+      return !!e && !!was && !!then && valueStanding(before, was, then, e) === 'below';
     };
-    const goes = b === 'below' || (b === 'at' && back) || ((b === 'above' || b === 'inside') && skipped());
+    // (Given ahead: at a step that is not the one that gives it — only an earlier build stored these.)
+    const ahead = () => givingItem(after, run, now, v) !== v.item;
+    const goes = (b === 'below' && (!wasBelow() || ahead())) || (b === 'at' && back) || ((b === 'above' || b === 'inside') && wasBelow() && ahead());
     if (goes && !cleared.some((c) => nameKey(c) === nameKey(v.name))) cleared.push(v.name);
     return !goes;
   });
@@ -2732,7 +2737,9 @@ export function runVerb(data: Data, verb: Verb, env: Env): Result {
     const landed = landEach(r, verb.kind === 'start' ? r.runId : verb.runId, env);
     // P-110: and a value is held only while the step that gives it is above the place.
     if (verb.kind === 'start' || !landed.ok || landed.data === data) return landed;
-    const { data: next, cleared } = settlePlace(data, landed.data, verb.runId, verb.kind === 'back' || verb.kind === 'jump' || verb.kind === 'restart');
+    // (P-111, owner: "Back keeps it" — Back clears nothing; what it passes back over is hidden until it is reached again.)
+    if (verb.kind === 'back') return landed;
+    const { data: next, cleared } = settlePlace(data, landed.data, verb.runId, verb.kind === 'jump' || verb.kind === 'restart');
     return cleared.length ? { ...landed, data: next, cleared } : landed;
   }
   return r;

@@ -95,26 +95,24 @@ describe('F2: Back to across a round boundary', () => {
     expect(vals(id)).toEqual(['0:base=web', '0:feature=signup']);
   });
 
-  // (P-110, rewritten: was Next then Back to "Setup" — Back onto the step that gives {base} now clears it (said, with
-  // Undo). A Back that clears nothing: from "Test" to "Pick", which was given nothing.)
+  // (P-111, restored: owner ruling Back keeps it — P-110 had moved this to a Back from "Test" to "Pick".)
   it('Back to that clears nothing still leaves no notice and no Undo (P-95)', () => {
     const id = started('R');
     st().typeValue(id, 's', 'base', 'web');
     st().nextStep(id);
-    st().nextStep(id);
     st().backTo(id);
-    expect(here(id)).toBe('pick');
     expect(st().runNotice).toBeUndefined();
     expect(st().undo).toBeUndefined();
   });
 });
 
 describe('F3: typing over a filled value in the step’s own field (ruling 4)', () => {
-  // (P-110, rewritten: was Next then Back to "Setup" before reopening its field — Back onto the giving step now clears
-  // the value itself; the field is reopened where the run stands.)
+  // (P-111, restored: owner ruling Back keeps it — P-110 had dropped the Next then Back to "Setup" before reopening its field.)
   it('cleared: "Cleared {base}" with Undo, once; Undo brings it back', () => {
     const id = started('R');
     st().typeValue(id, 's', 'base', 'web');
+    st().nextStep(id);
+    st().backTo(id);
     for (const t of ['we', 'w', '']) st().typeValue(id, 's', 'base', t);
     // Per keystroke: nothing. Once the edit is over (the field is left): one notice.
     expect(st().runNotice).toBeUndefined();

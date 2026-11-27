@@ -300,15 +300,15 @@ for (const size of [
       ]);
       await vs.getByTestId('go-value-close').click();
       // Back a step: the address typed in the step's words gets its row.
-      // (P-110, rewritten: was ['Open notion.so'], then ['Open docs.google.com', 'Open notion.so'] — Back onto "Pick the
-      // page to work in", the step that gives {page}, clears it (the owner: "moving the place back clears the values given
-      // at or below it"), so the value's address goes with it; the step's own typed address still gets its row.)
+      // (P-111, restored: owner ruling Back keeps it — P-110 had the value's address go with a Back that cleared {page}.)
       await r.handle.click();
       await r.panel.getByRole('button', { name: /^Back to/ }).click();
       await r.handle.click();
-      await expect(r.panel.getByTestId('go-open-address')).toHaveCount(0);
+      await expect(r.panel.getByTestId('go-open-address')).toHaveText(['Open notion.so']);
       await r.panel.getByRole('button', { name: /^Back to/ }).click();
       await r.handle.click();
+      // (P-111, rewritten: was ['Open docs.google.com', 'Open notion.so'] — Back past "Pick the page" keeps {page} stored but,
+      // its giving step now below the place, not held there (P-110), so its address shows again only when it is reached.)
       await expect(r.panel.getByTestId('go-open-address')).toHaveText(['Open docs.google.com']);
     });
 
