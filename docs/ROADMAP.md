@@ -43,41 +43,63 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-98 Routines as steps, and for each `[feature]` `[data]` `[ux]` L
+### P-98 Calls: a routine as a step, with what it asks and gives `[feature]` `[data]` `[ux]` L
+*Status:* in-progress
+*Why:* owner, 2026-11-26/27: "blocks and steps should be able to reference other routines … statements
+or function calls"; from real use (drawing): "there wasn't any idea of keeping multiple implementations of
+one function"; "a routine that could change underneath". D-23, B-16; scout `.polish/product/P-98-scout.md`
+(split P-98 into this, P-107 and P-108).
+*Done when:* Add's "a routine" and "@" (only when summoned — no list while typing words, D-24) add a
+routine as a step (a call row); a call row shows what it asks — `with {x}`, `with {y} as x`, `with
+<words> as x`, or `asks {x}` (asked where it runs) — and what it gives; inputs resolve typed → by name
+where it runs → asked; an input is the callee's own copy; the call returns only what its row gives (a
+called routine's other names stay its own); what calls give under one name in the same routine is
+collected into one list in the order given; Next or Step out past a call or a broken-down step without
+stepping in shows a field for each owed name still empty (a breakdown: only names read outside it; the
+trace names that step; left empty, a later reader asks); renaming a value renames it in call bindings;
+a call to a removed routine says so and can't be stepped into; Plan refuses to add a routine as a step
+of itself (directly or through another) — the self-call is parked (B-16); the depth refusal has words;
+Copy on a routine's menu makes a copy under a new name with Undo; DESIGN.md's "a routine can't contain
+itself" stays until the self-call is unparked. Persistence on every path; older builds read a call as
+Step in; golden fixture p98-* frozen first.
+
+### P-107 For each over a list given above `[feature]` `[data]` `[ux]` L
 *Status:* todo
-*Why:* owner, 2026-11-26: "blocks and steps should be able to reference other routines … Just as any thread
-would allow, statements or function calls"; for each "should just be treated like a regular for loop".
-*Done when:* Add offers a step, a routine (only when summoned: "@" or Add's "a routine" — no list
-while the person types their own words; owner, D-24), For each… and Repeat; a call row shows
-`with {x}`, `with {y} as x` or `asks {x}` and what it gives; for each is a loop block over a list, its
-giving step shows a list editor, inside reads "photo 2 of 3", a value given inside is collected after it.
-Canvas rows 3–4. From B-16 (D-23, as revised by the owner 2026-11-27): a step that gives a name
-which already has a value shows that value to adjust — the only way a list changes (no "adds to"; no item
-leaves by itself); a for each keeps its place, carries on to items added after it, ends when it passes the
-last item and passes straight through an empty list; a for each can run over a list kept in the routine
-(rows under the block in Plan, + Add there and on the routine's tile; items stay across runs, reload,
-export and import; no count shown for a kept or growing list); a step can give a list held at its own
-level or above; a giving field offers the person's routines — a routine chosen there is a call with a
-field for each thing it asks, and a step reading that value steps into it (inputs: typed where given,
-then by name where it runs, then asked); a called routine hands back what its call row gives; an item
-added to a kept list comes round in the next sitting. Further amendments (owner, 2026-11-27, B-16): a called routine returns what its
-call row gives; an input is the called routine's own copy (it may mark or strike a list it was handed,
-which changes nothing for the caller; only the routine that holds a list gives it again); typed words
-can be bound to an input at the call ("with <words> as x"); one name given more than once in a routine
-(by several calls, or by a routine calling itself) is collected into one list in the order given, as a
-for each collects; no output is renamed at a call; a later step that gives the name again is shown the
-collected list to adjust (owner, 2026-11-27: "Proceed with that"); for the contract: optional inputs
-(the designed "blank") — owner to decide; a routine can call itself, directly or through another — Plan shows such a call as a closed row,
-and (designer's ruling, to confirm in the contract) the run refuses in words to step in past the engine's
-depth limit and stays where it is, the path showing the first routine and the nearest two levels with no
-count; DESIGN.md's "a routine can't contain itself" is removed; a for each can declare its own list in its
-header (arriving asks for the items in the list editor, local to the block; kept, they persist between
-runs). A step owes what its insides give (owner, 2026-11-27): Next on a call or on a
-broken-down step without stepping in, and Step out before its giving steps were reached, show a field for
-each name it gives that is still empty (a breakdown: only names read outside it; a call: what its call row
-gives); the value's trace names that step; left empty, a later reader asks as today; inside a for each,
-per item and collected after the block (the fields' form and the Step out case: designer's ruling, to
-confirm in the contract).
+*Why:* owner, 2026-11-27 (real use): "I was trying to write a for each and apply a function over them";
+B-16.
+*Done when:* Add's "For each…" makes a loop block over a name given above (the sheet lists ready-made
+sentences "item in {list}"); its giving step shows a list editor (one row per item, + Add another, paste
+offers to split); inside, the values row reads "item 2 of 3: <item>" and the item name reads in steps; a
+call inside receives the item; what each item gives is collected into a list readable after the block;
+giving a list again shows it to adjust — the only way a list changes; the for each keeps its place,
+carries on to added items, ends past the last, and passes straight through an empty list; each round
+clears values given inside the loop; Undo; persistence; an older build reads the block as a breakdown.
+
+### P-108 Kept lists, a for each's own list, and values that are routines `[feature]` `[data]` `[ux]` L
+*Status:* todo
+*Why:* owner, 2026-11-27: "A way … is actually a routine, not text … returning functions from
+functions"; "maybe there's better UX to have a for each loop declare its own values, like locally";
+real use: trying a method more than one way. B-16.
+*Done when:* a for each can run over a list kept in the routine (rows under the block in Plan, + Add
+there and on the routine's tile; items stay across runs, reload, export and import; an item added comes
+round in the next sitting; no count shown) or declare its own list in its header (asked on arrival,
+local to the block); a step can give a list held at its own level or above; a value can be a routine,
+held by reference (a Plan change follows); a list may hold routines with words beside them; a routine
+row can take a value's name (`▤ {name}`), shows the routine held on the runner with Step in, and held
+words read as words with no Step in; a step typed as words never steps in; Add's "a routine" / "@" list
+the names given above first; a routine value is drawn with the routine mark wherever values show; what
+an experiment chooses is never stored on the routine by itself (owner: "Edit Plan by hand").
+Parked until a real routine needs them (B-16): a routine calling itself (and naming deep levels by the
+value they were called with, "…" in long paths), a join that reopens when a finished part takes up again,
+kept lists shared between parts.
+
+### P-100 The work queue: leaves only, depth-first `[feature]` `[data]` `[ux]` L
+*Status:* todo
+*Why:* (replaces P-94, the flat queue halted on 2026-11-25) owner, 2026-11-25/26: queue up work across routines; "ensure that this is depth-first … we only
+queue up only the leafs."
+*Done when:* ↑ Queue on any routine, call, block or part puts its depth-first next step on Up next with
+its path; running it resumes that thread in place; finishing pops it; a waiting thread is not queued;
+taking an entry off never stops its thread. Canvas row 7.
 
 ### P-99 In any order: parts as threads, joined `[feature]` `[data]` `[ux]` L
 *Status:* todo
@@ -100,14 +122,6 @@ routine's tile on home when the run is paused (the tile reads the part last touc
 a stopped part are told apart in words, and that record survives export and import; at 390 px and 200 %
 text every line wraps and none is cut, each row ≥ 48 px with a full spoken name; no count, percentage or
 "left" anywhere; no editing from it.
-
-### P-100 The work queue: leaves only, depth-first `[feature]` `[data]` `[ux]` L
-*Status:* todo
-*Why:* (replaces P-94, the flat queue halted on 2026-11-25) owner, 2026-11-25/26: queue up work across routines; "ensure that this is depth-first … we only
-queue up only the leafs."
-*Done when:* ↑ Queue on any routine, call, block or part puts its depth-first next step on Up next with
-its path; running it resumes that thread in place; finishing pops it; a waiting thread is not queued;
-taking an entry off never stops its thread. Canvas row 7.
 
 ### P-104 The library (B-17 slices 1 and 4) `[feature]` `[ux]` M
 *Status:* todo

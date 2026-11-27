@@ -73,7 +73,7 @@ further down are kept for their sources and evidence; **the routines in them are
 ones here.**
 
 1. **Core functions (7).** General and callable by themselves. No kept list, no wait.
-2. **Named methods (12).** Thin wrappers that set the condition a research finding depends on and then
+2. **Named methods (13).** Thin wrappers that set the condition a research finding depends on and then
    call the core, plus five methods that are their own thing.
 3. **Templates (5).** Copied per aim; they hold the kept lists and call methods and core.
 
@@ -252,6 +252,22 @@ Compare two cases                                         asks {cases} · gives 
   List what they share, before any difference             gives {shared}
   State the one idea that explains {shared}               gives {principle}
 ```
+**From the owner's own use** (a drawing session, 2026-11-27: trying a technique with and without
+guidelines, "you're in an experimental phase, you're trying to just answer this question, and this all
+gets joined to the result that decides how I want to use a specific function"):
+```
+Try it more than one way                                  asks {question}, {ways} · gives {choice}
+  Say what done is · with {question} as work
+  For each {way}
+    ▤ {way}
+    Mark the way with what it showed, against {standard}  gives {ways}
+  Choose · with {ways} as options, {standard} as tests
+```
+`{ways}` holds routines (variants made with Copy), so the routine row `▤ {way}` steps into each; each is marked
+with what it showed, in words beside its name; `{choice}` comes back as the routine chosen, and the
+caller's later steps apply it with a `▤ {choice}` row. It is the first library method that came from use and
+not from the literature.
+
 "Set a cue to start" was "An if-then plan"; the cue is a situation, never a clock time, and the app
 does nothing at it. "Come back to it" (spaced recall) is no longer a method: a method keeps no list.
 It is a For each over a kept list in the person's own routine that calls "Recall before you look"
@@ -322,7 +338,7 @@ Make a decision                                           asks {decision} · giv
 Work it out as you go                                     asks {aim}
   List the first steps toward {aim}                       gives {steps}
   For each {step}
-    Do {step}
+    ▤ {step}
     Adjust the list: what does that make possible         gives {steps}
 ```
 "Make a decision" keeps no list, so it can be called as well as copied.
@@ -389,9 +405,9 @@ claim, `{standard}` as tests. A fault becoming a case is a change of role, and t
   the same thing with the value typed in Plan.
 - **An input is the callee's own copy.** Choose marks and strikes `{options}`, which it was handed. That
   must change only its copy; the caller's list is untouched and the result comes back as `{choice}`.
-- **Two calls in one routine that give the same name** (Make a decision's two checks both give
-  `{doubts}`; a routine calling itself gives `{answer}` inside a step that also gives `{answer}`). Either a
-  call's output can be renamed at the call, or what parts and loops give is collected under the name.
+- **Two calls in one routine that give the same name** are collected into one list under that name
+  (settled by the owner, 2026-11-27; B-16). Make a decision's closing step reads `{doubts}` from both
+  checks; Research a question's closing step is shown the collected `{answer}` to adjust into one.
 - **An input that never asks.** `{rule}` is required only because optional inputs (DESIGN.md's designed
   "blank") are not built; with them, a bare call to Check and mend would not ask for a rule.
 

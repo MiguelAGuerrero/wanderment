@@ -91,14 +91,39 @@ research task. I provide the inputs into the routine for research, and it [queue
 - **Where each input comes from, in this order:** what was typed when the call was given; then a name
   of the same spelling visible where it runs (the by-name passing already decided on 2026-11-26); then
   it asks when run. So a call can never be missing an input: the worst case is that it asks.
-- **Running it.** A step that reads the value ("Do {task}") is a call when the value is a routine:
-  Step in works, the path shows it, and it returns what its call row says it gives. When the value is
-  words, the step reads as words, as today.
+- **Running it: a routine row whose name is a slot** (owner, 2026-11-27: "Only the routine row";
+  discovery `2026-11-27-work-from-work.md`). In Plan, Add's "a routine" (or "@") offers the names given
+  above before the person's routines; choosing a name makes an ordinary routine row with the value's
+  chip where the name would be: `▤ {choice}`. It is closed, and reads "asks" when nothing gives the
+  name. On the runner the row shows the routine it holds ("▤ Draw with guidelines") with Step in, the
+  path and the value sheet, exactly as a fixed routine row does. When the value is words, the row
+  reads as those words and has no Step in.
+- **Words stay words.** A step typed as words that reads a routine value shows the routine's name in
+  place and never offers Step in, so "Tell Sam about {choice}" runs nothing. Plan therefore always
+  shows where work comes from.
+- **A routine value has a face.** Wherever a value is shown (the values row, the note, the value
+  sheet, a tile) one that is a routine is drawn with the routine mark and its name.
+- **The giving step adapts.** A name read by a `▤` row opens its giving field on routines (the routine
+  items of any list in play, then the person's routines) and not on the keyboard.
+- **Keeping a choice beyond the run is a Plan edit** (owner, 2026-11-27: "Edit Plan by hand"): the
+  slot is replaced by the routine, once. Nothing a run chooses is stored on the routine.
 - **What a caller can rely on.** Plan can only show what a call gives when it knows which routine it
   is. So where the kind of work is known, write the call in the routine
   (`For each {question}: Research a question · with {question}`, plain P-98) and later steps can read
   its results by name. A routine given as a value is for when the kind of work is not known until the
   moment; what it gives is seen in the trace, and a later step that needs it asks.
+- **By reference.** The owner (2026-11-27): "A way, in this sense, is actually a routine, not text. So
+  the ability to reference other routines by reference and have its value be slotted where it's
+  required … if a routine [returns] another routine, we should be able to execute on that routine as
+  part of the sequence of instructions that a thread has … It's like returning functions from
+  functions." A value that is a routine holds the routine itself, not a copy of its steps: if the
+  routine is changed in Plan, every value that names it follows.
+- **A routine can give a routine.** What a call row gives may be a routine. The caller's later step
+  that reads the name, a `▤ {choice}` row, steps into it in the caller's own sequence, like any call.
+- **A list can hold routines.** A for each over such a list calls each in turn.
+- **An item can carry words beside it.** A list item is words, or a routine with words after its
+  name ("Draw with guidelines: proportions held, slower"). Marking an item in a step that adjusts the
+  list adds to those words and leaves the routine as it is. *(Designer's ruling.)*
 - **One-off work is a value.** A chore that arises inside a larger aim is words given at a step and
   done at the next; it needs no queue of its own.
 
@@ -146,8 +171,18 @@ Research a question                          asks {question} · gives {answer}
 - **Depth.** The engine keeps at most 64 levels in a run and refuses to go deeper. At that point the
   call cannot be stepped into and says so in words; nothing is lost and the run stays where it is.
   *(Designer's ruling.)*
-- **The path line** shows the routine the run began in and the nearest two levels, in words, with the
-  levels between left to the tree view. No number of levels is shown. *(Designer's ruling.)*
+- **A level is named by what it was given** (owner, 2026-11-27: "Yes, with '…'"). Where a level's
+  routine has the same name as the level above it, the path, Step out's notice, Start over and Jump
+  to… show the value it was called with and not the repeated name: "Research a question · Is creatine
+  safe long-term? › … › What doses were studied? › Who funded the dose studies?". The first level and
+  the nearest ones show; the middle is collapsed to "…", as plain text and never a control. No number
+  of levels is shown.
+- **In Plan the closed row says so**, with the words "this routine" where a row that opens has its
+  chevron, so it does not read as broken. *(The words are a designer's ruling.)*
+- **Which shape, in the person's terms:** is there something to write after the smaller ones come
+  back? If yes, the routine calls itself; if no, it is a list given again. The owner does both
+  ("Both, depending"), so the list given again is built first and the self-call when a routine of
+  theirs needs an answer to wait on its sub-answers.
 - **When to use which:** a routine that calls itself when each item may raise more of the same and
   the parent needs the results; a for each whose list is given again when the work is flat and taken
   as it comes ("Work it out as you go").
@@ -264,12 +299,12 @@ long-standing, or reference another routine that actually is the work to be done
 Work it out as you go                                asks {aim}
   List the first steps toward {aim}                  gives {steps}
   For each {step}
-    Do {step}
+    ▤ {step}
     Adjust the list: what does that make possible    gives {steps}
 ```
 A step typed as words is a one-off. A step given as a routine is stepped into, with its inputs filled
 where it was given. The for each ends on the round in which nothing is added. In today's app the same
-shape is "Repeat from here" above "Name the next small step · gives {next}" and "Do {next}".
+shape is "Repeat from here" above "Name the next small step · gives {next}" and "Do {next}" as words.
 
 **A further question, mid-research** (the owner's example):
 ```
@@ -309,6 +344,21 @@ asks by itself. This is how a method is sharpened by running it.
 
 - What calls give under one name in the same routine is collected into one list under that name, in
   the order given; nothing is renamed at a call.
+
+- A value that is a routine holds it by reference; a call row may give a routine; a list may hold
+  routines, each optionally with words beside it; a step that reads such a value steps into it.
+- **Copy** (DESIGN.md: "to vary, copy"; from the owner's real use, 2026-11-27: "there wasn't any idea
+  of keeping multiple implementations of one function"): a routine's menu makes a copy under a new
+  name, with Undo; the copy is an ordinary routine.
+
+- A routine row can take a value's name in place of a routine's (`▤ {name}`): Add's "a routine" and
+  "@" list the names given above; on the runner it shows the routine held, with Step in; held words
+  read as words with no Step in; a step typed as words never steps in. A routine value is drawn with
+  the routine mark and its name wherever values show. A name read by such a row opens its giving field
+  on routines.
+- (With the self-call, when unparked:) a level whose routine has the same name as the one above is
+  named by the value it was called with, in the path, Step out's notice, Start over and Jump to…; a
+  long path collapses its middle to a plain-text "…"; the closed self-call row in Plan carries words.
 
 **P-99**
 - A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:

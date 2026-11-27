@@ -18,6 +18,26 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — First real use (drawing), relayed; the order after it; work from work
+From the second session (verbatim in parts): "I do at least want the work queue. Because it at least
+holds a stateful intention of how I'm going to execute tasks without me having to remind myself what
+that I wanted to do next, and not rely on my mood or energy to have that be shifted throughout the day
+unless I explicitly want that to be the case." "… the actual implementation of using guidelines changed
+mid-session, and I wanted to capture that before I lost it. However, at the time, I didn't have function
+calls to reference a function that could change underneath … there wasn't any idea of keeping multiple
+implementations of one function … drawing from reference with guidelines, without guidelines,
+understanding the results of that was a little bit non-intuitive … there's several threads happening,
+and then you're in an experimental phase, you're trying to just answer this question, and this all gets
+joined to the result that decides how I want to use a specific function … for the rest of the session."
+"A way, in this sense, is actually a routine, not text … It's like returning functions from functions."
+"Yes" to the order: P-98 (calls, for each, values as routines, owed values, Copy) → P-100 the work
+queue → P-99 In any order → the library; parked: a routine calling itself, joins that reopen, shared
+kept lists. Work from work: "Only the routine row (Recommended)"; "Yes, with '…' (Recommended)"; "Both,
+depending"; "Edit Plan by hand (Recommended)".
+Interpretation (ours): P-98 split into P-98 (calls), P-107 (for each), P-108 (kept lists, own lists,
+values as routines); P-100 moved before P-99.
+Led to: roadmap reordered.
+
 ## 2026-11-27 — One name, given more than once, is one list (relayed)
 On whether two calls giving the same name are renamed or collected, the owner answered the recommendation
 to collect: "Proceed with that".
