@@ -161,6 +161,56 @@ asks by itself. This is how a method is sharpened by running it.
 separate routines on home never wait on each other (rule 1 stops at a routine's edge); the queue is
 where work across them is lined up.
 
+## With P-99: where every part stands (the tree view)
+Asked for by the owner, 2026-11-27: "Scope the tree view alongside P-99". Once a routine has parts
+taken in any order it has several places at once, and the runner shows one. Without a view of all of
+them, "staying oriented" breaks inside a routine the way it used to break across routines.
+
+**Where it lives.** No new screen and no new navigation entry.
+- On the runner: the pull-up panel, which already holds "where you are in this run".
+- On home: the same view opened from a routine's tile (DESIGN.md's designed "Map of a tile's contents").
+
+**What it shows.** The run as a nested list, from the routine down:
+```
+Become a better drawer
+  Practise            at Deliberate practice · subject: hands        ← you are here
+  Study               at Summarise it in two lines · topic: colour theory
+  Artwork             waiting for feedback on the thumbnail · since Tuesday
+```
+- One line per part, in the app's existing wordings: "at <step>" with its values in place, "waiting for
+  <words> · since <day>", and for a part with no place yet, its first step. A finished part and a
+  stopped part read differently, in words.
+- A part that holds parts opens to show them; parts you are not in stay one line each.
+- A for each shows the item it is on. A kept or growing list shows no count and nothing about how much
+  is left.
+- The part the run is in is marked, by words and by the mark, never by colour alone.
+
+**What it does.** It is also the chooser P-99 needs: tapping a part goes to it, which puts down the
+part you were in at its place and takes up the other at its own. Nothing else is done from here; adding
+or changing parts is Plan's.
+
+**The tile.** A routine with parts reads the part last touched: "Practise · at Deliberate practice".
+
+**Done when** (added to P-99):
+- the pull-up panel of a run inside an In any order block lists every part of every level the run is
+  in, each with where it stands, in the wordings above;
+- tapping a part moves the run there and each part keeps its own place and values, across a reload;
+- the same view opens from the routine's tile on home when the run is paused;
+- a finished part and a stopped part are told apart in words, and that record survives export and
+  import;
+- at 390 px and at 200 % text every line wraps and none is cut; each row has a full spoken name ("Study,
+  at Summarise it in two lines, in Become a better drawer") and is at least 48 px;
+- no count, percentage or "left" appears anywhere in it.
+
+**Data.** A derived view: it reads the places P-99 already stores for each part. The one stored
+addition is how a part ended (finished or stopped), which belongs in P-99's own contract.
+
+**Considered instead:** marking every part's place in Plan. Refused because Plan is planning, entering
+it puts the run down, and "planning and running must never look alike".
+
+**Not in this scope:** the same view across all routines (that is home, and later the queue, P-100);
+reordering or editing from the view; history of past runs (Looking back).
+
 ## Fit with the product
 - **"Values belong to the run, never the routine."** A kept list is the one exception: it belongs to
   the routine. DESIGN.md would need that sentence; a proposal, not an edit made here.
