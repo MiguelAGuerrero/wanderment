@@ -7,9 +7,12 @@
  * own "It's happened", is gone — Pause goes home; J34-c and J34-e are rewritten below.)
  * P-101 (rulings 1–5): Plan is the top line's door (was: the middle slot); Pause opens its sheet; home's
  * tile body resumes a run (was: the filled Resume bar).
+ * P-102 (owner, 2026-11-27: "'Make it wait' is retired now"): nothing makes a wait any more; a wait stored by
+ * an earlier build is still read, run, reworded, moved and removed, and its menu offers "Make it a step".
+ * J36-a/b/c and J36-f are rewritten below (each says what it was).
  */
 import { expect, test } from './fixtures';
-import { addStep, expectEdit, expectSteps, home, pauseRun, place, plan, planMenu, planType, runner, startGo, tile, tileBody, sinceDate, undoEdit } from './goFixture';
+import { addStep, arrived, closeMenu, expectEdit, expectSteps, home, menuItems, pauseRun, place, plan, planMenu, planMove, planType, runner, startGo, tile, tileBody, sinceDate, undoEdit } from './goFixture';
 
 /** A wait seeded nine days ago reads its date (within the last week it would be a day's name). */
 const SINCE = sinceDate(9);
@@ -52,7 +55,7 @@ test('J34-b: the panel on a wait says what it is waiting for and since when, in 
   // A wait's words are changed like a step's: in Plan, not here.
   await expect(r.panel.getByRole('button', { name: 'Change the words', exact: true })).toHaveCount(0);
   await r.plan.click();
-  await planMenu(page, 'a reply from Acme', 'Change the words');
+  await planMenu(page, 'a reply from Acme', 'Edit');
   await expect(plan(page).typed).toHaveAccessibleName('Wait for: a reply from Acme');
   await planType(page, 'a reply from Acme HR');
   await plan(page).forward.click();
@@ -133,52 +136,57 @@ test('J34-h: the same wait at 200 % (a 195×422 window stands in for it) — the
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(195);
 });
 
-test('J36-a, J36-b, J36-c: a wait is written into a routine in Plan, among the steps; it can be reworded, moved and removed, each with Undo', async ({ page }) => {
+// P-102 (was: a wait written into a routine in Plan by "Make it a wait"): a stored wait among the steps — reworded,
+// moved (Alt+↑) and removed, each with Undo; a new step can't be made a wait.
+test('J36-a, J36-b, J36-c (P-102): a wait stored in a routine shows in Plan among the steps; it can be reworded, moved and removed, each with Undo; nothing makes a new one', async ({ page }) => {
   await startGo(page, []);
   await home(page).screen.getByRole('button', { name: 'Plan Apply to Acme', exact: true }).click();
   const p = plan(page);
   await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker']);
   await expect(p.row('a reply from Acme')).toHaveAttribute('data-kind', 'wait');
   await expect(p.row('a reply from Acme')).toHaveAccessibleName('Wait for: a reply from Acme');
-  // Add a step, then another made a wait (in words, from its menu).
+  // A step added is a step, and its menu makes no wait.
   await addStep(page, 'Celebrate');
   await expect(p.add).toBeFocused();
   // P-101 (ruling 6; was: each edit's notice, with its Undo): no notice — the Undo is the routine's menu.
   await expectEdit(page, 'Added “Celebrate”');
-  await addStep(page, 'the contract');
-  await planMenu(page, 'the contract', 'Make it a wait');
-  await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker', 'Celebrate', 'Wait for the contract']);
-  await expectEdit(page, 'Made “the contract” a wait');
-  // Move, reword, remove.
-  await planMenu(page, 'the contract', 'Move up');
-  await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker', 'Wait for the contract', 'Celebrate']);
-  await planMenu(page, 'the contract', 'Change the words');
-  await expect(p.typed).toHaveAccessibleName('Wait for: the contract');
-  await planType(page, 'the signed contract');
-  await expect(p.row('the signed contract')).toHaveAttribute('data-kind', 'wait');
-  await planMenu(page, 'Celebrate', 'Remove this step');
+  await p.more('Celebrate').click();
+  const menu = await arrived(page, 'go-plan-menu');
+  await expect(menu.getByText(/wait/i)).toHaveCount(0);
+  await closeMenu(page, 'go-plan-menu');
+  // The wait's menu: Make it a step is its only change of kind.
+  await p.more('a reply from Acme').click();
+  await expect(menuItems(await arrived(page, 'go-plan-menu'))).toHaveText(['Edit', 'Add a step after', 'Make it a step', 'Remove']);
+  await closeMenu(page, 'go-plan-menu');
+  // Move (P-102: Alt+↓ — was its menu's Move up), reword, remove.
+  await planMove(page, 'a reply from Acme', 'down');
+  await expectSteps(page, ['Send the application', 'Note the answer in the tracker', 'Wait for a reply from Acme', 'Celebrate']);
+  await planMenu(page, 'a reply from Acme', 'Edit');
+  await expect(p.typed).toHaveAccessibleName('Wait for: a reply from Acme');
+  await planType(page, 'a signed contract');
+  await expect(p.row('a signed contract')).toHaveAttribute('data-kind', 'wait');
+  await planMenu(page, 'Celebrate', 'Remove');
   // Its Undo names what went.
   await expectEdit(page, 'Removed “Celebrate”');
-  await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker', 'Wait for the signed contract']);
+  await expectSteps(page, ['Send the application', 'Note the answer in the tracker', 'Wait for a signed contract']);
   await undoEdit(page);
-  await expectSteps(page, ['Send the application', 'Wait for a reply from Acme', 'Note the answer in the tracker', 'Wait for the signed contract', 'Celebrate']);
+  await expectSteps(page, ['Send the application', 'Note the answer in the tracker', 'Wait for a signed contract', 'Celebrate']);
 });
 
-test('J36-f: a wait made in Plan in the middle of a run is the routine’s; running reaches it', async ({ page }) => {
-  await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'running' }], 'runner');
+// P-102 (was: "a wait made in Plan in the middle of a run"): nothing makes a wait; a stored wait made a step mid-run.
+test('J36-f (P-102): a wait made a step in Plan in the middle of a run is the routine’s; running reaches it as a step', async ({ page }) => {
+  await startGo(page, [{ id: 'r2', routine: 'apply-acme', at: 0, status: 'running' }], 'runner');
   const r = runner(page);
   await r.plan.click();
   const p = plan(page);
-  await planMenu(page, 'Tailor the CV', 'Add a step after');
-  await planType(page, 'feedback from Sam');
-  await page.keyboard.press('Escape');
-  await planMenu(page, 'feedback from Sam', 'Make it a wait');
-  await expect(p.row('feedback from Sam')).toHaveAttribute('data-kind', 'wait');
+  await planMenu(page, 'a reply from Acme', 'Make it a step');
+  await expect(p.row('a reply from Acme')).toHaveAttribute('data-kind', 'step');
   // Nothing says "this run only": it is the routine's.
   await expect(p.screen.getByText(/this run only/i)).toHaveCount(0);
-  await expect(p.forward).toHaveText('Resume at Tailor the CV');
+  await expect(p.forward).toHaveText('Resume at Send the application');
   await p.forward.click();
   await r.next.click();
-  await expect(r.note).toHaveAccessibleName('Wait for: feedback from Sam');
-  await expect(r.next).toHaveText('It’s happened');
+  await expect(r.words).toHaveText('a reply from Acme');
+  await expect(r.note).not.toHaveAttribute('data-kind', 'wait');
+  await expect(r.next).toHaveText('Next');
 });

@@ -5,8 +5,8 @@ A **brief** is how `/product` proposes a big feature instead of building it. Big
 - a new screen or navigation entry;
 - a new concept in the data model, or a stored field;
 - a schema, export or backup format change;
-- a change to how capture works beyond polish;
-- anything near a DESIGN.md rule, or a new setting;
+- a change to how running a routine works (the runner, the verbs) beyond polish;
+- anything that touches a DESIGN.md rule, or a new setting;
 - a new dependency with native code;
 - size L, or more than about a day of careful human work.
 

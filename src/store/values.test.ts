@@ -129,16 +129,17 @@ describe('Plan: Gives…, rename, remove — each with Undo (ruling 4)', () => {
 });
 
 describe('finishing and pausing go home (ruling 7)', () => {
-  it('Next on the last step ends the run: "go home", "Done with <name>" with Undo — never Plan', () => {
+  it('Next on the last step ends the run: "go home", "Done with <name>" — P-102: with no Undo (was: with Undo) — never Plan', () => {
     const id = started('D');
     st().nextStep(id);
     st().nextStep(id);
-    const before = st().data;
     expect(st().nextStep(id)).toEqual({ ok: true, runId: id, home: true });
     expect(readRun(st().data, id)!.endedAt).toBeDefined();
-    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Drawing practice', label: 'Done' });
+    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Drawing practice' });
+    expect(st().undo).toBeUndefined();
+    const ended = st().data;
     st().undoLast();
-    expect(json(st().data)).toEqual(json(before));
+    expect(st().data).toBe(ended);
   });
 
   it('Finish now (Done) at the top: "go home"; on a routine entered as a step it goes on, not home', () => {

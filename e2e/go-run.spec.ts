@@ -5,7 +5,7 @@
  * e2e/go-plan.spec.ts.)
  */
 import { expect, test } from './fixtures';
-import { expectInside, focused, goBackup, home, importBackup, MAYA, openGo, place, plan, RoutineSpec, runner, seedGo, setVisibility, settled, startGo, tile } from './goFixture';
+import { expectFinal, expectInside, focused, goBackup, home, importBackup, MAYA, openGo, place, plan, RoutineSpec, runner, seedGo, setVisibility, settled, startGo, tile } from './goFixture';
 
 const LONG =
   'Write to the landlord about the boiler, the window latch and the stair light, attach the three photographs from Sunday, say which days someone is in, and ask for a date in writing before the end of the month, then copy the letting agent and put a note in the calendar to chase it';
@@ -72,9 +72,10 @@ test('J04-c, J04-d: a routine as the step has Step in (P-101, ruling 1: a move b
   await r.stepOut.click();
   await expect(r.words).toHaveText('Send the application');
   await expect(r.context).toHaveText('Apply to Initech');
-  await expect(r.notice).toContainText('Done with Proofread out loud');
+  // (P-102 audit F6; was "Done with …" / "Undo Done": Step out is not finishing.)
+  await expect(r.notice).toContainText('Left Proofread out loud');
   await expect(r.note).toBeFocused();
-  await r.notice.getByRole('button', { name: 'Undo Done', exact: true }).click();
+  await r.notice.getByRole('button', { name: 'Undo Step out', exact: true }).click();
   await expect(r.words).toHaveText('Read it aloud once');
   await expect(r.context).toHaveText('Apply to Initech ›Proofread out loud');
 });
@@ -165,15 +166,15 @@ test('J04-i, J25-b: a long step fills the note and scrolls inside it, with Plan 
   await expect(r.screen.getByText(/\d+ ?(\/|of|characters|left)/)).toHaveCount(0);
 });
 
-test('J04-j, §3.6, P-96 (ruling 7; was: Next, then "Finished <name>"): on the last step Next reads Done; it finishes the run — home, "Done with <name>", with Undo', async ({ page }) => {
+test('J04-j, §3.6, P-96 (ruling 7; was: Next, then "Finished <name>"): on the last step Next reads Done; it finishes the run — home, "Done with <name>" — P-102: final, × only (was: with Undo)', async ({ page }) => {
   await startGo(page, [{ id: 'r1', routine: 'apply', at: 4, status: 'running' }], 'runner');
   await expect(runner(page).words).toHaveText('Send the application');
   await expect(runner(page).next).toHaveText('Done');
   await runner(page).next.click();
   await expect(home(page).notice).toContainText('Done with Apply to Initech');
   await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'idle');
-  await home(page).notice.getByRole('button', { name: /^Undo/ }).click();
-  await expect(runner(page).words).toHaveText('Send the application');
+  await expectFinal(page, 'Apply to Initech');
+  await expect(tile(page, 'Apply to Initech')).toHaveAttribute('data-state', 'idle');
 });
 
 test('must-handle (two tabs, offline): Next pressed while reconnecting is kept, says so, and is applied once the data is back', async ({ page }) => {

@@ -6,7 +6,7 @@
  * Jump from Paused and of the toggle are rewritten below.)
  */
 import { expect, test } from './fixtures';
-import { arrived, home, plan, RoutineSpec, runner, settled, startGo, tileBody } from './goFixture';
+import { arrived, home, menuItems, plan, RoutineSpec, runner, settled, startGo, tileBody } from './goFixture';
 
 const IN_LOOP = [{ id: 'r3', routine: 'drawing', at: 1, inner: [{ routine: 'hands', at: 2, round: 2 }], status: 'running' as const }];
 
@@ -140,7 +140,8 @@ test('J37-a, J37-b: the number of a counted repeat is set in Plan; set below the
   await expect(p.divider).toHaveText('Repeat from here · 3 times');
   await p.dividerMore.click();
   const sheet = await arrived(page, 'go-plan-repeat');
-  await expect(sheet.getByRole('heading', { level: 2 })).toHaveText('Repeat from here');
+  // (P-102: anchored to its ···, named — was a sheet with a heading.)
+  await expect(sheet).toHaveAccessibleName('Repeat from here');
   await expect(sheet.getByRole('radio', { name: 'A number', exact: true })).toBeChecked();
   await expect(sheet.getByTestId('go-repeat-count')).toHaveText('3 times');
   // Below the round it is on (round 2): one time.
@@ -173,8 +174,10 @@ test('P-96 (ruling 7; was: "Ends here" set in Plan makes the last Next finish): 
   const p = plan(page);
   await p.more('Practise drawing').click();
   const sheet = await arrived(page, 'go-plan-routine');
-  await expect(sheet.getByRole('button', { name: /^Remove/ })).toHaveCount(0);
-  await expect(sheet.getByRole('button', { name: /Ends here/ })).toHaveCount(0);
+  // (P-102: the routine's menu holds menu items — was buttons in a sheet.)
+  await expect(menuItems(sheet)).not.toHaveCount(0);
+  await expect(sheet.getByRole('menuitem', { name: /^Remove/ })).toHaveCount(0);
+  await expect(sheet.getByRole('menuitem', { name: /Ends here/ })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await p.forward.click();
   await expect(runner(page).words).toHaveText('Gesture drawing');

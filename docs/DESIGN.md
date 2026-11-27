@@ -52,7 +52,8 @@ routines in their own words — and runs them with the person, one small step at
   ("with"), values that arrive later.)
 - **Wait step** *(built, plain)*: a deliberate step, "Wait for: <words>". Reaching it means
   everything before it is done, to the person's knowledge. A run resting on one reads as *waiting*,
-  with since when, in words only.
+  with since when, in words only. *(P-102, the owner: "'Make it wait' is retired now".)* Nothing makes a
+  new one; a wait stored by an earlier build is kept, read and run, and its menu offers **Make it a step**.
 - **Routine** *(built)*: a named, ordered sequence. Each item is a step, a wait step or another
   routine. It has one divider, **Repeat from here**: items above run once, items below repeat —
   **until I'm done** (the default) or **a number of times** the person sets. With no divider it runs
@@ -88,7 +89,7 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   next step; on a wait step it reads **"It's happened"**.
 - **The moves** *(built, P-101)*: the runner's bottom row — **Step in** (when the step has steps),
   **Step out** (finish this level and go up one: the level is left and the run carries on above it, with
-  "Done with <level> · Undo" — it can skip steps; never offered on the first layer, where Next / Done
+  "Left <level> · Undo" *(P-102 audit; was "Done with <level>": it is not finishing)* — it can skip steps; never offered on the first layer, where Next / Done
   covers it) and the filled **Next**. Next and Step in have no Undo.
 - **Plan** *(built)* opens the Plan view: the word going in is Plan, the word coming out is **Resume at
   <step>** (Start for something never run). On the runner it is a door on the top line *(P-101)*;
@@ -97,7 +98,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   nothing marks the run "in Plan")*.
 - **Done** *(P-96)* finishes. On the runner the filled button reads **Done** (in place of Next) only
   when that press ends the whole run — on the last step, with nothing defined next; it ends the run
-  and goes **home**, with the notice "Done with <name> · Undo". Finishing never opens Plan. Finishing a
+  and goes **home**, with the notice "Done with <name>" — *(P-102, the owner: "You should not undo a
+  'Done'")* final: no Undo anywhere (notice, panel, Ctrl/⌘+Z), only the notice's ×. Finishing never opens Plan. Finishing a
   level early is **Step out** *(P-101; the panel's "Finish <level> now" is gone)*; on the first layer
   there is no early finish. In Plan, Done exists only at the edge (a run left there by an earlier
   build), as the right side door.
@@ -130,7 +132,11 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   doors: + New on home (right); Done at Plan's edge only (right). Rows and tiles carry only actions about
   themselves. Sheets: a title, the choices, the filled button keeps or applies, Close (lowest) leaves
   things as they were.
-- **Notices** *(P-101, ruling 6)*: a notice has its own row, in the flow — never over a row, a tile or
+- **Notices** *(P-102, the owner: "the button should be an x to dismiss")*: every notice has a **×** at its
+  right edge ("Dismiss", a full target) that puts it away and changes nothing (an Undo it had stays in the
+  panel and Ctrl/⌘+Z). Where it offers Undo, **Undo** is a labelled text button beside its words, on the
+  left, at least 24 px from the × — never the ↶ glyph alone. **Finishing a run is final**: "Done with
+  <name>", × only. *(P-101, ruling 6)* A notice has its own row, in the flow — never over a row, a tile or
   the note. It goes at the next tap anywhere but on it (on the click, so nothing pressed moves) and at a
   screen change, so it is never shown on a screen other than the one where it happened — except that an
   action that itself changes the screen (the run ended: home; New and Plan's fold of an earlier build's
@@ -197,11 +203,21 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   where it will go (past an open routine: after its last step); nothing moves until it is let go, so
   nothing is covered and nothing reflows with animation (Reduce Motion or not). Let go, it is one move
   of as many rows as it crossed — "Repeat from here" counts as one and is passed alone — with one Undo.
-  Pressed, the grip opens the row's menu. In a window under 340 px wide (a 320 px phone, or large text)
-  there is no grip — the words keep the room — and Move up / Move down on the menu remain the way to
-  reorder. A step's menu is in words — Change the words, Add a step after, Break it down (not on a step
-  that gives a name), **Gives…** *(P-96)*, Make it a wait (Make it a step), Move up, Move down, Remove
-  this step, Close — and words are typed in place. *(P-96)* A step that gives a name says "gives {name}"
+  Pressed, the grip opens its own menu, Move up · Move down (P-102 audit). In a window under 340 px wide (a 320 px phone, or large text)
+  there is no grip — the words keep the room. *(P-102)* **Every ··· in Plan opens a small menu anchored
+  to its button** (owner: "A (...) usually brings up a menu not a drawer"): under it, or over it when
+  there is no room beneath, never off-screen (under 360 px it spans the width, still at its row); the
+  screen is only lightly dimmed; a tap outside, Esc, Tab and Back close it; focus goes to its first item
+  (↑/↓ between items) and back to the button; rows ≥ 48 px. A step's menu reads **Edit · Add a step after ·
+  Break it down** (not on a step that gives a name) **· Gives…** *(P-96)* **·** a line **· Remove** (red,
+  last); a wait from an earlier build has **Make it a step** in Gives…' place; a routine used as a step,
+  Add a step after · Remove. **Move up / Move down are not on the step menu** where there is a grip: the grip,
+  pressed, opens its own small menu, **Move up · Move down** (each unavailable at its end) — the way to
+  reorder without a drag *(P-102 audit: nothing by gesture alone)*; under 340 px, with no grip, they are on
+  the step menu, before the line. They are also a row's screen-reader actions (on its ···) and, on the web,
+  **Alt+↑ / Alt+↓** while the focus is in the row (`aria-keyshortcuts` says so) — one press, one place, one
+  Undo — and words are typed in place. Every menu ends with a **Close** for screen readers (not drawn) and
+  closes on VoiceOver's escape; the browser's Back closes only what is open, never the screen beneath. *(P-96)* A step that gives a name says "gives {name}"
   under its words; *(P-101, ruling 7)* a step broken down whose smaller steps give names says "gives {a},
   {b}" (hoisted). A `{name}` in any step's words is shown as a chip — *(P-101 amendment, ruling 11)* a
   dashed **"asks {name}"** when no step in this Plan gives it (it asks when run). While words are typed
@@ -227,7 +243,7 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   reader hears "Plan: <routine>" on arriving (focus on the heading) and "Running: <step>" on returning
   (focus on the note).
 - **The edge** *(P-96, ruling 7; was: the edge is Plan's)*: Next on the last step, with nothing
-  defined next, reads **Done** and ends the run (home, with Undo) — open goal or not, a wait step
+  defined next, reads **Done** and ends the run (home; *P-102:* final, × only) — open goal or not, a wait step
   included (Done, not "It's happened", when the press ends the run); it never opens
   Plan and never shows a blank note. Plan is reached only by its own door (the runner's Plan). A run
   left at the edge by an earlier build opens in Plan — "nothing next yet", the open row
@@ -255,12 +271,14 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   settings placement and component choice, so the app meets expectations before it asks anyone to
   learn.
 - **Safeguards.** Everything that loses or reshapes something gets an **Undo and no confirm**: a Plan
-  edit (Gives…, renaming a name and "Gives nothing" included), New, Done, Jump to (it can leave levels
-  and reset the round), a run ended (by Done or the last Next), Step out, Start over *(asked first — P-101 amendment, the owner's ruling)*, a value replaced or cleared
+  edit (Gives…, renaming a name and "Gives nothing" included), New, Jump to (it can leave levels
+  and reset the round), Step out, Start over *(asked first — P-101 amendment, the owner's ruling)*, a value replaced or cleared
   — from the value sheet, or from a step's own field's entry sheet *(P-101)* — Back to when it clears a value given in the round it leaves
   ("Cleared {name}"), this-run changes folded (by whatever verb folds them). Giving a value for the
   first time leaves no notice. An Undo puts values back name by name: it never drops a value typed
   after the action it undoes.
+  *(P-102, the owner: "You should not undo a 'Done'")* **Finishing a run** (Done, or the last Next) is the
+  exception: it is final — its notice has no Undo, only ×.
   Moving through a run — Start, Next, Step in, Back to, Pause, Resume, Plan, "It's happened" — has no
   Undo and no notice (P-95; the owner: "Why would I want to undo an
   execution of a stack"). A confirm appears only when
@@ -293,8 +311,9 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
 ## The look
 Dark. Pixel accents with a programmatic feel: a pixel font for screen titles only, chunky blocks,
 hard shadows. The person's words are in a clean sans face (IBM Plex Sans; the owner may overrule the
-font — B-11 §10). A routine's colour is the colour of its tile and its note. Menus and pickers are
-bottom sheets; a notice with Undo follows what loses or reshapes something (see Safeguards); a centred dialog appears only when an
+font — B-11 §10). A routine's colour is the colour of its tile and its note. *(P-102)* A ··· (Plan's, and a
+home tile's) opens a small menu anchored to it; pickers and forms
+(Gives…, the value and entry sheets, Pause, New) are bottom sheets; a notice with Undo follows what loses or reshapes something (see Safeguards); a centred dialog appears only when an
 action reaches beyond the screen.
 
 ## One copy at a time (web, P-29)

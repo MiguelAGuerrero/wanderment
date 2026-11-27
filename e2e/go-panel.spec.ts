@@ -193,7 +193,7 @@ test('keys: Return on the note is Next, Ctrl/⌘+Z is Undo (P-95: of what has on
   await r.plan.click();
   const p = plan(page);
   await p.more('Read the job ad twice').click();
-  await page.getByTestId('go-plan-menu').getByRole('button', { name: 'Change the words', exact: true }).click();
+  await page.getByTestId('go-plan-menu').getByRole('menuitem', { name: 'Edit', exact: true }).click();
   await p.typed.fill('');
   await page.keyboard.type('npm D pnm');
   await expect(p.typed).toHaveValue('npm D pnm');

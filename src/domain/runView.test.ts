@@ -413,7 +413,8 @@ describe('the notice after an action', () => {
   it('"Finished <name>" for what finished by itself (the largest thing just completed), "Done with <name>" for what Done left, "Jumped from <step>"; otherwise the step speaks for itself — P-96 (ruling 7; was "Finished <name>" / "Undo Next"): a Next that ends the run says "Done with <name>", its Undo Done’s', () => {
     expect(noticeFor('next', { kind: 'finished', names: ['Inner', 'Middle'] })).toEqual({ text: 'Finished Middle', label: 'Next' });
     expect(noticeFor('next', { kind: 'ended', name: 'Apply to Initech' })).toEqual({ text: 'Done with Apply to Initech', label: 'Done' });
-    expect(noticeFor('done', { kind: 'finished', names: ['Inner', 'Middle'] })).toEqual({ text: 'Done with Inner', label: 'Done' });
+    // P-102 audit F6 (was "Done with Inner", label Done): Step out is not finishing — it says what happened, "Left <level>", and its Undo is Step out's.
+    expect(noticeFor('done', { kind: 'finished', names: ['Inner', 'Middle'] })).toEqual({ text: 'Left Inner', label: 'Step out' });
     expect(noticeFor('done', { kind: 'ended', name: 'Job hunt' })).toEqual({ text: 'Done with Job hunt', label: 'Done' });
     expect(noticeFor('jump', { kind: 'jumped', from: 'Tailor the CV' })).toEqual({ text: 'Jumped from Tailor the CV', label: 'Jump' });
     expect(noticeFor('next', undefined)).toEqual({ text: '', label: 'Next' });

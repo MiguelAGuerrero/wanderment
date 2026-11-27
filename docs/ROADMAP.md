@@ -58,7 +58,16 @@ would allow, statements or function calls"; for each "should just be treated lik
 *Done when:* Add offers a step, a routine (search), For each…, Repeat and Wait for…; a call row shows
 `with {x}`, `with {y} as x` or `asks {x}` and what it gives; for each is a loop block over a list, its
 giving step shows a list editor, inside reads "photo 2 of 3", a value given inside is collected after it.
-Canvas rows 3–4.
+Canvas rows 3–4. From B-16 (D-23, as revised by the owner 2026-11-27): a step that gives a name
+which already has a value shows that value to adjust — the only way a list changes (no "adds to"; no item
+leaves by itself); a for each keeps its place, carries on to items added after it, ends when it passes the
+last item and passes straight through an empty list; a for each can run over a list kept in the routine
+(rows under the block in Plan, + Add there and on the routine's tile; items stay across runs, reload,
+export and import; no count shown for a kept or growing list); a step can give a list held at its own
+level or above; a giving field offers the person's routines — a routine chosen there is a call with a
+field for each thing it asks, and a step reading that value steps into it (inputs: typed where given,
+then by name where it runs, then asked); a called routine hands back what its call row gives; an item
+added to a kept list comes round in the next sitting.
 
 ### P-99 In any order: parts as threads, joined `[feature]` `[data]` `[ux]` L
 *Status:* todo
@@ -66,7 +75,20 @@ Canvas rows 3–4.
 ultimately joined together"; "a thread has managed its own state … done once that single thread returns".
 *Done when:* an In any order block starts one child run per part, each with its own place and values;
 the runner offers the parts to choose; a part returns what it gives; the block finishes when every part
-has returned or been stopped; parts cannot outlive the block. Canvas row 6.
+has returned or been stopped; parts cannot outlive the block. Canvas row 6. From B-16 (D-23): a part whose for each has finished takes up
+again when its list gains an item (it reads as ready again; its block is not finished until it returns); a step after the block that the run could already
+reach waits again while such a part is going (it reads as waiting on that part in the tree view and on the
+tile) — designer's ruling, to confirm in P-99's contract: the run's place is not moved back and work
+already done is never undone;
+an In any order block inside a for each keeps each part's place per item; the step after the block cannot be
+reached while any part has not returned or been stopped (stated as a test). The tree view (owner, 2026-11-27: "Scope the tree view
+alongside P-99"; B-16 §"With P-99"): the pull-up panel of a run inside an In any order block lists every
+part of every level the run is in, each with where it stands in existing wordings; tapping a part moves
+the run there and each part keeps its own place and values, across a reload; the same view opens from the
+routine's tile on home when the run is paused (the tile reads the part last touched); a finished part and
+a stopped part are told apart in words, and that record survives export and import; at 390 px and 200 %
+text every line wraps and none is cut, each row ≥ 48 px with a full spoken name; no count, percentage or
+"left" anywhere; no editing from it.
 
 ### P-100 The work queue: leaves only, depth-first `[feature]` `[data]` `[ux]` L
 *Status:* todo
@@ -297,10 +319,11 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
 - **D-17 B-10: fewer parts — a calm journal in a playful world** — superseded 2026-11-24 by B-11
   before a decision. Brief: `docs/product/briefs/B-10-refined-home.md`.
-- **D-23 B-16: a thread with its own queue** — **answered 2026-11-26 by the owner: go, after P-97 and a
-  week of real use** ("Use it a week, then B-16"; "Both, items first"; giving work "By itself"; "I do want
-  the work queue … Otherwise proceed") → slices 1–4 before P-98, P-99, P-100. Brief:
-  `docs/product/briefs/B-16-thread-queues.md` (drafted in a second session).
+- **D-23 B-16: an amendment to P-98 and P-99** — **answered 2026-11-27 by the owner: "Go on the amendment,
+  P-98 follows P-97 directly"** (relayed from the second session). Order: P-97 → P-98 → P-99 → P-100.
+  Three rules (order is dependency; an empty list is "no"; parts in any order join before what follows)
+  and a for each whose list can grow and be kept in the routine. The earlier B-16 model (open items,
+  "Blocked by…", "next:") is withdrawn. Brief: `docs/product/briefs/B-16-thread-queues.md`.
 - **D-22 B-14: context first** — **answered 2026-11-26 by the owner: go on slice 1, led by step outputs**
   (owner-notes) → P-96. Slices 2–3 still wait. Was: a tree of threads under one main thread, a run queue that holds each
   thread's depth-first next item with its path, routines as functions with parameters, and a way back in
@@ -348,6 +371,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-27 · P-102 — every ··· opens a small menu anchored to its button (Plan, home tiles), closing on an outside tap, Esc or Back (Back never leaves Plan), with a hidden Close for screen readers; the step menu reads Edit · Add a step after · Break it down · Gives… · Remove (red, last); a wait offers "Make it a step"; Move up / down by pressing the grip (or in the menu under 340 px), Alt+↑/↓ and screen-reader actions; finishing a run is final — "Done with <name>" has only a ×, every notice has a ×, Undo is a labelled button apart from it; Step out reads "Left <level>". Also fixes P-101's CI races: the runner's late focus stole focus (focusSoon gives up once focus has moved), menus return focus at once. evidence: go-menu and rewritten go-plan / go-notice specs red on the base build, the three CI flakes 55/55 under the slow mode, 840 unit tests, the whole e2e suite, `verify.sh --full`. audit: 9 reported · 5 reproduced · 9 fixed · 0 deferred.
 - 2026-11-27 · P-101 — moves like a debugger and a calmer home: the runner's bottom row is Step in · Step out · Next (Done only on the press that ends the run), Pause and Plan in the top line; Pause asks for an optional note; home keeps its order, marks the last run, and a paused tile resumes on tap; "planning" is gone as a state; Plan's Home back in the band; notices hide on the next tap while Undo stays until the next change (panel, Ctrl/⌘+Z, Plan's ···); values typed in a sheet, a trace of where a value came from, hoisted gives, an Insert button; Start over (the run or one level) with a confirm and Undo; a value for a step already passed can be given from the values row; removing a giving step names its readers, which then ask (dashed in Plan). No new stored fields. evidence: go-moves and go-restart specs red on the base build, 833 unit tests, the whole e2e suite, golden fixtures loading, `verify.sh --full`; not tried on a real phone. audit: 9 reported · 7 reproduced · 9 fixed · 0 deferred.
 - 2026-11-26 · P-96 — values, and one way to move on the runner: a step gives a named value (Plan: Gives…, a names bar above the keyboard, chips); later steps show it in place; a values row opens a sheet with where it came from, what reads it, Keep and Close; a routine's own given names never collide with its parent's; a reading step with no value asks; a new round clears values given after the divider so they ask again; values stored as lists from the start (no migration). One navigation scheme: top = context only, the filled button lowest, side doors one row above (Pause and go home · Plan / Step in; ⌂ Home on Plan), Finish now in the pull-up panel; Next reads Done only when it ends the whole run and finishing goes home with Undo, never Plan; the paused screen and "Ends here" are gone; home has no title or prompt, the paused run carries its values and Resume is the bottom bar; notices in their own row. evidence: golden fixture p96-* frozen before the engine, 795 unit tests (values, scope, rounds, Undo value by value, persistence on every path, fuzz), go-values / go-nav / go-pause specs red on the old build, `verify.sh --full`; not tried on a real phone. audit: 7 reported · 5 reproduced · 7 fixed · 0 deferred.
 - 2026-11-25 · P-95 — friction batch from the owner's first real use: the runner has a Home that pauses (no "Stop?" ask; it used to clear every run's status so the way back was lost), home shows the paused run first with Resume and reopening lands on home; the prompt only finds what exists and New ("New: <words>") makes; Undo only after something is lost or reshaped (kept for Jump to, ending a run and any fold of old this-run changes); Plan rows have a drag handle (one drag, one Undo; hidden below 340 px, Move up / down kept). No stored-data change. evidence: new and rewritten go-* specs (each red on the base build), the p90 golden fixture through the store for the fold, 686 unit tests, `verify.sh --full`; drag not tried on a real iPhone. audit: 7 reported · 6 reproduced · 7 fixed · 0 deferred.

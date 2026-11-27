@@ -55,7 +55,7 @@ const spanishSteps = async (page: Page) => ((await exported(page)).routines['spa
 async function nameOf(page: Page, name: string) {
   await home(page).screen.getByRole('button', { name: `Plan ${name}`, exact: true }).click();
   await plan(page).more(name).click();
-  await (await arrived(page, 'go-plan-routine')).getByRole('button', { name: 'Change the name', exact: true }).click();
+  await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Change the name', exact: true }).click();
   const field = plan(page).typed;
   await expect(field).toHaveValue(name);
   return field;

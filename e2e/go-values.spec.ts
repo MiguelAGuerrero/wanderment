@@ -304,7 +304,7 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
     const p = plan(page);
     await expect(p.namesBar).toHaveCount(0);
-    await planMenu(page, 'Find three reference photos', 'Change the words');
+    await planMenu(page, 'Find three reference photos', 'Edit');
     await expect(p.typed).toBeFocused();
     // Only {subject}: {best} is given below.
     await expect(p.names).toHaveText(['{subject}']);
@@ -355,8 +355,10 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     const p = plan(page);
     await p.more('Select the subject matter').click();
     const menu = await arrived(page, 'go-plan-menu');
-    await expect(menu.getByRole('button', { name: 'Break it down', exact: true })).toHaveCount(0);
-    await menu.getByRole('button', { name: 'Remove this step', exact: true }).click();
+    // (P-102: menu items — was a sheet's buttons.)
+    await expect(menu.getByRole('menuitem', { name: 'Edit', exact: true })).toHaveCount(1);
+    await expect(menu.getByRole('menuitem', { name: 'Break it down', exact: true })).toHaveCount(0);
+    await menu.getByRole('menuitem', { name: 'Remove', exact: true }).click();
     // P-101 amendment (ruling 11): it has a reader — asked first, naming it; the reader's words stay.
     await expect(page.getByTestId('go-plan-removing')).toContainText('which 1 step reads');
     await page.getByTestId('go-plan-remove').click();
@@ -382,7 +384,7 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     await p.screen.getByTestId('go-plan-more').click();
     const routine = await arrived(page, 'go-plan-routine');
     await expect(routine.getByTestId('go-plan-undo')).toHaveText('Undo “Select the subject matter” gives nothing');
-    await expect(routine.getByRole('button', { name: /Ends here/ })).toHaveCount(0);
+    await expect(routine.getByRole('menuitem', { name: /Ends here/ })).toHaveCount(0);
   });
 });
 
@@ -439,7 +441,7 @@ test.describe('fixes after the audit', () => {
     await startGo(page, [], 'home', [GIVING]);
     await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
     const p = plan(page);
-    await planMenu(page, 'Find three reference photos', 'Change the words');
+    await planMenu(page, 'Find three reference photos', 'Edit');
     await expect(p.typed).toBeFocused();
     await p.typed.press('End');
     await p.typed.pressSequentially(' of ');

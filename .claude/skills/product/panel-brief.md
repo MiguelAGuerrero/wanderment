@@ -17,8 +17,6 @@ Screens to look at, if any: ____ (screenshot paths, or "none yet").
 What the owner has already said about this: ____ (owner-notes dates). Their view outranks every
 persona; don't argue with it, show what it costs and gains for each persona.
 Other panelists voice: ____ (leave those personas to them).
-The roster was written for the retired app (see the opening note of PERSONAS.md). Say plainly where
-a persona is not this app's audience, and don't turn "this is not the old app" into a refinement.
 </context>
 
 <output>

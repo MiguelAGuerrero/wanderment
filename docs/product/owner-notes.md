@@ -18,6 +18,108 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — Confirmed: a for each that applies a routine to each item
+"Yes I was trying to write a for each and apply a function over them"
+Interpretation (ours): real use needs P-98 (for each over a list, calling a routine per item) — the
+first need for it from actual use rather than design.
+Led to: proposal to build P-98 before P-97.
+
+## 2026-11-27 — Screenshot: writing a for each as words in Add a step
+(Screenshot, no words: Plan for "Improve my workout routine" — "List out my doubts · gives {concerns}";
+the Add row being typed: "For each concern, @{concerns}researc…" with "{ } Insert" and "Add" beside it;
+the third line of the field is cut off.)
+Interpretation (ours): (1) for each is not built yet (P-98), so it was typed as words; (2) "@" was typed
+— the convention in Notion, Slack and others is that @ opens a picker to insert a reference; (3) Insert
+put "{concerns}" with no space before the next word; (4) the field clips its third line and the two
+buttons squeeze it.
+Led to: the conventions audit's fix batch (after P-102); P-98 for for each.
+
+## 2026-11-27 — Lists change by being given again; a value can be a routine; finished parts take up again (relayed)
+"Right now, I don't think there are any mutations or writes that steps perform, so the only way we keep
+state is if a routine steps forward. And somehow, we can overwrite the value presented, so there might be
+a step that asks to adjust the list. Like a review step." "The ability to supply a routine as an output
+would make sense, so long as we have the capability to support that output as a function call and not
+necessarily a string to be interpolated. We just have to be considerate about whether that routine is
+given all the values it needs in the context of where it's called." "Yes, a finished part takes up again
+when its list changes." (A step writing to the Pause note: withdrawn by the owner.)
+Interpretation (the second session's, adopted): see B-16 "What P-98 and P-99 gain".
+Led to: P-98 and P-99 Done when rewritten from B-16.
+
+## 2026-11-27 — One exhaustive adversarial UI audit against established practice, after this batch
+"At the end of the [batch], I want to perform one adversarial UI audit that tests the UI against
+established practices on where typical navigation, buttons, controls, use of menus, dialogues, drawers,
+context switching, … and other standard practices of how user journeys should be offered against the
+final product. I want to ensure that we align the UI against best practices or traditional usage, maybe in
+terms of iconography, menu items, etc., so that the UI is at least intuitive to the extent that a user can
+reasonably infer what a button does, what to expect after clicking that button, dialogues, confirmations,
+error states, all of that. This is an exhaustive list. Please leverage your own understanding of UI UX
+best practices in this audit."
+Interpretation (ours): after P-102 lands, a fresh auditor walks the built app screen by screen and state by
+state against established conventions (navigation, controls, menus vs sheets vs dialogs, confirmations,
+destructive actions, undo, empty / loading / error states, iconography, labels, feedback, focus,
+accessibility), and reports ranked gaps; fixes then become a batch.
+Led to: the audit, after P-102.
+
+## 2026-11-27 — A called routine hands its results back; library copies are owned (relayed)
+"Yes, a called routine can hand its results back to the caller. That's the idea. The library is a copy you
+own. the next, and do a verification pass, and then do another broad survey for maybe additional other
+methods we can employ beyond the tight core."
+Interpretation (the second session's, adopted): a call returns what its call row gives; a routine taken
+from a library is the person's own copy; an item put back on a kept list comes round in the next sitting.
+Open: whether a finished part takes up again when another part adds to its list (P-99).
+Led to: P-98 Done when amended.
+
+## 2026-11-27 — Scope the tree view alongside P-99 (relayed)
+"Scope the tree view alongside P-99 and tell the other session"
+Interpretation (the second session's, adopted): no new screen — the runner's pull-up panel and a paused
+routine's tile open a nested list of every part and where it stands; tapping a part switches to it; the
+one stored addition is how a part ended (finished or stopped).
+Led to: P-99 Done when amended.
+
+## 2026-11-27 — The model, settled in the second session: B-16 as an amendment to P-98 and P-99
+Relayed from the second session (verbatim there; the full quotes are in B-16's first section):
+"I think the model is a bit off …"; "where does that get inserted?"; "What about a completely different
+thread that requires its own processing?"; "being blocked by something is not explicit, but just a
+consequence of the arrangement of the work itself … We need serialization between concurrent threads";
+"[it] can compose itself up to arbitrarily complex procedures, where the user doesn't have to think.
+They just have to trust the process"; "Is there a way to produce a routine such that those surprises are
+accounted for, and they generate the next steps … I believe that concept is a 'for each.'"; "Yes, write it
+up as the amendment"; "Go on the amendment, P-98 follows P-97 directly"; "threads can produce values
+that can be little tasks that can be pushed in other threads, like inter-thread communication".
+Interpretation (ours): order P-97 → P-98 → P-99 → P-100; B-16's additions live in P-98 and P-99; parts
+never reach into each other — a kept list one level above both carries work from one to the other.
+Led to: D-23 restated; P-98 and P-99 Done when amended.
+
+## 2026-11-27 — "I think the model is a bit off" (relayed from the second session)
+"I think the model is a bit off. A routine should contain threads that contextualize their own work. Open
+items would represent a task on its own queue that we dequeue when we are ready. Or another model is that
+the routine defines steps, generates steps in its place to represent future work. A routine can modify
+itself if we're going to not maintain a stateful stack."
+Interpretation (ours): B-16's open items held at the routine level are under revision; two alternatives
+are being discussed in the second session (threads inside a routine with their own queues, or a routine
+that generates future steps in place). B-16 is not ready to slice; P-97 waits for the outcome.
+Led to: nothing yet.
+
+## 2026-11-27 — Don't undo a Done; dismiss with ×
+(Screenshot: home with the notice "Done with Quick Sketch · ↶ Undo" above + New.)
+"You should not undo a 'Done' this is causing me to always return back because hitting the dismiss button
+is somehow close enough to hit the undo. Also the button should be an x to dismiss not a return"
+Interpretation (ours): finishing a run is final — its notice says "Done with <name>" with only a × to
+dismiss; every notice gets a × at its right edge to dismiss; where a notice also offers Undo, Undo is a
+separate labelled button placed apart from the ×.
+Led to: P-102 (scope added).
+
+## 2026-11-27 — The step menu: too many options, and ··· should open a menu, not a drawer
+(Screenshot: the step sheet for "Draw to fit each region" — Change the words · Add a step after · Break it
+down · Gives… · Make it a wait · Move up · Move down · Remove this step.)
+"There are too many options here. 'Make it wait' is retired now. Move up and move down can be removed.
+'Change the words' sounds awkward. And a slide drawer might not seem that intuitive. A (...) usually
+brings up a menu not a drawer"
+Interpretation (ours): every ··· opens a small anchored menu; the step's: Edit · Add a step after · Break it
+down · Gives… · (divider) Remove; existing wait steps offer "Make it a step"; Move up / down stay only as
+screen-reader and keyboard actions.
+Led to: P-102.
+
 ## 2026-11-26 — From the second session ("product assessment and UX"), relayed; and the order confirmed here
 Recorded from the other session's hand-over (the owner's words there):
 - "create a friendly user experience in the composition of workflows represented as discrete algorithmic

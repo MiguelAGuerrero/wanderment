@@ -741,6 +741,21 @@ export interface PlanRow {
   asks: string[];
 }
 
+/** P-102: one of a Plan row's moves, as a screen reader offers it (an accessibility action): its name, its words, the move. */
+export interface RowMove {
+  name: 'moveUp' | 'moveDown';
+  label: 'Move up' | 'Move down';
+  by: -1 | 1;
+}
+
+/**
+ * P-102 (owner, 2026-11-27: "Move up and move down can be removed" from the menu): a row's moves, kept for
+ * screen readers (and Alt+↑ / Alt+↓ on the web) — each only when the row can make it.
+ */
+export function rowMoves(row: Pick<PlanRow, 'canUp' | 'canDown'>): RowMove[] {
+  return [...(row.canUp ? [{ name: 'moveUp', label: 'Move up', by: -1 } as const] : []), ...(row.canDown ? [{ name: 'moveDown', label: 'Move down', by: 1 } as const] : [])];
+}
+
 /**
  * P-101 amendment (ruling 11): what removing the step `itemId` of the routine `scopeId` (or of one of its
  * smaller steps) would leave asking — the name it gives and the steps that read it, in Plan's order (smaller
@@ -964,14 +979,16 @@ const LABELS: Record<Acted, string> = {
  */
 export function noticeFor(verb: Acted, said: Said | undefined, onWait = false, folded?: string): { text: string; label: string } {
   // P-96 (ruling 7): finishing — Next that ends the run, or Done — says "Done with <name>", and its Undo is Done's.
-  const label = said?.kind === 'ended' ? LABELS.done : verb === 'next' && onWait ? 'It’s happened' : LABELS[verb];
+  // P-102 audit F6: a level left (Step out) is not finishing — "Left <level>", its Undo Step out's.
+  const left = verb === 'done' && said?.kind === 'finished';
+  const label = said?.kind === 'ended' ? LABELS.done : left ? 'Step out' : verb === 'next' && onWait ? 'It’s happened' : LABELS[verb];
   const kept = folded === undefined ? '' : `Kept this run’s changes in ${folded}`;
   const text =
     said?.kind === 'ended'
       ? `Done with ${said.name}`
       : said?.kind === 'finished'
         ? verb === 'done'
-          ? `Done with ${said.names[0]}`
+          ? `Left ${said.names[0]}`
           : `Finished ${said.names[said.names.length - 1]}`
         : said?.kind === 'jumped'
           ? `Jumped from ${said.from}`
