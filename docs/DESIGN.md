@@ -48,8 +48,33 @@ routines in their own words — and runs them with the person, one small step at
   name nothing gave asks for it in place. A new round after "Repeat from here" clears the values given
   after the divider (those steps ask again) — and a value whose giving step was removed in Plan; starting
   a routine again starts empty. A value is at most
-  2,000 characters. *(P-98, built: values passed to a routine used as a step — see **Calls**.)* (Designed, not
-  built yet: for each, values that arrive later.)
+  2,000 characters. *(P-98, built: values passed to a routine used as a step — see **Calls**.)* *(P-107, built:
+  for each — see **For each**.)* (Designed, not built yet: values that arrive later.)
+- **For each** *(built, P-107; B-15 journeys 6–7, B-16; the owner: "For each … regular for loop")*: a **loop block**
+  over a name given above — "For each concern in {concerns}". Stored as a step broken down (a row `{ id, ref }` to an
+  unnamed sequence whose words are that sentence) carrying `each: { item, list }`, so **an older build reads it as a
+  step broken down** (Step in; the item asks); nothing is converted. Made from Add's **For each…** (beside A routine,
+  only once the routine gives a name): a sheet of ready-made sentences, one per name given, "concern in {concerns}"
+  (the item is the list's singular; a name that is not a plural gets " item"); a tap adds the block at the end and
+  opens a field inside it for its first step ("@" there adds a routine, called for each item). Its row in Plan opens
+  like a step broken down, its steps read `{concern}` (never "asks"), it says "gives {a}" for what its steps give; its
+  ··· reads **Add a step inside · Add a step after** · a line · **Remove** (no Edit: its words are the sentence). Its
+  item and list are renamed with the name. **A name a for each reads is a list**: its giving step's field opens a
+  **list sheet** — one row per item, each with its ×, **+ Add another**, Return in a row opens the next, the filled
+  **Keep**, Close; several lines pasted into a row offer **Split into N rows** / **Keep as one** (nothing is split by
+  itself, never at commas); a replaced or cleared list says "Changed / Cleared {name}" with an Undo that puts its items
+  back. **Running:** arriving at the block goes into it, at its first item — it is never a step to rest on; an empty
+  list (or none given) passes straight through, as Next would. Inside, the path reads "<routine> › For each concern",
+  the values row reads **"concern 2 of 3: time"**, the item reads in the steps and goes to a call inside by name. A
+  for each is a level of its own for values: **each round clears what was given inside it** (those steps ask again),
+  and what each item gave is **collected** after the block — one list under its name, in order (B-16, "a for each
+  collects"; one name given more than once is one list). **Giving the list again shows it to adjust — the only way a
+  list changes**: a step inside the block that gives its list gives it where the list is held, so the block **keeps
+  its place** (the item it is on, by its words), **carries on to items added**, and **ends past the last**. The list's
+  value sheet shows its items as rows, with no Keep. Step out leaves the loop (what this item gave is collected),
+  with "Left For each concern" and Undo; Start over on its level starts from the first item. (Designed, not built yet,
+  P-108: a list kept in the routine, a for each's own list in its header, values that are routines; renaming the item
+  from the block's menu; reordering a list's rows.)
 - **Calls** *(built, P-98; B-16, B-15 journey 5)*: a routine used as a step is a **call row** — stored as the
   routine's id with its name then (`words`) and, per input, what fills it (`with`). Its **inputs** are the names
   its steps read that nothing in it gives (its own calls' unbound inputs too); it **gives** every name it gives.
@@ -307,7 +332,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   last); a wait from an earlier build has **Make it a step** in Gives…' place; a routine used as a step
   *(P-98)*, **Open** (its Plan) · **Edit inputs** · Add a step after · Remove. *(P-98)* The "Add a step" row has
   **A routine** beneath its field (not while there is almost no room: the keyboard up, large text), a sheet of the
-  person's routines, A–Z with what each asks and gives; and **"@"** at a word's start there lists the routines
+  person's routines, A–Z with what each asks and gives — and *(P-107)* **For each…** beside it, once the routine gives a
+  name (see **For each**); and **"@"** at a word's start there lists the routines
   that match after the names — only when summoned; typed words alone list none. Its placeholder is one string. **Move up / Move down are not on the step menu** where there is a grip: the grip,
   pressed, opens its own small menu, **Move up · Move down** (each unavailable at its end) — the way to
   reorder without a drag *(P-102 audit: nothing by gesture alone)*; under 340 px, with no grip, they are on

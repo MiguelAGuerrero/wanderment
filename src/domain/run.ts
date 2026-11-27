@@ -52,6 +52,12 @@ export interface Seq {
   home: boolean;
   /** An unnamed sequence made by Break it down: the run it belongs to, until it is kept. */
   ownerRunId?: Id;
+  /**
+   * P-107: a for each block — an unnamed sequence (an older build reads it as a step broken down) whose steps are
+   * done once for each item of the list `{list}` given above, each round reading the item as `{item}`. Its words
+   * are the sentence, "For each <item> in {<list>}". A level of its own for values (see `isScopeSeq`).
+   */
+  each?: { item: string; list: string };
 }
 
 /**
@@ -65,6 +71,9 @@ export interface Frame {
   at: Id | null;
   round: number;
   from?: Id;
+  /** P-107: on a for each level, the item it is on (0-based) and that item's words as the round began (its place). Absent: the first. */
+  each?: number;
+  eachText?: string;
 }
 
 /**
@@ -186,7 +195,13 @@ export type RoutineEdit =
   | { kind: 'addPlace'; name: string; where: string }
   | { kind: 'changePlace'; place: Id; name: string; where: string }
   | { kind: 'movePlace'; place: Id; by: 1 | -1 }
-  | { kind: 'removePlace'; place: Id };
+  | { kind: 'removePlace'; place: Id }
+  /**
+   * P-107: Add's "For each…" — a for each block over `{list}` (a name given above), its item `{item}`: a row
+   * `{ id, ref }` to a new unnamed sequence with `each` and no steps yet, after a row or at the end. Refused
+   * `cannot` for a name that is not one, or an item that is the list.
+   */
+  | { kind: 'addEach'; item: string; list: string; after?: Id | null };
 
 export type Verb =
   | { kind: 'start'; routineId: Id }
@@ -221,7 +236,7 @@ export type Verb =
    * came from, unless it changes a value another step gave). No `item`: the value sheet, changing the
    * value the run's step sees (refused `cannot` when there is none); it is marked changed.
    */
-  | { kind: 'value'; runId: Id; name: string; text: string; item?: Id };
+  | { kind: 'value'; runId: Id; name: string; text: string; item?: Id; items?: string[] };
 
 /** What a verb has to say. `finished`: the levels left by themselves or by Done, innermost first. */
 export type Said = { kind: 'finished'; names: string[] } | { kind: 'ended'; name: string } | { kind: 'edge' } | { kind: 'jumped'; from: string };
@@ -311,9 +326,25 @@ export function readRoutine(data: Data, id: Id): Seq | undefined {
     home: r.home === true,
     ...(text(r.ownerRunId) && { ownerRunId: r.ownerRunId }),
   };
+  // P-107: a for each block (an unnamed sequence with `each`); one in a shape this version can't read is a step broken down.
+  const each = r.named !== true ? eachField(r.each) : undefined;
+  if (each) {
+    seq.each = each;
+    seq.words = eachWords(each);
+  }
   seqs.set(r, seq);
   return seq;
 }
+
+/** P-107: the `each` of a for each block, as stored — two names, the item not the list; undefined for anything else. */
+function eachField(v: unknown): Seq['each'] {
+  if (!isObject(v) || !isName(v.item) || !isName(v.list) || nameKey(v.item) === nameKey(v.list)) return undefined;
+  return { item: tidyName(v.item), list: tidyName(v.list) };
+}
+/** P-107: a for each block's words — the sentence an older build shows as its step broken down. */
+export const eachWords = (each: { item: string; list: string }): string => `For each ${each.item} in {${each.list}}`;
+/** P-107: a level of its own for values — a named routine, or a for each block (its rounds, its item). */
+export const isScopeSeq = (s: Seq | undefined): boolean => !!s && (s.named || !!s.each);
 
 const KINDS = ['reword', 'breakdown', 'add', 'remove', 'move', 'repeat'];
 function isChange(v: unknown): v is Change {
@@ -339,8 +370,17 @@ export function readRun(data: Data, id: Id): RunState | undefined {
     // A level that can't be read ends the stack there: what is above it has nothing to stand on.
     if (!isObject(f) || !text(f.seq)) break;
     // P-98: fields this version does not know stay on the level (a later build's), written back as they were.
-    const { seq: _s, at: _a, round: _r, from: _f, ...rest } = f;
-    frames.push({ ...rest, seq: f.seq, at: text(f.at) ? f.at : null, round: countOf(f.round) ?? 1, ...(text(f.from) && { from: f.from }) });
+    const { seq: _s, at: _a, round: _r, from: _f, each: _e, eachText: _t, ...rest } = f;
+    const each = typeof f.each === 'number' && Number.isInteger(f.each) && f.each >= 0 ? f.each : undefined;
+    frames.push({
+      ...rest,
+      seq: f.seq,
+      at: text(f.at) ? f.at : null,
+      round: countOf(f.round) ?? 1,
+      ...(text(f.from) && { from: f.from }),
+      ...(each !== undefined && { each }),
+      ...(each !== undefined && text(f.eachText) && { eachText: f.eachText }),
+    });
   }
   const ended = text(r.endedAt);
   const run: RunState = {
@@ -519,10 +559,11 @@ export function currentRun(data: Data): RunState | undefined {
  * in, so what its smaller steps give is that routine's.
  */
 export function scopeLevel(data: Data, run: RunState, frames: Frame[], i: number): number {
-  for (let j = Math.min(i, frames.length - 1); j > 0; j--) if (view(data, run, frames[j].seq)?.named) return j;
+  // P-107: a for each block is a level of its own too (what is given inside it is that round's).
+  for (let j = Math.min(i, frames.length - 1); j > 0; j--) if (isScopeSeq(view(data, run, frames[j].seq))) return j;
   return 0;
 }
-const isScope = (data: Data, run: RunState, frames: Frame[], i: number) => i === 0 || view(data, run, frames[i].seq)?.named === true;
+const isScope = (data: Data, run: RunState, frames: Frame[], i: number) => i === 0 || isScopeSeq(view(data, run, frames[i].seq));
 
 /** A routine and its smaller steps (the unnamed sequences its steps were broken into), each once: what "inside it" means. */
 function bodyOf(read: (id: Id) => Seq | undefined, seqId: Id): Seq[] {
@@ -545,13 +586,72 @@ export const routineBody = (data: Data, run: RunState, seqId: Id): Seq[] => body
 /** The names a routine gives anywhere inside itself (key → name as given), as this run reads it. Local to it: never filled from outside. */
 export function givenIn(data: Data, run: RunState | undefined, seqId: Id): Map<string, string> {
   const out = new Map<string, string>();
-  for (const s of bodyOf((id) => (run ? view(data, run, id) : readRoutine(data, id)), seqId))
+  const read = (id: Id) => (run ? view(data, run, id) : readRoutine(data, id));
+  // P-107: a for each block gives its item (each round's), never its list — a step inside that gives the list gives
+  // it where the list is (it is shown to adjust), so the block carries on to what is added.
+  const each = read(seqId)?.each;
+  if (each) out.set(nameKey(each.item), each.item);
+  for (const s of bodyOf(read, seqId))
     for (const i of s.items) {
       // P-98: what a call gives is given here (it is handed back to this routine).
       for (const o of isRef(i) && isLiveCall(data, i) ? callIO(data, i.ref).gives : [outOf(i)]) if (o && !out.has(nameKey(o))) out.set(nameKey(o), o);
     }
+  if (each) out.delete(nameKey(each.list));
   return out;
 }
+
+/** P-107: what a for each block gives the routine it is in — what its steps give, collected (never its item or its list). */
+export function eachGives(data: Data, run: RunState | undefined, seqId: Id): string[] {
+  const each = (run ? view(data, run, seqId) : readRoutine(data, seqId))?.each;
+  return [...givenIn(data, run, seqId).values()].filter((n) => !each || nameKey(n) !== nameKey(each.item));
+}
+
+/** P-107: the list a for each level (`j`) goes through — the value of its list as the level below it sees it ([] for none). */
+export function eachList(data: Data, run: RunState, frames: Frame[], j: number): string[] {
+  const each = j > 0 ? view(data, run, frames[j]?.seq)?.each : undefined;
+  if (!each) return [];
+  return visibleValue(data, run, nameKey(each.list), frames.slice(0, j))?.items ?? [];
+}
+
+/** P-107: where a for each level is in its list — the item it is on (0-based) as the list reads now; -1 when it was taken out. */
+function eachIndex(list: string[], f: Frame): number {
+  const at = f.each ?? 0;
+  const was = f.eachText;
+  if (was === undefined) return at < list.length ? at : -1;
+  if (list[at] === was) return at;
+  // Moved (items before it taken out or added): the nearest with its words.
+  let best = -1;
+  list.forEach((x, i) => {
+    if (x === was && (best < 0 || Math.abs(i - at) < Math.abs(best - at))) best = i;
+  });
+  return best;
+}
+
+const eachPlaces = new WeakMap<ValueEntry, { n: number; of: number }>();
+/** P-107: a for each's item, as the values row reads it: "photo 2 of 3". Undefined for any other value. */
+export const eachPlace = (e: ValueEntry | undefined): { n: number; of: number } | undefined => (e ? eachPlaces.get(e) : undefined);
+
+/**
+ * P-107: the item of the for each level `j` — never stored: read from the level (its item's words as the round
+ * began, else the list's item at its place; an older build's level, with neither, is on the first item). As a
+ * value it is the block's: given by the block's row, at that level.
+ */
+function eachValue(data: Data, run: RunState, frames: Frame[], j: number): ValueEntry | undefined {
+  const f = frames[j];
+  const s = j > 0 && f?.from ? view(data, run, f.seq) : undefined;
+  if (!s?.each) return undefined;
+  const list = eachList(data, run, frames, j);
+  const i = eachIndex(list, f);
+  const words = f.eachText ?? list[f.each ?? 0];
+  if (words === undefined || !words.trim()) return undefined;
+  const e: ValueEntry = { name: s.each.item, items: [words], level: j, seq: f.seq, item: f.from!, words: s.words, at: '' };
+  // (Its place: where it is in the list now; taken out, where it was.)
+  eachPlaces.set(e, { n: (i >= 0 ? i : (f.each ?? 0)) + 1, of: Math.max(list.length, (i >= 0 ? i : (f.each ?? 0)) + 1) });
+  return e;
+}
+
+/** P-107: the for each levels among `frames` (above the first). */
+const eachLevels = (data: Data, run: RunState, frames: Frame[]): number[] => frames.map((f, j) => (j > 0 && view(data, run, f.seq)?.each ? j : -1)).filter((j) => j > 0);
 
 /** The index of the item of `s` that is `itemId`, or holds it among its smaller steps; -1 when it is not there. */
 function topIndexOf(data: Data, run: RunState, s: Seq, itemId: Id): number {
@@ -567,10 +667,13 @@ export const valuesOf = (_data: Data, run: RunState): ValueEntry[] => run.values
  * step has run; else the nearest level below that has it. Undefined: nothing — the step asks.
  */
 export function visibleValue(data: Data, run: RunState, key: string, at: Frame[] | undefined = place(data, run)?.frames): ValueEntry | undefined {
-  if (!at?.length || !run.values.length) return undefined;
+  if (!at?.length || (!run.values.length && !eachLevels(data, run, at).length)) return undefined;
   for (let j = scopeLevel(data, run, at, at.length - 1); ; j = scopeLevel(data, run, at, j - 1)) {
     const e = run.values.find((v) => v.level === j && v.seq === at[j].seq && nameKey(v.name) === key);
     if (e) return e;
+    // P-107: a for each level's item.
+    const each = j > 0 ? view(data, run, at[j].seq)?.each : undefined;
+    if (each && nameKey(each.item) === key) return eachValue(data, run, at, j);
     if (j === 0 || givenIn(data, run, at[j].seq).has(key)) return undefined;
     // P-98: an input the call binds (typed, another name, or asked) is what the call says, never read from below by its own name.
     const bound = bindingOf(callInto(data, run, at, j), key);
@@ -596,7 +699,9 @@ export function passedGives(data: Data, run: RunState, at: Place | undefined = p
     const scope = scopeLevel(data, run, frames, i);
     for (const item of s.items.slice(0, Math.max(0, idx))) {
       // Each name with the step that gives it (a step broken down: the smaller step that does).
-      const inner = isRef(item) && view(data, run, item.ref)?.named === false ? routineBody(data, run, item.ref).flatMap((b) => b.items) : [];
+      // (P-107: a for each passed gives what it collected — nothing is owed for an empty list.)
+      const inner = isRef(item) && view(data, run, item.ref)?.named === false && !view(data, run, item.ref)?.each ? routineBody(data, run, item.ref).flatMap((b) => b.items) : [];
+      if (isRef(item) && view(data, run, item.ref)?.each) continue;
       const givers: [string | undefined, Id][] = [
         [outOf(item), item.id],
         ...inner.map((i): [string | undefined, Id] => [outOf(i), i.id]),
@@ -629,7 +734,30 @@ export function passedGives(data: Data, run: RunState, at: Place | undefined = p
 export function valuesInPlay(data: Data, run: RunState): ValueEntry[] {
   const at = place(data, run)?.frames;
   if (!at) return [];
-  return run.values.filter((e) => visibleValue(data, run, nameKey(e.name), at) === e).sort((a, b) => a.level - b.level);
+  const stored = run.values.filter((e) => visibleValue(data, run, nameKey(e.name), at) === e);
+  // P-107: each for each level's item, where it is seen (never stored).
+  const items = eachLevels(data, run, at)
+    .map((j) => visibleValue(data, run, nameKey(view(data, run, at[j].seq)!.each!.item), at))
+    .filter((e): e is ValueEntry => !!e && !run.values.includes(e));
+  return [...stored, ...items].sort((a, b) => a.level - b.level);
+}
+
+/** P-107: a run's values at level `j` of `frames`, its for each item included (the value sheet's trace). */
+export function valuesAtLevel(data: Data, run: RunState, frames: Frame[], j: number): ValueEntry[] {
+  const own_ = run.values.filter((v) => v.level === j && v.seq === frames[j]?.seq);
+  const each = j > 0 ? view(data, run, frames[j].seq)?.each : undefined;
+  const item = each && !own_.some((v) => nameKey(v.name) === nameKey(each.item)) ? eachValue(data, run, frames, j) : undefined;
+  return item ? [...own_, item] : own_;
+}
+
+/**
+ * P-107: a name a for each in the routine the run is in reads as its list — its giving step has a list field
+ * (one row per item), never one line read apart at commas.
+ */
+export function readByEach(data: Data, run: RunState, frames: Frame[], key: string): boolean {
+  let j = frames.length - 1;
+  while (j > 0 && !view(data, run, frames[j].seq)?.named) j--;
+  return routineBody(data, run, frames[j].seq).some((s) => !!s.each && nameKey(s.each.list) === key);
 }
 
 /**
@@ -645,7 +773,8 @@ function settleValues(data: Data, runId: Id, before: Frame[]): Data {
   const after = run.frames;
   // How many levels, from the bottom, are the same time through: the same routine, entered from the same step.
   let same = 0;
-  while (same < after.length && same < before.length && after[same].seq === before[same].seq && (same === 0 || after[same].from === before[same].from)) same++;
+  // (P-107: a for each level on another item is another time through: what was given inside it goes.)
+  while (same < after.length && same < before.length && after[same].seq === before[same].seq && (same === 0 || (after[same].from === before[same].from && (after[same].each ?? 0) === (before[same].each ?? 0)))) same++;
   const kept = raw.values.filter((v) => {
     if (!isEntry(v)) return true;
     if (v.level >= same || after[v.level].seq !== v.seq || !isScope(data, run, after, v.level)) return false;
@@ -735,13 +864,19 @@ function ioOf(data: Data, seqId: Id, stack: Id[], memo: Map<Id, CallIO>): { io: 
   };
   let cut = false;
   const seen = new Set<Id>();
-  // In the order a run meets them: a step broken down's own where it stands.
-  const walk = (id: Id) => {
+  // In the order a run meets them: a step broken down's own where it stands. P-107: inside a for each block its
+  // item is its own (never asked); the block reads its list.
+  const walk = (id: Id, local: Set<string>) => {
     const s = seen.has(id) ? undefined : readRoutine(data, id);
     seen.add(id);
+    const read = (n: string) => {
+      if (!local.has(nameKey(n))) add(reads, n);
+    };
     for (const i of s?.items ?? []) {
-      if (isRef(i) && readRoutine(data, i.ref)?.named === false) {
-        walk(i.ref);
+      const sub = isRef(i) ? readRoutine(data, i.ref) : undefined;
+      if (sub?.named === false) {
+        if (sub.each) read(sub.each.list);
+        walk(sub.id, sub.each ? new Set([...local, nameKey(sub.each.item)]) : local);
         continue;
       }
       if (isRef(i)) {
@@ -751,17 +886,18 @@ function ioOf(data: Data, seqId: Id, stack: Id[], memo: Map<Id, CallIO>): { io: 
         for (const g of inner.io.gives) add(gives, g);
         for (const a of inner.io.asks) {
           const b = bindingOf(i, nameKey(a));
-          if (!b) add(reads, a);
-          else if ('name' in b) add(reads, b.name);
+          if (!b) read(a);
+          else if ('name' in b) read(b.name);
         }
         continue;
       }
       const o = outOf(i);
       if (o) add(gives, o);
-      for (const n of namesIn(isWait(i) ? i.wait : isStep(i) ? i.text : '')) add(reads, n.name);
+      for (const n of namesIn(isWait(i) ? i.wait : isStep(i) ? i.text : '')) read(n.name);
     }
   };
-  walk(seqId);
+  const root = readRoutine(data, seqId);
+  walk(seqId, new Set(root?.each ? [nameKey(root.each.item)] : []));
   const given = new Set(gives.map(nameKey));
   const io = { asks: reads.filter((r) => !given.has(nameKey(r))), gives };
   if (!cut) memo.set(seqId, io);
@@ -826,6 +962,8 @@ function readOutside(data: Data, run: RunState, scopeSeq: Id, brokenSeq: Id): Se
  */
 export function owedBy(data: Data, run: RunState, frames: Frame[], item: Item | undefined): string[] {
   if (!isRef(item)) return [];
+  // P-107: a for each owes nothing: what it gives is what each item gave, collected.
+  if (view(data, run, item.ref)?.each) return [];
   const scope = scopeLevel(data, run, frames, frames.length - 1);
   let names: string[];
   if (isLiveCall(data, item)) names = callIO(data, item.ref).gives;
@@ -892,16 +1030,28 @@ function inputsFor(data: Data, run: RunState, before: Frame[], item: RefItem, en
  * them). `from`: the levels before the move; `popped`: the levels left, innermost first.
  */
 function handBack(data: Data, runId: Id, from: Frame[], popped: Frame[], env: Env): Data {
+  // P-107: level by level, innermost first — a call hands back, a for each collects — so what a level inside
+  // gave is there for the level below it to hand on.
+  let next = data;
+  popped.forEach((f, k) => {
+    const level = from.length - 1 - k;
+    if (level <= 0 || from[level].seq !== f.seq) return;
+    next = view(next, readRun(next, runId)!, f.seq)?.each ? collectRound(next, runId, from, level, env) : handBackLevel(next, runId, from, level, env);
+  });
+  return next;
+}
+
+/** P-98: one call level left (`level` of `from`) hands back what its row gives. */
+function handBackLevel(data: Data, runId: Id, from: Frame[], level: number, env: Env): Data {
   const raw = own(data.runs, runId)!;
   if (!Array.isArray(raw.values) || !raw.values.length) return data;
   const run = readRun(data, runId)!;
   let values: unknown[] = [...raw.values];
   let changed = false;
-  popped.forEach((f, k) => {
-    const level = from.length - 1 - k;
-    if (level <= 0 || from[level].seq !== f.seq) return;
+  const f = from[level];
+  {
     const call = callInto(data, run, from, level);
-    if (!isRef(call) || !isLiveCall(data, call)) return;
+    if (!isRef(call) || !isLiveCall(data, call)) return data;
     const scope = scopeLevel(data, run, from, level - 1);
     const gives = new Set(callIO(data, f.seq).gives.map(nameKey));
     const words = wordsOf(data, run, call);
@@ -916,7 +1066,37 @@ function handBack(data: Data, runId: Id, from: Frame[], popped: Frame[], env: En
       values = values.filter((v) => v !== e);
       changed = true;
     }
-  });
+  }
+  return changed ? putRun(data, patched(raw, { values })) : data;
+}
+
+/**
+ * P-107 (B-16, "A for each collects"): a round of the for each level `level` of `from` ended (its next item, the
+ * last passed, or Step out) — what was given inside it this round goes to the level its values belong to, given
+ * by the block's row: after its own on a later round (one name, given more than once, is one list), in place of
+ * what this row gave the last time through on its first. Never its item, never its list.
+ */
+function collectRound(data: Data, runId: Id, from: Frame[], level: number, env: Env): Data {
+  const raw = own(data.runs, runId)!;
+  if (!Array.isArray(raw.values) || !raw.values.length) return data;
+  const run = readRun(data, runId)!;
+  const f = from[level];
+  const s = view(data, run, f.seq);
+  if (!s?.each || !f.from) return data;
+  const b = scopeLevel(data, run, from, level - 1);
+  const skip = new Set([nameKey(s.each.item), nameKey(s.each.list)]);
+  const values: unknown[] = [...raw.values];
+  let changed = false;
+  for (const e of raw.values.filter((v): v is ValueEntry => isEntry(v) && v.level === level && v.seq === f.seq && !skip.has(nameKey(v.name)))) {
+    const key = nameKey(e.name);
+    const at = values.findIndex((v) => isEntry(v) && v.level === b && v.seq === from[b].seq && nameKey(v.name) === key);
+    const had = at >= 0 ? (values[at] as ValueEntry) : undefined;
+    const entry: ValueEntry =
+      had && (had.item !== f.from || (f.each ?? 0) > 0) ? { ...had, items: [...had.items, ...e.items].slice(0, MAX_ITEMS) } : { name: e.name, items: [...e.items], level: b, seq: from[b].seq, item: f.from, words: s.words, at: env.now };
+    if (at >= 0) values[at] = entry;
+    else values.push(entry);
+    changed = true;
+  }
   return changed ? putRun(data, patched(raw, { values })) : data;
 }
 
@@ -963,6 +1143,20 @@ export function advance(data: Data, run: RunState, from: Frame[]): Advance {
       f.at = s.items[s.repeatFrom].id;
       f.round += 1;
       return { frames, popped };
+    }
+    // P-107: a for each goes on to its next item — the one after the item it is on, in the list as it reads now
+    // (an item added comes round; one taken out, the next in its place) — and ends past the last.
+    if (s.each && frames.length > 1) {
+      const list = eachList(data, run, frames, frames.length - 1);
+      const i = eachIndex(list, f);
+      const k = i >= 0 ? i + 1 : (f.each ?? 0);
+      if (k < list.length && s.items.length) {
+        f.each = k;
+        f.eachText = list[k];
+        f.at = s.items[0].id;
+        f.round = 1;
+        return { frames, popped };
+      }
     }
     if (frames.length === 1) {
       if (!s.open && s.items.length) return { frames: from, popped, ended: true };
@@ -1069,8 +1263,17 @@ function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; a
   next = settleWait(next, l.run.id, l.at, env);
   // P-98: a call left (by Next past its last step, or Step out) hands back what its row gives.
   if (popped.length) next = handBack(next, l.run.id, l.at.frames, popped, env);
+  // P-107: a for each gone on to its next item — what the round it leaves gave is collected.
+  for (let i = 1; i < Math.min(l.at.frames.length, to.frames.length); i++) {
+    const [a, b] = [l.at.frames[i], to.frames[i]];
+    if (a.seq === b.seq && a.from === b.from && (a.each ?? 0) !== (b.each ?? 0)) next = collectRound(next, l.run.id, l.at.frames, i, env);
+  }
   next = settleValues(next, l.run.id, l.run.frames);
-  const names = popped.map((f) => view(data, l.run, f.seq)?.words ?? '');
+  // (P-107: a for each is named by its item, as on the runner's path: "Left For each photo".)
+  const names = popped.map((f) => {
+    const s = view(data, l.run, f.seq);
+    return s?.each ? `For each ${s.each.item}` : (s?.words ?? '');
+  });
   let folded: string | undefined;
   // The edge: nothing can run there, so the run is in Plan (and its old this-run changes are folded) in this same write.
   if (!place(next, readRun(next, l.run.id)!)?.item) ({ data: next, folded } = enterPlan(next, l.run.id, env));
@@ -1189,7 +1392,9 @@ function restart(data: Data, runId: Id, level: number, env: Env): Result {
   const was = l.at.frames;
   if (!Number.isInteger(level) || level < 0 || level >= was.length) return refuse(data, 'no-such-level');
   const s = view(data, l.run, was[level].seq)!;
-  const moved_ = moved(data, l, { frames: [...was.slice(0, level), { ...was[level], at: s.items[0]?.id ?? null, round: 1 }] }, env);
+  // (P-107: a for each from its first item.)
+  const { each: _e, eachText: _t, ...level_ } = was[level];
+  const moved_ = moved(data, l, { frames: [...was.slice(0, level), { ...level_, at: s.items[0]?.id ?? null, round: 1 }] }, env);
   // Audit F4: the pause note is the person's own words, not a value given inside the level: it stays.
   const out = l.raw.reason === undefined ? moved_ : { ...moved_, data: putRun(moved_.data, patched(own(moved_.data.runs, runId)!, { reason: l.raw.reason })) };
   const raw = own(out.data.runs, runId)!;
@@ -1198,7 +1403,9 @@ function restart(data: Data, runId: Id, level: number, env: Env): Result {
   // below), what its own smaller steps gave.
   const scope = scopeLevel(data, l.run, was, level);
   const body = scope === level ? undefined : new Set(routineBody(data, l.run, was[level].seq).flatMap((b) => b.items.map((i) => i.id)));
-  const kept = raw.values.filter((v) => !isEntry(v) || (v.level < level && !(body && v.level === scope && body.has(v.item))));
+  // P-107: a for each started over — what its rounds gave (collected below it, given by its row) goes too.
+  const below = s.each && level > 0 ? scopeLevel(data, l.run, was, level - 1) : -1;
+  const kept = raw.values.filter((v) => !isEntry(v) || (v.level < level && !(body && v.level === scope && body.has(v.item)) && !(v.level === below && v.item === was[level].from)));
   return kept.length === raw.values.length ? out : { ...out, data: putRun(out.data, patched(raw, { values: kept.length ? kept : undefined })) };
 }
 
@@ -1292,6 +1499,12 @@ function stepIn(data: Data, runId: Id, env: Env): Result {
   const target = view(data, l.run, item.ref);
   if (!target?.items.length) return refuse(data, 'empty');
   if (l.at.frames.length >= MAX_DEPTH) return refuse(data, 'too-deep');
+  // P-107: into a for each — at its first item; with nothing in its list there is nothing to step into.
+  if (target.each) {
+    const list = eachList(data, l.run, [...l.at.frames, { seq: target.id, at: null, round: 1, from: item.id }], l.at.frames.length);
+    if (!list.length) return refuse(data, 'empty');
+    return moved(data, l, { frames: [...l.at.frames, { seq: target.id, at: target.items[0].id, round: 1, from: item.id, each: 0, eachText: list[0] }] }, env);
+  }
   const out = moved(data, l, { frames: [...l.at.frames, { seq: target.id, at: target.items[0].id, round: 1, from: item.id }] }, env);
   // P-98: its inputs, each the called routine's own copy (after the move: entering a level afresh starts it empty).
   return target.named ? { ...out, data: addValues(out.data, runId, inputsFor(data, l.run, l.at.frames, item, env)) } : out;
@@ -1326,7 +1539,8 @@ function jump(data: Data, runId: Id, to: JumpTo, env: Env): Result {
       if (!s || !item) return refuse(data, 'no-such-step');
       // A level the run is already in keeps its round; one entered by the jump starts at round 1.
       same = same && was[i]?.seq === s.id;
-      frames.push({ seq: s.id, at: id, round: same ? was[i].round : 1, ...(i > 0 && { from: to.path[i - 1] }) });
+      // (P-107: and a for each level the run is in, its item.)
+      frames.push({ seq: s.id, at: id, round: same ? was[i].round : 1, ...(i > 0 && { from: to.path[i - 1] }), ...(same && was[i].each !== undefined && { each: was[i].each, ...(was[i].eachText !== undefined && { eachText: was[i].eachText }) }) });
       seqId = isRef(item) ? item.ref : undefined;
     }
   }
@@ -1509,6 +1723,15 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     if (reaches(data, t.id, ownersOf(data, routineId))) return refuse(data, 'self');
     if (typeof edit.after === 'string' && !has(edit.after)) return refuse(data, 'no-such-step');
     after = editItems(routine, s, { insert: [{ id: env.id(), ref: t.id, words: t.words } as Item, edit.after] });
+  } else if (edit.kind === 'addEach') {
+    const each = eachField({ item: edit.item, list: edit.list });
+    if (!each) return refuse(data, 'cannot');
+    if (typeof edit.after === 'string' && !has(edit.after)) return refuse(data, 'no-such-step');
+    // An unnamed sequence (an older build reads it as a step broken down), its words the sentence, no steps yet.
+    const into: Routine = { id: env.id(), words: eachWords(each), named: false, createdAt: env.now, items: [], each };
+    const row = editItems(routine, s, { insert: [{ id: env.id(), ref: into.id }, edit.after] });
+    if (!row) return refuse(data, 'cannot');
+    return done(resettle(data, putRoutine(putRoutine(data, into), row), env));
   } else if (edit.kind === 'bind') {
     const item = s.items.find((i) => i.id === edit.item);
     if (!item) return refuse(data, 'no-such-step');
@@ -1768,6 +1991,8 @@ function renameValue(data: Data, routineId: Id, from: string, to: string, env: E
       for (const b of bindingsOf(i)) if ('name' in b) uses.add(nameKey(b.name));
       if (isRef(i) && isLiveCall(data, i)) for (const g of callIO(data, i.ref).gives) uses.add(nameKey(g));
     }
+  // P-107: a for each block's item and list are names of this routine too.
+  for (const s of body) if (s.each) for (const n of [s.each.item, s.each.list]) uses.add(nameKey(n));
   const asked = callIO(data, routineId).asks.find((a) => nameKey(a) === fromKey);
   if (!fromKey || !uses.has(fromKey)) return refuse(data, 'cannot');
   if (nameKey(name) !== fromKey && uses.has(nameKey(name))) return refuse(data, 'same-name');
@@ -1793,7 +2018,10 @@ function renameValue(data: Data, routineId: Id, from: string, to: string, env: E
       changed = true;
       return { ...i, ...(isWait(i) ? { wait: now } : { text: now }), ...(out !== undefined && { out }) };
     });
-    if (changed) next = putRoutine(next, patched(routine, { items }));
+    // P-107: a for each over it, or whose item it is: the block (and its sentence) renamed with it.
+    const each = s.each && (nameKey(s.each.item) === fromKey || nameKey(s.each.list) === fromKey) ? { item: nameKey(s.each.item) === fromKey ? name : s.each.item, list: nameKey(s.each.list) === fromKey ? name : s.each.list } : undefined;
+    if (each && eachField(each)) next = putRoutine(next, patched(own(next.routines, s.id)!, { ...(changed ? { items } : {}), each: { ...(isObject(routine.each) ? routine.each : {}), ...each }, words: eachWords(each) }));
+    else if (changed) next = putRoutine(next, patched(routine, { items }));
   }
   // P-98: an input this routine asks, renamed — every call to it (in any routine) binds the new name, keeping what it was given.
   if (asked)
@@ -1858,10 +2086,27 @@ function rebind(data: Data, i: Item, map: (b: Binding) => Binding, unbound: (inp
   return changed ? patched(i, { with: withs }) : i;
 }
 
+/**
+ * P-107: the level a for each's list is held at, for a step inside it (at any depth of for each) that gives that
+ * list: where the list is seen from below the block, else the level below it. Undefined for any other name.
+ */
+function listHolder(data: Data, run: RunState, frames: Frame[], key: string): number | undefined {
+  for (let j = scopeLevel(data, run, frames, frames.length - 1); j > 0; j = scopeLevel(data, run, frames, j - 1)) {
+    const each = view(data, run, frames[j].seq)?.each;
+    if (!each) return undefined;
+    if (nameKey(each.list) === key) return visibleValue(data, run, key, frames.slice(0, j))?.level ?? scopeLevel(data, run, frames, j - 1);
+  }
+  return undefined;
+}
+
 /** P-96: a value given, changed or cleared at the run's place (see the `value` verb). Kept as typed, capped; blank clears it. */
-function setValue(data: Data, runId: Id, typedName: string, typed: string, itemId: Id | undefined, env: Env): Result {
+function setValue(data: Data, runId: Id, typedName: string, typedText: string, itemId: Id | undefined, env: Env, list?: string[]): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
+  // P-107: a list, as its field gives it — one item per row, kept as typed (capped); blank rows dropped; none clears it.
+  const listed = Array.isArray(list) ? list.filter((x): x is string => text(x) && !!x.trim()).slice(0, MAX_ITEMS).map(capValue) : undefined;
+  if (list !== undefined && !Array.isArray(list)) return refuse(data, 'cannot');
+  const typed = listed ? (listed.length ? listed.join('\n') : '') : typedText;
   // A name that is not one; or values stored in a shape this version cannot read (it is never written over).
   if (!isName(typedName) || !text(typed) || (l.raw.values !== undefined && !Array.isArray(l.raw.values))) return refuse(data, 'cannot');
   const key = nameKey(typedName);
@@ -1886,6 +2131,12 @@ function setValue(data: Data, runId: Id, typedName: string, typed: string, itemI
     // Audit F2: a value given late is the giving step's (it is scoped, and cleared by a new round, exactly
     // as one given there); `words` keeps the step it was given at ("given at <step>").
     if (own_) from = { item: passed ? passed.item : item.id, words, name: passed ? passed.name : gives && nameKey(gives) === key ? gives : reads!.name };
+    // P-107 (B-16): a step inside a for each that gives its list gives it where the list is — shown to adjust there,
+    // so the for each carries on to what is added.
+    if (own_ && gives && nameKey(gives) === key) {
+      const held = listHolder(data, l.run, frames, key);
+      if (held !== undefined) level = held;
+    }
   } else {
     if (!visible) return refuse(data, 'cannot');
     level = visible.level;
@@ -1907,7 +2158,7 @@ function setValue(data: Data, runId: Id, typedName: string, typed: string, itemI
     values = stored.filter((v) => !mine(v));
   } else {
     if (fresh && readValues(stored).length >= MAX_VALUES) return refuse(data, 'cannot');
-    const items = [capValue(typed)];
+    const items = listed ?? [capValue(typed)];
     const moves = !!had && !!from && had.item !== from.item;
     const changedAt = itemId === undefined ? env.now : moves ? undefined : had?.changedAt;
     const { changedAt: _c, words: _w, ...base } = had ?? ({} as Partial<ValueEntry>);
@@ -1923,7 +2174,7 @@ function setValue(data: Data, runId: Id, typedName: string, typed: string, itemI
       at: had && !moves ? had.at : env.now,
       ...(changedAt !== undefined && { changedAt }),
     };
-    if (had && had.items.length === 1 && had.items[0] === items[0] && had.item === entry.item && had.name === entry.name) return done(data);
+    if (had && had.items.length === items.length && had.items.every((x, i) => x === items[i]) && had.item === entry.item && had.name === entry.name) return done(data);
     let put = false;
     values = [];
     for (const v of stored) {
@@ -1938,8 +2189,47 @@ function setValue(data: Data, runId: Id, typedName: string, typed: string, itemI
   return done(putRun(data, patched(l.raw, { values: values.length ? values : undefined })));
 }
 
+/**
+ * P-107: a run that has moved onto a for each row goes in — at its first item — or, with nothing in its list (or
+ * nothing in the block), straight past it, as Next would (B-16: "an empty list is 'no'"). A for each is never a
+ * step to rest on. Nothing changes for a run anywhere else.
+ */
+function landEach(r: Result, runId: Id | undefined, env: Env): Result {
+  if (!r.ok || runId === undefined) return r;
+  let out = r;
+  for (let guard = 0; guard <= 4 * MAX_DEPTH; guard++) {
+    const l = load(out.data, runId);
+    if (typeof l === 'string' || l.run.mode === 'plan' || l.at.repaired || !isRef(l.at.item)) return out;
+    const row = l.at.item;
+    const block = view(out.data, l.run, row.ref);
+    if (!block?.each) return out;
+    const into: Frame = { seq: block.id, at: block.items[0]?.id ?? null, round: 1, from: row.id };
+    const list = eachList(out.data, l.run, [...l.at.frames, into], l.at.frames.length);
+    if (list.length && block.items.length && l.at.frames.length < MAX_DEPTH) {
+      const frames = [...l.at.frames, { ...into, each: 0, eachText: list[0] }];
+      out = { ...out, data: settleWait(putRun(out.data, patched(l.raw, { frames })), runId, l.at, env) };
+      continue;
+    }
+    const a = advance(out.data, l.run, l.at.frames);
+    if (a.ended || a.asking) {
+      const e = end(out.data, l, 'finished', env);
+      return { ...out, data: e.data, said: e.said };
+    }
+    const m = moved(out.data, l, a, env);
+    out = { ...out, data: m.data, ...(m.folded !== undefined && { folded: m.folded }), ...(!out.said && m.said && { said: m.said }) };
+  }
+  return out;
+}
+
 /** The engine: the data after a verb. Pure; never throws on damaged data (it refuses instead). */
 export function runVerb(data: Data, verb: Verb, env: Env): Result {
+  const r = verbOf(data, verb, env);
+  // P-107: every move that can arrive on a for each row.
+  if (verb.kind === 'start' || verb.kind === 'next' || (verb.kind === 'done' && !verb.whole) || verb.kind === 'stepIn' || verb.kind === 'back' || verb.kind === 'jump' || verb.kind === 'restart') return landEach(r, verb.kind === 'start' ? r.runId : verb.runId, env);
+  return r;
+}
+
+function verbOf(data: Data, verb: Verb, env: Env): Result {
   switch (verb.kind) {
     case 'start':
       return start(data, verb.routineId, env);
@@ -1968,7 +2258,7 @@ export function runVerb(data: Data, verb: Verb, env: Env): Result {
     case 'jump':
       return jump(data, verb.runId, verb.to, env);
     case 'value':
-      return setValue(data, verb.runId, verb.name, verb.text, verb.item, env);
+      return setValue(data, verb.runId, verb.name, verb.text, verb.item, env, verb.items);
     default:
       return refuse(data, 'cannot');
   }

@@ -43,18 +43,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-107 For each over a list given above `[feature]` `[data]` `[ux]` L
-*Status:* todo
-*Why:* owner, 2026-11-27 (real use): "I was trying to write a for each and apply a function over them";
-B-16.
-*Done when:* Add's "For each…" makes a loop block over a name given above (the sheet lists ready-made
-sentences "item in {list}"); its giving step shows a list editor (one row per item, + Add another, paste
-offers to split); inside, the values row reads "item 2 of 3: <item>" and the item name reads in steps; a
-call inside receives the item; what each item gives is collected into a list readable after the block;
-giving a list again shows it to adjust — the only way a list changes; the for each keeps its place,
-carries on to added items, ends past the last, and passes straight through an empty list; each round
-clears values given inside the loop; Undo; persistence; an older build reads the block as a breakdown.
-
 ### P-108 Kept lists, a for each's own list, and values that are routines `[feature]` `[data]` `[ux]` L
 *Status:* todo
 *Why:* owner, 2026-11-27: "A way … is actually a routine, not text … returning functions from
@@ -411,6 +399,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-27 · P-107 — for each over a list given above: Plan's For each… (once a name is given) adds a loop block from sentences "item in {list}", with "@" to call a routine per item; the giving step's list sheet (one row per item, + Add another, paste offers to split, never at commas); inside, "item 2 of 3: <item>"; each round clears values given inside; what each item gives is collected into one list after the block; giving the list again keeps the loop's place, carries on to added items, ends past the last; an empty list passes through; Undo. Stored as a breakdown with `each` (older builds read it as one; no migration). evidence: golden p107-* frozen from 6f4afea (with what the old build shows), 22 domain + 5 store + 9 golden + 6 persistence tests, mutation checks, go-foreach spec at 390×844 and 195×422, E2E_SLOW repeat-each=5, 1008 unit tests, `verify.sh --full`. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-109 — Places: named links on a routine (B-18 slice 1): Places… in Plan's routine menu (add, change, reorder, remove, with Undo); the names under Plan's heading; the list in the runner's pull-up panel; a door on a home tile only when the routine has places; "Open <host>" rows for addresses typed in steps, values and the pause note; only http(s) opens — any other scheme, including from an import, shows as words; `places` stored on the routine body (old data reads as none, unknown shapes kept). evidence: golden p109-* frozen from 173867e, 22 domain + 2 store + 6 persistence tests, go-places spec at 390×844 and 200 % text, 966 unit tests, `verify.sh --full` (387 e2e); the owner's iPhone check is pending. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-98 — calls: a routine as a step (Add's "A routine" or "@"), its row showing what it asks (with {x} · with {y} as x · with <words> as x · asks {x}) and what it gives; inputs resolve typed → by name → asked and are the callee's own copy; leaving hands back only what the row gives, one name given twice becomes one list; passing a call or breakdown without stepping in asks for owed names after Next / Step out (never on the step); calls to a removed routine say so and can't be stepped into; Plan refuses a routine as its own step; Copy… with Undo; removing a called routine names its callers. No migration (older builds read a call as Step in). evidence: golden p98-* frozen from 671e654, ~30 unit/store/persistence tests, go-calls spec at 390×844 and 195×422, 928 unit tests, `verify.sh --full`. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-97 — My routines and a calmer home: a My routines page (⌂ Home top-left) lists every named routine A–Z with accent-folded headings, Find and tag filters, rows saying when a run is going, and a ··· with Start, Plan, Tags…, Remove; tags are typed on a routine (Plan's ··· → Tags…) and stored in its body (no migration; a newer shape is never overwritten); home shows only runs in motion, split into Ongoing (no end) and Finishing (has an end), with My routines and + New as side doors; going home always lands on home. evidence: golden fixture p97-* frozen first, go-routines spec red on the base build, tags through reload / journal / fallback / hand-over / export / import, 887 unit tests, the whole e2e suite, every routine from older fixtures still reachable, `verify.sh --full`. audit: 6 reported · 4 reproduced · 6 fixed · 0 deferred.

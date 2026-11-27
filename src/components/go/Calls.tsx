@@ -8,6 +8,8 @@
  * - `BindSheet`: what fills one input — a name given above (`{y} as x`), typed words, or Ask when it runs.
  * - `InputsSheet`: Edit inputs on a call with more than one.
  * - `CopySheet`: Copy… on a routine's ··· — the name (suggested "<name> (copy)"), filled Copy; a name in use is refused.
+ * - `ForEachSheet` (P-107): Add's "For each…" — one ready-made sentence per name given above ("photo in {photos}"); a
+ *   tap makes the block.
  * - `OwedSheet`: Next, or Step out, past a call (or a step broken down) that still owes names — a field for each,
  *   then the filled move. Left empty, the move goes on and a later step asks (the owner: nothing extra on the step).
  */
@@ -15,7 +17,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { CallInput, PlanCall } from '@/domain/runView';
-import { MAX_VALUE } from '@/domain/values';
+import { itemNameFor, MAX_VALUE } from '@/domain/values';
 
 import { Mark } from './marks';
 import { G, SP } from './tokens';
@@ -63,6 +65,19 @@ export function RoutinesSheet({ routines, error, onPick, onClose, fallback }: { 
         <Btn key={r.routineId} kind="plain" mark="routine" label={r.line ? `${r.name} · ${r.line}` : r.name} spoken={`Add as a step: ${r.line ? `${r.name} · ${r.line}` : r.name}`} onPress={() => onPick(r.routineId)} testID="go-routines-sheet-row" dataSet={{ routine: r.routineId, ...(i === 0 && { first: 'true' }) }} />
       ))}
       <Btn label="Close" onPress={onClose} />
+    </Sheet>
+  );
+}
+
+/** P-107: Add's "For each…" — a sentence per name given above, "photo in {photos}"; a tap makes the block (`onPick(list)`). */
+export function ForEachSheet({ lists, onPick, onClose, fallback }: { lists: string[]; onPick: (list: string) => void; onClose: () => void; fallback: { current: unknown } }) {
+  return (
+    <Sheet title="For each…" onClose={onClose} testID="go-each-sheet" fallback={fallback}>
+      {lists.map((list, i) => {
+        const words = `${itemNameFor(list)} in {${list}}`;
+        return <Btn key={list} kind="plain" label={words} spoken={`For each ${words}`} onPress={() => onPick(list)} testID="go-each-sheet-row" dataSet={{ list, ...(i === 0 && { first: 'true' }) }} />;
+      })}
+      <Btn label="Close" onPress={onClose} testID="go-each-sheet-close" />
     </Sheet>
   );
 }

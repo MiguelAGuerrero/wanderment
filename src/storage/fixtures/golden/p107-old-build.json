@@ -1,0 +1,402 @@
+{
+  "plan": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Find reference photos",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each photo in {photos}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": [
+          "drawing"
+        ]
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Sketch",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Draw {photo}, big shapes first",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Name the drawing",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note what to fix in {photo}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Rank the {drawing}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ]
+  },
+  "onRow": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Find reference photos",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each photo in {photos}",
+        "broken": true,
+        "here": true,
+        "within": false,
+        "hoisted": [
+          "drawing"
+        ]
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Sketch",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Draw {photo}, big shapes first",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Name the drawing",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note what to fix in {photo}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Put {photo} away",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Rank the {drawing}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "Drawing practice",
+      "step": "routine",
+      "words": "For each photo in {photos}",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "For each photo in "
+        },
+        {
+          "kind": "value",
+          "name": "photos",
+          "text": "the dancer"
+        }
+      ],
+      "fields": [],
+      "values": [
+        {
+          "name": "photos",
+          "items": [
+            "the dancer"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": true
+      },
+      "next": "next"
+    }
+  },
+  "inBlock": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Find reference photos",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each photo in {photos}",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "hoisted": [
+          "drawing"
+        ]
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Sketch",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Draw {photo}, big shapes first",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Name the drawing",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note what to fix in {photo}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Put {photo} away",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Rank the {drawing}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "For each photo in {photos}",
+      "step": "routine",
+      "words": "Sketch",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Sketch"
+        }
+      ],
+      "fields": [],
+      "values": [
+        {
+          "name": "photos",
+          "items": [
+            "the dancer"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": true,
+        "stepOut": {
+          "name": "For each photo in {photos}"
+        }
+      },
+      "next": "next"
+    }
+  },
+  "inSketch": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Find reference photos",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each photo in {photos}",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "hoisted": [
+          "drawing"
+        ]
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Sketch",
+        "broken": false,
+        "here": false,
+        "within": true,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Draw {photo}, big shapes first",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Name the drawing",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note what to fix in {photo}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Put {photo} away",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Rank the {drawing}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "Sketch",
+      "step": "step",
+      "words": "Draw {photo}, big shapes first",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Draw "
+        },
+        {
+          "kind": "blank",
+          "name": "photo"
+        },
+        {
+          "kind": "text",
+          "text": ", big shapes first"
+        }
+      ],
+      "fields": [
+        {
+          "name": "photo",
+          "text": "",
+          "gives": false
+        }
+      ],
+      "values": [
+        {
+          "name": "photos",
+          "items": [
+            "the dancer"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": false,
+        "stepOut": {
+          "name": "Sketch"
+        }
+      },
+      "next": "next"
+    }
+  }
+}

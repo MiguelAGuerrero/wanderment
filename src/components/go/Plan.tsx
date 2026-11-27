@@ -46,11 +46,11 @@ import { myRoutines } from '@/domain/routines';
 import { namesOffered, PlanDivider, PlanRow, planView, readersOf, rowMoves } from '@/domain/runView';
 import { placesShown, placesWritable } from '@/domain/places';
 import { tagsOf, tagsWritable } from '@/domain/tags';
-import { isName, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
+import { isName, itemNameFor, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
 import { useStore } from '@/store/useStore';
 
 import { decorative } from '../a11y';
-import { BindSheet, CallLines, copyName, CopySheet, InputsSheet, removeBody, RoutinesSheet } from './Calls';
+import { BindSheet, CallLines, copyName, CopySheet, ForEachSheet, InputsSheet, removeBody, RoutinesSheet } from './Calls';
 import { Mark } from './marks';
 import { rowLine } from './MyRoutines';
 import { Notice, useRunUndo } from './Notice';
@@ -102,7 +102,7 @@ function readTyping(key: string): Typing | null {
   }
 }
 
-type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true } | { addRoutine: true } | { bind: string; input: string } | { inputs: string } | { copy: true } | { places: true; at?: string };
+type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true } | { addRoutine: true } | { addEach: true } | { bind: string; input: string } | { inputs: string } | { copy: true } | { places: true; at?: string };
 
 export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: string; routineId?: string; inSeq?: string; fromRun?: boolean; fromList?: boolean }) {
   const data = useStore((s) => s.data);
@@ -444,6 +444,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   };
 
   const close = () => setMenu(null);
+  /** P-107: the names a for each added at the end can go through — every name given in the routine, as Add a step offers them. */
+  const eachLists = namesOffered(v.rows, { mode: 'end' });
   const menuRow = menu && 'row' in menu ? rowAt(menu.row) : undefined;
   const reorderRow = menu && 'reorder' in menu ? rowAt(menu.reorder) : undefined;
   const givesRow = menu && 'gives' in menu ? rowAt(menu.gives) : undefined;
@@ -466,7 +468,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   const matching = picking ? offered.filter((n) => nameKey(n).includes(nameKey(picking.query))) : [];
   // P-98: "@" at a word's start in Add a step (or a step added after a row) lists the person's routines too — only when summoned.
   const typedNow = typing ? typing.text : adding;
-  const atSign = !!picking && typedNow.charAt(picking.start) === '@' && (typing ? typing.mode === 'after' : addFocused);
+  // (P-107: and a step put into a for each — a routine called for each item.)
+  const atSign = !!picking && typedNow.charAt(picking.start) === '@' && (typing ? typing.mode === 'after' || (typing.mode === 'into' && !!rowAt(typing.path)?.each) : addFocused);
   const routineMatches = atSign ? myRoutines(data).filter((r) => nameKey(r.name).includes(nameKey(picking!.query))).slice(0, 6) : [];
   const picks = matching.length + routineMatches.length;
   const picked = !!picking && picks > 0;
@@ -513,10 +516,16 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     setPicking(null);
     const t = live.current;
     const row = t && t.mode === 'after' ? rowAt(t.path) : undefined;
-    const did = row ? edit(row.seq, { kind: 'addCall', routine: target, after: row.itemId }) : edit(v.routineId, { kind: 'addCall', routine: target });
+    // P-107: into a for each — at the end of its steps; the field stays open there for the next.
+    const into = t && t.mode === 'into' ? rowAt(t.path) : undefined;
+    const did = into?.each && into.ref ? edit(into.ref, { kind: 'addCall', routine: target }) : row ? edit(row.seq, { kind: 'addCall', routine: target, after: row.itemId }) : edit(v.routineId, { kind: 'addCall', routine: target });
     if (!did.ok) {
       const words = callRefused(did.reason, myRoutines(data).find((r) => r.routineId === target)?.name ?? '', v.name);
       if (words) act().say(words);
+      return;
+    }
+    if (into && t) {
+      setTyping({ ...t, text: rest });
       return;
     }
     if (!row || !t) {
@@ -547,7 +556,9 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
 
   const layer = menuRow ? (
     <Menu anchor={() => mores[keyOf(menuRow.path)]} label={menuRow.words} onClose={close} testID="go-plan-menu" fallback={title}>
-      {(menuRow.kind !== 'routine' || menuRow.broken) && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
+      {(menuRow.kind !== 'routine' || menuRow.broken) && !menuRow.each && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
+      {/* P-107: a for each — its steps are added inside it. */}
+      {!!menuRow.each && <MenuItem label="Add a step inside" spoken={`Add a step inside ${menuRow.words}`} testID="go-plan-add-inside" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
       {/* P-98: a call — Open (that routine's Plan), Edit inputs. */}
       {!!menuRow.call && !menuRow.call.removed && menuRow.ref && (
         <MenuItem
@@ -695,6 +706,22 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
           return;
         }
         setRoutineError(callRefused(did.reason, myRoutines(data).find((r) => r.routineId === target)?.name ?? '', v.name));
+      }}
+    />
+  ) : menu && 'addEach' in menu ? (
+    // P-107: Add's "For each…" — one ready-made sentence per name given above ("photo in {photos}").
+    <ForEachSheet
+      lists={eachLists}
+      fallback={addField}
+      onClose={close}
+      onPick={(list) => {
+        const had = new Set(v.rows.map((r) => keyOf(r.path)));
+        if (!edit(v.routineId, { kind: 'addEach', item: itemNameFor(list), list }).ok) return;
+        close();
+        // Its first step is typed inside it at once.
+        const now = planView(act().data, v.runId ? { runId: v.runId } : { routineId: v.routineId });
+        const made = now?.rows.find((r) => r.each && r.depth === 0 && !had.has(keyOf(r.path)));
+        if (made) startTyping({ mode: 'into', path: keyOf(made.path), text: '' });
       }}
     />
   ) : menu && 'copy' in menu ? (
@@ -1004,7 +1031,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
                 </View>
                 {typing && typingAfter === i && typing.mode !== 'words' && typing.mode !== 'name' && (
                   <View style={typing.mode === 'into' ? { marginLeft: indent(typingRow!.depth + 1) - indent(row.depth) } : { marginLeft: indent(typingRow!.depth) - indent(row.depth) }}>
-                    {typed(typing.mode === 'into' ? `A smaller step of ${typingRow!.words}` : `Add a step after ${typingRow!.words}`, typing.mode === 'into' ? 'A smaller step' : 'Add a step')}
+                    {typed(typing.mode === 'into' ? (typingRow!.each ? `Add a step inside ${typingRow!.words}` : `A smaller step of ${typingRow!.words}`) : `Add a step after ${typingRow!.words}`, typing.mode === 'into' && !typingRow!.each ? 'A smaller step' : ADD_PLACEHOLDER)}
                   </View>
                 )}
               </View>
@@ -1044,6 +1071,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
             {(!floor || (addFocused && !!insertBtn) || !!adding.trim()) && (
               <View style={styles.addTools}>
                 {!floor && <Btn kind="plain" mark="routine" label="A routine" spoken="Add a routine as a step" onPress={() => setMenu({ addRoutine: true })} style={styles.addBtn} testID="go-plan-add-routine" />}
+                {/* P-107: a loop over a name given above — only once there is one. */}
+                {!floor && eachLists.length > 0 && <Btn kind="plain" label="For each…" onPress={() => setMenu({ addEach: true })} style={styles.addBtn} testID="go-plan-add-each" />}
                 {addFocused && insertBtn}
                 {!!adding.trim() && <Btn kind="plain" label="Add" spoken="Add this step" onPress={addIt} style={styles.addBtn} testID="go-plan-add-btn" />}
               </View>

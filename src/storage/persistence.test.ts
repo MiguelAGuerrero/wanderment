@@ -1566,6 +1566,15 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         },
       },
       changeValue: { args: ['n1', 'topic', 'another ad'], setup: going({ values: [{ name: 'topic', items: ['the ad'], level: 0, seq: 'g1', item: 'a', at }] }) },
+      // P-107: a list given in its step's list field (one item per row).
+      typeList: {
+        args: ['n1', 'a', 'topic', ['the ad', 'the poster']],
+        setup: (store) => {
+          going()(store);
+          const g1 = store.getState().data.routines.g1;
+          if (g1) store.setState((st) => ({ data: { ...st.data, routines: { ...st.data.routines, g1: { ...g1, items: (g1.items as { id: string }[]).map((i) => (i.id === 'a' ? { ...i, out: 'topic' } : i)) } } } }));
+        },
+      },
     };
     /** What's only on screen this session: these never change the data. */
     const NOT_DATA: Record<string, unknown[]> = {
@@ -4173,6 +4182,223 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       store = await reload();
       expect(store.getState().data).toEqual(held);
       expect(JSON.parse(toBackup(store.getState().data)).data).toEqual(held);
+    });
+  });
+
+  // ───────── P-107: for each ─────────
+  describe('P-107: a for each block, a list and a run inside the loop survive reload, journal replay, the fallback, hand-over, undo, export and import — an older shape of `each` is kept and read as a step broken down', () => {
+    type Ids = { drawing: string; block: string; row: string; find: string; runId: string };
+    const itemsOf = (data: { routines: Record<string, Record<string, unknown>> }, id: string) => data.routines[id].items as Record<string, unknown>[];
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * Through the store's actions, as a person would: New "Drawing practice"; "Find reference photos" gives {photos};
+     * Add's "For each…" makes "For each photo in {photos}"; "Draw {photo}" inside it gives {drawing}; "Rank the
+     * {drawing}" after it. Started: three photos given in the list field, Next (into the loop), a drawing named, Next
+     * (the second photo).
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const made = g().createRoutine('Drawing practice');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      const drawing = made.routineId;
+      const all = [g().editRoutine(drawing, { kind: 'addStep', text: 'Find reference photos' })];
+      const find = itemsOf(g().data, drawing)[0].id as string;
+      all.push(g().editRoutine(drawing, { kind: 'gives', item: find, name: 'photos' }), g().editRoutine(drawing, { kind: 'addEach', item: 'photo', list: 'photos' }));
+      const row = itemsOf(g().data, drawing)[1] as { id: string; ref: string };
+      all.push(g().editRoutine(row.ref, { kind: 'addStep', text: 'Draw {photo}' }));
+      all.push(g().editRoutine(row.ref, { kind: 'gives', item: itemsOf(g().data, row.ref)[0].id as string, name: 'drawing' }), g().editRoutine(drawing, { kind: 'addStep', text: 'Rank the {drawing}' }));
+      const started = g().startRoutine(drawing);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      const runId = started.runId;
+      all.push(g().typeList(runId, find, 'photos', ['the dancer', 'the boxer', 'the cellist']), g().nextStep(runId));
+      all.push(g().typeValue(runId, itemsOf(g().data, row.ref)[0].id as string, 'drawing', 'dancer sketch'), g().nextStep(runId));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { drawing, block: row.ref, row: row.id, find, runId };
+    }
+    const isAsBuilt = (data: { routines: Record<string, Record<string, unknown>>; runs: Record<string, Record<string, unknown>> }, ids: Ids) => {
+      expect(data.routines[ids.block]).toMatchObject({ named: false, words: 'For each photo in {photos}', each: { item: 'photo', list: 'photos' } });
+      expect(itemsOf(data, ids.drawing)[1]).toEqual({ id: ids.row, ref: ids.block });
+      const run = data.runs[ids.runId] as { frames: Record<string, unknown>[]; values: { name: string; items: string[]; level: number; item: string }[] };
+      expect(run.frames[1]).toMatchObject({ seq: ids.block, from: ids.row, each: 1, eachText: 'the boxer' });
+      expect(run.values.map((v) => [v.name, v.items, v.level, v.item])).toEqual([
+        ['photos', ['the dancer', 'the boxer', 'the cellist'], 0, ids.find],
+        ['drawing', ['dancer sketch'], 0, ids.row],
+      ]);
+    };
+    /** What the run shows: the item it is on, and where it is in the list. */
+    const shown = async (data: Parameters<typeof isAsBuilt>[0], ids: Ids) => {
+      const { runnerView } = await import('@/domain/runView');
+      const v = runnerView(data as never, ids.runId)!;
+      return { step: v.step.parts.map((p) => ('text' in p ? p.text : `{${p.name}}`)).join(''), item: v.values.find((x) => x.name === 'photo') };
+    };
+
+    it('reload: saved to SQLite as kept — the block, the list, the run on the second photo with what the first gave — the same after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const data = store.getState().data;
+      isAsBuilt(data as never, ids);
+      expect(await onDisk()).toEqual(data);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      expect(await shown(store.getState().data as never, ids)).toMatchObject({ step: 'Draw the boxer', item: { text: 'the boxer', each: { n: 2, of: 3 } } });
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), all of it is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const data = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      isAsBuilt(store.getState().data as never, ids);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('the localStorage fallback keeps it, and moves it into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const data = store.getState().data;
+      isAsBuilt(JSON.parse(env.ls.get('wanderment')!).state.data, ids);
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      expect(store.getState().data).toEqual(data);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(data);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('hand-over with a take-back: what the second photo gave, here and still only in the journal when hidden, stays on top of another page’s step added to the block; the other page’s is taken', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const draw = itemsOf(store.getState().data as never, ids.block)[0].id as string;
+      writeGate = deferred();
+      expect(store.getState().typeValue(ids.runId, draw, 'drawing', 'boxer').ok).toBe(true);
+      await tick(0);
+      expect(store.getState().typeValue(ids.runId, draw, 'drawing', 'boxer sketch').ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRuns.map((r: { id: string }) => r.id)).toEqual([ids.runId]);
+      const mine = store.getState().data.runs[ids.runId];
+
+      const { editRoutine } = await import('@/domain/run');
+      const other = editRoutine(await onDisk(), ids.block, { kind: 'addStep', text: 'Put {photo} away' }, { now: '2026-11-27T12:00:00.000Z', id: () => 'other-page-step' });
+      expect(other.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [other.data.routines[ids.block]] } as never);
+      db.close();
+
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.runs[ids.runId]).toEqual(mine);
+      expect((mine.values as { name: string; items: string[]; level: number }[]).map((v) => [v.name, v.items, v.level])).toEqual([
+        ['photos', ['the dancer', 'the boxer', 'the cellist'], 0],
+        ['drawing', ['dancer sketch'], 0],
+        ['drawing', ['boxer sketch'], 1],
+      ]);
+      expect(itemsOf(store.getState().data as never, ids.block).map((i) => i.text)).toEqual(['Draw {photo}', 'Put {photo} away']);
+      expect(store.getState().data.routines[ids.block]).toMatchObject({ each: { item: 'photo', list: 'photos' } });
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('undo of Add’s "For each…", of a list replaced and of Step out of the loop: taken back on screen and on disk', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const before = store.getState().data;
+      expect(store.getState().editRoutine(ids.drawing, { kind: 'addEach', item: 'drawing item', list: 'drawing' }).ok).toBe(true);
+      await tick(30);
+      expect(itemsOf(await onDisk(), ids.drawing)).toHaveLength(4);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      // A list replaced from its field (the run moved back to its giving step by Jump to, whose own Undo is then replaced).
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.find] }).ok).toBe(true);
+      await tick(30);
+      const jumped = store.getState().data;
+      expect(store.getState().typeList(ids.runId, ids.find, 'photos', ['the dancer']).ok).toBe(true);
+      store.getState().typedOver(ids.runId, ids.find, 'photos', 'the dancer, the boxer and the cellist', ['the dancer', 'the boxer', 'the cellist']);
+      await tick(30);
+      expect(((await onDisk()).runs[ids.runId].values as { items: string[] }[])[0].items).toEqual(['the dancer']);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(jumped);
+      // Step out of the loop.
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      await tick(30);
+      const inLoop = store.getState().data;
+      expect(store.getState().doneLevel(ids.runId).ok).toBe(true);
+      await tick(30);
+      expect(((await onDisk()).runs[ids.runId].frames as unknown[]).length).toBe(1);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(inLoop);
+    });
+
+    it('export → import: the block, the list and the run are in the backup; the same file is identical; one whose `each` is in a shape this version does not know, and with a field it does not know on the loop’s level, replaces it — kept exactly through a move, an edit, a reload, the journal and another export, and read as a step broken down', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      const file = JSON.parse(json);
+      isAsBuilt(file.data, ids);
+      expect(previewImport(json).plan).toMatchObject({ identical: true });
+      const later = { over: 'photos', as: 'photo', kept: true };
+      file.data.routines[ids.block].each = later;
+      file.data.runs[ids.runId].frames[0].later = { i: 2 };
+      expect(confirmImport(previewImport(JSON.stringify(file))).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      const { planView } = await import('@/domain/runView');
+      const { readRoutine } = await import('@/domain/run');
+      // Not readable as a for each: a step broken down, its words as stored.
+      expect(readRoutine(store.getState().data, ids.block)!.each).toBeUndefined();
+      expect(planView(store.getState().data, { runId: ids.runId })!.rows[1]).toMatchObject({ kind: 'routine', broken: true, words: 'For each photo in {photos}' });
+      expect(planView(store.getState().data, { runId: ids.runId })!.rows[1].each).toBeUndefined();
+      // A move and an edit keep both; through the journal and out again.
+      env.state.hangWrites = true;
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      expect(store.getState().editRoutine(ids.block, { kind: 'addStep', text: 'Put it away' }).ok).toBe(true);
+      await tick(30);
+      env.state.hangWrites = false;
+      store = await reload();
+      const held = store.getState().data;
+      expect(held.routines[ids.block]).toMatchObject({ each: later });
+      expect((held.runs[ids.runId].frames as Record<string, unknown>[])[0]).toMatchObject({ later: { i: 2 } });
+      expect(JSON.parse(toBackup(held)).data).toEqual(held);
     });
   });
 });

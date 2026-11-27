@@ -15,7 +15,10 @@ are added, reworded, moved (drag a row by its grip, or use its menu), removed, b
 and made to repeat — changes there change the routine, each with an Undo in the routine's menu — and
 "Resume at <step>" takes you back exactly where you were. A routine can be a step of another (Add's "A
 routine", or "@" as you type): its row says what it asks — `with {concerns}`, typed words, or `asks` — and what
-it gives; stepped into, it gets its own copy of what it asks and hands back what it gives. Copy… makes a routine
+it gives; stepped into, it gets its own copy of what it asks and hands back what it gives. **For each…** (beside
+"A routine") makes a loop over a list given above — "For each concern in {concerns}": the giving step's field is a
+list (one row per item), each round reads "concern 2 of 3", clears what was given inside it, and what each item
+gave is collected after the block. Copy… makes a routine
 over under a new name. **Places…** keeps where a routine's work lives — a named link ("Design doc", notion.so) or
 plain words ("Sketchbook", left shelf) — seen under Plan's heading, behind one door on its home tile and in the
 runner's pull-up panel; an address typed in a step, a value or the pause note gets an "Open <host>" row there.
@@ -68,7 +71,7 @@ npm run e2e        # Playwright end-to-end tests against the built web app
 | `src/domain/` | Pure TypeScript: the execution engine (`run.ts`: a run plus a verb gives the next run), the views the screens read (`runView.ts`; calls — what a routine asks and gives, its bindings, what it hands back — are in `run.ts`; My routines and home's groups, `routines.ts`; tags, `tags.ts`; places and the one rule for opening an address, `places.ts`), values in words (`values.ts`), the search the retired prompt used (`starts.ts`), backup and migration. No React. Unit-tested. |
 | `src/store/` | Zustand store: data, actions, notices, single-step undo. |
 | `src/storage/` | SQLite schema and migrations, the repository, persistence with a write-ahead journal on web, the localStorage fallback, tab hand-over. |
-| `src/app/go/`, `src/components/go/` | The screens: home (the runs going, Ongoing and Finishing; My routines, + New), My routines (A–Z, Find, tags; the Tags sheet), the runner (moves, Pause's sheet, values, the entry and value sheets), Plan (with Gives…, the names bar and Insert; calls, their inputs and Copy…, `Calls.tsx`; Places…, the line under its heading and the tile's door, `Places.tsx`), Jump to…, Settings. |
+| `src/app/go/`, `src/components/go/` | The screens: home (the runs going, Ongoing and Finishing; My routines, + New), My routines (A–Z, Find, tags; the Tags sheet), the runner (moves, Pause's sheet, values, the entry and value sheets), Plan (with Gives…, the names bar and Insert; calls, their inputs and Copy…, and For each…'s sheet, `Calls.tsx`; the list sheet, `Values.tsx`; Places…, the line under its heading and the tile's door, `Places.tsx`), Jump to…, Settings. |
 | `src/pwa/` | Service-worker registration and update detection (web only). |
 | `public/` | Web HTML template, PWA manifest and icons. |
 | `e2e/` | Playwright specs and a static server that mimics GitHub Pages. |

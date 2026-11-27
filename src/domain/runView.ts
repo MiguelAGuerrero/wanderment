@@ -4,7 +4,7 @@
  * writes, and nothing throws on damaged data — a run or routine that can't be shown reads as
  * undefined, and the screen goes home.
  */
-import { advance, bindingOf, callIO, callWords, currentRun, Frame, givenIn, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, passedGives, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
+import { advance, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, passedGives, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
 import { hash } from './hash';
 import { addressesIn, PlaceShown, placesOf, placesShown, tidyPlaceText } from './places';
 import { Data, Id } from './types';
@@ -55,6 +55,8 @@ export interface ValueShown {
   mine: boolean;
   /** P-98: an input of the routine the run is in, handed to it by its call — "from <the caller's step>". */
   from?: string;
+  /** P-107: a for each's item — "photo 2 of 3: the boxer" (`n` of `of`, where it is in its list). */
+  each?: { n: number; of: number };
 }
 /**
  * A field on the runner's step (ruling 6): the giving step's — labelled with its name — or one for a name
@@ -65,10 +67,16 @@ export interface ValueField {
   name: string;
   text: string;
   gives: boolean;
+  /** P-107: a name a for each reads — its field is a list (one row per item); `items`: the list as it is (when it has one). */
+  list?: true;
+  items?: string[];
 }
 
 const asTyped = (e: ValueEntry) => (e.items.length === 1 ? e.items[0] : joinItems(e.items));
-const shownOf = (e: ValueEntry, mine: number, from?: string): ValueShown => ({ name: e.name, text: valueText(e), items: e.items, level: e.level, mine: e.level === mine && from === undefined, ...(from !== undefined && { from }) });
+const shownOf = (e: ValueEntry, mine: number, from?: string): ValueShown => {
+  const each = eachPlace(e);
+  return { name: e.name, text: valueText(e), items: e.items, level: e.level, mine: e.level === mine && from === undefined, ...(from !== undefined && { from }), ...(each && { each }) };
+};
 /** The words of the step a value was given at (as stored with it, else its step's words now). */
 function givenAt(data: Data, run: RunState, frames: Frame[], e: ValueEntry): string {
   if (e.words !== undefined) return e.words;
@@ -82,7 +90,8 @@ function givenAt(data: Data, run: RunState, frames: Frame[], e: ValueEntry): str
 function inputFrom(data: Data, run: RunState, frames: Frame[], e: ValueEntry): string | undefined {
   if (isInputCopy(data, run, frames, e)) return e.words ?? '';
   const scope = topScope(data, run, frames);
-  if (scope > 0 && e.level < scope && callIO(data, frames[scope].seq).asks.some((a) => nameKey(a) === nameKey(e.name))) return givenAt(data, run, frames, e);
+  // (P-107: a for each block is a level of its own, not a routine called: what it reads from below is not handed to it.)
+  if (scope > 0 && e.level < scope && view(data, run, frames[scope].seq)?.named && callIO(data, frames[scope].seq).asks.some((a) => nameKey(a) === nameKey(e.name))) return givenAt(data, run, frames, e);
   return undefined;
 }
 const topScope = (data: Data, run: RunState, frames: Frame[]) => scopeLevel(data, run, frames, frames.length - 1);
@@ -114,7 +123,9 @@ function fieldsFor(data: Data, run: RunState, at: Place): ValueField[] {
   const gives = outOf(item);
   if (gives) {
     const e = visibleValue(data, run, nameKey(gives), at.frames);
-    out.push({ name: gives, text: e ? asTyped(e) : '', gives: true });
+    // P-107: a list a for each reads — one row per item, shown as it is to adjust.
+    const list = readByEach(data, run, at.frames, nameKey(gives));
+    out.push({ name: gives, text: e ? asTyped(e) : '', gives: true, ...(list && { list: true as const }), ...(list && e && { items: [...e.items] }) });
   }
   for (const n of namesIn(wordsOf(data, run, item))) {
     if (gives && n.key === nameKey(gives)) continue;
@@ -144,6 +155,8 @@ export interface ValueDetail {
   mine: boolean;
   /** P-101 amendment (ruling 10): given late — at a step that neither gives nor reads it ("given at <step>"). */
   late?: true;
+  /** P-107: a list a for each reads — its items shown as rows; it changes only by being given again (its giving step). */
+  list?: true;
 }
 
 /** The value of `name` as the run's step sees it, for its sheet; undefined when there is none. */
@@ -175,6 +188,7 @@ export function valueDetail(data: Data, runId: Id, name: string): ValueDetail | 
     level: e.level,
     mine: e.level === scope && !input,
     ...(late && { late: true as const }),
+    ...(readByEach(data, run, at.frames, key) && { list: true as const }),
   };
 }
 
@@ -229,7 +243,7 @@ export function valueTrace(data: Data, runId: Id, name: string): TraceLevel[] | 
     trace.push({
       routine: view(data, run, at.frames[j].seq)?.words ?? '',
       step: by ? wordsOf(data, run, by) : (e.words ?? ''),
-      values: run.values.filter((v) => v.level === j && v.seq === at.frames[j].seq && !copy(v)).map((v) => shownOf(v, scope)),
+      values: valuesAtLevel(data, run, at.frames, j).filter((v) => !copy(v)).map((v) => shownOf(v, scope)),
     });
     if (next < 0) break;
     j = next;
@@ -239,7 +253,7 @@ export function valueTrace(data: Data, runId: Id, name: string): TraceLevel[] | 
 
 /** The next level above `j` that is a routine of its own (a named routine entered as a step); frames.length when none. */
 function nextScope(data: Data, run: RunState, frames: Frame[], j: number): number {
-  for (let i = j + 1; i < frames.length; i++) if (view(data, run, frames[i].seq)?.named) return i;
+  for (let i = j + 1; i < frames.length; i++) if (isScopeSeq(view(data, run, frames[i].seq))) return i;
   return frames.length;
 }
 
@@ -482,7 +496,7 @@ export interface RunnerView {
 }
 
 /** P-101 (ruling 7): the names a step broken down gives through its smaller steps (theirs, and theirs in turn), in order. */
-const hoistedOf = (data: Data, run: RunState | undefined, seqId: Id): string[] => [...givenIn(data, run, seqId).values()];
+const hoistedOf = (data: Data, run: RunState | undefined, seqId: Id): string[] => eachGives(data, run, seqId);
 
 const lastOfRound = (at: Place) => !!at.item && at.seq.repeatFrom !== undefined && at.seq.items[at.seq.items.length - 1]?.id === at.item.id;
 const waitingOf = (run: RunState, at: Place) => (isWait(at.item) ? { words: at.item.wait, ...(dated(run.waitingSince) && { since: run.waitingSince }) } : undefined);
@@ -504,15 +518,18 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
     const s = view(data, run, frames[j].seq);
     if (s?.named) inner = s;
   }
-  const gives = target && !target.named ? hoistedOf(data, run, target.id) : frames.length > 1 && !seq.named ? hoistedOf(data, run, seq.id) : [];
+  // (P-107: not for a for each — what it collects is Plan's to say; the runner's path stays the path.)
+  const gives = target && !target.named && !target.each ? hoistedOf(data, run, target.id) : frames.length > 1 && !seq.named && !seq.each ? hoistedOf(data, run, seq.id) : [];
   const reason = tidyLines(run.reason);
+  // P-107 (B-15 journey 7): a for each level is named by its item on the path — "Drawing practice › For each photo".
+  const levelWords = (s: Seq) => (s.each ? `For each ${s.each.item}` : s.words);
   return {
     runId,
     routineId: run.routineId,
     name: readRoutine(data, run.routineId)?.words ?? '',
     status: run.endedAt ? 'ended' : (run.status ?? 'left'),
-    level: seq.words,
-    ...(below && { parent: below.words }),
+    level: levelWords(seq),
+    ...(below && { parent: levelWords(below) }),
     depth: frames.length,
     planning: isPlanning(data, run),
     step: item ? { kind: kindOf(item), words, seq: seq.id, itemId: item.id, parts: partsFor(data, run, words, frames), ...(removed && { removed: true as const }) } : { kind: 'edge', words: '', seq: seq.id, parts: [] },
@@ -524,10 +541,10 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
     // P-96 audit F5: Done wherever the press ends the run — a last step that is a wait included.
     next: !item ? 'edge' : ends ? 'done' : isWait(item) ? 'itsHappened' : 'next',
     ends,
-    ...(!run.endedAt && { finish: { name: seq.words, ends: wouldEnd(data, { kind: 'done', runId }) } }),
+    ...(!run.endedAt && { finish: { name: levelWords(seq), ends: wouldEnd(data, { kind: 'done', runId }) } }),
     ...(waiting && { waiting }),
     // P-98: past the depth it can go, Step in is still there — and says, in words, why it goes no deeper.
-    moves: { stepIn: !!target?.items.length, ...(frames.length > 1 && { stepOut: { name: seq.words } }) },
+    moves: { stepIn: !!target?.items.length, ...(frames.length > 1 && { stepOut: { name: levelWords(seq) } }) },
     ...(inner && { planIn: { seq: inner.id, name: inner.words } }),
     gives,
     ...(reason && { reason }),
@@ -660,6 +677,8 @@ export function namesOffered(rows: PlanRow[], at: { mode: 'words' | 'after' | 'i
   if (!row) return out;
   row.above.forEach(add);
   if (at.mode === 'words') return out;
+  // P-107: a step put into a for each reads its item.
+  if (at.mode === 'into' && row.each) add(row.each.item);
   const inside = (r: PlanRow) => r.path.length >= row.path.length && row.path.every((id, i) => r.path[i] === id);
   for (let i = at.index; i < rows.length && inside(rows[i]); i++) if (rows[i].scope === row.scope) rowGives(rows[i]).forEach(add);
   return out;
@@ -807,6 +826,8 @@ export interface PlanRow {
   asks: string[];
   /** P-98: a routine used as a step (a call): what it asks — each input and what fills it — and what it gives. */
   call?: PlanCall;
+  /** P-107: a for each block — "For each <item> in {<list>}": its steps read `{item}`; it reads `{list}`. */
+  each?: { item: string; list: string };
 }
 
 /**
@@ -861,7 +882,9 @@ export function readersOf(data: Data, scopeId: Id, itemId: Id): { name: string; 
   const key = nameKey(name);
   if (items.some((i) => i.id !== itemId && nameKey(outOf(i) ?? '') === key)) return undefined;
   const words = (i: Item) => (isWait(i) ? i.wait : isStep(i) ? i.text : '');
-  const readers = items.filter((i) => i.id !== itemId && !isRef(i) && namesIn(words(i)).some((n) => n.key === key)).map(words);
+  // (P-107: a for each over it reads it too.)
+  const eachOver = (i: Item) => (isRef(i) ? readRoutine(data, i.ref)?.each : undefined);
+  const readers = items.filter((i) => i.id !== itemId && ((!isRef(i) && namesIn(words(i)).some((n) => n.key === key)) || nameKey(eachOver(i)?.list ?? '') === key)).map((i) => (eachOver(i) ? eachWords(eachOver(i)!) : words(i)));
   return readers.length ? { name, readers } : undefined;
 }
 
@@ -937,6 +960,7 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
       const within = on && isRef(item) && frames[depth + 1]?.seq === item.ref;
       const gives = outOf(item);
       const call = isCall(data, item) ? callOf(item, given) : undefined;
+      const each = isRef(item) ? read(item.ref)?.each : undefined;
       rows.push({
         path: [...path, item.id],
         depth,
@@ -952,19 +976,24 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
         canDown: i < s.items.length - 1,
         ...(divider && divider.from === i && { divider }),
         ...(gives && { gives }),
-        reads: isRef(item) ? [] : namesIn(words(item)).map((x) => x.name),
+        reads: each ? [each.list] : isRef(item) ? [] : namesIn(words(item)).map((x) => x.name),
         above: [...given],
         scope,
         canBreakDown: isStep(item) && !gives,
         ...(isRef(item) && read(item.ref)?.named === false && hoisted(item.ref)),
         asks: [],
         ...(call && { call }),
+        ...(each && { each }),
       });
       for (const g of [gives, ...(call?.gives ?? [])]) if (g && !given.some((x) => nameKey(x) === nameKey(g))) given.push(g);
       // (A removed routine is not opened: its row says so, and that is all.)
       if (isRef(item) && !call?.removed && !open.includes(item.ref) && depth + 1 < MAX_DEPTH) {
         const named = read(item.ref)?.named !== false;
+        // P-107: inside a for each its item is a name given above (and only there).
+        const local = each && !given.some((g) => nameKey(g) === nameKey(each.item));
+        if (local) given.push(each.item);
         walk(item.ref, [...path, item.id], [...open, item.ref], within, named ? item.ref : scope, named ? [] : given);
+        if (local) given.splice(given.findIndex((g) => g === each.item), 1);
       }
     });
   };
@@ -988,9 +1017,13 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
   walk(root.id, [], [root.id], true, root.id, []);
   // Audit F9: a name is given for a step only by a step above it (before it, in run order).
   const given = new Set<string>();
+  const items: { path: Id[]; key: string }[] = [];
   for (const r of rows) {
-    r.asks = r.reads.filter((n) => !given.has(nameKey(n)));
+    // P-107: a step inside a for each reads its item.
+    const local = items.filter((b) => r.path.length > b.path.length && b.path.every((id, i) => r.path[i] === id)).map((b) => b.key);
+    r.asks = r.reads.filter((n) => !given.has(nameKey(n)) && !local.includes(nameKey(n)));
     for (const g of rowGives(r)) given.add(nameKey(g));
+    if (r.each) items.push({ path: r.path, key: nameKey(r.each.item) });
   }
   const first = read(root.id) ?? root;
   const divider = dividerOf(first);
@@ -1117,6 +1150,8 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     if (e.kind === 'addStep') return `Added ${quoted(e.text)}`;
     // P-98: a call added, an input's binding, Copy.
     if (e.kind === 'addCall') return `Added ${quoted(readRoutine(data, e.routine)?.words ?? '')}`;
+    // P-107: Add's "For each…".
+    if (e.kind === 'addEach') return `Added ${quoted(eachWords({ item: tidyName(e.item), list: tidyName(e.list) }))}`;
     if (e.kind === 'bind') return `Changed {${tidyName(e.input)}} for ${item(e.item)}`;
     if (e.kind === 'copy') return `Copied ${quoted(s?.words ?? '')} as ${quoted(e.words)}`;
     if (e.kind === 'addWait') return `Added a wait for ${quoted(e.wait)}`;

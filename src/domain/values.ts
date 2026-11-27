@@ -125,6 +125,23 @@ export function suggestName(words: string): string {
 }
 
 /**
+ * P-107: the item's name in Add's "For each…" sentence — the list's singular ("photos" → "photo", "stories" →
+ * "story", "boxes" → "box"); a name that is not a plural gets " item" ("subject" → "subject item"), so the item
+ * is never the list itself. At most 40 characters.
+ */
+export function itemNameFor(list: string): string {
+  const name = tidyName(list);
+  const w = name.toLowerCase();
+  const cut = (k: number) => name.slice(0, name.length - k);
+  let one: string | undefined;
+  if (/[^aeiou]ies$/.test(w)) one = `${cut(3)}${name.endsWith('IES') ? 'Y' : 'y'}`;
+  else if (/(ss|x|z|ch|sh)es$/.test(w)) one = cut(2);
+  else if (/[^su]s$/.test(w) && !/(ss|is|us)$/.test(w)) one = cut(1);
+  const item = one && isName(one) && nameKey(one) !== nameKey(name) ? one : `${Array.from(name).slice(0, MAX_NAME - 5).join('')} item`;
+  return Array.from(item).slice(0, MAX_NAME).join('');
+}
+
+/**
  * One value of a run, as stored in its body's `values` (P-96, contract ruling 1). A LIST of text items
  * (one item is the usual case). `level` is the frame it belongs to — the routine's own level, the bottom
  * one or a named routine entered as a step (a step broken down is part of the routine it is in) — and

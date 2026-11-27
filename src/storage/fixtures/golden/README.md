@@ -126,3 +126,25 @@ nothing by loading.
 | `p109-expected.json` | that build's store | what those four must read as |
 
 `freeze-p109.ts.txt` is the script that wrote them.
+
+## P-107 (frozen 2026-11-27, before for each)
+
+Written the same way by the build before P-107 (`6f4afea`), where a step broken down was an unnamed sequence and
+nothing knew `each`. It started from `p109-schema4.sqlite` (so everything above is in it) and was then used through
+its own store actions — and its Import, for what only an import could make there: a for each block **in the shape
+P-107 writes** (a row `{ id, ref }` to an unnamed sequence whose words are "For each photo in {photos}", carrying
+`each: { item: 'photo', list: 'photos' }`). That build read it as a step broken down: it rested on its row with
+Step in, stepped in, and asked for `{photo}` inside; its Plan added a step inside the block and kept `each`. P-107
+reads the block as a for each and the run left inside it as on its first item; this data must load exactly as
+before and write nothing by loading, for good.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p107-schema4.sqlite` | that build, ordinary saves (and two Imports), over `p109-schema4.sqlite` | everything in `p109-schema4.sqlite`, plus "Sketch" (reads `{photo}`, gives `{drawing}`) and "Drawing practice" ("Find reference photos" gives `{photos}`, then the block — Sketch called inside it, "Note what to fix in {photo}", and "Put {photo} away" added by that build's Plan — then "Rank the {drawing}"); a run of Drawing practice paused inside Sketch inside the block (no item on its level), its `{photos}` made three items by the second import; and P-96's "Read a chapter" running again |
+| `p107-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p107-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p107-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p107-expected.json` | that build's store | what those four must read as |
+| `p107-old-build.json` | that build's `planView` and `runnerView` | what it SHOWED for the block: its Plan rows, and the runner on the block's row, inside the block and inside Sketch — a step broken down, Step in, `{photo}` asked |
+
+`freeze-p107.ts.txt` is the script that wrote them.
