@@ -14,8 +14,9 @@ you pass become Inbox notes for it. Data-loss or lockout reports are the excepti
 at full rigor, whichever skill is running.
 
 How things get built is shared: `/polish`'s Phases 5–7 (`.claude/skills/polish/SKILL.md`) with its
-**rigor by risk** table. Most features are Light tier (no scout, no contract file, no audit; ~45 min
-per slice, cut smaller rather than wait); anything touching stored data is Full.
+**rigor by risk** table. Most features are Light tier (no scout, no contract file, no audit of the built code; ~45 min
+per slice, cut smaller rather than wait); anything touching stored data is Full. The UI audit of a
+*design* before a layout change (Step D) is a separate thing and applies at either tier.
 
 The owner started this run and may not be watching. Keep going on your own, with one exception:
 **a product decision that only the owner can make.** That's the only reason to stop and ask.
@@ -76,7 +77,8 @@ if you change one, change the other.
 1. Read the sources above. Note owner-notes entries and decision answers that are new since the
    last Done-log entry.
 2. Triage the roadmap Inbox exactly as `/polish` Phase 1 does.
-3. `git status` is clean and `main` is current. Run `scripts/polish/verify.sh` only if this run
+3. `git status` is clean and `main` matches `origin/main`, or stop and tell the owner. Look at the
+   last "Deploy web" run on `main`: Step B.1 depends on knowing whether it is red. Run `scripts/polish/verify.sh` only if this run
    hasn't verified yet; polish's Phase 0 does it for builds.
 
 ### B. Choose the next increment
@@ -176,7 +178,7 @@ for is offered as an option, not applied.
 1. **Neighbours.** Only something that **blocks** the feature is fixed in the same batch (as a
    Light-tier item). Rough spots that merely drag become Inbox notes for `/polish`; don't fix them.
    The builder notes them.
-2. **Build.** Read `.claude/skills/polish/SKILL.md` and run Phases 0 and 3–7 with these items, at
+2. **Build.** Read `.claude/skills/polish/SKILL.md` and run Phases 0 and 3–7 with these items (Light tier skips 3, 4 and 6), at
    the tier the rigor table gives (Light unless stored data or storage is touched). Builders for
    disjoint slices run in parallel worktrees. On Full tier, its Phase 4 owner check is where any product
    question in the batch goes. Answer implementation questions yourself. Follow polish's **Testing order**:

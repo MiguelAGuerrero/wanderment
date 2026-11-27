@@ -22,7 +22,9 @@ Checklist:
 - [ ] The build runs the shared pipeline: builder with unit tests first, one `verify.sh` at the end,
       `land.sh`. Phase 8 is skipped in favour of /product's report.
 - [ ] `owner-notes.md` → *Led to: P-##*. The Done-log line has evidence.
-- [ ] No question to the owner (nothing in this is a product decision).
+- [ ] No question to the owner about the small part. If part of the idea touches a DESIGN.md rule
+      (editing from the runner meets "Nothing is planned here"), that part is raised as a decision
+      after the small part lands; it is neither built around the rule nor dropped silently.
 - [ ] The report says what the owner will notice and how to get the new version.
 
 Failure signals: a new screen invented for this; a scout, contract or audit for a UI-only change;
