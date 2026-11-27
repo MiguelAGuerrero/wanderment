@@ -259,13 +259,13 @@ gets joined to the result that decides how I want to use a specific function"):
 Try it more than one way                                  asks {question}, {ways} · gives {choice}
   Say what done is · with {question} as work
   For each {way}
-    Do it this way: {way}
+    ▤ {way}
     Mark the way with what it showed, against {standard}  gives {ways}
   Choose · with {ways} as options, {standard} as tests
 ```
-`{ways}` holds routines (variants made with Copy), so "Do it this way" steps into each; each is marked
+`{ways}` holds routines (variants made with Copy), so the routine row `▤ {way}` steps into each; each is marked
 with what it showed, in words beside its name; `{choice}` comes back as the routine chosen, and the
-caller's later steps apply it ("Do {choice}"). It is the first library method that came from use and
+caller's later steps apply it with a `▤ {choice}` row. It is the first library method that came from use and
 not from the literature.
 
 "Set a cue to start" was "An if-then plan"; the cue is a situation, never a clock time, and the app
@@ -338,7 +338,7 @@ Make a decision                                           asks {decision} · giv
 Work it out as you go                                     asks {aim}
   List the first steps toward {aim}                       gives {steps}
   For each {step}
-    Do {step}
+    ▤ {step}
     Adjust the list: what does that make possible         gives {steps}
 ```
 "Make a decision" keeps no list, so it can be called as well as copied.
