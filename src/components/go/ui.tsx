@@ -4,7 +4,7 @@
  * B-11 §6: text ≥ 16, targets ≥ 48, square corners, 2-px outlines, hard shadows, one filled button
  * per screen or layer, unavailable = dashed + lighter (and disabled), focus has its own ring.
  */
-import { usePreventRemove } from 'expo-router';
+import { useNavigation, usePreventRemove } from 'expo-router';
 import { ComponentRef, ReactNode, Ref, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -19,6 +19,7 @@ import {
   TextInput,
   TextInputProps,
   TextProps,
+  useWindowDimensions,
   View,
   ViewStyle,
 } from 'react-native';
@@ -41,6 +42,8 @@ const RING = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: G.fo
 /** On paper or a routine's colour (an `ink` button): the lavender ring is under 3:1 there (1.85:1 on paper), ink is not. */
 const RING_INK = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: G.ink, outlineOffset: 3 } as object) : null;
 const NO_RING = WEB ? ({ outlineStyle: 'none' } as object) : null;
+/** Inside a menu: the ring drawn within the row (the menu's edge would cut an outer one). */
+const RING_IN = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: G.focus, outlineOffset: -4 } as object) : null;
 /** A hard, unblurred shadow. */
 export const hard = (px: number, color: string) => ({ boxShadow: `${px}px ${px}px 0px ${color}` }) as ViewStyle;
 
@@ -92,13 +95,71 @@ export function useReduce(): boolean {
  * reload while something is open: that question is kept from being asked.)
  */
 export function useBackCloses(open: boolean, close: () => void) {
+  const latest = useRef(close);
+  useLayoutEffect(() => {
+    latest.current = close;
+  });
+  const navigation = useNavigation();
   useEffect(() => {
     if (!open || !WEB || typeof window === 'undefined') return;
     const quiet = (e: Event) => e.stopImmediatePropagation();
     window.addEventListener('beforeunload', quiet, true);
-    return () => window.removeEventListener('beforeunload', quiet, true);
-  }, [open]);
+    // P-102 (audit F3): with a screen beneath it in the app, Back is the router's and `usePreventRemove`
+    // turns it into "close what is open". With none (the page was opened at this address), Back would leave
+    // the page — so a guard entry (the same address) is put on top, and Back takes that instead.
+    watchGuard();
+    if (!navigation.canGoBack() && !onGuard) {
+      window.history.pushState({ ...((window.history.state as object | null) ?? {}), [GUARD]: true }, '', window.location.href);
+      onGuard = true;
+      guardHref = window.location.href;
+    }
+    const mine = () => latest.current();
+    layerBack = mine;
+    return () => {
+      window.removeEventListener('beforeunload', quiet, true);
+      if (layerBack === mine) layerBack = null;
+    };
+  }, [open, navigation]);
   usePreventRemove(open, close);
+}
+
+/** Web (P-102 audit F3): the guard entry — marked in its state; whether the page is on it, and its address. */
+const GUARD = '__goLayerGuard';
+let onGuard = false;
+let guardHref = '';
+/** What Back closes while a layer is open (the newest). */
+let layerBack: (() => void) | null = null;
+let watching = false;
+/**
+ * Installed once. Back off the guard (to the same address beneath it) is ours: it closes the open layer — or,
+ * with none open (it was closed another way and the guard stayed), Back goes on, as if the guard were not
+ * there. The router never hears either. Anything else that writes an entry (the router) means the page is
+ * no longer on the guard.
+ */
+function watchGuard() {
+  if (watching) return;
+  watching = true;
+  const h = window.history;
+  for (const name of ['pushState', 'replaceState'] as const) {
+    const write = h[name].bind(h);
+    h[name] = (state: unknown, unused: string, url?: string | URL | null) => {
+      write(state, unused, url);
+      onGuard = !!(state && (state as Record<string, unknown>)[GUARD]);
+    };
+  }
+  window.addEventListener(
+    'popstate',
+    (e) => {
+      const now = !!(h.state && (h.state as Record<string, unknown>)[GUARD]);
+      const left = onGuard && !now && window.location.href === guardHref;
+      onGuard = now;
+      if (!left) return;
+      e.stopImmediatePropagation();
+      if (layerBack) layerBack();
+      else h.back();
+    },
+    true,
+  );
 }
 
 const typing = (t: EventTarget | null) => {
@@ -162,10 +223,15 @@ export function caretToEnd(el: unknown) {
  */
 export function focusSoon(ref: { current: unknown } | null | undefined, tries = 30) {
   if (!WEB || typeof requestAnimationFrame === 'undefined') return;
+  // P-102 (CI, P-101's red run): what had the focus when it was asked. If the person (or the app) puts the
+  // focus somewhere else before it lands, it gives up — a late landing must never take the focus back.
+  const from = document.activeElement;
   const go = (left: number) => {
     const outer = ref?.current as HTMLElement | null | undefined;
     // What holds a field is focused BY its field (the note at the edge of a goal: typing must type).
     const el = outer?.querySelector?.<HTMLElement>('textarea, input') ?? outer;
+    const now = document.activeElement;
+    if (now && now !== from && now !== document.body && now !== el && now.isConnected) return;
     const shown = !!el && el.getClientRects().length > 0;
     if (el && shown && document.activeElement !== el && typing(document.activeElement) && (document.activeElement as HTMLElement).getClientRects().length > 0) return;
     // Not there yet, or its screen is not shown yet (focus can't land on what is hidden): try the next frame.
@@ -261,9 +327,14 @@ export interface BtnProps {
   size?: number;
   /** Web: marks the button for a spec or for first focus. */
   dataSet?: Record<string, string>;
+  /** P-102: the keyboard shortcuts it answers to (web: `aria-keyshortcuts`, e.g. "Alt+ArrowUp Alt+ArrowDown"). */
+  keys?: string;
+  /** P-102: screen-reader actions (iOS / Android) — e.g. a Plan row's Move up / Move down. */
+  actions?: readonly { name: string; label: string }[];
+  onAction?: (name: string) => void;
 }
 
-export function Btn({ label, spoken, kind = 'outline', mark, markAfter, disabled, ink, danger, onPress, style, testID, ref, pressed, expanded, selected, size, dataSet }: BtnProps) {
+export function Btn({ label, spoken, kind = 'outline', mark, markAfter, disabled, ink, danger, onPress, style, testID, ref, pressed, expanded, selected, size, dataSet, keys, actions, onAction }: BtnProps) {
   const filled = kind === 'filled' && !disabled;
   // Unavailable is lighter (and dashed, and disabled): on a routine's colour, lighter ink.
   const color = filled ? G.ink : disabled ? (ink ? 'rgba(17,18,22,0.6)' : G.dim) : danger ? G.err : ink ? G.ink : G.text;
@@ -279,6 +350,8 @@ export function Btn({ label, spoken, kind = 'outline', mark, markAfter, disabled
       {...(pressed !== undefined && { 'aria-pressed': pressed })}
       {...(expanded !== undefined && { 'aria-expanded': expanded })}
       {...(dataSet && { dataSet })}
+      {...(keys && WEB && { 'aria-keyshortcuts': keys })}
+      {...(actions && actions.length > 0 && { accessibilityActions: actions as { name: string; label: string }[], onAccessibilityAction: (e: { nativeEvent: { actionName: string } }) => onAction?.(e.nativeEvent.actionName) })}
       style={(state) => [
         styles.btn,
         kind === 'plain' ? styles.plain : { borderColor: danger ? G.err : ink ? G.ink : filled ? G.paper : G.line },
@@ -519,6 +592,196 @@ export function Sheet({ title, onClose, children, confirm, testID, fallback }: S
   );
 }
 
+type Box = { x: number; y: number; width: number; height: number };
+/** Where a view is in the window (web and native alike: RN-web's host refs measure too). */
+const measure = (el: unknown) =>
+  new Promise<Box | undefined>((done) => {
+    const m = (el as { measureInWindow?: (cb: (x: number, y: number, width: number, height: number) => void) => void } | null)?.measureInWindow;
+    if (typeof m !== 'function') return done(undefined);
+    m.call(el, (x, y, width, height) => done({ x, y, width, height }));
+  });
+/** The room a menu keeps from the window's edges, and from its button. */
+const EDGE = SP.s2;
+const GAP = SP.s1;
+/** Narrower than this, a menu spans the window (still under or over its row). */
+const SPAN_UNDER = 360;
+const MENU_WIDTH = 288;
+
+interface MenuProps {
+  /** What it hangs from: the ··· that opened it (its host ref, read when it opens). Gone: it stands at the top right. */
+  anchor: () => unknown;
+  /** Its spoken name. */
+  label: string;
+  onClose: () => void;
+  children: ReactNode;
+  /**
+   * menu: `MenuItem`s and `MenuSep`s (role="menu"; ↑/↓, Home/End move between items; Tab closes). dialog: the
+   * same small layer holding other controls (a choice, a stepper), which a menu may not.
+   */
+  kind?: 'menu' | 'dialog';
+  testID?: string;
+  /** Where focus goes when it closes, if what opened it is gone. */
+  fallback?: { current: unknown };
+}
+
+/**
+ * P-102 (owner, 2026-11-27: "A (...) usually brings up a menu not a drawer"): a small menu anchored to
+ * the ··· that opened it — under it, or over it when there is no room beneath; never off-screen (in a
+ * narrow window it spans the width, still at its row). It dims the screen only lightly; a tap outside,
+ * Esc and Back close it. Focus goes to its first item and back to what opened it. It never moves: it is
+ * just there (Reduce Motion or not); `data-moving` is "true" only until it has been placed.
+ */
+export function Menu({ anchor: anchorOf, label, onClose, children, kind = 'menu', testID, fallback }: MenuProps) {
+  const [anchor] = useState(anchorOf);
+  const layer = useRef<ViewRef>(null);
+  const box = useRef<ViewRef>(null);
+  const [room, setRoom] = useState<{ width: number; height: number; at?: Box }>();
+  const [tall, setTall] = useState(0);
+  const win = useWindowDimensions();
+  useBackCloses(true, onClose);
+  useKeys(true, { Escape: onClose }, true);
+
+  // Where its button is, in this layer — again when the window changes.
+  useEffect(() => {
+    let live = true;
+    void Promise.all([measure(layer.current), measure(anchor)]).then(([l, a]) => {
+      if (!live || !l) return;
+      setRoom({ width: l.width, height: l.height, ...(a && a.width + a.height > 0 && { at: { x: a.x - l.x, y: a.y - l.y, width: a.width, height: a.height } }) });
+    });
+    return () => {
+      live = false;
+    };
+  }, [anchor, win.width, win.height]);
+
+  const placed = !!room && tall > 0;
+  let where: ViewStyle = { left: 0, top: 0, width: MENU_WIDTH, opacity: 0 };
+  if (room) {
+    const spans = room.width < SPAN_UNDER;
+    const width = spans ? room.width - 2 * EDGE : Math.min(MENU_WIDTH, room.width - 2 * EDGE);
+    const a = room.at ?? { x: room.width - EDGE, y: EDGE, width: 0, height: 0 };
+    const left = spans ? EDGE : Math.max(EDGE, Math.min(a.x + a.width - width, room.width - width - EDGE));
+    const below = room.height - (a.y + a.height) - GAP - EDGE;
+    const above = a.y - GAP - EDGE;
+    // Under its button when it fits there (or there is more room there); else over it.
+    const under = tall <= below || below >= above;
+    const maxHeight = Math.max(TARGET, under ? below : above);
+    const top = under ? a.y + a.height + GAP : a.y - GAP - Math.min(tall, maxHeight);
+    where = { left, top: Math.max(EDGE, top), width, maxHeight, opacity: placed ? 1 : 0 };
+  }
+
+  // What opened it (focus goes back there), read as it opens.
+  const [opener] = useState(() => (WEB && typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null));
+  const focusedIn = useRef(false);
+  useEffect(() => {
+    if (!WEB || !placed || focusedIn.current) return;
+    focusedIn.current = true;
+    const el = box.current as unknown as HTMLElement | null;
+    const first = el?.querySelector<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"]):not([data-sr-close])') ?? el?.querySelector<HTMLElement>('[tabindex="0"]:not([data-sr-close])');
+    first?.focus({ preventScroll: true });
+  }, [placed]);
+  useEffect(
+    () => () => {
+      if (!WEB) return;
+      const back = () => {
+        // Something it opened took the focus (a field, a sheet): it stays there.
+        if (document.activeElement && document.activeElement !== document.body && document.activeElement.isConnected) return;
+        const button = anchor as HTMLElement | null;
+        if (opener?.isConnected && opener !== document.body) opener.focus();
+        else if (button?.isConnected && typeof button.focus === 'function') button.focus();
+        else focusOn(fallback);
+      };
+      // At once (the screen beneath is no longer inert by now), so focus is never on nothing, even for a
+      // moment — its row removed, it goes to the heading; and once more after this frame, if that could not land.
+      back();
+      setTimeout(back, 0);
+    },
+    // Once, for the life of the menu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  // Web: the menu keys (WAI-ARIA menu pattern).
+  const onKeyDown = (e: { key: string; altKey: boolean; ctrlKey: boolean; metaKey: boolean; preventDefault: () => void }) => {
+    if (kind !== 'menu' || e.altKey || e.ctrlKey || e.metaKey) return;
+    const el = box.current as unknown as HTMLElement | null;
+    // (Not the screen-reader Close, and not what is unavailable.)
+    const items = Array.from(el?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([data-sr-close])') ?? []).filter((i) => i.getAttribute('aria-disabled') !== 'true');
+    if (!items.length) return;
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    const to = e.key === 'ArrowDown' ? (i + 1) % items.length : e.key === 'ArrowUp' ? (i - 1 + items.length) % items.length : e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : undefined;
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    if (to === undefined) return;
+    e.preventDefault();
+    items[to].focus();
+  };
+
+  return (
+    <View ref={layer} style={[StyleSheet.absoluteFill, styles.menuLayer]}>
+      <Pressable style={[StyleSheet.absoluteFill, styles.menuScrim]} onPress={onClose} accessible={false} focusable={false} testID="go-menu-outside" {...(WEB && ({ tabIndex: -1, 'aria-hidden': true } as object))} />
+      <View
+        ref={box}
+        testID={testID}
+        role={kind}
+        aria-label={label}
+        accessibilityLabel={label}
+        accessibilityViewIsModal
+        // P-102 (audit F2): VoiceOver's escape (the two-finger scrub) closes it, as Esc and Back do.
+        onAccessibilityEscape={onClose}
+        {...(kind === 'dialog' && { 'aria-modal': true })}
+        {...{ dataSet: { moving: placed ? 'false' : 'true', anchored: room?.at ? 'true' : 'false' } }}
+        {...(WEB && ({ onKeyDown } as object))}
+        style={[styles.menu, where]}>
+        <ScrollView style={styles.menuScroll} contentContainerStyle={kind === 'menu' ? styles.menuBody : styles.menuDialog} onContentSizeChange={(_w, h) => setTall(Math.ceil(h) + 4)} keyboardShouldPersistTaps="handled">
+          {children}
+          {/* P-102 (audit F2): a Close for screen readers, last — not drawn (a tap outside, Esc and Back are the rest's). */}
+          <Pressable
+            {...(kind === 'menu' ? { role: 'menuitem' as const, accessibilityRole: 'menuitem' as const } : { accessibilityRole: 'button' as const })}
+            accessibilityLabel="Close"
+            onPress={onClose}
+            testID="go-menu-close"
+            {...{ dataSet: { srClose: 'true' } }}
+            {...(WEB && ({ tabIndex: -1 } as object))}
+            style={styles.srOnly}>
+            <Text style={styles.srOnlyText}>Close</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
+
+/** A row of a `Menu`: its words (≥ 16 px), a full row ≥ 48 px tall. `danger`: Remove (red, ≥ 4.5:1 on the menu). */
+export function MenuItem({ label, spoken, danger, disabled, mark, onPress, testID }: { label: string; spoken?: string; danger?: boolean; disabled?: boolean; mark?: MarkName; onPress: () => void; testID?: string }) {
+  const color = disabled ? G.dim : danger ? G.err : G.text;
+  return (
+    <Pressable
+      role="menuitem"
+      accessibilityRole="menuitem"
+      accessibilityLabel={spoken ?? label}
+      accessibilityState={{ disabled: !!disabled }}
+      {...(disabled && { 'aria-disabled': true })}
+      disabled={disabled}
+      onPress={disabled ? undefined : onPress}
+      testID={testID}
+      {...(danger && { dataSet: { danger: 'true' } })}
+      style={(state) => [styles.item, (state.pressed || (state as { hovered?: boolean }).hovered) && !disabled && styles.itemOn, (state as { focused?: boolean }).focused ? RING_IN : NO_RING]}>
+      {mark && <Mark name={mark} color={color} />}
+      <T color={color} style={styles.plainLabel}>
+        {label}
+      </T>
+    </Pressable>
+  );
+}
+
+/** The line between a menu's groups (before Remove). */
+export function MenuSep() {
+  return <View role="separator" style={styles.sep} />;
+}
+
 /**
  * A confirm (B-11 §9b): the act and the thing as its title, Cancel filled and first, the action
  * beside it. Focus lands on Cancel; Esc, Back and the scrim cancel.
@@ -578,4 +841,17 @@ export const styles = StyleSheet.create({
   sheetScroll: { flexGrow: 0, flexShrink: 1 },
   sheetBody: { paddingHorizontal: SP.s3, paddingTop: SP.s2, paddingBottom: SP.s2, gap: SP.s2 },
   pair: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2 },
+  // P-102: the anchored menu — barely dimmed beneath; a box with the hard shadow, at its button.
+  menuLayer: { zIndex: 10 },
+  menuScrim: { backgroundColor: 'rgba(0,0,0,0.2)' },
+  menu: { position: 'absolute', backgroundColor: G.surf, borderWidth: 2, borderColor: G.text, ...hard(4, G.shadow) },
+  menuScroll: { flexGrow: 0, flexShrink: 1 },
+  menuBody: { paddingVertical: SP.s1 },
+  menuDialog: { padding: SP.s3, gap: SP.s2 },
+  item: { minHeight: TARGET, flexDirection: 'row', alignItems: 'center', gap: SP.s3, paddingHorizontal: SP.s3, paddingVertical: SP.s2 },
+  itemOn: { backgroundColor: G.surf2 },
+  sep: { height: 2, backgroundColor: G.line, marginVertical: SP.s1 },
+  // Drawn as nothing, still read (the visually-hidden pattern): clipped to a 1-px box out of the flow.
+  srOnly: { position: 'absolute', width: 1, height: 1, overflow: 'hidden', opacity: 0, bottom: 0, left: 0 },
+  srOnlyText: { fontSize: BODY },
 });

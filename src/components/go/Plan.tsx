@@ -22,9 +22,14 @@
  * (past an open routine: after its last step); nothing moves until it is let go, so nothing covers
  * anything and there is no reflow to animate (Reduce Motion or not).
  * Dropped, it is ONE move edit of as many rows as it crossed ("Repeat from here" counts as a row and
- * is passed alone, the P-90 rule), so one Undo. Pressed, it opens the row's menu, where Move up /
- * Move down stay for the keyboard and screen readers — and for a window too narrow for a grip (large
- * text), where the words keep the room instead.
+ * is passed alone, the P-90 rule), so one Undo. Pressed, it opens the row's menu.
+ *
+ * P-102 (owner, 2026-11-27): every ··· here opens a small menu anchored to it (`Menu`), not a sheet; the
+ * step's reads Edit · Add a step after · Break it down · Gives… · a line · Remove (red). Nothing makes a
+ * wait any more (a wait from an earlier build offers "Make it a step"). Move up / Move down left the step
+ * menu (the owner's): they are a row's screen-reader actions (on its ···), Alt+↑ / Alt+↓ while focus is in
+ * the row (web), the grip's own menu when pressed, and — under 340 px, with no grip — back on the step menu
+ * (audit F1: nothing by gesture alone). One edit — one Undo — each.
  *
  * The route follows the data and writes nothing — but for one case: a run the build before left at
  * the edge with this-run changes is folded into its routine on arriving (`planView().unfolded`), once,
@@ -37,7 +42,7 @@ import { ComponentRef, useEffect, useLayoutEffect, useRef, useState } from 'reac
 import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { RoutineEdit } from '@/domain/run';
-import { namesOffered, PlanDivider, PlanRow, planView, readersOf } from '@/domain/runView';
+import { namesOffered, PlanDivider, PlanRow, planView, readersOf, rowMoves } from '@/domain/runView';
 import { isName, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
 import { useStore } from '@/store/useStore';
 
@@ -48,7 +53,7 @@ import { Repeat } from './Repeat';
 import { goHome } from './Runner';
 import { readDraft, writeDraft } from './session';
 import { G, SP, TARGET } from './tokens';
-import { Btn, caretToEnd, Confirm, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
+import { Btn, caretToEnd, Confirm, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Menu, MenuItem, MenuSep, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
 import { Gives, NameChip } from './Values';
 
 const WEB = Platform.OS === 'web';
@@ -81,7 +86,7 @@ function readTyping(key: string): Typing | null {
   }
 }
 
-type Menu = { row: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true };
+type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true };
 
 export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: string; inSeq?: string }) {
   const data = useStore((s) => s.data);
@@ -99,7 +104,12 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
   const here = !!v && !undone && (v.runId ? !!runId && route === 'plan' : true);
   const id = runId ?? routineId ?? '';
 
-  const [menu, setMenu] = useState<Menu | null>(null);
+  const [menu, setMenu] = useState<Open | null>(null);
+  /** P-102: each ··· (by its `data-more` key: a row's key, '' for the routine's, `divider:<seq>`) — what its menu hangs from. */
+  const [mores] = useState<Record<string, unknown>>(() => ({}));
+  const moreRef = (k: string) => (el: unknown) => {
+    mores[k] = el;
+  };
   const typingKey = `plan:${id}`;
   const [typing, setTypingState] = useState<Typing | null>(() => readTyping(typingKey));
   // What is being typed, as the handlers see it (a Return and the blur it causes must not both keep it).
@@ -362,6 +372,7 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
 
   const close = () => setMenu(null);
   const menuRow = menu && 'row' in menu ? rowAt(menu.row) : undefined;
+  const reorderRow = menu && 'reorder' in menu ? rowAt(menu.reorder) : undefined;
   const givesRow = menu && 'gives' in menu ? rowAt(menu.gives) : undefined;
   const removingRow = menu && 'removing' in menu ? rowAt(menu.removing) : undefined;
   const removing = removingRow ? readersOf(data, removingRow.scope, removingRow.itemId) : undefined;
@@ -402,27 +413,28 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
     setAddFocused(false);
   };
 
+  /** P-102: a row moved one place (Alt+↑ / Alt+↓, a screen reader's action) — one edit, one Undo; the focus stays where it was. */
+  const moveRow = (row: PlanRow, by: -1 | 1) => {
+    if (by < 0 ? !row.canUp : !row.canDown) return;
+    const had = WEB && typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null;
+    if (!edit(row.seq, { kind: 'move', item: row.itemId, by }).ok) return;
+    if (had)
+      requestAnimationFrame(() => {
+        if (had.isConnected && document.activeElement !== had) had.focus();
+      });
+  };
+
   const layer = menuRow ? (
-    <Sheet title={menuRow.words} onClose={close} testID="go-plan-menu" fallback={title}>
-      {(menuRow.kind !== 'routine' || menuRow.broken) && <Btn kind="plain" label="Change the words" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
-      <Btn kind="plain" label="Add a step after" onPress={() => startTyping({ mode: 'after', path: keyOf(menuRow.path), text: '' })} />
+    <Menu anchor={() => mores[keyOf(menuRow.path)]} label={menuRow.words} onClose={close} testID="go-plan-menu" fallback={title}>
+      {(menuRow.kind !== 'routine' || menuRow.broken) && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
+      <MenuItem label="Add a step after" onPress={() => startTyping({ mode: 'after', path: keyOf(menuRow.path), text: '' })} />
       {/* P-96: a step that gives a name is not broken down (its value would have nowhere to be typed). */}
-      {menuRow.canBreakDown && <Btn kind="plain" label="Break it down" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
+      {menuRow.canBreakDown && <MenuItem label="Break it down" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
       {/* P-96 (journey 1): what this step gives — a name later steps use as {name}. */}
-      {menuRow.kind === 'step' && <Btn kind="plain" label="Gives…" onPress={() => setMenu({ gives: keyOf(menuRow.path) })} />}
-      {menuRow.kind === 'step' && (
-        <Btn
-          kind="plain"
-          label="Make it a wait"
-          onPress={() => {
-            edit(menuRow.seq, { kind: 'toWait', item: menuRow.itemId });
-            close();
-          }}
-        />
-      )}
+      {menuRow.kind === 'step' && <MenuItem label="Gives…" onPress={() => setMenu({ gives: keyOf(menuRow.path) })} />}
+      {/* P-102: nothing is made a wait any more; a wait from an earlier build can become a step. */}
       {menuRow.kind === 'wait' && (
-        <Btn
-          kind="plain"
+        <MenuItem
           label="Make it a step"
           onPress={() => {
             edit(menuRow.seq, { kind: 'toStep', item: menuRow.itemId });
@@ -430,27 +442,13 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
           }}
         />
       )}
-      <Btn
-        kind="plain"
-        label="Move up"
-        disabled={!menuRow.canUp}
-        onPress={() => {
-          edit(menuRow.seq, { kind: 'move', item: menuRow.itemId, by: -1 });
-          close();
-        }}
-      />
-      <Btn
-        kind="plain"
-        label="Move down"
-        disabled={!menuRow.canDown}
-        onPress={() => {
-          edit(menuRow.seq, { kind: 'move', item: menuRow.itemId, by: 1 });
-          close();
-        }}
-      />
-      <Btn
-        kind="plain"
-        label="Remove this step"
+      {/* P-102 audit F1: too narrow for a grip — the moves are here (nothing by gesture alone). */}
+      {narrow && <MoveItems row={menuRow} onMove={(by) => { close(); moveRow(menuRow, by); }} />}
+      <MenuSep />
+      <MenuItem
+        label="Remove"
+        danger
+        testID="go-plan-remove-step"
         onPress={() => {
           // P-101 amendment (ruling 11): a step whose name other steps read — asked first, naming them.
           if (readersOf(data, menuRow.scope, menuRow.itemId)) return setMenu({ removing: keyOf(menuRow.path) });
@@ -458,8 +456,12 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
           close();
         }}
       />
-      <Btn label="Close" onPress={close} />
-    </Sheet>
+    </Menu>
+  ) : reorderRow ? (
+    // P-102 audit F1: the grip, pressed — its own menu, the moves without a drag (the ··· menu stays trimmed).
+    <Menu anchor={() => mores[`grip:${keyOf(reorderRow.path)}`]} label={`Reorder ${reorderRow.words}`} onClose={close} testID="go-plan-reorder" fallback={title}>
+      <MoveItems row={reorderRow} onMove={(by) => { close(); moveRow(reorderRow, by); }} />
+    </Menu>
   ) : removingRow && removing ? (
     <Sheet title={`Remove “${removingRow.words}”?`} onClose={close} testID="go-plan-removing" fallback={title}>
       <T>{`It gives {${removing.name}}, which ${removing.readers.length === 1 ? '1 step reads' : `${removing.readers.length} steps read`}. They’ll ask for it when run.`}</T>
@@ -494,44 +496,43 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
         if (v.runId) act().restartRun(v.runId, v.restartLevel ?? 0);
       }}
     />
-  ) : menuDivider ? (
-    <Sheet title="Repeat from here" onClose={close} testID="go-plan-repeat" fallback={title}>
+  ) : menuDivider && menu && 'divider' in menu ? (
+    // P-102: anchored to its ··· like every menu; a small dialog, since it holds a choice and a stepper.
+    <Menu kind="dialog" anchor={() => mores[`divider:${menu.divider}`]} label="Repeat from here" onClose={close} testID="go-plan-repeat" fallback={title}>
       <Repeat repeat={menuDivider.repeat} onChange={(times) => edit(menuDivider.seq, { kind: 'repeat', ...(times !== undefined && { times }) })} />
       <Btn
         kind="plain"
         label="Remove Repeat from here"
+        danger
         onPress={() => {
           edit(menuDivider.seq, { kind: 'divider' });
           close();
         }}
       />
-      <Btn label="Close" onPress={close} />
-    </Sheet>
+    </Menu>
   ) : givesRow ? (
     <GivesSheet row={givesRow} edit={edit} onClose={close} fallback={title} />
   ) : menu && 'routine' in menu ? (
-    <Sheet title={v.name} onClose={close} testID="go-plan-routine" fallback={title}>
+    <Menu anchor={() => mores['']} label={v.name} onClose={close} testID="go-plan-routine" fallback={title}>
       {/* P-101 (ruling 6): the last Plan edit's Undo lives here (Plan's edits give no notice). */}
       {can && quietEdit && (
-        <Btn
-          kind="plain"
+        <MenuItem
           mark="undo"
           label={`Undo ${quietEdit.charAt(0).toLowerCase()}${quietEdit.slice(1)}`}
           testID="go-plan-undo"
           onPress={() => {
             close();
             can.undo();
-            // After the sheet has gone (the screen beneath is inert until then): the heading, as for any Undo here.
+            // After the menu has gone (the screen beneath is inert until then): the heading, as for any Undo here.
             setTimeout(() => focusOn(title), 0);
           }}
         />
       )}
-      <Btn kind="plain" label="Change the name" onPress={() => startTyping({ mode: 'name', path: '', text: v.name })} />
+      <MenuItem label="Change the name" onPress={() => startTyping({ mode: 'name', path: '', text: v.name })} />
       {/* P-101 amendment (ruling 9): its run, from this routine's first step (asked first; Undo). */}
-      {!!v.runId && <Btn kind="plain" label="Start over" spoken={`Start over: ${v.name}`} onPress={() => setMenu({ restart: true })} testID="go-plan-restart" />}
+      {!!v.runId && <MenuItem label="Start over" spoken={`Start over: ${v.name}`} onPress={() => setMenu({ restart: true })} testID="go-plan-restart" />}
       {!v.divider && v.rows.length > 0 && (
-        <Btn
-          kind="plain"
+        <MenuItem
           label="Add Repeat from here"
           onPress={() => {
             edit(v.routineId, { kind: 'divider', from: 0 });
@@ -541,18 +542,20 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
       )}
       {/* P-96: no "Ends here" — finishing never opens Plan, so it would mean nothing (the stored field is kept and read). */}
       {!v.runId && (
-        <Btn
-          kind="plain"
-          label={`Remove ${v.name}`}
-          onPress={() => {
-            // Its Undo is on home's notice (this screen goes with the routine).
-            edit(v.routineId, { kind: 'removeRoutine' });
-            close();
-          }}
-        />
+        <>
+          <MenuSep />
+          <MenuItem
+            label={`Remove ${v.name}`}
+            danger
+            onPress={() => {
+              // Its Undo is on home's notice (this screen goes with the routine).
+              edit(v.routineId, { kind: 'removeRoutine' });
+              close();
+            }}
+          />
+        </>
       )}
-      <Btn label="Close" onPress={close} />
-    </Sheet>
+    </Menu>
   ) : null;
 
   /** P-101 (ruling 8): "{ } Insert" beside a field typed in — the names (the bar), from the first. */
@@ -645,7 +648,7 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
               <H1 own ref={title} spoken={`Plan: ${v.name}`} style={styles.name}>
                 {v.name}
               </H1>
-              <Btn kind="plain" mark="more" spoken={`More for ${v.name}`} onPress={() => setMenu({ routine: true })} dataSet={{ more: '' }} testID="go-plan-more" />
+              <Btn ref={moreRef('')} kind="plain" mark="more" spoken={`More for ${v.name}`} onPress={() => setMenu({ routine: true })} dataSet={{ more: '' }} testID="go-plan-more" />
             </View>
           )}
           {!!v.line && (
@@ -661,6 +664,7 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
             const rail = repeating.has(parent);
             const open = row.kind === 'routine' && opened(row);
             const says = `${row.here ? 'Here, ' : row.within ? 'You are in this, ' : ''}${row.kind === 'wait' ? `Wait for: ${row.words}` : row.words}`;
+            const moves = rowMoves(row);
             return (
               <View
                 key={key}
@@ -669,7 +673,7 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
                   laid(key, 'y')(e);
                   if (row.here) hereLaid(e.nativeEvent.layout.y);
                 }}>
-                {row.divider && <DividerRow divider={row.divider} onMenu={() => setMenu({ divider: parent })} edit={edit} menuKey={`divider:${parent}`} onLayout={laid(key, 'div')} viewRef={(el) => { dividers.current[key] = el; }} />}
+                {row.divider && <DividerRow divider={row.divider} onMenu={() => setMenu({ divider: parent })} edit={edit} menuKey={`divider:${parent}`} moreRef={moreRef(`divider:${parent}`)} onLayout={laid(key, 'div')} viewRef={(el) => { dividers.current[key] = el; }} />}
                 <View ref={(el) => { rails.current[key] = el; }} style={rail && styles.rail} onLayout={laid(key, 'row')}>
                   {typing?.mode === 'words' && typing.path === key ? (
                     typed(row.kind === 'wait' ? `Wait for: ${row.words}` : `Step: ${row.words}`)
@@ -681,9 +685,17 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
                       aria-label={says}
                       accessibilityLabel={says}
                       testID="go-plan-row"
+                      {...(WEB && ({ onKeyDown: (e: { key: string; altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; target: unknown; preventDefault: () => void }) => {
+                        // P-102: Alt+↑ / Alt+↓ while focus is in the row (never while typing) moves it one place.
+                        if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || typingIn(e.target as Element | null)) return;
+                        const by = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+                        if (!by) return;
+                        e.preventDefault();
+                        moveRow(row, by);
+                      } }) as object)}
                       {...{ dataSet: { here: row.here ? 'true' : 'false', within: row.within ? 'true' : 'false', kind: row.kind, depth: String(row.depth), repeats: rail ? 'true' : 'false', dragging: drag?.key === key ? 'true' : 'false' } }}>
-                      {/* Too narrow (large text): no grip — the words keep their room; Move up / Move down are on the menu. */}
-                      {!narrow && (row.canUp || row.canDown) && <Grip words={row.words} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ row: key })} />}
+                      {/* Too narrow (large text): no grip — the words keep their room (P-102: the moves are on the step's menu there). */}
+                      {!narrow && (row.canUp || row.canDown) && <Grip words={row.words} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ reorder: key })} gripRef={moreRef(`grip:${key}`)} />}
                       {row.kind === 'routine' && (
                         <Btn
                           kind="plain"
@@ -722,7 +734,21 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
                           {!!row.hoisted && <Gives names={row.hoisted} testID="go-plan-hoisted" />}
                         </View>
                       </View>
-                      <Btn kind="plain" mark="more" spoken={`More for ${row.words}`} onPress={() => setMenu({ row: key })} dataSet={{ more: key }} style={styles.sq} />
+                      <Btn
+                        ref={moreRef(key)}
+                        kind="plain"
+                        mark="more"
+                        spoken={`More for ${row.words}`}
+                        onPress={() => setMenu({ row: key })}
+                        dataSet={{ more: key }}
+                        style={styles.sq}
+                        {...(moves.length > 0 && { keys: MOVE_KEYS })}
+                        actions={moves}
+                        onAction={(name) => {
+                          const m = moves.find((x) => x.name === name);
+                          if (m) moveRow(row, m.by);
+                        }}
+                      />
                     </View>
                   )}
                 </View>
@@ -771,7 +797,7 @@ export function Plan({ runId, routineId, inSeq }: { runId?: string; routineId?: 
 }
 
 /** "Repeat from here": a row of its own, with visible Move up / Move down and its menu (until I'm done or a number; take it out). */
-function DividerRow({ divider, onMenu, edit, menuKey, onLayout, viewRef }: { divider: PlanDivider; onMenu: () => void; edit: (seq: string, e: RoutineEdit) => { ok: boolean }; menuKey: string; onLayout?: (e: LayoutChangeEvent) => void; viewRef?: (el: ViewRef | null) => void }) {
+function DividerRow({ divider, onMenu, edit, menuKey, moreRef, onLayout, viewRef }: { divider: PlanDivider; onMenu: () => void; edit: (seq: string, e: RoutineEdit) => { ok: boolean }; menuKey: string; moreRef?: (el: ViewRef | null) => void; onLayout?: (e: LayoutChangeEvent) => void; viewRef?: (el: ViewRef | null) => void }) {
   const times = divider.repeat;
   return (
     <View ref={viewRef} onLayout={onLayout} style={styles.divider} role="group" aria-label="Repeat from here" accessibilityLabel="Repeat from here" testID="go-plan-divider" {...{ dataSet: { from: String(divider.from) } }}>
@@ -784,7 +810,7 @@ function DividerRow({ divider, onMenu, edit, menuKey, onLayout, viewRef }: { div
       </View>
       <Btn mark="up" spoken="Move Repeat from here up" disabled={!divider.canUp} onPress={() => edit(divider.seq, { kind: 'divider', from: divider.from - 1 })} />
       <Btn mark="down" spoken="Move Repeat from here down" disabled={!divider.canDown} onPress={() => edit(divider.seq, { kind: 'divider', from: divider.from + 1 })} />
-      <Btn kind="plain" mark="more" spoken="More for Repeat from here" onPress={onMenu} dataSet={{ more: menuKey }} style={styles.sq} />
+      <Btn ref={moreRef} kind="plain" mark="more" spoken="More for Repeat from here" onPress={onMenu} dataSet={{ more: menuKey }} style={styles.sq} />
     </View>
   );
 }
@@ -794,6 +820,19 @@ interface Span {
   h: number;
 }
 
+/** P-102 audit F1: Move up · Move down as menu items, each unavailable at its end. */
+function MoveItems({ row, onMove }: { row: PlanRow; onMove: (by: -1 | 1) => void }) {
+  return (
+    <>
+      <MenuItem label="Move up" disabled={!row.canUp} onPress={() => onMove(-1)} />
+      <MenuItem label="Move down" disabled={!row.canDown} onPress={() => onMove(1)} />
+    </>
+  );
+}
+
+/** P-102: the keys that move a row (web), as `aria-keyshortcuts` says them. */
+const MOVE_KEYS = 'Alt+ArrowUp Alt+ArrowDown';
+
 /** A move this far (px) is a drag; a press right after one is the drag's own release, not a tap. */
 const DRAG_PX = 8;
 const AFTER_DRAG_MS = 600;
@@ -801,11 +840,11 @@ const AFTER_DRAG_MS = 600;
 const GRAB = WEB ? ({ touchAction: 'none', userSelect: 'none', cursor: 'grab' } as object) : null;
 
 /**
- * P-95: a row's grip — the visible way to drag it (nothing by gesture alone). It claims the pointer
- * once it has moved DRAG_PX up or down; pressed, it is a button ("Reorder <words>") that opens the
- * row's menu, where Move up / Move down are.
+ * P-95: a row's grip — the visible way to drag it. It claims the pointer once it has moved DRAG_PX up or
+ * down; pressed, it is a button ("Reorder <words>") that opens its own small menu, Move up · Move down
+ * (P-102 audit F1: the way to reorder without a drag).
  */
-function Grip({ words, onStart, onMove, onDrop, onPress }: { words: string; onStart: () => void; onMove: (dy: number) => void; onDrop: (dy: number | undefined) => void; onPress: () => void }) {
+function Grip({ words, onStart, onMove, onDrop, onPress, gripRef }: { words: string; onStart: () => void; onMove: (dy: number) => void; onDrop: (dy: number | undefined) => void; onPress: () => void; gripRef?: (el: unknown) => void }) {
   const start = useRef<number | null>(null);
   const dragging = useRef(false);
   const ended = useRef(0);
@@ -894,9 +933,11 @@ function Grip({ words, onStart, onMove, onDrop, onPress }: { words: string; onSt
   return (
     <View ref={box} style={[styles.grip, GRAB]} {...native} testID="go-plan-grip">
       <Pressable
+        ref={gripRef}
         onPress={() => Date.now() - ended.current > AFTER_DRAG_MS && !dragging.current && onPress()}
         accessibilityRole="button"
         accessibilityLabel={`Reorder ${words}`}
+        {...(WEB && { 'aria-keyshortcuts': MOVE_KEYS })}
         style={(state) => [styles.gripBtn, (state as { focused?: boolean }).focused && RING]}>
         <Mark name="grip" color={G.dim} />
       </Pressable>

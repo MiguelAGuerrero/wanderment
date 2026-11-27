@@ -4,7 +4,7 @@
  * home, Resume at <step> / Start on Plan, Next / Done on the runner); one row above it are the side
  * doors (left: leave for another place — ❚❚ Pause on the runner, ⌂ Home on Plan; right: the other mode
  * or a second action — Plan / Step in, + New, Done at Plan's edge). Next reads Done only when that
- * press ends the whole run; finishing goes home with "Done with <name> · Undo" (never into Plan); Pause
+ * press ends the whole run; finishing goes home with "Done with <name>" (P-102: × only, no Undo) (never into Plan); Pause
  * goes home (the paused screen is gone). Notices have their own row and never cover a row or a tile —
  * at 390×844 and at 200 % text, with the keyboard up and down.
  *
@@ -16,7 +16,7 @@
 import { Locator } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { exported, expectApart, home, MAYA, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, saved, seedGo, startGo, tile, tileBody, typeValue } from './goFixture';
+import { exported, expectApart, expectFinal, home, MAYA, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, saved, seedGo, startGo, tile, tileBody, typeValue } from './goFixture';
 
 const DRAWING: RoutineSpec = {
   id: 'draw',
@@ -78,7 +78,8 @@ test.describe('the runner', () => {
     await expect(r.next).toHaveAccessibleName('Done with Drawing practice');
   });
 
-  test('finishing: Done ends the run and goes home, "Done with <name> · Undo" in its own row; Undo brings the run back where it was — never Plan', async ({ page }) => {
+  // P-102 (owner, 2026-11-27: "You should not undo a 'Done'"; was: "Done with <name> · Undo", Undo bringing the run back).
+  test('finishing: Done ends the run and goes home, "Done with <name>" in its own row — final: × only, no Undo — never Plan', async ({ page }) => {
     await startGo(page, at(3), 'runner', ROUTINES);
     const r = runner(page);
     await expect(r.next).toHaveText('Done');
@@ -89,10 +90,10 @@ test.describe('the runner', () => {
     await expect(h.notice).toContainText('Done with Drawing practice');
     await expect(() => expectApart(page, { notice: h.notice, tiles: h.screen.getByTestId('go-tiles'), doors: h.doors })).toPass({ timeout: 5000 });
     expect(await top(h.doors)).toBeGreaterThanOrEqual(await bottom(h.notice));
-    await h.notice.getByRole('button', { name: /^Undo/ }).click();
-    await expect(runner(page).words).toHaveText('Rank your drawings');
-    await r.next.click();
-    await expect(home(page).notice).toContainText('Done with Drawing practice');
+    await expectFinal(page, 'Drawing practice');
+    // Ctrl/⌘+Z brings nothing back either.
+    await page.keyboard.press('ControlOrMeta+z');
+    await expect(home(page).screen).toBeVisible();
     await saved(page);
     expect(Object.values((await exported(page)).runs)[0].endedAt).toBeTruthy();
   });

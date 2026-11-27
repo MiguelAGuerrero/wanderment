@@ -126,7 +126,7 @@ for (const size of [
       await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
       const p = plan(page);
       await expect(p.screen.locator('[data-testid="go-name-chip"][data-asks="true"]')).toHaveCount(0);
-      await planMenu(page, 'Select the subject matter', 'Remove this step');
+      await planMenu(page, 'Select the subject matter', 'Remove');
       const ask = page.getByTestId('go-plan-removing');
       await expect(ask.getByRole('heading')).toHaveText('Remove “Select the subject matter”?');
       await expect(ask).toContainText('It gives {subject}, which 2 steps read. They’ll ask for it when run.');
@@ -135,7 +135,7 @@ for (const size of [
       // Close: nothing goes.
       await ask.getByRole('button', { name: 'Close', exact: true }).last().click();
       await expect(p.row('Select the subject matter')).toHaveCount(1);
-      await planMenu(page, 'Select the subject matter', 'Remove this step');
+      await planMenu(page, 'Select the subject matter', 'Remove');
       await page.getByTestId('go-plan-remove').click();
       await expect(p.row('Select the subject matter')).toHaveCount(0);
       const dashed = p.screen.locator('[data-testid="go-name-chip"][data-asks="true"]');
@@ -148,7 +148,7 @@ for (const size of [
       await expect(p.row('Select the subject matter').getByTestId('go-plan-gives')).toHaveText('gives {subject}');
       await expect(dashed).toHaveCount(0);
       // Removed again; Gives… on another step turns the readers back.
-      await planMenu(page, 'Select the subject matter', 'Remove this step');
+      await planMenu(page, 'Select the subject matter', 'Remove');
       await page.getByTestId('go-plan-remove').click();
       await expect(dashed).toHaveCount(2);
       // The fallback on the runner: the reader asks.
@@ -172,11 +172,12 @@ test.describe('after the audit', () => {
     await startGo(page, [{ id: 'r', routine: 'draw', at: 3, inner: [{ routine: 'sketch', at: 1 }], status: 'running', values: [{ name: 'pencil', items: ['2B'], level: 1, seq: 'sketch', item: 'sketch-0', words: 'Pick a pencil', at: new Date().toISOString() }] }], 'runner', ROUTINES);
     const r = runner(page);
     await r.stepOut.click();
-    await expect(r.notice).toContainText('Done with Sketch');
+    // (P-102 audit F6; was "Done with Sketch" / "Undo Done": Step out says what happened, its Undo is Step out's.)
+    await expect(r.notice).toContainText('Left Sketch');
     await r.context.click();
     await expect(page.getByTestId('go-notice')).toHaveCount(0);
     await r.handle.click();
-    const row = r.panel.getByRole('button', { name: 'Undo Done', exact: true });
+    const row = r.panel.getByRole('button', { name: 'Undo Step out', exact: true });
     await expect(row).toBeVisible();
     await row.click();
     await expect(r.words).toHaveText('Draw with the 2B');

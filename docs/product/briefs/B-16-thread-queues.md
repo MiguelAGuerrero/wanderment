@@ -1,235 +1,270 @@
-# B-16 — A thread with its own queue: open work that a process keeps moving
+# B-16 — Amendment to P-98 and P-99: order is dependency, and a for each whose list can grow
 
-**Status:** go (D-23, 2026-11-26) — after P-97 and a week of real use · **Theme:** Reuse; Written by running ·
-**Date:** 2026-11-26 · **Builds on:** B-14 slice 2 (threads that hold threads) · **Would reorder:**
-P-98, P-99, P-100
+**Status:** go (owner, 2026-11-27: "Go on the amendment, P-98 follows P-97 directly") · **Decision:**
+D-23, restated: P-98 and P-99 are built in the queued order with the additions below, and P-98 follows
+P-97 without a week's wait · **Theme:** Reuse; Written by running · **Amends:** P-98 (routines as
+steps, for each), P-99 (In any order) · **Order:** P-97 → P-98 → P-99 → P-100
 
-_Drafted in a second session while P-101 was being built in the first. It adds no roadmap item and no
-decision entry; those are added by whoever lands it, once the owner has read it. The persona panel has
-not been run: it waits for P-101, which changes the runner and home the panel would look at._
+_The first version of this brief (2026-11-26) proposed "open items" kept beside a routine's steps,
+picked through a sheet, with Cleared and Drop. The owner found that model off, and the conversation
+that followed arrived somewhere simpler: the batches already designed are the right ones, with one
+addition. This file now says only that. The earlier text is in git (`5d870b4`)._
 
-## The problem, in the owner's terms
-The owner asked for an assessment and then described what is missing (2026-11-26, this session):
+## What the owner said (2026-11-27, in the session that drafted this)
+- "I think the model is a bit off. A routine should contain threads that contextualize their own work.
+  Open items would represent a task on its own queue that we dequeue when we are ready. Or another
+  model is that the routine defines steps, generates steps in its place to represent future work."
+- On work from outside: "if a routine was able to generate arms, legs, and eyes, but later down the
+  line I would want to say, 'Oh well, I want to learn how to draw cartoons too,' where does that get
+  inserted?"
+- On a second kind of work: "What about a completely different thread that requires its own
+  processing? … study color theory … You're not going to put it within that list to be processed the
+  same way as drawing."
+- On dependency: "there should be a way to devise a system that composes itself such that being
+  blocked by something is not explicit, but just a consequence of the arrangement of the work itself …
+  unless we use conditionals, we have to rely on the sequence of work in order to achieve cases where
+  things become dependent on each other. We need serialization between concurrent threads … Either a
+  step needs to be able to generate that work to be sequenced before the line art, or to be joined
+  before the line art proceeds, or we have to input that explicitly."
+- On the aim: "provided the routines are well structured, [it] can compose itself up to arbitrarily
+  complex procedures, where the user doesn't have to think. They just have to trust the process."
+- On surprises: "Is there a way to produce a routine such that those surprises are accounted for, and
+  they generate the next steps … I'm wondering if this is a discipline that has to be acknowledged or a
+  capability that has to be coded for." Then, of a loop that ends when nothing more is given: "I
+  believe that concept is a 'for each.'"
 
-- "A discipline app where I can … hold all context of what I want to do … without having to have the
-  entire … vision in my head. I can define blockers for myself, … easily define steps to achieve those
-  blockers, understand how those blockers fit into the goals I want to pursue."
-- The origin: "it's kind of hard to apply every method and have that in your head while you're doing
-  something … what if I always have reference to how to actually engage with an activity in order to
-  draw the most learning and reflection from? … that can be generalized to any activity."
-- "There's a construct that's missing in order to make those pursuits legible and making the next steps
-  a first-class citizen … routines can produce work and tasks that can be queued up in the context that
-  it will spawn. So there's always something else to do on the basis of the work I've done … a construct
-  such as blocked by gives me a reason to understand why I'm drawing in the first place."
-- "Define abstract goals, which are made concrete through routine work and ultimately emerges in
-  progress over time without having to always think about the big picture … encode the idea of trust
-  the process."
+## The discipline: three rules
+The known domain is structured concurrency: dependency is never declared, it is only a consequence of
+sequence and nesting. None of these words is shown in the app.
 
-Asked what is lost when hopping between the things they work on, the owner chose "the next concrete action" and "what
-I'd decided or made". Asked what "discipline" means as an outcome: "staying oriented".
+1. **Order is dependency.** A step waits on whatever stands before it and has not finished, and on
+   nothing else. There is no "blocked by" and no link between one piece of work and another.
+2. **An empty list is "no".** A step asks; a for each does the work for each thing answered; with
+   nothing answered it does nothing and the routine carries on. This is a condition without a
+   conditional.
+3. **Parts taken in any order join before what follows.** The step after an In any order block is
+   reached only when every part has returned (P-99, as designed).
 
-Earlier notes say the same thing from other sides: "nothing really in the app represents a pursuit or
-goal right now" (2026-11-25); "a function generating a task on the queue with its own context"
-(MyStack, 2026-11-26).
+A routine written to these rules composes without the person tracking what waits on what.
 
-**Where the evidence stands** (corrected after the owner's objection, 2026-11-26: "I have been using
-the app … deliberately against itself as a means to help hone my ability to develop a product. So there
-is real use"): the owner has run a product-iteration routine on the app itself, and it produced the
-MyStack page. Each pass of that routine ends in concerns the owner carries by hand into Notion because
-the app has nowhere to keep them. That is direct evidence for slices 1 and 2. Not yet tested: several
-threads at once, and coming back after days to work whose subject is not the app.
+## The one addition: a for each whose list can grow
+P-98's for each runs over a list a step gave earlier in the run. This amendment lets that list grow,
+and lets it be kept. It is still one construct.
 
-## Evidence
-- Owner notes: 2026-11-25 ("A routine is a function; a pursuit holds the goal"; "The pain point";
-  "Long-term goals, reps versus recipes"), 2026-11-26 (MyStack later entries; this session).
-- Discovery: none commissioned.
-- The app today (build 5302075, seeded with drawing, an EP, a game, research and apparel):
-  - "Become a better drawer" is a routine tile of the same kind as "Research a question".
-  - A value exists only if "Gives…" was set on a step beforehand; it belongs to one run, starts empty
-    when the routine starts again, and is cleared by each new round after the divider.
-  - A reflection routine's result ("one point of improvement") is therefore gone by the next rep, which
-    is when it is needed.
-  - An existing routine can be stepped into when it is already an item, but cannot be added as a step
-    in Plan (designed, not built).
-
-## The model
-One addition to what exists. The words in the left column are descriptions for this brief and are
-never shown in the app (DESIGN.md: thread, stack and the rest are never words on screen).
-
-| Programming idea | In the app | What it holds for the person |
+| | Where the list lives | How things get into it |
 |---|---|---|
-| Function | A routine: a method, reusable anywhere (built) | How to engage |
-| Thread | A routine on home that keeps open items | What there is to do, across runs |
-| The thread's queue | Its open items, each one line of the person's words | The next steps, as first-class things |
-| Dependency | An item is **for** the item above it (the owner's "blocked by", read upward) | Why this is being done |
-| The thread's loop | The thread's own steps with Repeat from here: its process | The same way in, every time |
-| Spawn | A step that **gives work** into the open items | What follows from what was just done |
-| Call | A method run on the chosen item | Methods applied where they fit |
-| Scheduler | The person, on home | Nothing; home shows each thread's next step |
+| **Given** (P-98 as designed) | The run; a new round asks again | The giving step's list editor |
+| **Grows** (new) | The same | A step inside the for each **adds to** the list it runs over |
+| **Kept** (new) | The routine, across runs | Rows under the block in Plan; **+ Add** there and on the routine's tile; a step inside that adds to it |
 
-- **The next step** of a thread is its deepest open item, found depth-first (owner, 2026-11-26:
-  "depth-first … only the leafs").
-- **An item is cleared** when the person says so, and an item with smaller items under it is offered as
-  cleared when they are all gone. Smaller items have no order: the person picks. This is the owner's
-  "In any order", without a separate construct.
-- **A thread is open-ended** and never finishes ("Become a better drawer"). A concrete outcome ("Finish
-  the character sheet") is an open item inside it, done when nothing under it is open.
-- **Trust the process:** the open items are shown at one step of the loop ("Pick what to work on") and
-  in the pull-up panel. Everywhere else the runner is one note, as now.
+- **A for each ends when no item is left.** One that never gets an addition ends as P-98 says. One
+  that keeps getting additions keeps going. Step out leaves it early.
+- **Adding to a list is offered by structure.** In Plan, a step's Gives… offers "adds to <list>" for
+  the lists it can see: those given or kept at its own level or a level above it, the same reach names
+  already have. It cannot point at a list that is not there (owner, 2026-11-26: "structurally enforce
+  correctness").
+- **A kept item leaves the list when its turn is done,** and is kept as a record (stored data is never
+  deleted). Removing one without doing it is a Plan edit, with Undo.
+- **Running adds work; planning adds structure.** A running step can add an item. A new part, a new
+  list or a new method is added in Plan.
 
-## Proposed experience
-`[Button]` is a button, `[[Button]]` the one filled button, `{focus}` a name chip.
+## The patterns (discipline, not features)
+The owner's reading, taken here: the loop that comes round until nothing more is given **is** a for
+each. No new kind of Repeat is needed.
 
-### Journey 1 — The process of a thread (Plan)
+**Ask, then resolve** — a dependency discovered at a known point:
 ```
-PLAN
-Become a better drawer
-  Pick what to work on                 gives {focus} · from its open items
-  ── Repeat from here ──
-  Deliberate practice                  with {focus}
-  Reflect on a rep                     with {focus} · gives work
-+ Add a step
+Make a piece
+  Thumbnail {piece}
+  List what you can't draw yet               gives {gaps}
+  For each {gap}
+    In any order
+      Practise · with {gap}
+      Study · with {gap}
+  Line art
+  Colour
 ```
-"Pick what to work on" is an ordinary step whose Gives… sheet has one more choice: **from its open
-items**. "Reflect on a rep" is an existing routine added as a step.
+"hands" typed at the asking step runs Practise and Study on hands, in either order; Line art stands
+after the block, so it waits for both (rules 1 and 3). Nothing typed: straight to Line art (rule 2).
+Another piece, "legs" typed: the same Practise routine, nothing copied.
 
-### Journey 2 — Picking (the runner)
+**Attempt, ask, resolve, again** — surprises accounted for by the shape:
 ```
-Become a better drawer
-┌──────────────────────────┐
-│ Pick what to work on     │
-└──────────────────────────┘
-  Hands in perspective           for Character sheet
-  Forearm proportions            for Hands in perspective
-  Gesture, 30 seconds
-  + something else
-                                  [Step in] [Step out] [[Next]]
+Line art, until it works
+  Attempt the line art for {piece}
+  List what stopped you                      gives {gaps}
+  For each {gap}
+    In any order
+      Practise · with {gap}
+      Study · with {gap}
+    Attempt the line art for {piece}
+    List what else stopped you               adds to {gaps}
 ```
-The open items are listed under the note with what each is for. Tapping one fills `{focus}`; "+
-something else" takes typed words and adds them as an open item. This is the only running screen that
-shows more than the step.
+Each gap is worked, the attempt is made again, and anything new joins the same list. The for each
+ends on the attempt after which nothing is added. No Jump to, no stepping back, no edit mid-run.
 
-### Journey 3 — Doing (the runner)
-```
-Become a better drawer › Deliberate practice
-{ } focus: Forearm proportions · for Hands in perspective
-┌──────────────────────────┐
-│ Draw 10, 30 seconds each │
-└──────────────────────────┘
-```
-The path and the values row are the ones built today. The "for" is the why, one line, in words.
-
-### Journey 4 — A step gives work
-The last step of "Reflect on a rep" is "Pick one point of improvement", set in Plan to **give work**.
-Under the note is its field, as a giving step has today. What is typed there becomes an open item of
-the thread, for the item that was the focus. Left empty, nothing is added. No notice (giving a value
-for the first time leaves none today).
-
-### Journey 5 — Coming back (home)
+**Work nothing is waiting on** — a kept list, added to from inside and outside:
 ```
 Become a better drawer
-next: Forearm proportions · for Hands in perspective
+  In any order
+    Practise
+      For each subject:  arms · legs · eyes        + Add
+        Deliberate practice · with {subject}
+        Reflect on other areas to improve          adds to subjects
+    Study
+      For each topic:  colour theory               + Add
+        Find a guide or video on {topic}
+        Close it and write two lines from memory
 ```
-The tile's line is the thread's next step and what it is for. A routine with no open items reads as
-today ("at <step>").
+"I want to learn how to draw cartoons too" is + Add on subjects. A different kind of work with its own
+processing is a second part with its own list and method (P-99), each keeping its own place.
 
-### Journey 6 — Clearing and dropping
-In the pull-up panel on a thread: its open items, each with **Cleared** and **Drop**. Both remove the
-item with one Undo. Dropping is as cheap as clearing, and nothing counts either.
+**From one part to another** — the owner (2026-11-27): "threads can produce values that can be little
+tasks that can be pushed in other threads, like inter-thread communication … a prompt in my studies …
+makes me realize, 'Oh, I should really practice this,' but practice is its own thread."
+```
+Become a better drawer
+  subjects:  arms · legs · eyes                    + Add      ← kept at the level above both parts
+  In any order
+    Practise
+      For each subject
+        Deliberate practice · with {subject}
+    Study
+      For each topic:  colour theory
+        Find a guide or video on {topic}
+        Note what to practise from it              adds to subjects
+```
+Parts never reach into each other. The list is held one level up, where both can see it: Study adds to
+it, Practise runs over it. Which model to use follows from rule 1: if the practice must be finished
+before the study carries on, it is a step in Study's own sequence (Practise called there); if not, it
+is an item added to the list of the part that does that work.
 
-### Edges
-- **Empty:** a routine with no open items is exactly today's routine. Nothing new appears.
-- **Many:** open items scroll under the note; none is ranked, aged or marked overdue.
-- **Screen reader:** each item is read with what it is for ("Forearm proportions, for Hands in
-  perspective"); the picking list is a list with a heading.
+**When a surprise has no step yet:** the method gains the asking step in Plan, once. Every later run
+asks by itself. This is how a method is sharpened by running it.
+
+## What P-98 and P-99 gain (to add to their *Done when*)
+**P-98**
+- A step inside a for each can add to the list that for each runs over; the for each ends when no item
+  is left; an empty list passes straight through.
+- A for each can run over a list kept in the routine: its items are rows under the block in Plan, with
+  + Add there and on the routine's tile; items survive runs, reload, export and import; a finished item
+  leaves the list and is kept as a record.
+- Gives… offers "adds to <list>" for lists at the step's own level or above; a kept list can be held
+  at the routine's level, outside the for each that runs over it, so another part can add to it.
+
+**P-99**
+- An In any order block inside a for each keeps each part's place per item.
+- Stated as a test: the step after the block cannot be reached while any part has not returned or been
+  stopped.
+
+**P-100** is unchanged and comes after: the queue takes the next step from any part of any routine. Two
+separate routines on home never wait on each other (rule 1 stops at a routine's edge); the queue is
+where work across them is lined up.
+
+## With P-99: where every part stands (the tree view)
+Asked for by the owner, 2026-11-27: "Scope the tree view alongside P-99". Once a routine has parts
+taken in any order it has several places at once, and the runner shows one. Without a view of all of
+them, "staying oriented" breaks inside a routine the way it used to break across routines.
+
+**Where it lives.** No new screen and no new navigation entry.
+- On the runner: the pull-up panel, which already holds "where you are in this run".
+- On home: the same view opened from a routine's tile (DESIGN.md's designed "Map of a tile's contents").
+
+**What it shows.** The run as a nested list, from the routine down:
+```
+Become a better drawer
+  Practise            at Deliberate practice · subject: hands        ← you are here
+  Study               at Close it and write two lines from memory · topic: colour theory
+  Artwork             waiting for feedback on the thumbnail · since Tuesday
+```
+- One line per part, in the app's existing wordings: "at <step>" with its values in place, "waiting for
+  <words> · since <day>", and for a part with no place yet, its first step. A finished part and a
+  stopped part read differently, in words.
+- A part that holds parts opens to show them; parts you are not in stay one line each.
+- A for each shows the item it is on. A kept or growing list shows no count and nothing about how much
+  is left.
+- The part the run is in is marked, by words and by the mark, never by colour alone.
+
+**What it does.** It is also the chooser P-99 needs: tapping a part goes to it, which puts down the
+part you were in at its place and takes up the other at its own. Nothing else is done from here; adding
+or changing parts is Plan's.
+
+**The tile.** A routine with parts reads the part last touched: "Practise · at Deliberate practice".
+
+**Done when** (added to P-99):
+- the pull-up panel of a run inside an In any order block lists every part of every level the run is
+  in, each with where it stands, in the wordings above;
+- tapping a part moves the run there and each part keeps its own place and values, across a reload;
+- the same view opens from the routine's tile on home when the run is paused;
+- a finished part and a stopped part are told apart in words, and that record survives export and
+  import;
+- at 390 px and at 200 % text every line wraps and none is cut; each row has a full spoken name ("Study,
+  at Close it and write two lines from memory, in Become a better drawer") and is at least 48 px;
+- no count, percentage or "left" appears anywhere in it.
+
+**Data.** A derived view: it reads the places P-99 already stores for each part. The one stored
+addition is how a part ended (finished or stopped), which belongs in P-99's own contract.
+
+**Considered instead:** marking every part's place in Plan. Refused because Plan is planning, entering
+it puts the run down, and "planning and running must never look alike".
+
+**Not in this scope:** the same view across all routines (that is home, and later the queue, P-100);
+reordering or editing from the view; history of past runs (Looking back).
 
 ## Fit with the product
-- **DESIGN.md, "The runner is the step and nothing else":** Journey 2 puts a list under the note on one
-  kind of step. That is a tension, kept narrow: it appears only on a step that gives from open items.
-- **"Nothing is counted against you":** open items carry no count, date or age. Looking back, if
-  built, is a list in words.
-- **"Never shown as words":** thread, queue, spawn, blocked and dependency stay out of the app. The
-  word on screen is "for".
-- **"Stored data is never deleted or converted":** open items are a new kind of record on a routine.
-- **STRATEGY.md:** advances Reuse (methods applied to any item) and Written by running (the open work
-  is written by reflection, not by planning ahead).
-- **Not doing:** a global queue across threads; due dates, priorities or ordering of items; an item
-  shared by two threads; items that start by themselves; conditional steps.
+- **"Values belong to the run, never the routine."** A kept list is the one exception: it belongs to
+  the routine. DESIGN.md would need that sentence; a proposal, not an edit made here.
+- **No conditionals** are added. Rule 2 does their job.
+- **"Nothing is counted against you."** A kept list has no dates, ages or totals. P-98's "photo 2 of 3"
+  inside a for each is context for a list the person just gave; for a kept or growing list the "of 3"
+  would read as how much is left, so it is left out there.
+- **"Never shown as words":** thread, queue, join and the rest stay out of the app. On screen: For
+  each, In any order, gives, adds to, asks.
+- **"The runner is the step and nothing else"** is untouched: nothing here adds to the runner.
 
-## Where this differs from what the owner has already said
-Raised by the implementation session, from owner-notes. Each is the owner's to settle.
-- **In any order.** The owner framed its parts as threads with their own stack, "done once that single
-  thread returns", each returning a value, then joined (2026-11-26, "Are threads routines?"). This
-  brief replaces that with unordered items under an item. That is simpler and loses returned values
-  and a part having its own steps and place. If parts need those, P-99 stays as designed and sits
-  beside this.
-- **The work queue.** The owner asked for a queue across threads ("plan my day", "load up each stack
-  in order"), leaves only, and said Start may be retired in favour of enqueuing from each thread. Open
-  items per thread do not replace that. They are what such a queue would hold: P-100 comes after this
-  brief, not instead of it.
-- **Capture.** The owner: "unless the results determine how to proceed … I don't think the app should
-  be supporting capture." Open items stay inside that line only if they are work that drives what is
-  next. They take no notes field and no long text.
-- **Rounds clear values.** Unchanged. An open item belongs to the thread, not to the run, so a new
-  round does not clear it; `{focus}` is still asked again each round.
-- **Agreed already:** "a routine … generating a task on the queue with its own context" (MyStack) is
-  Journey 4; gives / asks, hoisted gives and the call-stack trace (P-101) are used as they are.
+## What is withdrawn from the first version
+Open items beside the steps; picking in a sheet; Cleared and Drop; an item "for" another item;
+"Blocked by…" as a move; "next:" on the tile; six slices of its own.
 
-## Persona panel
-Not run yet. It waits for P-101 to land so the panel sees the runner and home as they will be.
-
-## Slices
-1. **A thread keeps open items** `[data]` M (Full tier). A routine can hold open items: added from the
-   pull-up panel, Cleared or Dropped with Undo, kept across runs, in export and import. Home shows
-   "next: <item>". *Done when:* an item added in one run is there in the next run and after a reload,
-   an export and an import.
-2. **A step gives work** `[data]` S. Gives… offers "work"; what is typed joins the open items.
-   *Done when:* a reflection step's answer is an open item on the next run.
-3. **Pick from open items** `[ux]` M. Gives… offers "from its open items"; the runner lists them under
-   the note. *Done when:* the picked item fills the name and later steps read it.
-4. **Add an existing routine as a step** `[data]` M (the call part of P-98). *Done when:* Plan's Add
-   offers a routine by search and its row shows what it reads from above.
-5. **Items for items** `[data]` M. An item can be added under another; the next step is the deepest
-   open one; the path and tile say what it is for. *Done when:* clearing the last smaller item offers
-   its parent as cleared.
-6. **Looking back for a thread** `[ux]` S. A list, in words, of what was cleared and given.
+## The persona panel, and what carries over
+The panel (2026-11-27; `.polish/product/panel-B-16-1.md`, `-2.md`, local) read the first version.
+Simulated perspectives, not user research. Most of what it found were symptoms of the model that is
+now withdrawn. Three findings still apply:
+- **A list that only grows is the backlog risk.** Here an item leaves by being done on the main path,
+  which the panel asked for. A kept list can still outgrow the person; removing an item must stay one
+  Plan edit with Undo, and nothing may count the list.
+- **Long text.** An item is one line; a paragraph typed into "adds to" must wrap and never be clipped.
+  One seeded case in P-98.
+- **Screen readers.** A list that changes while it is being run needs the addition spoken, and focus
+  that does not move.
+A new panel is not asked for: this amendment stays inside the shape D-22 and the canvas already set.
 
 ## Data and risk
-- A new stored collection or field (open items per routine) that every storage path must carry:
-  the journal, export, import and its preview, and the golden fixtures.
-- An item given by a run that is then undone (Undo on Done, Back to) must leave with it.
-- The backlog risk: if every run gives work, a thread grows a list the person feels behind on. Giving
-  work is one deliberate step, Drop is one tap, and nothing is counted. Real use will show whether
-  that is enough.
+- A kept list is a new stored field on a routine, carried by the journal, export, import and its
+  preview, and the golden fixtures (Full tier, inside P-98).
+- A for each that grows without end: the person can always Step out; nothing runs by itself.
+- A kept list shared by two open runs of one routine: an item taken in one run is not offered in the
+  other. To be settled in P-98's contract.
 
 ## Alternatives considered
-- **Do nothing, and use the app for a week first** (recommended before slice 1). Today's app can run
-  the loop shape: Repeat from here with a first step that gives `{focus}`. What will be missed is the
-  open items, because each round clears what the last one gave. If it is not missed, slice 1 is not
-  needed.
-- **The roadmap as it stands** (P-98 for each, P-99 In any order, P-100 the queue). It adds more
-  language before anything real has been run, and none of it keeps a method's result across runs.
-- **Values that outlive a run.** Smaller, but a kept value is not something to do and has no "for".
-- **A global queue first (P-100).** It schedules next steps; this brief is where next steps come from.
+- **The first version** (open items, links, Blocked by…): a dependency graph kept by hand. Withdrawn.
+- **"Repeat until a step gives nothing"** as a third kind of Repeat: the owner's reading, that it is a
+  for each, removes the need.
+- **A routine that rewrites its own steps:** the list changes and the steps do not, which keeps a
+  method the same everywhere it is used (owner, 2026-11-25: "it's a function").
+- **Do nothing:** P-98 and P-99 as designed already cover "ask, then resolve". They lack the growing
+  and the kept list, so "again" and "cartoons too" would need Jump to or a Plan edit each time.
 
-## Answered by the owner (2026-11-26, in the session that drafted this)
-- **Order:** "Use it a week, then B-16." Nothing new after P-97 until one real piece of work has been run for
-  a week; then slices 1–4, with P-98 to P-100 after.
-- **In any order:** "Both, items first." This brief's unordered items first; P-99's child threads that join
-  afterwards, for parts that need their own steps.
-- **Giving work:** "By itself." What is typed on the step becomes an open item at once.
-- **Concrete outcomes and open-ended aims:** "join it as part of the pursuit." Read as: a concrete
-  outcome ("Finish the character sheet") is an open item inside an open-ended thread ("Become a better
-  drawer"), not a second kind of thing on home. The thread never finishes; its outcomes do.
-- **The word:** "pursuit" was a working term. This brief says thread and queue, the owner's own model
-  (a thread with its own state, work queued onto it); neither word is shown in the app.
+## Trying the discipline before anything is built
+Today's app can run one gap per round:
+```
+  ── Repeat from here ──
+  Attempt the line art
+  Name the one thing that stopped you        gives {gap}
+  Practise {gap}
+  Study {gap}
+```
+Leave with Step out when the attempt works.
 
-## Questions asked (all answered above)
-2. When a step gives work, does the item appear by itself, or only when accepted at the end of the run?
-   Proposed: by itself, since typing it was the choice.
-3. Do slices 1–4 go ahead of for each (the rest of P-98), In any order (P-99) and the queue (P-100)?
-   Proposed: yes, after a week of real use.
-
-## Decision requested
-Not asked yet. When it is: *Go on B-16, slice 1 first, ahead of P-98 to P-100?* **Go after a week of
-use** / **Go now** / **Go, but change …** / **Not now**.
+## Decision
+Answered 2026-11-27 by the owner: **go**, and P-98 follows P-97 directly.

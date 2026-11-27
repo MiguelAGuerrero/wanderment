@@ -8,6 +8,11 @@
  * P-101 (ruling 6): a Plan edit's notice is quiet — nothing is shown (its Undo is the routine's menu
  * row, "Undo <edit>"). A shown notice goes at the next tap anywhere but on it, and at a screen change
  * (`NoticeWatch`), so it is never seen on a screen other than the one where it happened.
+ *
+ * P-102 (owner, 2026-11-27: "the button should be an x to dismiss not a return"): every notice has a × at
+ * its right edge ("Dismiss", a full target) that puts it away and changes nothing. Undo, where there is
+ * one, is a labelled text button beside the words, on the left, at least 24 px from the × — never the
+ * glyph alone. Finishing a run ("Done with <name>") has no Undo at all: × only.
  */
 import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -49,20 +54,34 @@ export function Notice({ onUndone, reserve }: { onUndone?: () => void; reserve?:
     <View role="status" aria-live="polite" accessibilityLiveRegion="polite" testID="go-notice-slot" style={[styles.slot, reserve && !tight && styles.reserved]}>
       {shown && (
         <View style={[styles.notice, tight && styles.noticeTight]} testID="go-notice">
-          {!!text && <T style={styles.text}>{text}</T>}
-          {can && !quiet && !hush && (
-            <Btn
-              kind="plain"
-              mark="undo"
-              label={text ? 'Undo' : `Undo ${can.label}`}
-              spoken={`Undo ${can.label}`}
-              onPress={() => {
-                can.undo();
-                onUndone?.();
-              }}
-              style={styles.undo}
-            />
-          )}
+          <View style={styles.said}>
+            {!!text && <T style={styles.text}>{text}</T>}
+            {can && !quiet && !hush && (
+              <Btn
+                kind="plain"
+                label={text ? 'Undo' : `Undo ${can.label}`}
+                spoken={`Undo ${can.label}`}
+                onPress={() => {
+                  can.undo();
+                  onUndone?.();
+                }}
+                style={styles.undo}
+                testID="go-notice-undo"
+              />
+            )}
+          </View>
+          {/* P-102: × dismisses — at the right edge, apart from Undo; nothing changes (focus goes where an Undo's would). */}
+          <Btn
+            kind="plain"
+            mark="close"
+            spoken="Dismiss"
+            onPress={() => {
+              useStore.getState().hideNotice();
+              onUndone?.();
+            }}
+            style={styles.dismiss}
+            testID="go-notice-dismiss"
+          />
         </View>
       )}
     </View>
@@ -77,8 +96,7 @@ const styles = StyleSheet.create({
   notice: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: SP.s2,
+    gap: 0,
     backgroundColor: G.surf2,
     borderWidth: 2,
     borderColor: G.line,
@@ -88,8 +106,13 @@ const styles = StyleSheet.create({
     marginRight: 4,
     ...hard(4, G.shadow),
   },
-  text: { flex: 1, minWidth: 120, paddingVertical: SP.s2 },
-  undo: { marginLeft: 'auto' },
+  // The words and Undo right after them; the words wrap beside it (two lines fit the 48-px row, so the
+  // notice keeps its height and nothing beneath it moves); in a window too narrow, Undo goes beneath, on the left.
+  said: { flex: 1, minWidth: 0, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: SP.s2 },
+  text: { flexGrow: 1, flexShrink: 1, flexBasis: 0, minWidth: 120, paddingVertical: 2 },
+  undo: { paddingHorizontal: SP.s2 },
+  // At least 24 px from Undo (owner: "close enough to hit the undo"), at the right edge.
+  dismiss: { width: 48, paddingHorizontal: 0, justifyContent: 'center', marginLeft: SP.s4 },
   row: { flexDirection: 'row', alignItems: 'center', gap: SP.s2, borderBottomWidth: 1, borderBottomColor: G.line, paddingVertical: SP.s2 },
   rowWords: { flex: 1, minWidth: 0 },
 });

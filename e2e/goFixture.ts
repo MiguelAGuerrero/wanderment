@@ -338,11 +338,54 @@ export const plan = (page: Page) => {
 /** In Plan: the steps as they read, top to bottom ("Wait for <words>" for a wait) — waited for, so it can follow an edit or a load. */
 export const expectSteps = (page: Page, steps: string[]) => expect(plan(page).words).toHaveText(steps);
 
-/** In Plan: opens a step's menu and takes one of its actions (in words). */
+/**
+ * P-102 (owner, 2026-11-27: "You should not undo a 'Done'"): a run's end on home — "Done with <name>", no
+ * Undo, only × ("Dismiss", a full target at the notice's right edge); × puts it away and changes nothing.
+ */
+export async function expectFinal(page: Page, name: string) {
+  const notice = home(page).notice;
+  await expect(notice).toContainText(`Done with ${name}`);
+  await expect(notice.getByRole('button', { name: /Undo/ })).toHaveCount(0);
+  const x = notice.getByRole('button', { name: 'Dismiss', exact: true });
+  await expect(x).toBeVisible();
+  const n = (await notice.boundingBox())!;
+  const b = (await x.boundingBox())!;
+  expect(b.width).toBeGreaterThanOrEqual(48);
+  expect(b.height).toBeGreaterThanOrEqual(48);
+  expect(n.x + n.width - (b.x + b.width)).toBeLessThanOrEqual(8);
+  // × changes nothing: home reads the same before and after (the tiles, their state and lines).
+  const read = () => home(page).tiles.evaluateAll((els) => els.map((e) => `${e.getAttribute('data-state')}|${e.textContent}`));
+  const before = await read();
+  await x.click();
+  await expect(page.getByTestId('go-notice')).toHaveCount(0);
+  expect(await read()).toEqual(before);
+}
+
+/** In Plan: opens a step's menu and takes one of its actions (in words). P-102: an anchored menu of menu items (was: a sheet of buttons). */
 export async function planMenu(page: Page, words: string, action: string) {
   await plan(page).more(words).click();
-  const sheet = await arrived(page, 'go-plan-menu');
-  await sheet.getByRole('button', { name: action, exact: true }).click();
+  const menu = await arrived(page, 'go-plan-menu');
+  await menu.getByRole('menuitem', { name: action, exact: true }).click();
+}
+
+/** P-102: a menu's items, in order, as they read (not its screen-reader-only Close — audit F2). */
+export const menuItems = (menu: Locator) => menu.locator('[role="menuitem"]:not([data-sr-close])');
+
+/** P-102: a menu or the divider's small dialog put away without choosing (Esc), and gone. */
+export async function closeMenu(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-plan-reorder' | 'go-tile-menu') {
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId(testId)).toHaveCount(0);
+}
+
+/**
+ * P-102: Move up / Move down left the menu — a row moves by Alt+↑ / Alt+↓ while the focus is in it (its ···
+ * here); one press, one place.
+ */
+export async function planMove(page: Page, words: string, dir: 'up' | 'down') {
+  const more = plan(page).more(words);
+  await more.focus();
+  await expect(more).toBeFocused();
+  await page.keyboard.press(dir === 'up' ? 'Alt+ArrowUp' : 'Alt+ArrowDown');
 }
 
 /** In Plan: types into the field that is open in place (a step's words, a step added after a row, a smaller step) and Return. */
@@ -396,7 +439,7 @@ export const home = (page: Page) => {
 };
 
 /** A sheet or confirm, once it has arrived (it slides in unless Reduce Motion is on). */
-export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-new-sheet' | 'go-gives-sheet' | 'go-value-sheet' | 'go-pause-sheet' | 'go-entry-sheet'): Promise<Locator> {
+export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-plan-reorder' | 'go-tile-menu' | 'go-new-sheet' | 'go-gives-sheet' | 'go-value-sheet' | 'go-pause-sheet' | 'go-entry-sheet'): Promise<Locator> {
   const sheet = page.getByTestId(testId);
   await expect(sheet).toHaveAttribute('data-moving', 'false');
   return sheet;
@@ -567,8 +610,8 @@ export async function expectEdit(page: Page, text: string) {
   await plan(page).screen.getByTestId('go-plan-more').click();
   const menu = await arrived(page, 'go-plan-routine');
   await expect(menu.getByTestId('go-plan-undo')).toContainText(undoOf(text));
-  await menu.getByRole('button', { name: 'Close', exact: true }).last().click();
-  await expect(page.getByTestId('go-plan-routine')).toHaveCount(0);
+  // P-102 (was: its sheet's Close): the menu is put away with Esc.
+  await closeMenu(page, 'go-plan-routine');
 }
 
 /** P-101 (ruling 6): the last Plan edit taken back — from the routine's menu ("Undo <edit>"). */
@@ -584,5 +627,5 @@ export async function expectNoEdit(page: Page) {
   await plan(page).screen.getByTestId('go-plan-more').click();
   const menu = await arrived(page, 'go-plan-routine');
   await expect(menu.getByTestId('go-plan-undo')).toHaveCount(0);
-  await menu.getByRole('button', { name: 'Close', exact: true }).last().click();
+  await closeMenu(page, 'go-plan-routine');
 }

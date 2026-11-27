@@ -11,7 +11,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, expectSteps, focused, home, pauseRun, place, plan, planMenu, planType, RoutineSpec, runner, startGo, startThing, tile, tileBody, undoEdit } from './goFixture';
+import { arrived, expectSteps, focused, home, pauseRun, place, plan, planMenu, planMove, planType, RoutineSpec, runner, startGo, startThing, tile, tileBody, undoEdit } from './goFixture';
 
 /** Focus is somewhere: never on nothing. */
 const somewhere = async (page: Page) => expect.poll(() => page.evaluate(() => document.activeElement !== null && document.activeElement !== document.body)).toBe(true);
@@ -236,7 +236,8 @@ test.describe('A2: focus never falls to nothing', () => {
     await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused', mode: 'plan' }], 'plan');
     const p = plan(page);
     const more = p.more('Write the cover letter');
-    for (const action of ['Add a step after', 'Change the words', 'Break it down']) {
+    // (P-102: Edit — was Change the words.)
+    for (const action of ['Add a step after', 'Edit', 'Break it down']) {
       await planMenu(page, 'Write the cover letter', action);
       await expect(p.typed).toBeFocused();
       await page.keyboard.press('Escape');
@@ -253,9 +254,11 @@ test.describe('A2: focus never falls to nothing', () => {
     await planType(page, 'Sleep on it');
     await somewhere(page);
     expect(await focused(page)).not.toBe('BODY');
-    await planMenu(page, 'Sleep on it', 'Remove this step');
+    await planMenu(page, 'Sleep on it', 'Remove');
     await somewhere(page);
-    await planMenu(page, 'Write the cover letter', 'Move up');
+    // (P-102: moved by Alt+↑ — was its menu's Move up.) The focus stays on its ···.
+    await planMove(page, 'Write the cover letter', 'up');
+    await expectSteps(page, ['Read the job ad twice', 'Write the cover letter', 'Tailor the CV', 'Proofread out loud', 'Send the application']);
     await expect(more).toBeFocused();
     // (P-101, ruling 6: the edit's Undo is the routine's menu.)
     await undoEdit(page);
@@ -310,7 +313,7 @@ test('U3: Plan shows a long step whole — it wraps and its row grows, and so do
   const short = (await p.row('Stretch').boundingBox())!;
   expect(long.height).toBeGreaterThan(short.height * 1.5);
   // Being reworded: the field holds all of it too.
-  await planMenu(page, LONG, 'Change the words');
+  await planMenu(page, LONG, 'Edit');
   await expect(p.typed).toHaveValue(LONG);
   await expect.poll(() => p.typed.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(1);
   expect(await p.typed.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);

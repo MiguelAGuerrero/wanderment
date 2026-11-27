@@ -1580,6 +1580,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       // P-101 (ruling 6): the notice put away by a screen change or a tap (session only).
       screenChanged: [],
       tapped: [],
+      // P-102: the notice's × (session only: it puts the notice away, as a tap would).
+      hideNotice: [],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>

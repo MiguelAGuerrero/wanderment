@@ -241,6 +241,8 @@ interface State {
   typedOver: (runId: Id, itemId: Id, name: string, was: string) => Did;
   /** The notice was put away. Session only. */
   dismissRunNotice: () => void;
+  /** P-102: the notice's × — put away, as a tap elsewhere would (an Undo it had stays in the panel and Ctrl/⌘+Z); the quiet line goes too. */
+  hideNotice: () => void;
   /**
    * P-101 (ruling 6): the screen changed — the notice is put away (it is never shown on another screen;
    * audit F1: its Undo stays), unless the action that made it is what changed the screen (`follows`):
@@ -334,12 +336,17 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
     useStore.setState({ data: r.data });
     return did;
   }
+  // P-102 (owner, 2026-11-27: "You should not undo a 'Done'"): finishing a run is final — "Done with <name>",
+  // dismissed with ×, and nothing to take back (no Undo on the notice, the panel or Ctrl/⌘+Z).
+  const ended = r.said?.kind === 'ended';
   // A start that found a run to resume made nothing to take back.
-  const entry = undo === 'set' && !(r.runId && s.data.runs[r.runId]) ? undoEntry(s.data, r.data) : undefined;
+  const entry = undo === 'set' && !ended && !(r.runId && s.data.runs[r.runId]) ? undoEntry(s.data, r.data) : undefined;
   useStore.setState({
     data: r.data,
     undo: entry,
-    runNotice: entry
+    runNotice: ended
+      ? { verb: verb.kind, ...said(noticeFor(verb.kind, r.said, onWait, r.folded), what), follows: true as const }
+      : entry
       ? {
           verb: verb.kind,
           ...said(noticeFor(verb.kind, r.said, onWait, r.folded), cleared.length ? `Cleared ${cleared.map((n) => `{${n}}`).join(', ')}` : what),
@@ -520,6 +527,7 @@ export const useStore = create<State>()((set, get) => ({
   changeValue: gated<State['changeValue']>(refused, (runId, name, text) => act({ kind: 'value', runId, name, text }, 'set')),
   typedOver: gated<State['typedOver']>(refused, typedOverValue),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
+  hideNotice: () => set((s) => ({ ...(s.runNotice && !s.runNotice.hidden && { runNotice: { ...s.runNotice, hidden: true as const } }), ...(s.toast?.notice && { toast: undefined }) })),
   screenChanged: () =>
     set((s) => {
       if (!s.runNotice) return {};

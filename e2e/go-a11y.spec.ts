@@ -34,14 +34,17 @@ async function expectNoSeriousViolations(page: Page) {
  * B-11 §6 on what is in front: every control ≥ 48×48 and inside the window, every text ≥ 16 px, every
  * control named, at most one filled button, and a heading of the right level.
  */
-async function expectRules(page: Page, scope: Locator, heading: 1 | 2, filled: number | 'at most one' = 'at most one') {
+/** `heading`: the level the scope must hold — or, P-102, `null` for a menu (a menu has its name, not a heading). */
+async function expectRules(page: Page, scope: Locator, heading: 1 | 2 | null, filled: number | 'at most one' = 'at most one') {
   const found = await scope.evaluate(
     (root, paper) => {
       const shown = (e: Element) => {
         const b = e.getBoundingClientRect();
         return b.width > 0 && b.height > 0 && getComputedStyle(e).visibility !== 'hidden' && !e.closest('[inert]');
       };
-      const controls = [...root.querySelectorAll('button, [role="button"], [role="radio"], input, textarea, a[href]')].filter(shown);
+      // (P-102: a menu's items are controls too.)
+      // (P-102 audit F2: not a menu's Close for screen readers, which is not drawn.)
+      const controls = [...root.querySelectorAll('button, [role="button"], [role="radio"], [role="menuitem"], input, textarea, a[href]')].filter((e) => shown(e) && !e.hasAttribute('data-sr-close'));
       const name = (e: Element) => e.getAttribute('aria-label') || (e as HTMLElement).innerText || (e as HTMLInputElement).placeholder || '';
       const small = controls.filter((e) => { const b = e.getBoundingClientRect(); return b.width < 47.5 || b.height < 47.5; }).map((e) => `${name(e)} ${Math.round(e.getBoundingClientRect().width)}×${Math.round(e.getBoundingClientRect().height)}`);
       const outside = controls.filter((e) => { const b = e.getBoundingClientRect(); return b.left < -0.5 || b.right > innerWidth + 0.5; }).map(name);
@@ -61,7 +64,7 @@ async function expectRules(page: Page, scope: Locator, heading: 1 | 2, filled: n
   expect(found.tiny, 'text under 16 px').toEqual([]);
   if (filled === 'at most one') expect(found.filled.length, `filled buttons: ${found.filled.join(', ')}`).toBeLessThanOrEqual(1);
   else expect(found.filled, 'filled buttons').toHaveLength(filled);
-  expect(found.headings, `a level-${heading} heading`).toContain(String(heading));
+  if (heading !== null) expect(found.headings, `a level-${heading} heading`).toContain(String(heading));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 }
 
@@ -105,7 +108,8 @@ test('the runner and its panel: axe and the rules on each; reading order context
   await expect(slot).toHaveAttribute('aria-live', 'polite');
   // (P-95: Next leaves no notice; Step out does — P-101; was: the panel's Finish <level> now.)
   await r.stepOut.click();
-  await expect(r.notice).toContainText('Done with Hand studies of my left hand');
+  // (P-102 audit F6; was "Done with …": Step out is not finishing.)
+  await expect(r.notice).toContainText('Left Hand studies of my left hand');
   const n = (await r.notice.boundingBox())!;
   const noteBox = (await r.note.boundingBox())!;
   const handle = (await r.handle.boundingBox())!;
@@ -156,13 +160,14 @@ test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, w
   );
   expect(order).toEqual(['go-plan-word', 'go-plan-home', 'heading', 'go-plan-line', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-add', 'go-notice-slot', 'go-plan-forward']);
 
-  // A step's menu: a dialog with its step as the heading; no filled button (nothing in it is "the" forward choice).
+  // A step's menu — P-102 (was: a dialog with its step as the heading): a menu named by its step; no filled button.
   await p.more('Vibe check').click();
   const menu = await arrived(page, 'go-plan-menu');
-  await expect(menu).toHaveRole('dialog');
+  await expect(menu).toHaveRole('menu');
+  await expect(menu).toHaveAccessibleName('Vibe check');
   await expectNoSeriousViolations(page);
-  await expectRules(page, menu, 2, 0);
-  await menu.getByRole('button', { name: 'Change the words', exact: true }).click();
+  await expectRules(page, menu, null, 0);
+  await menu.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   // Typing in place, with a name that says what is being changed.
   await expect(p.typed).toHaveAccessibleName('Step: Vibe check');
   await expectNoSeriousViolations(page);
@@ -174,17 +179,19 @@ test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, w
   await expectNoSeriousViolations(page);
   await expectRules(page, p.screen, 1, 1);
 
-  // Repeat from here: its sheet.
+  // Repeat from here: P-102 (was: its sheet) a small dialog anchored to its ···, named.
   await p.dividerMore.click();
   const repeat = await arrived(page, 'go-plan-repeat');
+  await expect(repeat).toHaveAccessibleName('Repeat from here');
   await expectNoSeriousViolations(page);
-  await expectRules(page, repeat, 2, 0);
+  await expectRules(page, repeat, null, 0);
   await page.keyboard.press('Escape');
   // The routine's own menu.
   await p.more('Test out the app').click();
   const own = await arrived(page, 'go-plan-routine');
+  await expect(own).toHaveRole('menu');
   await expectNoSeriousViolations(page);
-  await expectRules(page, own, 2, 0);
+  await expectRules(page, own, null, 0);
   await page.keyboard.press('Escape');
   // A wait, and a routine opened in place.
   await p.screen.getByRole('button', { name: 'Open Proofread out loud', exact: true }).click();
@@ -295,12 +302,18 @@ test('focus has its own ring; sheets take focus and give it back; focus is never
   await p.home.focus();
   await page.keyboard.press('Tab');
   await expect(p.more('Hand studies of my left hand')).toBeFocused();
-  // A sheet: focus in (its heading), and back to what opened it.
+  // A menu (P-102; was: a sheet, focus on its heading): focus in, on its first item, and back to what opened it.
   const more = p.more('Add the shadows');
   await more.click();
   const menu = await arrived(page, 'go-plan-menu');
-  await expect(menu.getByRole('heading', { level: 2 })).toBeFocused();
+  await expect(menu.getByRole('menuitem').first()).toBeFocused();
   await page.keyboard.press('Escape');
+  await expect(more).toBeFocused();
+  // Tab closes it too (the menu pattern), and the focus is back on its ···.
+  await more.click();
+  await expect((await arrived(page, 'go-plan-menu')).getByRole('menuitem').first()).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('go-plan-menu')).toHaveCount(0);
   await expect(more).toBeFocused();
 });
 
@@ -350,7 +363,8 @@ test('Reduce Motion: sheets, the confirm, the panel and the change between Plan 
   await p.more('Add the shadows').click();
   // No waiting for it to arrive: it never moves.
   await expect(page.getByTestId('go-plan-menu')).toHaveAttribute('data-moving', 'false');
-  expect(await page.getByTestId('go-plan-menu').evaluate((e) => ({ opacity: getComputedStyle(e).opacity, transform: getComputedStyle(e).transform }))).toEqual({ opacity: '1', transform: 'matrix(1, 0, 0, 1, 0, 0)' });
+  // (P-102: the step menu is an anchored menu — it never slides, so it has no transform at all; was: a sheet at rest.)
+  expect(await page.getByTestId('go-plan-menu').evaluate((e) => ({ opacity: getComputedStyle(e).opacity, transform: getComputedStyle(e).transform }))).toEqual({ opacity: '1', transform: 'none' });
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
   await page.keyboard.press('Escape');
   await p.forward.click();
@@ -485,22 +499,23 @@ for (const [label, size] of [
     await p.more('Add the shadows').scrollIntoViewIfNeeded();
     await p.more('Add the shadows').click();
     const menu = await arrived(page, 'go-plan-menu');
-    for (const name of ['Change the words', 'Remove this step']) {
-      const b = menu.getByRole('button', { name, exact: true });
+    // (P-102: Edit · … · Remove — was Change the words … Remove this step.)
+    for (const name of ['Edit', 'Remove']) {
+      const b = menu.getByRole('menuitem', { name, exact: true });
       await b.scrollIntoViewIfNeeded();
       await expect(b).toBeInViewport();
     }
-    await expectRules(page, menu, 2, 0);
+    await expectRules(page, menu, null, 0);
     await page.keyboard.press('Escape');
     await p.dividerMore.scrollIntoViewIfNeeded();
     await p.dividerMore.click();
     const sheet = await arrived(page, 'go-plan-repeat');
     await sheet.getByRole('button', { name: 'More times', exact: true }).scrollIntoViewIfNeeded();
     await expect(sheet.getByRole('button', { name: 'More times', exact: true })).toBeInViewport();
-    await expectRules(page, sheet, 2, 0);
+    await expectRules(page, sheet, null, 0);
     await page.keyboard.press('Escape');
     // The edge at this size: Done beside Home, both whole (P-96: the side doors; was: in the band).
-    await planMenu(page, 'Sign it', 'Remove this step');
+    await planMenu(page, 'Sign it', 'Remove');
     await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'plan');
     await pinned();
     await expect(p.done).toBeInViewport({ ratio: 1 });

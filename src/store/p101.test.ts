@@ -40,7 +40,8 @@ describe('ruling 1: the moves', () => {
     const inside = st().data;
     st().doneLevel(id);
     expect(readRun(st().data, id)!.frames).toHaveLength(1);
-    expect(st().runNotice).toMatchObject({ verb: 'done', text: 'Done with Vibe check' });
+    // (P-102 audit F6; was "Done with Vibe check": Step out is not finishing.)
+    expect(st().runNotice).toMatchObject({ verb: 'done', text: 'Left Vibe check', label: 'Step out' });
     expect(st().runNotice!.entry).toBe(st().undo);
     st().undoLast();
     expect(st().data.runs[id]).toEqual(inside.runs[id]);

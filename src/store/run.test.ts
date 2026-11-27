@@ -134,16 +134,17 @@ describe('Undo after every reversible action, and never a stale one', () => {
     }
   });
 
-  it('P-95: Next that ends the run (a routine that ends here, its last step) leaves an Undo — P-96 (ruling 7; was "Finished <name>", "Undo Next"): with "Done with <name>", Done’s Undo; the run comes back where it was', () => {
+  it('P-102 (owner, 2026-11-27: "You should not undo a \'Done\'"; was P-95/P-96: it left Done’s Undo): Next that ends the run says "Done with <name>" and leaves NO Undo — finishing is final', () => {
     const id = started('report'); // (Report ends here: it has no open edge)
     st().jumpTo(id, { path: ['b'] });
-    const before = st().data;
     expect(st().nextStep(id).ok).toBe(true);
     expect(readRun(st().data, id)!.endedAt).toBeDefined();
-    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Report', label: 'Done' });
-    expect(st().runNotice!.entry).toBe(st().undo);
+    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Report', follows: true });
+    expect(st().runNotice!.entry).toBeUndefined();
+    expect(st().undo).toBeUndefined();
+    const ended = st().data;
     st().undoLast();
-    expect(json(st().data)).toEqual(json(before));
+    expect(st().data).toBe(ended);
   });
 
   it('P-95: moving through a run leaves no Undo and no notice, and clears the Undo there was — Start, Next (not the last), Back to, Step in, Pause, Resume, Plan, "It’s happened"', () => {
@@ -265,14 +266,15 @@ describe('what the notice says', () => {
     expect(st().runNotice).toMatchObject({ verb: 'jump', text: 'Jumped from Send it', label: 'Jump' });
     st().editRoutine('report', { kind: 'breakDown', item: 'a', steps: ['outline'] });
     st().doneLevel(id);
-    expect(st().runNotice).toMatchObject({ verb: 'done', text: 'Done with Write report', label: 'Done' });
+    // (P-102 audit F6; was "Done with Write report": leaving a level is Step out, not finishing.)
+    expect(st().runNotice).toMatchObject({ verb: 'done', text: 'Left Write report', label: 'Step out' });
     st().jumpTo(id, { path: ['b'] });
     st().nextStep(id);
     expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Report' });
     expect(readRun(st().data, id)!.endedAt).toBeDefined();
+    // P-102 (was: Undo brought the run back on "Send it"): finishing is final — nothing to take back.
     st().undoLast();
-    expect(readRun(st().data, id)!.endedAt).toBeUndefined();
-    expect(runnerView(st().data, id)).toMatchObject({ status: 'running', step: { words: 'Send it' } });
+    expect(readRun(st().data, id)!.endedAt).toBeDefined();
   });
 
   it('the notice can be put away; that is not Undo', () => {
@@ -439,7 +441,7 @@ describe('Plan (P-90)', () => {
     expect('mode' in st().data.runs[first]).toBe(false);
   });
 
-  it('P-96 (ruling 7; was: "Next on the last step of an open goal lands in Plan"): that Next ENDS the run and goes home, "Done with <name>" with Undo; the edge the build before left a run at is still Plan — a step added there is where Resume goes; Done ends it from there, with Undo', () => {
+  it('P-96 (ruling 7; was: "Next on the last step of an open goal lands in Plan"): that Next ENDS the run and goes home, "Done with <name>" — P-102: with no Undo (was: with Undo); the edge the build before left a run at is still Plan — a step added there is where Resume goes; Done ends it from there, finally (P-102; was: with Undo)', () => {
     const goal = st().createRoutine('Learn Spanish');
     if (!goal.ok || !goal.routineId) throw new Error('not made');
     st().editRoutine(goal.routineId, { kind: 'addStep', text: 'Find a tutor' });
@@ -447,9 +449,11 @@ describe('Plan (P-90)', () => {
     const running = st().data;
     expect(st().nextStep(id)).toEqual({ ok: true, runId: id, home: true });
     expect(readRun(st().data, id)).toMatchObject({ endedBy: 'finished' });
-    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Learn Spanish', label: 'Done' });
+    expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Learn Spanish' });
+    expect(st().undo).toBeUndefined();
     st().undoLast();
-    expect(json(st().data)).toEqual(json(running));
+    // (The edge below is built from the run as it was before that Next.)
+    useStore.setState({ data: running, undo: undefined, runNotice: undefined });
     // A run at the edge, as the build before left it (Next off the last step).
     const f = readRun(st().data, id)!.frames[0];
     useStore.setState({ data: { ...st().data, runs: { ...st().data.runs, [id]: { ...st().data.runs[id], frames: [{ ...f, at: null }], status: 'paused', mode: 'plan' } } }, undo: undefined, runNotice: undefined });
@@ -465,9 +469,11 @@ describe('Plan (P-90)', () => {
     expect(json(st().data)).toEqual(json(edge));
     expect(st().doneLevel(id)).toEqual({ ok: true, runId: id, home: true });
     expect(readRun(st().data, id)!.endedAt).toBeDefined();
-    expect(st().runNotice).toMatchObject({ verb: 'done', text: 'Done with Learn Spanish', label: 'Done' });
+    expect(st().runNotice).toMatchObject({ verb: 'done', text: 'Done with Learn Spanish' });
+    expect(st().runNotice!.entry).toBeUndefined();
+    const done = st().data;
     st().undoLast();
-    expect(json(st().data)).toEqual(json(edge));
+    expect(st().data).toBe(done);
   });
 
   it('on a run an earlier build stored in Plan (P-101, ruling 4: the stored mode is read, never written now), Next, Step in, Back and (off the edge) Done are refused, and change nothing', () => {
@@ -484,7 +490,7 @@ describe('Plan (P-90)', () => {
     const A = 'p90-008';
     const frozen = () => useStore.setState({ data: json(BEFORE), undo: undefined, runNotice: undefined });
 
-    it('P-96 (ruling 7; was P-95 audit F1: "a Next that reaches the edge folds them too"): Next no longer reaches the edge — the Next that finishes the run ends it, its changes stay on the ended record unfolded (an ended run’s are never folded), with "Done with <name>" and an Undo that puts every record back', () => {
+    it('P-96 (ruling 7; was P-95 audit F1: "a Next that reaches the edge folds them too"): Next no longer reaches the edge — the Next that finishes the run ends it, its changes stay on the ended record unfolded (an ended run’s are never folded), with "Done with <name>" — P-102: and no Undo (was: an Undo that put every record back)', () => {
       frozen();
       expect(st().resumeRun(A).ok).toBe(true);
       let before = st().data;
@@ -497,10 +503,9 @@ describe('Plan (P-90)', () => {
       expect(readRun(st().data, A)!.changes).toHaveLength(7);
       expect(st().data.routines).toEqual(before.routines);
       expect(st().runNotice).toMatchObject({ verb: 'next', text: 'Done with Apply for jobs' });
-      expect(st().runNotice!.entry).toBeDefined();
-      expect(st().runNotice!.entry).toBe(st().undo);
+      expect(st().runNotice!.entry).toBeUndefined();
+      expect(st().undo).toBeUndefined();
       st().undoLast();
-      expect(json(st().data)).toEqual(json(before));
     });
 
     it('P-95 audit F1/F4: a Jump that lands where the run reaches the edge, folding them, keeps its notice and Undo too', () => {

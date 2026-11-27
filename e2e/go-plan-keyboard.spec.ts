@@ -132,7 +132,7 @@ for (const [label, size] of [
     const p = plan(page);
     // Change the words, mid-list.
     await p.more('Car wash').click();
-    await (await arrived(page, 'go-plan-menu')).getByRole('button', { name: 'Change the words', exact: true }).click();
+    await (await arrived(page, 'go-plan-menu')).getByRole('menuitem', { name: 'Edit', exact: true }).click();
     await expect(p.typed).toBeFocused();
     await seen(page, p.typed, 'the words being changed');
     await p.typed.fill('Car wash, outside');
@@ -140,7 +140,7 @@ for (const [label, size] of [
     await expect(p.row('Car wash, outside')).toHaveCount(1);
     // Add a step after, mid-list: each Return adds one and opens the next.
     await p.more('Wipe seats').click();
-    await (await arrived(page, 'go-plan-menu')).getByRole('button', { name: 'Add a step after', exact: true }).click();
+    await (await arrived(page, 'go-plan-menu')).getByRole('menuitem', { name: 'Add a step after', exact: true }).click();
     for (const words of ['Dry the seats', 'Check the belts', 'Shake the rugs']) {
       await expect(p.typed).toBeFocused();
       await seen(page, p.typed, `the field, before “${words}”`);

@@ -24,7 +24,7 @@ import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
 import { decideWhere, wentHome, whereDecided } from './session';
 import { G, hueOf, SP, TARGET } from './tokens';
-import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
+import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Menu, MenuItem, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
 import { Parts } from './Values';
 
 export function GoHome() {
@@ -69,6 +69,8 @@ export function GoHome() {
   /** P-101 amendment (ruling 9): a paused tile's ··· (its menu), then Start over asked. */
   const [tileMenu, setTileMenu] = useState<Tile | null>(null);
   const [restarting, setRestarting] = useState<Tile | null>(null);
+  /** P-102 audit F5: each tile's ··· (by routine), what its menu hangs from. */
+  const [mores] = useState<Record<string, unknown>>(() => ({}));
   const newBtn = useRef<ViewRef>(null);
   const create = (words: string) => {
     const did = act().createRoutine(words);
@@ -131,9 +133,9 @@ export function GoHome() {
             }}
           />
         ) : tileMenu ? (
-          <Sheet title={tileMenu.name} onClose={() => setTileMenu(null)} testID="go-tile-menu" fallback={title}>
-            <Btn
-              kind="plain"
+          // P-102 audit F5 (was: a bottom sheet): the same small menu as Plan's, anchored to the tile's ···.
+          <Menu anchor={() => mores[tileMenu.routineId]} label={tileMenu.name} onClose={() => setTileMenu(null)} testID="go-tile-menu" fallback={title}>
+            <MenuItem
               label="Start over"
               spoken={`Start over: ${tileMenu.name}`}
               testID="go-tile-restart"
@@ -142,8 +144,7 @@ export function GoHome() {
                 setTileMenu(null);
               }}
             />
-            <Btn label="Close" onPress={() => setTileMenu(null)} />
-          </Sheet>
+          </Menu>
         ) : null
       }>
       <View style={[styles.flex, !here && styles.away]}>
@@ -155,7 +156,7 @@ export function GoHome() {
       <ScrollView style={styles.flex} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" testID="go-tiles">
         <View style={styles.grid}>
           {tiles.map((t) => (
-            <TileBox key={t.routineId} tile={t} wide={columns === 1} onPress={() => choose(t)} onPlan={() => toPlan(t.routineId, t.runId)} onMore={t.runId && t.state !== 'running' ? () => setTileMenu(t) : undefined} unavailable={busy(t)} />
+            <TileBox key={t.routineId} tile={t} wide={columns === 1} onPress={() => choose(t)} onPlan={() => toPlan(t.routineId, t.runId)} onMore={t.runId && t.state !== 'running' ? () => setTileMenu(t) : undefined} moreRef={(el) => { mores[t.routineId] = el; }} unavailable={busy(t)} />
           ))}
         </View>
       </ScrollView>
@@ -200,6 +201,8 @@ interface TileProps {
   unavailable: boolean;
   /** P-101 amendment (ruling 9): a paused run's ··· (Start over). */
   onMore?: () => void;
+  /** P-102 audit F5: the ··· itself (its menu is anchored to it). */
+  moreRef?: (el: ViewRef | null) => void;
 }
 
 const WEB = Platform.OS === 'web';
@@ -211,7 +214,7 @@ const RING_INK = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: 
  * (at the edge: "Plan <name>") — with Plan beside it; the run touched last says "last". A routine with
  * nothing going has Start (outlined, never filled) and Plan.
  */
-function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore }: TileProps) {
+function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef }: TileProps) {
   const hue = hueOf(tile.hue);
   const l = tileLine(tile);
   const color = G.ink;
@@ -275,7 +278,7 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore }: TileProps
         {/* Nothing going: Start (none with no steps yet — Plan is where the first step is added). */}
         {!going && !tile.empty && <Btn ink kind="outline" disabled={unavailable} label={l.button} spoken={l.spoken} onPress={onPress} style={styles.tileBtn} />}
         {tile.action !== 'plan' && <Btn ink kind="outline" label="Plan" spoken={`Plan ${tile.name}`} onPress={onPlan} style={going || tile.empty ? styles.tileBtn : styles.tilePlanBtn} />}
-        {onMore && <Btn ink kind="plain" mark="more" spoken={`More for ${tile.name}`} onPress={onMore} testID="go-tile-more" />}
+        {onMore && <Btn ref={moreRef} ink kind="plain" mark="more" spoken={`More for ${tile.name}`} onPress={onMore} testID="go-tile-more" />}
       </View>
     </View>
   );

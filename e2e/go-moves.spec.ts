@@ -12,7 +12,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, expectApart, expectInside, exported, home, openGo, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody } from './goFixture';
+import { arrived, expectApart, expectFinal, expectInside, exported, home, openGo, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody } from './goFixture';
 
 /** The owner's MyStack: a call (Vibe check) that gives {mood}, a step that reads it. */
 const STACK: RoutineSpec = { id: 'stack', name: 'MyStack', steps: [{ routine: 'vibe' }, 'Pick a task for {mood}', 'Do it'] };
@@ -81,7 +81,7 @@ for (const size of SIZES) {
       // Step out: up one, on the step after the call — with an Undo (it can skip steps).
       await r.stepOut.click();
       await expect(r.words).toHaveText('Pick a task for {mood}');
-      await expect(r.notice).toContainText('Done with Vibe check');
+      await expect(r.notice).toContainText('Left Vibe check');
       await r.notice.getByRole('button', { name: /^Undo/ }).click();
       await expect(r.words).toHaveText('Feel it out');
       // From the keyboard: Tab reaches the moves and Next; Space presses them.
@@ -232,14 +232,14 @@ for (const size of SIZES) {
       await startGo(page, [{ id: 'r', routine: 'twice', status: 'running', inner: [{ routine: 'vibe', at: 1 }] }], 'runner', ROUTINES);
       const r = runner(page);
       await r.stepOut.click();
-      await expect(r.notice).toContainText('Done with Vibe check');
+      await expect(r.notice).toContainText('Left Vibe check');
       // A tap elsewhere (the path): it goes.
       await r.context.click();
       await expect(page.getByTestId('go-notice')).toHaveCount(0);
       // Made again (the second call), then Plan from the keyboard (no tap): not on Plan, not back on the runner.
       await r.stepIn.click();
       await r.stepOut.click();
-      await expect(r.notice).toContainText('Done with Vibe check');
+      await expect(r.notice).toContainText('Left Vibe check');
       await r.plan.focus();
       await page.keyboard.press('Enter');
       await expect(plan(page).screen).toBeVisible();
@@ -247,10 +247,9 @@ for (const size of SIZES) {
       await plan(page).forward.click();
       await expect(r.words).toHaveText('Do it');
       await expect(page.getByTestId('go-notice')).toHaveCount(0);
-      // The run's end carries its notice home (where it lands), with Undo.
+      // The run's end carries its notice home (where it lands) — P-102: final, × only (was: with Undo).
       await r.next.click();
-      await expect(home(page).notice).toContainText('Done with Two checks');
-      await expect(home(page).notice.getByRole('button', { name: /^Undo/ })).toBeVisible();
+      await expectFinal(page, 'Two checks');
     });
 
     test('(6) a value is typed in a sheet that sits above the keyboard; the field reads label and value; the value sheet’s trace; hoisted gives — keyboard up and down', async ({ page }) => {
@@ -302,13 +301,13 @@ for (const size of SIZES) {
       // Break "Warm-up lines" down into a step that gives {lines}.
       await p.more('Warm-up lines').click();
       let menu = await arrived(page, 'go-plan-menu');
-      await menu.getByRole('button', { name: 'Break it down', exact: true }).click();
+      await menu.getByRole('menuitem', { name: 'Break it down', exact: true }).click();
       await p.typed.fill('Draw ten lines');
       await p.typed.press('Enter');
       await page.keyboard.press('Escape');
       await p.more('Draw ten lines').click();
       menu = await arrived(page, 'go-plan-menu');
-      await menu.getByRole('button', { name: 'Gives…', exact: true }).click();
+      await menu.getByRole('menuitem', { name: 'Gives…', exact: true }).click();
       const gives = await arrived(page, 'go-gives-sheet');
       await gives.getByTestId('go-gives-name').fill('lines');
       await gives.getByTestId('go-gives-apply').click();
@@ -317,7 +316,7 @@ for (const size of SIZES) {
       await phoneKeyboard(page);
       await p.more('Gesture drawing').click();
       menu = await arrived(page, 'go-plan-menu');
-      await menu.getByRole('button', { name: 'Change the words', exact: true }).click();
+      await menu.getByRole('menuitem', { name: 'Edit', exact: true }).click();
       const insert = p.screen.getByTestId('go-insert');
       await expect(insert).toHaveAccessibleName('Insert a name');
       expect((await box(insert)).height).toBeGreaterThanOrEqual(48);

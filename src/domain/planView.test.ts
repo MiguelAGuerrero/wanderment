@@ -414,7 +414,7 @@ describe('the notice after a Plan edit names it (its Undo lasts until the next a
     expect(noticeFor('plan', undefined)).toEqual({ text: '', label: 'Plan' });
     expect(noticeFor('plan', undefined, false, 'Apply for jobs')).toEqual({ text: 'Kept this run’s changes in Apply for jobs', label: 'Plan' });
     expect(noticeFor('next', { kind: 'edge' }, false, 'Goal')).toEqual({ text: 'Kept this run’s changes in Goal', label: 'Next' });
-    expect(noticeFor('done', { kind: 'finished', names: ['Inner'] }, false, 'Goal')).toEqual({ text: 'Done with Inner · Kept this run’s changes in Goal', label: 'Done' });
+    expect(noticeFor('done', { kind: 'finished', names: ['Inner'] }, false, 'Goal')).toEqual({ text: 'Left Inner · Kept this run’s changes in Goal', label: 'Step out' });
     expect(noticeFor('new', undefined)).toEqual({ text: '', label: 'New' });
   });
 });
