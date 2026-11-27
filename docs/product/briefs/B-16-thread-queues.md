@@ -93,21 +93,30 @@ Become a better drawer
 "Pick what to work on" is an ordinary step whose Gives… sheet has one more choice: **from its open
 items**. "Reflect on a rep" is an existing routine added as a step.
 
-### Journey 2 — Picking (the runner)
+### Journey 2 — Picking (a sheet, after the panel)
 ```
 Become a better drawer
 ┌──────────────────────────┐
 │ Pick what to work on     │
 └──────────────────────────┘
-  Hands in perspective           for Character sheet
-  Forearm proportions            for Hands in perspective
-  Gesture, 30 seconds
-  + something else
-                                  [Step in] [Step out] [[Next]]
+  [ asks { } focus ]                       ← the field a giving step has today
 ```
-The open items are listed under the note with what each is for. Tapping one fills `{focus}`; "+
-something else" takes typed words and adds them as an open item. This is the only running screen that
-shows more than the step.
+Tapping the field opens the value's sheet, as for any value. For a step that gives from open items the
+sheet lists them above the typing field:
+```
+focus
+  Hands in perspective
+  Forearm proportions
+  Gesture, 30 seconds
+  ───────────────
+  [ something else…            ]
+  [[Keep]]
+  Close
+```
+Tapping an item fills `{focus}`; typed words are kept as a new open item. The runner stays the step and
+nothing else, so no exception to that rule is needed. (First drawn as a list under the note: the panel
+found it does not fit above the handle on a phone, and that it puts an unbounded list between focus and
+Next for a screen reader.)
 
 ### Journey 3 — Doing (the runner)
 ```
@@ -128,24 +137,29 @@ for the first time leaves none today).
 ### Journey 5 — Coming back (home)
 ```
 Become a better drawer
-next: Forearm proportions · for Hands in perspective
+at Draw 10, 30 seconds each · focus: Forearm proportions
 ```
-The tile's line is the thread's next step and what it is for. A routine with no open items reads as
-today ("at <step>").
+The tile reads "at <step>" as today, with the item the person picked shown as its value. The app never
+chooses an item to show, and the word "next" is not used for an item (it is the runner's button).
 
-### Journey 6 — Clearing and dropping
-In the pull-up panel on a thread: its open items, each with **Cleared** and **Drop**. Both remove the
-item with one Undo. Dropping is as cheap as clearing, and nothing counts either.
+### Journey 6 — Clearing and dropping, where the work is
+The value sheet of a value picked from open items has **Cleared** and **Drop** ("Cleared: Forearm
+proportions", "Drop Forearm proportions" when spoken). Each takes the item off the open items with one
+Undo; neither is counted. They are kept as two different records, never deleted, so Looking back can
+tell what was done from what was let go. The pull-up panel lists the open items with the same two
+actions, and shows nothing about open items for a routine that has none.
 
 ### Edges
-- **Empty:** a routine with no open items is exactly today's routine. Nothing new appears.
+- **Empty:** a routine with no open items is exactly today's routine. Nothing new appears, in the
+  panel or on the tile. The first item comes from a step that gives work, or from "something else…" in
+  the picking sheet.
 - **Many:** open items scroll under the note; none is ranked, aged or marked overdue.
 - **Screen reader:** each item is read with what it is for ("Forearm proportions, for Hands in
   perspective"); the picking list is a list with a heading.
 
 ## Fit with the product
-- **DESIGN.md, "The runner is the step and nothing else":** Journey 2 puts a list under the note on one
-  kind of step. That is a tension, kept narrow: it appears only on a step that gives from open items.
+- **DESIGN.md, "The runner is the step and nothing else":** kept. Picking happens in the value sheet
+  ("menus and pickers are bottom sheets").
 - **"Nothing is counted against you":** open items carry no count, date or age. Looking back, if
   built, is a list in words.
 - **"Never shown as words":** thread, queue, spawn, blocked and dependency stay out of the app. The
@@ -176,17 +190,62 @@ Raised by the implementation session, from owner-notes. Each is the owner's to s
   Journey 4; gives / asks, hoisted gives and the call-stack trace (P-101) are used as they are.
 
 ## Persona panel
-Not run yet. It waits for P-101 to land so the panel sees the runner and home as they will be.
+_Simulated perspectives from `docs/product/PERSONAS.md`, run 2026-11-27 on the brief and on screenshots
+of the app after P-101. A thinking tool, not user research. The roster was written for the retired app
+and is used as stress tests. Two screenshots were unusable (home came out blank; the pull-up panel was
+not open), so findings about those two come from DESIGN.md's text. Reports:
+`.polish/product/panel-B-16-1.md`, `-2.md` (local)._
+
+| Persona | Reaction | What it hinges on |
+|---|---|---|
+| A Impulsive Dabbler | Uneasy; mostly would not use it (not the audience) | Every "something else" becomes permanent and nothing in the loop clears it |
+| B Intentional Builder | Delighted by giving work and by reuse; would keep using it | Clearing where the work is; the "for" arriving soon |
+| C Pressure-Sensitive Returner | Uneasy, leaning no as first drawn | A standing list of her own faults; an item named on the tile |
+| D Reflective Meaning-Seeker | Uneasy; not the audience | Would turn the one text field into a journal |
+| E Skeptical Minimalist | Fine on reuse and on empty; uneasy on slice 1 alone | A to-do list in a drawer that no step reads yet |
+| F Assistive-Tech User | Fine on doing; uneasy on picking | An unbounded list between focus and Next; layout at 200 % text |
+
+- **Trade-offs:** the move favours procedural, low-shame people (the stated audience, and the owner's
+  profile). It costs the pressure-sensitive most, even with every refusal kept. Cheap adding lengthens
+  the list a tidy person has to groom and a screen-reader user has to cross.
+- **Strong, lean on it:** an empty routine is today's routine; an empty field gives nothing; items carry
+  no date, age, order or count; Drop costs the same as Cleared; a method reused as a step; "for" in words.
+- **Refinements folded in** (all fit DESIGN.md):
+  - picking in the value sheet, not under the note (Journey 2);
+  - Cleared and Drop on the value sheet, one tap from the work (Journey 6);
+  - Cleared and Drop kept as distinct records from the first slice;
+  - the tile keeps "at <step>" and shows the picked item as a value; no "next:" (Journey 5);
+  - nothing about open items is shown for a routine that has none;
+  - a step may give work and a name together (the owner's own routine reads `{point}` in the next step);
+  - slice 2 lands with slice 1, so the list is fed by a step from the start.
+- **Offered as options** (the owner's to take):
+  - move "for" (was slice 5) ahead of adding a routine as a step, so open items are not a flat list for
+    long (see Questions);
+  - show an item on the tile only when no run is going (C).
+- **Refused:** a count of cleared items or of the list (B, E), items that fade with age, and a welcome
+  back (C): "Nothing is counted against you". A notes field or a place for what went well (D): the
+  owner's line against capture.
+- **Against the owner's notes (P0):** the owner chose "By itself" for giving work. It suits E and the
+  owner; C loses the moment to decline and D would misuse it. The folded refinements keep "By itself".
+
+## Rulings after the panel (designer's, not the owner's)
+- **Whose open items:** work given in a run goes to the routine that run is of (what the tile is),
+  wherever inside it the giving step sits. "Reflect on a rep" started by itself gives to itself. This
+  makes the first layer special in one way, which DESIGN.md says it is not: a tension, named here.
+- **Undo:** work given in a run leaves with an Undo or Back to that undoes its giving. Starting a
+  routine again does not touch its open items; they are the routine's, not the run's.
+- **Long text:** an item is one line. Words longer than a line wrap in the sheet and are never clipped;
+  one seeded case with a paragraph is tested in slice 1.
 
 ## Slices
-1. **A thread keeps open items** `[data]` M (Full tier). A routine can hold open items: added from the
-   pull-up panel, Cleared or Dropped with Undo, kept across runs, in export and import. Home shows
-   "next: <item>". *Done when:* an item added in one run is there in the next run and after a reload,
+1. **A thread keeps open items** `[data]` M (Full tier), landing together with slice 2. A routine can
+   hold open items: Cleared or Dropped with Undo (two kept records), kept across runs, in export and
+   import. *Done when:* an item added in one run is there in the next run and after a reload,
    an export and an import.
 2. **A step gives work** `[data]` S. Gives… offers "work"; what is typed joins the open items.
    *Done when:* a reflection step's answer is an open item on the next run.
-3. **Pick from open items** `[ux]` M. Gives… offers "from its open items"; the runner lists them under
-   the note. *Done when:* the picked item fills the name and later steps read it.
+3. **Pick from open items** `[ux]` M. Gives… offers "from its open items"; the value sheet lists them,
+   with Cleared and Drop on a picked value. *Done when:* the picked item fills the name and later steps read it.
 4. **Add an existing routine as a step** `[data]` M (the call part of P-98). *Done when:* Plan's Add
    offers a routine by search and its row shows what it reads from above.
 5. **Items for items** `[data]` M. An item can be added under another; the next step is the deepest
@@ -224,7 +283,13 @@ Not run yet. It waits for P-101 to land so the panel sees the runner and home as
 - **The word:** "pursuit" was a working term. This brief says thread and queue, the owner's own model
   (a thread with its own state, work queued onto it); neither word is shown in the app.
 
-## Questions asked (all answered above)
+## Questions for the owner, after the panel
+- With P-97, home shows only runs in motion. Where does a routine with open items and no run appear:
+  on home, or only on My routines?
+- Does "for" (slice 5) move ahead of adding a routine as a step (slice 4), inside the go?
+- Do slices 1–2 follow P-97 directly, or wait for the trial week as recorded in D-23?
+
+## Questions asked earlier (answered above)
 2. When a step gives work, does the item appear by itself, or only when accepted at the end of the run?
    Proposed: by itself, since typing it was the choice.
 3. Do slices 1–4 go ahead of for each (the rest of P-98), In any order (P-99) and the queue (P-100)?
