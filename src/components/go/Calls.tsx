@@ -17,7 +17,7 @@ import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import type { CallInput, PlanCall } from '@/domain/runView';
-import { itemNameFor, MAX_VALUE } from '@/domain/values';
+import { isName, itemNameFor, MAX_NAME, MAX_VALUE, tidyName } from '@/domain/values';
 
 import { Mark } from './marks';
 import { G, SP } from './tokens';
@@ -51,8 +51,11 @@ export interface RoutineChoice {
   line: string;
 }
 
-/** Add's "a routine": the person's routines; a tap adds one as a step. `error`: why the last one was refused. */
-export function RoutinesSheet({ routines, error, onPick, onClose, fallback }: { routines: RoutineChoice[]; error?: string; onPick: (routineId: string) => void; onClose: () => void; fallback: { current: unknown } }) {
+/**
+ * Add's "a routine": the person's routines; a tap adds one as a step. `error`: why the last one was refused. P-108: first,
+ * the names given above — a routine row whose routine is that value, `▤ {name}` (`onName`).
+ */
+export function RoutinesSheet({ names = [], onName, routines, error, onPick, onClose, fallback }: { names?: string[]; onName?: (name: string) => void; routines: RoutineChoice[]; error?: string; onPick: (routineId: string) => void; onClose: () => void; fallback: { current: unknown } }) {
   return (
     <Sheet title="Add a routine" onClose={onClose} testID="go-routines-sheet" fallback={fallback}>
       {!!error && (
@@ -60,23 +63,60 @@ export function RoutinesSheet({ routines, error, onPick, onClose, fallback }: { 
           {`! ${error}`}
         </T>
       )}
-      {routines.length === 0 && <T dim>No routines yet.</T>}
+      {names.map((n, i) => (
+        <Btn key={`{${n}}`} kind="plain" mark="routine" label={`{${n}}`} spoken={`Add as a step: the routine in {${n}}`} onPress={() => onName?.(n)} testID="go-routines-sheet-name" dataSet={{ name: n, ...(i === 0 && { first: 'true' }) }} />
+      ))}
+      {routines.length === 0 && !names.length && <T dim>No routines yet.</T>}
       {routines.map((r, i) => (
-        <Btn key={r.routineId} kind="plain" mark="routine" label={r.line ? `${r.name} · ${r.line}` : r.name} spoken={`Add as a step: ${r.line ? `${r.name} · ${r.line}` : r.name}`} onPress={() => onPick(r.routineId)} testID="go-routines-sheet-row" dataSet={{ routine: r.routineId, ...(i === 0 && { first: 'true' }) }} />
+        <Btn key={r.routineId} kind="plain" mark="routine" label={r.line ? `${r.name} · ${r.line}` : r.name} spoken={`Add as a step: ${r.line ? `${r.name} · ${r.line}` : r.name}`} onPress={() => onPick(r.routineId)} testID="go-routines-sheet-row" dataSet={{ routine: r.routineId, ...(i === 0 && !names.length && { first: 'true' }) }} />
       ))}
       <Btn label="Close" onPress={onClose} />
     </Sheet>
   );
 }
 
-/** P-107: Add's "For each…" — a sentence per name given above, "photo in {photos}"; a tap makes the block (`onPick(list)`). */
-export function ForEachSheet({ lists, onPick, onClose, fallback }: { lists: string[]; onPick: (list: string) => void; onClose: () => void; fallback: { current: unknown } }) {
+/**
+ * P-107: Add's "For each…" — a sentence per name given above, "photo in {photos}"; a tap makes the block (`onPick(list)`).
+ * P-108: or a list of its own, named here — asked each run, or kept in the routine (`onPick(list, own)`); a name the
+ * routine already uses is refused, in words.
+ */
+export function ForEachSheet({ lists, onPick, onClose, fallback }: { lists: string[]; onPick: (list: string, own?: 'asked' | 'kept') => { ok: boolean; reason?: string } | void; onClose: () => void; fallback: { current: unknown } }) {
+  const [name, setName] = useState('');
+  const [taken, setTaken] = useState(false);
+  const own = isName(name) ? tidyName(name) : '';
+  const make = (kind: 'asked' | 'kept') => {
+    if (!own) return;
+    const did = onPick(own, kind);
+    setTaken(!!did && !did.ok && did.reason === 'same-name');
+  };
+  const sentence = own ? `For each ${itemNameFor(own)} in {${own}}` : '';
   return (
     <Sheet title="For each…" onClose={onClose} testID="go-each-sheet" fallback={fallback}>
       {lists.map((list, i) => {
         const words = `${itemNameFor(list)} in {${list}}`;
         return <Btn key={list} kind="plain" label={words} spoken={`For each ${words}`} onPress={() => onPick(list)} testID="go-each-sheet-row" dataSet={{ list, ...(i === 0 && { first: 'true' }) }} />;
       })}
+      <Field
+        value={name}
+        onChangeText={(t) => {
+          setName(t);
+          setTaken(false);
+        }}
+        accessibilityLabel="A list of its own"
+        placeholder="A list of its own"
+        maxLength={MAX_NAME}
+        testID="go-each-own-name"
+        {...(!lists.length && { dataSet: { first: 'true' } })}
+      />
+      {taken && (
+        <T color={G.err} accessibilityRole="alert" testID="go-each-own-error">
+          {`! {${own}} is already a name here`}
+        </T>
+      )}
+      <View style={styles.own}>
+        <Btn label="Ask each run" spoken={sentence ? `Ask each run: ${sentence}` : 'Ask each run'} disabled={!own} onPress={() => make('asked')} testID="go-each-own-asked" />
+        <Btn label="Keep it here" spoken={sentence ? `Keep it here: ${sentence}` : 'Keep it here'} disabled={!own} onPress={() => make('kept')} testID="go-each-own-kept" />
+      </View>
       <Btn label="Close" onPress={onClose} testID="go-each-sheet-close" />
     </Sheet>
   );
@@ -195,4 +235,5 @@ const styles = StyleSheet.create({
   line: { alignSelf: 'flex-start', justifyContent: 'flex-start', paddingHorizontal: 0, minHeight: 48 },
   owed: { gap: SP.s1 },
   label: { flexDirection: 'row', alignItems: 'center', gap: SP.s1 },
+  own: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2 },
 });

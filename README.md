@@ -18,7 +18,12 @@ routine", or "@" as you type): its row says what it asks — `with {concerns}`, 
 it gives; stepped into, it gets its own copy of what it asks and hands back what it gives. **For each…** (beside
 "A routine") makes a loop over a list given above — "For each concern in {concerns}": the giving step's field is a
 list (one row per item), each round reads "concern 2 of 3", clears what was given inside it, and what each item
-gave is collected after the block. Copy… makes a routine
+gave is collected after the block. A for each can instead have **a list of its own**, named in that sheet:
+asked each run (arriving at it asks for the items), or **kept in the routine** — its items are rows under the block,
+with **+ Add** there and on the routine's tile, never counted; an item added comes round in the next sitting. A name
+given above can be a routine row of its own (`▤ {way}`, from "A routine" or "@"): the giving field offers your
+routines as you type, a routine chosen there is held by reference (renamed or changed in Plan, it follows), drawn
+with the routine mark, and the row steps into it; words given there stay words. Copy… makes a routine
 over under a new name. **Places…** keeps where a routine's work lives — a named link ("Design doc", notion.so) or
 plain words ("Sketchbook", left shelf) — seen under Plan's heading, behind one door on its home tile and in the
 runner's pull-up panel; an address typed in a step, a value or the pause note gets an "Open <host>" row there.

@@ -1,0 +1,279 @@
+/**
+ * P-108 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE kept lists (ee66a65: P-107's for each; schema 4,
+ * data format 2). Run once, in that commit, with P108_OUT set; never part of the suite. It starts from
+ * `p107-schema4.sqlite` (everything frozen before) and uses that build's own store actions — and its Import, for
+ * what only an import could make there: the shapes P-108 writes — a for each with a list kept in the routine
+ * (`each.kept`, `each.refs`), one with its own list asked on arrival (`each.own`), a routine row whose routine is a
+ * value (`{ id, text: '{way}', slot: true }`), values that are routines (`refs` beside `items`) and a for each
+ * level that keeps the list it last saw (`eachSeen`). What that build SHOWED is written to `p108-old-build.json`.
+ *
+ * (P-107's header, kept for the harness below:)
+ * P-107 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE for each (6f4afea: schema 4, data format 2; a
+ * step broken down was an unnamed sequence, and nothing knew `each`). Run once, in that commit, with P108_OUT
+ * set; never part of the suite. It starts from `p109-schema4.sqlite` (everything frozen before) and uses that
+ * build's own store actions — and its Import, for what only an import could make there: a for each block in the
+ * shape P-107 writes (a row `{ id, ref }` to an unnamed sequence carrying `each: { item, list }`), with a call
+ * inside it. That build then runs it as a step broken down (Step in, the item asks), adds a step inside it, and
+ * leaves a run paused inside it; a later import gives the list three items. What that build SHOWED is written
+ * to `p107-old-build.json` (its Plan rows and runner views): the proof that an older build reads the block as a
+ * breakdown.
+ */
+import { copyFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const OUT = process.env.P108_OUT!;
+
+const env = vi.hoisted(() => {
+  const ls = new Map<string, string>();
+  const state = { dbPath: '', openError: undefined as Error | undefined, hangWrites: false };
+  const localStorage = {
+    get length() {
+      return ls.size;
+    },
+    key: (i: number) => [...ls.keys()][i] ?? null,
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => void ls.set(k, String(v)),
+    removeItem: (k: string) => void ls.delete(k),
+  };
+  (globalThis as { localStorage?: unknown }).localStorage = localStorage;
+  return { ls, state, localStorage };
+});
+
+vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => env.localStorage.getItem(k),
+    setItem: async (k: string, v: string) => env.localStorage.setItem(k, v),
+    removeItem: async (k: string) => env.localStorage.removeItem(k),
+  },
+}));
+vi.mock('./expoDb', async () => {
+  const { nodeDb } = await import('./nodeDb');
+  return {
+    openExpoDb: async () => {
+      if (env.state.openError) throw env.state.openError;
+      const db = nodeDb(env.state.dbPath);
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+    },
+  };
+});
+vi.mock('./nativeBackup', () => ({ scheduleBackup: () => {} }));
+
+const settle = () => new Promise((r) => setTimeout(r, 40));
+
+async function load() {
+  vi.resetModules();
+  const { startPersistence } = await import('./persistence');
+  const { useStore } = await import('@/store/useStore');
+  await startPersistence();
+  return useStore;
+}
+type Store = Awaited<ReturnType<typeof load>>;
+
+/** Ids are a counter and the clock is fixed and stepped, so every session makes the same records. */
+let n = 0;
+let clock = 0;
+const T0 = Date.parse('2026-11-27T23:00:00.000Z');
+const tick = (minutes = 3) => vi.setSystemTime(new Date((clock += minutes * 60000)));
+
+beforeEach(() => {
+  env.ls.clear();
+  env.state.openError = undefined;
+  env.state.hangWrites = false;
+  env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-freeze108-')), 'db.sqlite');
+  n = 0;
+  clock = T0;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(T0));
+  vi.stubGlobal('crypto', { randomUUID: () => `p108-${String(++n).padStart(3, '0')}` });
+});
+afterEach(async () => {
+  (await import('./persistence')).stopPersistence();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+/** What that build showed: Plan's rows of the routine, and the runner at a place. */
+const old: Record<string, unknown> = {};
+async function views(key: string, store: Store, routineId: string, runId?: string) {
+  const { planView, runnerView } = await import('@/domain/runView');
+  const data = store.getState().data;
+  const plan = planView(data, runId ? { runId } : { routineId });
+  const run = runId ? runnerView(data, runId) : undefined;
+  old[key] = JSON.parse(
+    JSON.stringify({
+      rows: plan?.rows.map((r) => ({ depth: r.depth, kind: r.kind, words: r.words, broken: r.broken ?? false, here: r.here, within: r.within, hoisted: r.hoisted ?? [] })),
+      ...(run && { runner: { level: run.level, step: run.step.kind, words: run.step.words, parts: run.step.parts, fields: run.fields, values: run.values.map((v) => ({ name: v.name, items: v.items })), moves: run.moves, next: run.next } }),
+    }),
+  );
+}
+
+/** What a person did with the build before kept lists, through its own actions (and Import). */
+async function drive(store: Store) {
+  const s = () => store.getState();
+  const ok = (d: { ok: boolean; runId?: string; routineId?: string }) => {
+    expect(d).toMatchObject({ ok: true });
+    s().dismissRunNotice();
+    tick();
+    return (d.runId ?? d.routineId)!;
+  };
+  const items = (routineId: string) => s().data.routines[routineId].items as { id: string; text?: string; wait?: string; ref?: string }[];
+  const item = (routineId: string, words: string) => items(routineId).find((i) => (i.text ?? i.wait) === words)!.id;
+  const make = (name: string, steps: string[]) => {
+    const id = ok(s().createRoutine(name));
+    for (const st of steps) ok(s().editRoutine(id, { kind: 'addStep', text: st }));
+    return id;
+  };
+  const { toBackup } = await import('@/domain/backup');
+  const { previewImport, confirmImport } = await import('@/store/importBackup');
+  const reimport = (change: (d: import('@/domain/types').Data) => void) => {
+    const file = JSON.parse(toBackup(s().data));
+    change(file.data);
+    const r = confirmImport(previewImport(JSON.stringify(file)));
+    expect(r.ok).toBe(true);
+    tick();
+  };
+  ok(s().pauseRun('p96-050'));
+
+  // "Draw with guidelines": a routine a value will hold (by reference).
+  const guide = make('Draw with guidelines', ['Block in {subject} with guidelines', 'Note what held']);
+  // B-16's "Become a better drawer": a kept list, a for each with its own list, and a routine row whose routine is a value.
+  const better = make('Become a better drawer', ['Warm up', 'Choose a way to draw', 'Tell Sam about {way}']);
+  ok(s().editRoutine(better, { kind: 'gives', item: item(better, 'Choose a way to draw'), name: 'way' }));
+  // "Try ways": a list of ways — a routine with words beside it, and plain words — gone through with a for each.
+  const tryWays = make('Try ways', ['List the ways to try', 'Pick the one to keep']);
+  ok(s().editRoutine(tryWays, { kind: 'gives', item: item(tryWays, 'List the ways to try'), name: 'ways' }));
+  const warm = item(better, 'Warm up');
+  const choose = item(better, 'Choose a way to draw');
+  const list = item(tryWays, 'List the ways to try');
+  reimport((d) => {
+    d.routines['p108-kept'] = {
+      id: 'p108-kept',
+      words: 'For each subject in {subjects}',
+      named: false,
+      createdAt: '2026-11-27T23:10:00.000Z',
+      items: [{ id: 'p108-practise', text: 'Deliberate practice on {subject}' }],
+      each: { item: 'subject', list: 'subjects', kept: ['arms', 'legs', 'Draw with guidelines: eyes, slower'], refs: [null, null, { ref: guide, name: 'Draw with guidelines' }] },
+    };
+    d.routines['p108-own'] = {
+      id: 'p108-own',
+      words: 'For each topic in {topics}',
+      named: false,
+      createdAt: '2026-11-27T23:10:00.000Z',
+      items: [{ id: 'p108-guide', text: 'Find a guide on {topic}' }],
+      each: { item: 'topic', list: 'topics', own: true },
+    };
+    d.routines['p108-ways'] = {
+      id: 'p108-ways',
+      words: 'For each way in {ways}',
+      named: false,
+      createdAt: '2026-11-27T23:10:00.000Z',
+      items: [
+        { id: 'p108-ways-slot', text: '{way}', slot: true },
+        { id: 'p108-ways-note', text: 'Note how {way} went' },
+      ],
+      each: { item: 'way', list: 'ways' },
+    };
+    const b = d.routines[better].items as unknown[];
+    b.splice(1, 0, { id: 'p108-kept-row', ref: 'p108-kept' }, { id: 'p108-own-row', ref: 'p108-own' });
+    b.splice(4, 0, { id: 'p108-slot', text: '{way}', slot: true });
+    (d.routines[tryWays].items as unknown[]).splice(1, 0, { id: 'p108-ways-row', ref: 'p108-ways' });
+  });
+  expect(items(better).map((i) => i.id)).toEqual([warm, 'p108-kept-row', 'p108-own-row', choose, 'p108-slot', item(better, 'Tell Sam about {way}')]);
+  await views('planBetter', store, better);
+  await views('planTry', store, tryWays);
+  // That build's Plan adds a step inside the kept block (the fields it does not know stay).
+  ok(s().editRoutine('p108-kept', { kind: 'addStep', text: 'Note what improved in {subject}' }));
+  expect((s().data.routines['p108-kept'] as { each?: unknown }).each).toEqual({ item: 'subject', list: 'subjects', kept: ['arms', 'legs', 'Draw with guidelines: eyes, slower'], refs: [null, null, { ref: guide, name: 'Draw with guidelines' }] });
+
+  // Running "Become a better drawer" there: both blocks pass straight through (nothing gives their lists there).
+  const run = ok(s().startRoutine(better));
+  await views('onWarm', store, better, run);
+  ok(s().nextStep(run));
+  await views('afterBlocks', store, better, run);
+  ok(s().typeValue(run, choose, 'way', 'Draw with guidelines'));
+  // The value made a routine, as P-108 holds it (only an import can make one here).
+  reimport((d) => {
+    const r = d.runs[run] as { values: Record<string, unknown>[] };
+    r.values.find((v) => v.name === 'way')!.refs = [{ ref: guide, name: 'Draw with guidelines' }];
+  });
+  ok(s().nextStep(run));
+  await views('onSlot', store, better, run);
+  ok(s().pauseRun(run, 'before the guidelines'));
+
+  // "Try ways": the list given as words, then made a routine and words by import; the for each over it.
+  const run2 = ok(s().startRoutine(tryWays));
+  ok(s().typeValue(run2, list, 'ways', 'Freehand'));
+  reimport((d) => {
+    const r = d.runs[run2] as { values: Record<string, unknown>[] };
+    const v = r.values.find((x) => x.name === 'ways')!;
+    v.items = ['Draw with guidelines: proportions held, slower', 'Freehand'];
+    v.refs = [{ ref: guide, name: 'Draw with guidelines' }, null];
+  });
+  ok(s().nextStep(run2));
+  await views('waysSlot', store, tryWays, run2);
+  // The for each level keeps the list it last saw, as P-108 writes it.
+  reimport((d) => {
+    const f = (d.runs[run2] as { frames: Record<string, unknown>[] }).frames[1];
+    f.eachSeen = ['Draw with guidelines: proportions held, slower', 'Freehand'];
+  });
+  ok(s().nextStep(run2));
+  await views('waysNote', store, tryWays, run2);
+  ok(s().pauseRun(run2, 'trying ways'));
+  ok(s().resumeRun('p96-050'));
+  await settle();
+  return { guide, better, tryWays, run, run2 };
+}
+const settingsOf = (store: Store) => {
+  const s = store.getState();
+  return { showShading: s.showShading, recentSearches: s.recentSearches, leftAsIs: s.leftAsIs, whyOfferOff: s.whyOfferOff, firstRunDone: s.firstRunDone };
+};
+const snapshot = (store: Store) => JSON.parse(JSON.stringify({ data: store.getState().data, settings: settingsOf(store) }));
+let expected: { data: import('@/domain/types').Data; settings: ReturnType<typeof settingsOf> };
+
+it('1. the database (schema 4), the backup and what the store held', async () => {
+  // From the data the build before places left (everything frozen before it).
+  copyFileSync(join(__dirname, 'fixtures/golden/p107-schema4.sqlite'), env.state.dbPath);
+  let store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+  await drive(store);
+  await settle();
+  expected = snapshot(store);
+  expect(env.ls.has('wanderment:journal')).toBe(false);
+  store = await load();
+  expect(snapshot(store)).toEqual(expected);
+  const { nodeDb } = await import('./nodeDb');
+  const db = nodeDb(env.state.dbPath);
+  expect(await db.all('PRAGMA user_version')).toEqual([{ user_version: 4 }]);
+  await db.exec('VACUUM');
+  db.close();
+  copyFileSync(env.state.dbPath, join(OUT, 'p108-schema4.sqlite'));
+  writeFileSync(join(OUT, 'p108-expected.json'), JSON.stringify(expected, null, 2) + '\n');
+  writeFileSync(join(OUT, 'p108-old-build.json'), JSON.stringify(old, null, 2) + '\n');
+  const { toBackup } = await import('@/domain/backup');
+  writeFileSync(join(OUT, 'p108-backup.json'), toBackup(store.getState().data, new Date('2026-11-28T00:30:00.000Z')));
+});
+
+it('2. the pending journal (eight keys): everything, never committed', async () => {
+  const store = await load();
+  env.state.hangWrites = true;
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  // (Replace brings the data only: the settings stay this page's.)
+  expect(snapshot(store).data).toEqual(expected.data);
+  const raw = env.ls.get('wanderment:journal')!;
+  expect(Object.keys(JSON.parse(raw).changes).sort()).toEqual(['deleteActivities', 'deleteRoutines', 'deleteRuns', 'deleteThreads', 'upsertActivities', 'upsertRoutines', 'upsertRuns', 'upsertThreads']);
+  writeFileSync(join(OUT, 'p108-journal.json'), raw);
+});
+
+it('3. the fallback blob (a browser that can’t run SQLite)', async () => {
+  env.state.openError = new Error('no OPFS');
+  const store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  writeFileSync(join(OUT, 'p108-fallback.json'), env.ls.get('wanderment')!);
+});

@@ -1,0 +1,623 @@
+{
+  "planBetter": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Warm up",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each subject in {subjects}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Deliberate practice on {subject}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each topic in {topics}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Find a guide on {topic}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Choose a way to draw",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "{way}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Tell Sam about {way}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ]
+  },
+  "planTry": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "List the ways to try",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each way in {ways}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "{way}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note how {way} went",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick the one to keep",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ]
+  },
+  "onWarm": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Warm up",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each subject in {subjects}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Deliberate practice on {subject}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note what improved in {subject}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each topic in {topics}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Find a guide on {topic}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Choose a way to draw",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "{way}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Tell Sam about {way}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "Become a better drawer",
+      "step": "step",
+      "words": "Warm up",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Warm up"
+        }
+      ],
+      "fields": [],
+      "values": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    }
+  },
+  "afterBlocks": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Warm up",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each subject in {subjects}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Deliberate practice on {subject}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note what improved in {subject}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each topic in {topics}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Find a guide on {topic}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Choose a way to draw",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "{way}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Tell Sam about {way}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "Become a better drawer",
+      "step": "step",
+      "words": "Choose a way to draw",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Choose a way to draw"
+        }
+      ],
+      "fields": [
+        {
+          "name": "way",
+          "text": "",
+          "gives": true
+        }
+      ],
+      "values": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    }
+  },
+  "onSlot": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Warm up",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each subject in {subjects}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Deliberate practice on {subject}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note what improved in {subject}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each topic in {topics}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Find a guide on {topic}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Choose a way to draw",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "{way}",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Tell Sam about {way}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "Become a better drawer",
+      "step": "step",
+      "words": "{way}",
+      "parts": [
+        {
+          "kind": "value",
+          "name": "way",
+          "text": "Draw with guidelines"
+        }
+      ],
+      "fields": [],
+      "values": [
+        {
+          "name": "way",
+          "items": [
+            "Draw with guidelines"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    }
+  },
+  "waysSlot": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "List the ways to try",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each way in {ways}",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "{way}",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note how {way} went",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick the one to keep",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "For each way",
+      "step": "step",
+      "words": "{way}",
+      "parts": [
+        {
+          "kind": "value",
+          "name": "way",
+          "text": "Draw with guidelines: proportions held, slower"
+        }
+      ],
+      "fields": [],
+      "values": [
+        {
+          "name": "ways",
+          "items": [
+            "Draw with guidelines: proportions held, slower",
+            "Freehand"
+          ]
+        },
+        {
+          "name": "way",
+          "items": [
+            "Draw with guidelines: proportions held, slower"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": false,
+        "stepOut": {
+          "name": "For each way"
+        }
+      },
+      "next": "next"
+    }
+  },
+  "waysNote": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "List the ways to try",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each way in {ways}",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "{way}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Note how {way} went",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick the one to keep",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "For each way",
+      "step": "step",
+      "words": "Note how {way} went",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Note how "
+        },
+        {
+          "kind": "value",
+          "name": "way",
+          "text": "Draw with guidelines: proportions held, slower"
+        },
+        {
+          "kind": "text",
+          "text": " went"
+        }
+      ],
+      "fields": [],
+      "values": [
+        {
+          "name": "ways",
+          "items": [
+            "Draw with guidelines: proportions held, slower",
+            "Freehand"
+          ]
+        },
+        {
+          "name": "way",
+          "items": [
+            "Draw with guidelines: proportions held, slower"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": false,
+        "stepOut": {
+          "name": "For each way"
+        }
+      },
+      "next": "next"
+    }
+  }
+}
