@@ -1,9 +1,9 @@
 # B-16 — Amendment to P-98 and P-99: order is dependency, and a for each whose list can grow
 
-**Status:** rewritten 2026-11-27 as an amendment, for the owner (asked for: "Yes, write it up as the
-amendment") · **Decision:** D-23, which was a go on this brief's earlier model and needs restating ·
-**Theme:** Reuse; Written by running · **Amends:** P-98 (routines as steps, for each), P-99 (In any
-order) · **Leaves as queued:** the order P-98 → P-99 → P-100
+**Status:** go (owner, 2026-11-27: "Go on the amendment, P-98 follows P-97 directly") · **Decision:**
+D-23, restated: P-98 and P-99 are built in the queued order with the additions below, and P-98 follows
+P-97 without a week's wait · **Theme:** Reuse; Written by running · **Amends:** P-98 (routines as
+steps, for each), P-99 (In any order) · **Order:** P-97 → P-98 → P-99 → P-100
 
 _The first version of this brief (2026-11-26) proposed "open items" kept beside a routine's steps,
 picked through a sheet, with Cleared and Drop. The owner found that model off, and the conversation
@@ -59,9 +59,10 @@ and lets it be kept. It is still one construct.
 
 - **A for each ends when no item is left.** One that never gets an addition ends as P-98 says. One
   that keeps getting additions keeps going. Step out leaves it early.
-- **Adding to a list is offered by structure.** In Plan, a step's Gives… offers "adds to {gaps}" only
-  when the step stands inside a for each over `{gaps}`, so it cannot point at a list that is not there
-  (owner, 2026-11-26: "structurally enforce correctness").
+- **Adding to a list is offered by structure.** In Plan, a step's Gives… offers "adds to <list>" for
+  the lists it can see: those given or kept at its own level or a level above it, the same reach names
+  already have. It cannot point at a list that is not there (owner, 2026-11-26: "structurally enforce
+  correctness").
 - **A kept item leaves the list when its turn is done,** and is kept as a record (stored data is never
   deleted). Removing one without doing it is a Plan edit, with Undo.
 - **Running adds work; planning adds structure.** A running step can add an item. A new part, a new
@@ -118,6 +119,26 @@ Become a better drawer
 "I want to learn how to draw cartoons too" is + Add on subjects. A different kind of work with its own
 processing is a second part with its own list and method (P-99), each keeping its own place.
 
+**From one part to another** — the owner (2026-11-27): "threads can produce values that can be little
+tasks that can be pushed in other threads, like inter-thread communication … a prompt in my studies …
+makes me realize, 'Oh, I should really practice this,' but practice is its own thread."
+```
+Become a better drawer
+  subjects:  arms · legs · eyes                    + Add      ← kept at the level above both parts
+  In any order
+    Practise
+      For each subject
+        Deliberate practice · with {subject}
+    Study
+      For each topic:  colour theory
+        Find a guide or video on {topic}
+        Note what to practise from it              adds to subjects
+```
+Parts never reach into each other. The list is held one level up, where both can see it: Study adds to
+it, Practise runs over it. Which model to use follows from rule 1: if the practice must be finished
+before the study carries on, it is a step in Study's own sequence (Practise called there); if not, it
+is an item added to the list of the part that does that work.
+
 **When a surprise has no step yet:** the method gains the asking step in Plan, once. Every later run
 asks by itself. This is how a method is sharpened by running it.
 
@@ -128,7 +149,8 @@ asks by itself. This is how a method is sharpened by running it.
 - A for each can run over a list kept in the routine: its items are rows under the block in Plan, with
   + Add there and on the routine's tile; items survive runs, reload, export and import; a finished item
   leaves the list and is kept as a record.
-- Gives… offers "adds to <list>" only inside a for each over that list.
+- Gives… offers "adds to <list>" for lists at the step's own level or above; a kept list can be held
+  at the routine's level, outside the for each that runs over it, so another part can add to it.
 
 **P-99**
 - An In any order block inside a for each keeps each part's place per item.
@@ -194,7 +216,5 @@ Today's app can run one gap per round:
 ```
 Leave with Step out when the attempt works.
 
-## Decision requested
-*Restate D-23 as: P-98 and P-99 are built in the queued order with the additions above; this brief has
-no slices of its own.* **Go** / **Go, but change …** / **Not now**. Whether P-98 follows P-97 directly
-or waits for a week of use is still the owner's to say (D-23 recorded "after a week of real use").
+## Decision
+Answered 2026-11-27 by the owner: **go**, and P-98 follows P-97 directly.
