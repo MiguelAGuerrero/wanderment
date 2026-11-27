@@ -33,9 +33,12 @@ Everything you need to decide alone is in the docs below; everything you decide,
 5. `docs/product/briefs/`, `docs/product/discovery/`: big-feature proposals and earlier research.
    **`B-11-context-stacks.md` (with its journeys and capabilities) is the design being built.** Its
    §9b and §9c override its earlier sections; the owner's notes override all of it; items it marks
-   *(proposed)* are a designer's, not the owner's decision. Briefs B-01 to B-10 and the discovery
+   *(proposed)* are a designer's, not the owner's decision. Briefs numbered after B-11 extend or
+   revise it: read each one's **Status** line, and treat only what a decision answered *go* as
+   approved (a draft, or a brief marked superseded, is not). Briefs B-01 to B-10 and the discovery
    files dated before 2026-11-24 are about the retired app (Wanderment) and are history.
-6. `docs/product/PERSONAS.md`: the persona panel for decisions that change the app's shape (Step D2).
+6. `docs/product/PERSONAS.md`: the persona panel for decisions that change the app's shape (Step D,
+   *Persona panel*).
 
 Run state lives in `.polish/product/run.md` (git-ignored). Create it at the start of the run, and
 update it at every step: cycle number, what was chosen and why, what's in flight, and decisions
@@ -49,7 +52,7 @@ asked. A fresh session resumes from it.
 | a note or idea | First record it in `owner-notes.md` (owner's words, then your interpretation). Shape it: small → a roadmap item, built this run; big → a brief, then ask. Then continue as an autonomous run. |
 | `discover <topic>` | Discovery only (Step C below). Ends with roadmap items and/or briefs, and asks if something is a hit. |
 | `brief <idea>` | Write a brief (Step D) and ask for the decision. |
-| `go B-##` | The owner approved a brief: slice it into roadmap items (Step D, *go*) and build the first slice. Then continue as an autonomous run. |
+| `go B-##` | The owner approved a brief: slice it into roadmap items (Step D, *On go*) and build the first slice. Then continue as an autonomous run. |
 | `cycles=N` | Changes the cycle cap (default **3**) for this run. |
 
 ## Big or small: decide by this rule, and write down which clause applied
@@ -64,7 +67,8 @@ A change is **big** if any of these is true:
 - it's size L, or more than about a day of careful human work.
 
 Everything else is **small**. Small ships autonomously; big gets a brief and waits for the owner's
-*go*. When unsure, it's big.
+*go*. When unsure, it's big. `docs/product/briefs/README.md` carries the same list for the scouts;
+if you change one, change the other.
 
 ## The cycle
 
@@ -78,11 +82,13 @@ Everything else is **small**. Small ships autonomously; big gets a brief and wai
 ### B. Choose the next increment
 Take the first of these that exists (Grow lane only: items tagged `[feature]`, briefs, owner ideas):
 1. **Breakage or data risk**: a red CI run, or a data-loss item. Run a Full-tier batch for it.
-2. **An approved brief**: a decision answered *go* (or *go with changes*). Slice it (Step D, *go*),
+2. **An approved brief**: a decision answered *go* (or *go with changes*). Slice it (Step D, *On go*),
    then build its next unbuilt slice (Step E). **Build the slice the owner will see first** (the
-   decision's headline outcome, e.g. "home is tiles" for "home asks first") before groundwork
-   they won't notice, unless the headline needs that groundwork to exist; then say so in the report.
-   (Owner, 2026-11-22: "I refresh the app. It still looks like the same one.")
+   decision's headline outcome: the screen or behaviour they said *go* to, not the stored field
+   or refactor behind it) before groundwork they won't notice, unless the headline needs that
+   groundwork to exist; then say so in the report. A run that lands only groundwork looks, to the
+   owner, like nothing happened (2026-11-22: "I refresh the app. It still looks like the same
+   one.").
 3. **Owner-driven work**: anything new from the owner (this run's argument, new notes, or Inbox
    entries that became items).
 4. **The top of Now's `[feature]` items** → Step E (skip `blocked` ones). Non-`[feature]` items
@@ -113,19 +119,32 @@ ask (Step G).
 **Writing a brief:**
 1. Copy `docs/product/briefs/TEMPLATE.md` to `B-##-name.md` (next free number).
 2. Fill it from owner notes, discovery and a scout look at the current app.
-3. Run the persona panel on it (Step D2) and write the synthesis into the brief's "Persona panel"
-   section. Fold refinements that fit DESIGN.md into the brief, and keep the rest as options.
-4. Add a `D-##` entry under *Decisions needed 🙋* that links it, with the question and the
-   recommended answer, informed by the panel.
-5. Commit it with the cycle's landing. If nothing else is landing, land it on its own via the
+3. If it changes layout, navigation or gestures, run the UI audit on its mockups (below).
+4. If it changes the app's shape, run the persona panel on it (below) and write the synthesis into
+   the brief's "Persona panel" section. Fold refinements that fit DESIGN.md into the brief, and
+   keep the rest as options.
+5. Add a `D-##` entry under *Decisions needed 🙋* that links it, with the question and the
+   recommended answer, informed by the panel when one ran.
+6. Commit it with the cycle's landing. If nothing else is landing, land it on its own via the
    polish scripts.
 
-### D1. UI audit of the design (any brief or slice that changes layout, navigation or gestures)
+**On *go*:**
+1. Set the brief's status to `building`.
+2. Turn each slice into a roadmap item: `P-##`, tags including `[feature]`, *Done when* copied from
+   the slice, `*Status:* todo`.
+3. Put the first slice at the top of Now and the rest in Next, in order.
+4. Note "D-## → go, P-##…" in the decision entry.
+5. A *go with changes* answer goes into the brief first.
+
+**On *not now* / *no*:** set the brief's status, keep it, and record the reason in the decision entry
+and in `owner-notes.md`.
+
+**UI audit of the design** (any brief or slice that changes layout, navigation or gestures):
 Before asking for a decision on a UI-changing brief, and before building any UI-changing slice, run
 polish's **UI audit before UI changes** on the mockups (owner, 2026-11-24: the home "drifted").
 Fold its fits-DESIGN.md findings into the brief and mockups; put the rest in the decision question.
 
-### D2. Persona panel (decisions that change the app's shape)
+**Persona panel** (decisions that change the app's shape):
 Run it only when a decision changes **how the app works**: a new model concept (like blanks or
 reactions), a change to the runner or the verbs, a new primary screen, or a DESIGN.md/STRATEGY.md tension. Ordinary
 features and briefs that stay inside the current shape skip it (owner, 2026-11-22). When unsure,
@@ -133,10 +152,9 @@ ask the owner in the decision question whether they want a panel. If
 answering quickly is clearly better than waiting, ask first and run the panel right after, then
 show the owner anything that would change their answer.
 
-1. Read the opening note of `docs/product/PERSONAS.md`: the roster was written for the retired app
-   and some personas are not this app's audience, so they are stress tests, not the audience. Split
-   the roster (except P0, the owner) into 2–3 groups. Each group
-   mixes clusters that disagree, e.g. {Dabbler, Builder}, {Returner, Minimalist}, {Meaning-Seeker,
+1. Read the opening note of `docs/product/PERSONAS.md`: the roster is used as stress tests, not as
+   this app's audience. Split the roster (except P0, the owner) into 2–3 groups. Each group mixes
+   clusters that disagree, e.g. {Dabbler, Builder}, {Returner, Minimalist}, {Meaning-Seeker,
    Assistive-Tech}.
 2. Launch one `persona-panelist` per group, **in one message**, each with `panel-brief.md` filled
    in and output to `.polish/product/panel-B-##-<n>.md`. Give them the brief, plus screenshots of
@@ -154,30 +172,17 @@ show the owner anything that would change their answer.
 The panel informs the decision; it never makes it. A refinement that changes what the owner asked
 for is offered as an option, not applied.
 
-**On *go*:**
-1. Set the brief's status to `building`.
-2. Turn each slice into a roadmap item: `P-##`, tags including `[feature]`, *Done when* copied from
-   the slice, `*Status:* todo`.
-3. Put the first slice at the top of Now and the rest in Next, in order.
-4. Note "D-## → go, P-##…" in the decision entry.
-5. A *go with changes* answer goes into the brief first.
-
-**On *not now* / *no*:** set the brief's status, keep it, and record the reason in the decision entry
-and in `owner-notes.md`.
-
 ### E. Build the feature
 1. **Neighbours.** Only something that **blocks** the feature is fixed in the same batch (as a
    Light-tier item). Rough spots that merely drag become Inbox notes for `/polish`; don't fix them.
    The builder notes them.
 2. **Build.** Read `.claude/skills/polish/SKILL.md` and run Phases 0 and 3–7 with these items, at
    the tier the rigor table gives (Light unless stored data or storage is touched). Builders for
-   disjoint slices run in parallel worktrees. Its Phase 4 owner check is where any product question
-   in the batch goes. Answer implementation questions yourself. Follow polish's **Testing order**:
+   disjoint slices run in parallel worktrees. On Full tier, its Phase 4 owner check is where any product
+   question in the batch goes. Answer implementation questions yourself. Follow polish's **Testing order**:
    test-first with unit tests while building every slice in the run; any audit or panel works from
    the built app; the e2e and regression run happens once, after everything this run will land is
    built (owner, 2026-11-24).
-3. Build the slice the owner will **see** first; groundwork only when the visible slice can't exist
-   without it.
 3. After landing, mark the item's brief slice as shipped. When all slices have shipped, set the
    brief to `shipped`. Add an `owner-notes.md` line under *Led to* if a note started it.
 
@@ -207,7 +212,7 @@ Then:
      refinement). The full panel is in the brief.
 
    The run pauses until they answer; that's intended.
-3. Record the answer in the D-## entry and in `owner-notes.md`. Act on it (Step D *go*, or record
+3. Record the answer in the D-## entry and in `owner-notes.md`. Act on it (Step D, *On go*, or record
    *not now*), then continue the run if cycles remain.
 
 Don't ask about anything else: implementation, ordering within a theme, wording, test design. Decide

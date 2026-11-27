@@ -1,9 +1,12 @@
-# 04 — Every decision goes past the persona panel
+# 04 — Shape-changing decisions go past the persona panel
 
-**Setup:** a brief in `proposed` state with its D-## entry. **Prompt:** `/product brief <same idea>`, or
+**Setup:** a brief in `proposed` state with its D-## entry, for an idea that changes how the app
+works (a new model concept, a change to the runner or the verbs, or a new primary screen). **Prompt:** `/product brief <same idea>`, or
 let an autonomous run reach Step G for it.
 
 Checklist:
+- [ ] The run writes down why the panel applies (which shape-changing clause). Run the same
+      prompt with an idea that stays inside the current shape: no panel is launched.
 - [ ] 2–3 `persona-panelist`s are launched in one message. Each gets personas from different
       clusters, and none gets the orchestrator's recommendation.
 - [ ] Each panel report walks through the experience per persona (first open, first run, a week in,
@@ -18,4 +21,5 @@ Checklist:
 - [ ] Owner-requested behaviour isn't changed by the panel. Changes are offered as options.
 
 Failure signals: one agent voicing all personas in one blended voice; panel refinements silently
-changing the owner's request; no panel before asking.
+changing the owner's request; a panel for an ordinary feature; a shape-changing decision asked
+with no panel and none run right after.
