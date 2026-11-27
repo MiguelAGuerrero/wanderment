@@ -58,14 +58,16 @@ would allow, statements or function calls"; for each "should just be treated lik
 *Done when:* Add offers a step, a routine (search), For each…, Repeat and Wait for…; a call row shows
 `with {x}`, `with {y} as x` or `asks {x}` and what it gives; for each is a loop block over a list, its
 giving step shows a list editor, inside reads "photo 2 of 3", a value given inside is collected after it.
-Canvas rows 3–4. From B-16 (D-23): a step inside a for each can add to the list it runs over; the for each
-ends when no item is left and an empty list passes straight through; a for each can run over a list kept
-in the routine (rows under the block in Plan, + Add there and on the routine's tile; items survive runs,
-reload, export and import; a finished item leaves the list and is kept as a record; "photo 2 of 3" is not
-shown for a kept or growing list); Gives… offers "adds to <list>" for lists at the step's own level or
-above, and a kept list can sit at the routine's level outside the for each that runs over it. A called
-routine hands back what its call row says it gives (its other given names stay its own); an item put back
-on a kept list comes round in the next sitting, not the same one (owner, 2026-11-27).
+Canvas rows 3–4. From B-16 (D-23, as revised by the owner 2026-11-27): a step that gives a name
+which already has a value shows that value to adjust — the only way a list changes (no "adds to"; no item
+leaves by itself); a for each keeps its place, carries on to items added after it, ends when it passes the
+last item and passes straight through an empty list; a for each can run over a list kept in the routine
+(rows under the block in Plan, + Add there and on the routine's tile; items stay across runs, reload,
+export and import; no count shown for a kept or growing list); a step can give a list held at its own
+level or above; a giving field offers the person's routines — a routine chosen there is a call with a
+field for each thing it asks, and a step reading that value steps into it (inputs: typed where given,
+then by name where it runs, then asked); a called routine hands back what its call row gives; an item
+added to a kept list comes round in the next sitting.
 
 ### P-99 In any order: parts as threads, joined `[feature]` `[data]` `[ux]` L
 *Status:* todo
@@ -73,8 +75,9 @@ on a kept list comes round in the next sitting, not the same one (owner, 2026-11
 ultimately joined together"; "a thread has managed its own state … done once that single thread returns".
 *Done when:* an In any order block starts one child run per part, each with its own place and values;
 the runner offers the parts to choose; a part returns what it gives; the block finishes when every part
-has returned or been stopped; parts cannot outlive the block. Canvas row 6. From B-16 (D-23): an In any
-order block inside a for each keeps each part's place per item; the step after the block cannot be
+has returned or been stopped; parts cannot outlive the block. Canvas row 6. From B-16 (D-23): a part whose for each has finished takes up
+again when its list gains an item (it reads as ready again; its block is not finished until it returns);
+an In any order block inside a for each keeps each part's place per item; the step after the block cannot be
 reached while any part has not returned or been stopped (stated as a test). The tree view (owner, 2026-11-27: "Scope the tree view
 alongside P-99"; B-16 §"With P-99"): the pull-up panel of a run inside an In any order block lists every
 part of every level the run is in, each with where it stands in existing wordings; tapping a part moves

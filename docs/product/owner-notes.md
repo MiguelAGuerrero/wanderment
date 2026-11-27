@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — Lists change by being given again; a value can be a routine; finished parts take up again (relayed)
+"Right now, I don't think there are any mutations or writes that steps perform, so the only way we keep
+state is if a routine steps forward. And somehow, we can overwrite the value presented, so there might be
+a step that asks to adjust the list. Like a review step." "The ability to supply a routine as an output
+would make sense, so long as we have the capability to support that output as a function call and not
+necessarily a string to be interpolated. We just have to be considerate about whether that routine is
+given all the values it needs in the context of where it's called." "Yes, a finished part takes up again
+when its list changes." (A step writing to the Pause note: withdrawn by the owner.)
+Interpretation (the second session's, adopted): see B-16 "What P-98 and P-99 gain".
+Led to: P-98 and P-99 Done when rewritten from B-16.
+
 ## 2026-11-27 — One exhaustive adversarial UI audit against established practice, after this batch
 "At the end of the [batch], I want to perform one adversarial UI audit that tests the UI against
 established practices on where typical navigation, buttons, controls, use of menus, dialogues, drawers,

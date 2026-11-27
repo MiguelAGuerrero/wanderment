@@ -47,26 +47,60 @@ sequence and nesting. None of these words is shown in the app.
 
 A routine written to these rules composes without the person tracking what waits on what.
 
-## The one addition: a for each whose list can grow
-P-98's for each runs over a list a step gave earlier in the run. This amendment lets that list grow,
-and lets it be kept. It is still one construct.
+## The additions: a list that can change, and a value that is a routine
+P-98's for each runs over a list a step gave earlier in the run. Two things are added. Both are still
+"gives".
 
-| | Where the list lives | How things get into it |
-|---|---|---|
-| **Given** (P-98 as designed) | The run; a new round asks again | The giving step's list editor |
-| **Grows** (new) | The same | A step inside the for each **adds to** the list it runs over |
-| **Kept** (new) | The routine, across runs | Rows under the block in Plan; **+ Add** there and on the routine's tile; a step inside that adds to it |
+### A list is changed by giving it again
+The owner (2026-11-27): "Right now, I don't think there are any mutations or writes that steps perform,
+so the only way we keep state is if a routine steps forward. And somehow, we can overwrite the value
+presented, so there might be a step that asks to adjust the list. Like a review step." Taken as the
+rule, in place of this brief's earlier "adds to" and of items leaving by themselves:
 
-- **A for each ends when no item is left.** One that never gets an addition ends as P-98 says. One
-  that keeps getting additions keeps going. Step out leaves it early.
-- **Adding to a list is offered by structure.** In Plan, a step's Gives… offers "adds to <list>" for
-  the lists it can see: those given or kept at its own level or a level above it, the same reach names
-  already have. It cannot point at a list that is not there (owner, 2026-11-26: "structurally enforce
-  correctness").
-- **A kept item leaves the list when its turn is done,** and is kept as a record (stored data is never
-  deleted). Removing one without doing it is a Plan edit, with Undo.
-- **Running adds work; planning adds structure.** A running step can add an item. A new part, a new
-  list or a new method is added in Plan.
+- **A step that gives a name which already has a value is shown that value to adjust**: add, remove,
+  reword. That one mechanism is how a list grows, is thinned and is reviewed. Steps write nothing else.
+- **Running over a list does not use it up.** A for each keeps its place; items stay unless the person
+  removes them.
+- **A for each ends when it passes the last item.** Items added while it runs stand after its place, so
+  it carries on to them; a round in which nothing is added is the last.
+- **A list can be kept in the routine**, across runs: its items are rows under the for each in Plan,
+  with **+ Add** there and on the routine's tile. Because items stay, a kept list suits standing sets
+  ("the subjects I practise") as well as work.
+- **The cost, accepted for now:** a one-off item does not leave when it is done; it stays until a step
+  that adjusts the list, and comes round again on the next run if it was not removed. If that proves a
+  chore in use, "done items leave" can become a choice on the for each without changing the model.
+- **Reach.** A step can give a list held at its own level or a level above it, the reach names already
+  have, so one part can adjust a list another part runs over.
+- **When an adjusted item comes round:** in the next sitting, not the same one (owner, 2026-11-27: "the
+  next"), for a kept list whose for each has already passed it.
+- **Running adds work; planning adds structure.** A running step can change a list's items. A new
+  part, a new list or a new method is added in Plan.
+
+### A value can be a routine, and then it is a call
+The owner (2026-11-27): "The ability to supply a routine as an output would make sense, so long as we
+have the capability to support that output as a function call and not necessarily a string to be
+interpolated. We just have to be considerate about whether that routine is given all the values it
+needs in the context of where it's called … if I'm in a routine and I'm doing research … and all of a
+sudden I need to research an additional question, I would want that step to allow me to specify a
+research task. I provide the inputs into the routine for research, and it [queues] it onto the thread."
+
+- **Giving a routine.** In a giving field, the person's routines are offered as they type. Plain words
+  stay words. A routine that is chosen is a call, not text.
+- **Its inputs are filled where it is given.** Choosing a routine shows what it asks, one field each
+  ("question"). What is typed there travels with the call.
+- **Where each input comes from, in this order:** what was typed when the call was given; then a name
+  of the same spelling visible where it runs (the by-name passing already decided on 2026-11-26); then
+  it asks when run. So a call can never be missing an input: the worst case is that it asks.
+- **Running it.** A step that reads the value ("Do {task}") is a call when the value is a routine:
+  Step in works, the path shows it, and it returns what its call row says it gives. When the value is
+  words, the step reads as words, as today.
+- **What a caller can rely on.** Plan can only show what a call gives when it knows which routine it
+  is. So where the kind of work is known, write the call in the routine
+  (`For each {question}: Research a question · with {question}`, plain P-98) and later steps can read
+  its results by name. A routine given as a value is for when the kind of work is not known until the
+  moment; what it gives is seen in the trace, and a later step that needs it asks.
+- **One-off work is a value.** A chore that arises inside a larger aim is words given at a step and
+  done at the next; it needs no queue of its own.
 
 ## The patterns (discipline, not features)
 The owner's reading, taken here: the loop that comes round until nothing more is given **is** a for
@@ -98,9 +132,9 @@ Line art, until it works
       Practise · with {gap}
       Study · with {gap}
     Attempt the line art for {piece}
-    List what else stopped you               adds to {gaps}
+    Adjust the list: what else stopped you   gives {gaps}
 ```
-Each gap is worked, the attempt is made again, and anything new joins the same list. The for each
+Each gap is worked, the attempt is made again, and the list is shown again to adjust. The for each
 ends on the attempt after which nothing is added. No Jump to, no stepping back, no edit mid-run.
 
 **Work nothing is waiting on** — a kept list, added to from inside and outside:
@@ -110,7 +144,7 @@ Become a better drawer
     Practise
       For each subject:  arms · legs · eyes        + Add
         Deliberate practice · with {subject}
-        Reflect on other areas to improve          adds to subjects
+        Adjust the subjects: what else to improve  gives subjects
     Study
       For each topic:  colour theory               + Add
         Find a guide or video on {topic}
@@ -132,27 +166,56 @@ Become a better drawer
     Study
       For each topic:  colour theory
         Find a guide or video on {topic}
-        Note what to practise from it              adds to subjects
+        Adjust the subjects from what you read     gives subjects
 ```
-Parts never reach into each other. The list is held one level up, where both can see it: Study adds to
-it, Practise runs over it. Which model to use follows from rule 1: if the practice must be finished
+Parts never reach into each other. The list is held one level up, where both can see it: Study
+adjusts it, Practise runs over it. Which model to use follows from rule 1: if the practice must be finished
 before the study carries on, it is a step in Study's own sequence (Practise called there); if not, it
 is an item added to the list of the part that does that work.
+
+**Work it out as you go** — the owner: "a step can produce another step … That would recursively keep
+prompting for next steps until you eventually supply a routine that's sufficient enough to be
+long-standing, or reference another routine that actually is the work to be done."
+```
+Work it out as you go                                asks {aim}
+  List the first steps toward {aim}                  gives {steps}
+  For each {step}
+    Do {step}
+    Adjust the list: what does that make possible    gives {steps}
+```
+A step typed as words is a one-off. A step given as a routine is stepped into, with its inputs filled
+where it was given. The for each ends on the round in which nothing is added. In today's app the same
+shape is "Repeat from here" above "Name the next small step · gives {next}" and "Do {next}".
+
+**A further question, mid-research** (the owner's example):
+```
+  For each {question}
+    Research a question · with {question}
+    Adjust the list: what else needs answering       gives {questions}
+```
+The kind of work is known, so the call is written in the routine and its results can be read by name.
 
 **When a surprise has no step yet:** the method gains the asking step in Plan, once. Every later run
 asks by itself. This is how a method is sharpened by running it.
 
 ## What P-98 and P-99 gain (to add to their *Done when*)
 **P-98**
-- A step inside a for each can add to the list that for each runs over; the for each ends when no item
-  is left; an empty list passes straight through.
-- A for each can run over a list kept in the routine: its items are rows under the block in Plan, with
-  + Add there and on the routine's tile; items survive runs, reload, export and import; a finished item
-  leaves the list and is kept as a record.
-- Gives… offers "adds to <list>" for lists at the step's own level or above; a kept list can be held
-  at the routine's level, outside the for each that runs over it, so another part can add to it.
+- A step that gives a name which already has a value shows that value to adjust; this is the only way
+  a list changes. No "adds to", and no item leaves by itself.
+- A for each keeps its place, carries on to items added after it, ends when it passes the last item,
+  and passes straight through an empty list.
+- A for each can run over a list kept in the routine: rows under the block in Plan, + Add there and on
+  the routine's tile; items stay across runs, reload, export and import.
+- A step can give a list held at its own level or above, so one part can adjust a list another runs
+  over.
+- A giving field offers the person's routines; a routine chosen there is a call, with a field for each
+  thing it asks; a step reading that value steps into it. Inputs resolve: typed where given, then by
+  name where it runs, then asked.
 
 **P-99**
+- A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:
+  "Yes, a finished part takes up again when its list changes"): it reads as ready again, at that
+  item, and a block it belongs to is no longer finished until it returns.
 - An In any order block inside a for each keeps each part's place per item.
 - Stated as a test: the step after the block cannot be reached while any part has not returned or been
   stopped.
@@ -219,7 +282,7 @@ reordering or editing from the view; history of past runs (Looking back).
   inside a for each is context for a list the person just gave; for a kept or growing list the "of 3"
   would read as how much is left, so it is left out there.
 - **"Never shown as words":** thread, queue, join and the rest stay out of the app. On screen: For
-  each, In any order, gives, adds to, asks.
+  each, In any order, gives, asks.
 - **"The runner is the step and nothing else"** is untouched: nothing here adds to the runner.
 
 ## What is withdrawn from the first version
@@ -230,10 +293,10 @@ Open items beside the steps; picking in a sheet; Cleared and Drop; an item "for"
 The panel (2026-11-27; `.polish/product/panel-B-16-1.md`, `-2.md`, local) read the first version.
 Simulated perspectives, not user research. Most of what it found were symptoms of the model that is
 now withdrawn. Three findings still apply:
-- **A list that only grows is the backlog risk.** Here an item leaves by being done on the main path,
-  which the panel asked for. A kept list can still outgrow the person; removing an item must stay one
-  Plan edit with Undo, and nothing may count the list.
-- **Long text.** An item is one line; a paragraph typed into "adds to" must wrap and never be clipped.
+- **A list that only grows is the backlog risk.** Items now stay until removed, so this risk is
+  larger than before: a step that adjusts the list must be part of every pattern that grows one, and
+  nothing may count the list.
+- **Long text.** An item is one line; a paragraph typed into a list must wrap and never be clipped.
   One seeded case in P-98.
 - **Screen readers.** A list that changes while it is being run needs the addition spoken, and focus
   that does not move.
@@ -243,8 +306,10 @@ A new panel is not asked for: this amendment stays inside the shape D-22 and the
 - A kept list is a new stored field on a routine, carried by the journal, export, import and its
   preview, and the golden fixtures (Full tier, inside P-98).
 - A for each that grows without end: the person can always Step out; nothing runs by itself.
-- A kept list shared by two open runs of one routine: an item taken in one run is not offered in the
-  other. To be settled in P-98's contract.
+- A kept list shared by two open runs of one routine: each run keeps its own place over the same
+  items, and an adjustment made in one is seen by the other. To be settled in P-98's contract.
+- A value that is a routine is a new kind of stored value (a reference and its typed inputs), carried
+  by every storage path; a routine that is later removed leaves the value reading as its words.
 
 ## Alternatives considered
 - **The first version** (open items, links, Blocked by…): a dependency graph kept by hand. Withdrawn.
