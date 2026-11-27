@@ -21,6 +21,21 @@ unclear as to what I was doing", while "at a point of finality … the context s
 it should be "natural language and conversational", with the input framed as "a task, a goal, or an
 ambition, or a question to answer"; committed at once or held until kept: "Investigate both."
 
+**The owner's response to the main finding (2026-11-27):** "the fact that a lot of the processes that goes
+into natural language don't map cleanly into the constructs, I think, is even a bigger reason to develop
+that, because we're supposed to make these complex structures from simple asks, like what does done look
+like might be a routine that's reasonably complicated to produce, but is afforded to the user as
+something simple."
+
+_Reading (ours):_ the unclean mapping is not a reason against a composer; it is the reason one would be
+needed, since where the mapping is clean Plan already suffices. What the finding constrains is how: a
+composer cannot be a thin relabelling of Plan's choices. Each construct needs its own authored sequence
+of plain questions that settles which meaning is intended ("do you know all of them now, or will you
+find them as you go?"), and that sequence is itself a routine: complicated to write once, simple to be
+asked. The library already has one example, "Say what done is". This points at the report's fifth
+shape (the interview as a routine) and at one capability nothing yet has: a routine whose answers
+produce a routine. Still an investigation; nothing is drafted.
+
 ## 1. The pain point, restated
 
 Writing a routine today starts with a name field and then a blank Plan. To get from "get better at
