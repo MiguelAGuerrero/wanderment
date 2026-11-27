@@ -235,8 +235,8 @@ name asks for it in place, far from where it was made.
     the big text. Maybe at most 16 pixels. And this could be a responsive thing. As you include more
     and more steps, the view shrinks in a way where it's compact but doesn't lose visual
     information.") One sheet; each step a row at 16 px; a field on one line beside its name; thin
-    rules between rows. As rows are added the spacing and the fields' height tighten in steps; the
-    text stays 16 px, which is also DESIGN.md's floor for body text. A list longer than the screen
+    rules between rows. As rows are added the spacing tightens in steps, never taking a field or a
+    control under 48 px; the text stays 16 px, which is also DESIGN.md's floor for body text. A list longer than the screen
     scrolls.
   - A shown step that has insides (a step broken down, a called routine, a turn of a loop) can be
     opened in place to show its smaller steps. Several levels opened read as an outline.
@@ -253,9 +253,10 @@ name asks for it in place, far from where it was made.
   look alike" still holds: an outline on the runner is read and passed over, never edited, and must
   keep the runner's look. The pull-up panel's "then: <next step>" and Jump to… already show and move
   to later steps; this brings the same two things onto the step itself.
-  *(Designer's rulings: three steps of tightening, by the number of rows; at the tightest the
-  fields and the Open control are 32 px tall, under DESIGN.md's 48 px for targets, which needs the
-  owner's word or a looser floor; the button reads "See ahead" and sits in the bottom bar; the view stays on
+  **Targets stay at 48 px** (owner, 2026-11-27: "Let's have it though the list stops tightening and
+  just allow a scroll at that point"): the list tightens only as far as a 48 px field and control
+  allow, and after that it scrolls. DESIGN.md gets no exception.
+  *(Designer's rulings: tightening is by the number of rows; the button reads "See ahead" and sits in the bottom bar; the view stays on
   after Next until turned off; the chunk resets after Next; a turn's end extends into the next turn; under
   P-110's "only steps above the place hold values", what a passed chunk gave stays because the place
   is then below it.)*
