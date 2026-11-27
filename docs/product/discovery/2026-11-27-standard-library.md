@@ -73,7 +73,7 @@ further down are kept for their sources and evidence; **the routines in them are
 ones here.**
 
 1. **Core functions (7).** General and callable by themselves. No kept list, no wait.
-2. **Named methods (12).** Thin wrappers that set the condition a research finding depends on and then
+2. **Named methods (13).** Thin wrappers that set the condition a research finding depends on and then
    call the core, plus five methods that are their own thing.
 3. **Templates (5).** Copied per aim; they hold the kept lists and call methods and core.
 
@@ -252,6 +252,22 @@ Compare two cases                                         asks {cases} · gives 
   List what they share, before any difference             gives {shared}
   State the one idea that explains {shared}               gives {principle}
 ```
+**From the owner's own use** (a drawing session, 2026-11-27: trying a technique with and without
+guidelines, "you're in an experimental phase, you're trying to just answer this question, and this all
+gets joined to the result that decides how I want to use a specific function"):
+```
+Try it more than one way                                  asks {question}, {ways} · gives {choice}
+  Say what done is · with {question} as work
+  For each {way}
+    Do it this way: {way}
+    Mark the way with what it showed, against {standard}  gives {ways}
+  Choose · with {ways} as options, {standard} as tests
+```
+`{ways}` holds routines (variants made with Copy), so "Do it this way" steps into each; each is marked
+with what it showed, in words beside its name; `{choice}` comes back as the routine chosen, and the
+caller's later steps apply it ("Do {choice}"). It is the first library method that came from use and
+not from the literature.
+
 "Set a cue to start" was "An if-then plan"; the cue is a situation, never a clock time, and the app
 does nothing at it. "Come back to it" (spaced recall) is no longer a method: a method keeps no list.
 It is a For each over a kept list in the person's own routine that calls "Recall before you look"

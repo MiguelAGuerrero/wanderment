@@ -99,6 +99,18 @@ research task. I provide the inputs into the routine for research, and it [queue
   (`For each {question}: Research a question · with {question}`, plain P-98) and later steps can read
   its results by name. A routine given as a value is for when the kind of work is not known until the
   moment; what it gives is seen in the trace, and a later step that needs it asks.
+- **By reference.** The owner (2026-11-27): "A way, in this sense, is actually a routine, not text. So
+  the ability to reference other routines by reference and have its value be slotted where it's
+  required … if a routine [returns] another routine, we should be able to execute on that routine as
+  part of the sequence of instructions that a thread has … It's like returning functions from
+  functions." A value that is a routine holds the routine itself, not a copy of its steps: if the
+  routine is changed in Plan, every value that names it follows.
+- **A routine can give a routine.** What a call row gives may be a routine. The caller's later step
+  that reads the name ("Do {choice}") steps into it, in the caller's own sequence, like any call.
+- **A list can hold routines.** A for each over such a list calls each in turn.
+- **An item can carry words beside it.** A list item is words, or a routine with words after its
+  name ("Draw with guidelines: proportions held, slower"). Marking an item in a step that adjusts the
+  list adds to those words and leaves the routine as it is. *(Designer's ruling.)*
 - **One-off work is a value.** A chore that arises inside a larger aim is words given at a step and
   done at the next; it needs no queue of its own.
 
@@ -309,6 +321,12 @@ asks by itself. This is how a method is sharpened by running it.
 
 - What calls give under one name in the same routine is collected into one list under that name, in
   the order given; nothing is renamed at a call.
+
+- A value that is a routine holds it by reference; a call row may give a routine; a list may hold
+  routines, each optionally with words beside it; a step that reads such a value steps into it.
+- **Copy** (DESIGN.md: "to vary, copy"; from the owner's real use, 2026-11-27: "there wasn't any idea
+  of keeping multiple implementations of one function"): a routine's menu makes a copy under a new
+  name, with Undo; the copy is an ordinary routine.
 
 **P-99**
 - A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:
