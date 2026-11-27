@@ -23,8 +23,13 @@ Checklist:
       `land.sh`. Phase 8 is skipped in favour of /product's report.
 - [ ] `owner-notes.md` → *Led to: P-##*. The Done-log line has evidence.
 - [ ] No question to the owner about the small part. If part of the idea touches a DESIGN.md rule
-      (editing from the runner meets "Nothing is planned here"), that part is raised as a decision
-      after the small part lands; it is neither built around the rule nor dropped silently.
+      (editing from the runner meets "Nothing is planned here"), that part is raised as a plain
+      question with a D-## entry after the small part lands, with no brief and no persona panel;
+      it is neither built around the rule nor dropped silently.
+- [ ] If `main`'s last deploy run is red, it is fixed first at the tier the fix needs, the owner's
+      idea is still built in the same run, and the report says `main` was red.
+- [ ] If the feature changes what DESIGN.md describes about a screen, that description is updated
+      in the same commit; no rule or refusal in DESIGN.md is changed.
 - [ ] The report says what the owner will notice and how to get the new version.
 
 Failure signals: a new screen invented for this; a scout, contract or audit for a UI-only change;

@@ -24,8 +24,12 @@ Everything you need to decide alone is in the docs below; everything you decide,
 
 ## Sources of truth (read every run, in this order)
 
-1. `docs/DESIGN.md`: the product's rules and refusals. They override everything else, including the
-   owner's passing wishes (raise the tension; don't build around it).
+1. `docs/DESIGN.md`: the product's rules and refusals. Where sources disagree, the order is the one
+   DESIGN.md and CLAUDE.md give: the owner's notes (newest first), then B-11 §9b/§9c, then
+   DESIGN.md. That order settles what the owner has already said. A *new* wish (this run's
+   argument, a fresh Inbox line) that runs into a DESIGN.md refusal is different: the owner may not
+   have had the rule in mind, so ask (Step G) and let their answer become the note that wins.
+   Don't build around the rule, and don't drop the wish.
 2. `docs/product/STRATEGY.md`: who it's for, the north star, the themes. You may *propose* changes,
    as a 🙋 decision; only the owner edits it.
 3. `docs/product/owner-notes.md`: the **only usage signal**; there's no analytics. Read it for what
@@ -68,7 +72,16 @@ A change is **big** if any of these is true:
 - it's size L, or more than about a day of careful human work.
 
 Everything else is **small**. Small ships autonomously; big gets a brief and waits for the owner's
-*go*. When unsure, it's big. `docs/product/briefs/README.md` carries the same list for the scouts;
+*go*. When unsure, it's big.
+
+Two cases the list doesn't settle by itself:
+- **An idea with a small part and a big part.** Split it. Build the small part this run and raise
+  the big part as a decision after the small part lands; say in the report which part of what the
+  owner asked for is live and which is waiting on them.
+- **A change that is small in every way except that it touches a DESIGN.md rule.** It still needs
+  the owner, but not a brief: ask it as a plain question (Step G) with a D-## entry, the rule
+  quoted, and what each answer would build. A brief and panel would cost more than the feature.
+  Write a brief only when the answer would be a big feature by another clause. `docs/product/briefs/README.md` carries the same list for the scouts;
 if you change one, change the other.
 
 ## The cycle
@@ -78,12 +91,18 @@ if you change one, change the other.
    last Done-log entry.
 2. Triage the roadmap Inbox exactly as `/polish` Phase 1 does.
 3. `git status` is clean and `main` matches `origin/main`, or stop and tell the owner. Look at the
-   last "Deploy web" run on `main`: Step B.1 depends on knowing whether it is red. Run `scripts/polish/verify.sh` only if this run
-   hasn't verified yet; polish's Phase 0 does it for builds.
+   last "Deploy web" run on `main`: Step B.1 depends on knowing whether it is red. Run
+   `scripts/polish/verify.sh` only if this run hasn't verified yet; polish's Phase 0 does it for
+   builds.
 
 ### B. Choose the next increment
 Take the first of these that exists (Grow lane only: items tagged `[feature]`, briefs, owner ideas):
-1. **Breakage or data risk**: a red CI run, or a data-loss item. Run a Full-tier batch for it.
+1. **Breakage or data risk**: a red CI run on `main`, or a data-loss item. Fix it first, at the tier
+   the rigor table gives for what the fix touches (a flaky spec or a UI fix is Light; anything in
+   stored data or storage is Full, and so is any data-loss item). A red-CI fix doesn't count
+   against the cycle cap: the owner started this run for something else, so after it lands carry
+   on with the cycle's real choice below. Tell them in the report that `main` was red and what
+   wasn't deployed meanwhile.
 2. **An approved brief**: a decision answered *go* (or *go with changes*). Slice it (Step D, *On go*),
    then build its next unbuilt slice (Step E). **Build the slice the owner will see first** (the
    decision's headline outcome: the screen or behaviour they said *go* to, not the stored field
@@ -148,7 +167,7 @@ Fold its fits-DESIGN.md findings into the brief and mockups; put the rest in the
 
 **Persona panel** (decisions that change the app's shape):
 Run it only when a decision changes **how the app works**: a new model concept (like blanks or
-reactions), a change to the runner or the verbs, a new primary screen, or a DESIGN.md/STRATEGY.md tension. Ordinary
+reactions), a change to the runner or the verbs, a new primary screen, or a STRATEGY.md tension or DESIGN.md tension that isn't small (see *Big or small*). Ordinary
 features and briefs that stay inside the current shape skip it (owner, 2026-11-22). When unsure,
 ask the owner in the decision question whether they want a panel. If
 answering quickly is clearly better than waiting, ask first and run the panel right after, then
@@ -189,7 +208,7 @@ for is offered as an option, not applied.
    brief to `shipped`. Add an `owner-notes.md` line under *Led to* if a note started it.
 
 ### F. Continue or stop
-- Stop if the cycle cap is reached.
+- Stop if the cycle cap is reached (red-CI fixes from B.1 don't count toward it).
 - Stop if nothing actionable is left (B.5 already ran discovery this run).
 - Stop if a polish stop condition hit: verify failing twice, a data-loss path left open, or a guard
   block that seems wrong.
@@ -199,7 +218,7 @@ for is offered as an option, not applied.
 A decision is needed for:
 - a big feature (brief ready);
 - a hit;
-- a DESIGN.md or STRATEGY.md tension;
+- a DESIGN.md or STRATEGY.md tension (a small one is a plain question, with no brief);
 - anything irreversible for people's data;
 - a scope change on work the owner asked for.
 
@@ -210,7 +229,7 @@ Then:
    - stands alone and names the brief or D-## path;
    - offers the recommended option first;
    - says what happens with each answer;
-   - summarizes the persona panel in one or two lines (who gains, who pays, the strongest
+   - when a panel ran, summarizes it in one or two lines (who gains, who pays, the strongest
      refinement). The full panel is in the brief.
 
    The run pauses until they answer; that's intended.
@@ -242,7 +261,11 @@ Point them at `owner-notes.md`: telling `/product` how they use the app is how i
 - DESIGN.md's refusals stay refusals. An idea from another app that needs a streak, deadline, timer,
   notification, tally, a measure of what's left or silent automation is recorded as **doesn't fit**, and isn't softened
   until it slips through.
-- Never edit `STRATEGY.md` or DESIGN.md yourself. Propose a change as a decision.
+- `STRATEGY.md` is the owner's to edit; propose a change as a decision. In DESIGN.md, keep the
+  passages that *describe* the app (which controls a screen has, what a tap does) true as features
+  land, in the same commit as the feature, and say so in the report. Its rules and refusals are
+  the owner's: changing, adding or loosening one is a decision, and when you can't tell whether a
+  sentence is description or rule, treat it as a rule.
 - Cost: at most 3 discovery scouts and 3 persona panelists per decision, and at most 4 subagents
   running at once. Reuse earlier
   discovery files. If a cycle used a lot and produced little, end the run early and say so.
