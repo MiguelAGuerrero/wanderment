@@ -200,7 +200,8 @@ test('keys: Return on the note is Next, Ctrl/⌘+Z is Undo (P-95: of what has on
   await page.keyboard.press('Escape');
   await expect(p.typed).toHaveCount(0);
   await expect(p.words.first()).toHaveText('Read the job ad twice');
-  await expect(page).toHaveURL(/\/go\/run\/r1\/plan$/);
+  // P-103 (3): opened from the runner, Plan's address says so (`?from=run`).
+  await expect(page).toHaveURL(/\/go\/run\/r1\/plan\?from=run$/);
   // Undo from the keyboard there too.
   await p.add.fill('One more');
   await p.add.press('Enter');

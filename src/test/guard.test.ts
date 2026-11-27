@@ -75,7 +75,8 @@ describe('the old app is retired (P-89)', () => {
     const hits = app.filter((f) => f !== 'storage/nativeBackup.native.ts').flatMap((f) => shownText(readFileSync(join(SRC, f), 'utf8')).map((line) => `${f}: ${line.trim().slice(0, 80)}`));
     expect(hits).toEqual([]);
     const manifest = JSON.parse(readFileSync(join(SRC, '../public/manifest.json'), 'utf8')) as { name: string; description: string };
-    expect(manifest.name).toBe('Wanderment');
+    // P-103 (owner, 2026-11-27: "A neutral placeholder"): the working name is Routines.
+    expect(manifest.name).toBe('Routines');
     expect(manifest.description).not.toMatch(/log|wander|interests/i);
   });
 

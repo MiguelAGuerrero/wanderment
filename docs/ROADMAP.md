@@ -55,7 +55,8 @@ tap to filter); home shows only runs in motion, split by structure into Ongoing 
 *Status:* todo
 *Why:* owner, 2026-11-26: "blocks and steps should be able to reference other routines … Just as any thread
 would allow, statements or function calls"; for each "should just be treated like a regular for loop".
-*Done when:* Add offers a step, a routine (search), For each…, Repeat and Wait for…; a call row shows
+*Done when:* Add offers a step, a routine (only when summoned: "@" or Add's "a routine" — no list
+while the person types their own words; owner, D-24), For each… and Repeat; a call row shows
 `with {x}`, `with {y} as x` or `asks {x}` and what it gives; for each is a loop block over a list, its
 giving step shows a list editor, inside reads "photo 2 of 3", a value given inside is collected after it.
 Canvas rows 3–4. From B-16 (D-23, as revised by the owner 2026-11-27): a step that gives a name
@@ -97,6 +98,31 @@ queue up only the leafs."
 *Done when:* ↑ Queue on any routine, call, block or part puts its depth-first next step on Up next with
 its path; running it resumes that thread in place; finishing pops it; a waiting thread is not queued;
 taking an entry off never stops its thread. Canvas row 7.
+
+### P-104 The library (B-17 slices 1 and 4) `[feature]` `[ux]` M
+*Status:* todo
+*Why:* owner, 2026-11-27: "write a brief for the library and quick composer"; D-24 go after P-98.
+*Done when:* as B-17 slice 1 and slice 4 state — My routines gains a Library view (Yours | Library); a
+method can be found, previewed, copied (Undo), started by itself and called from another routine; a copy
+survives reload, export and import and is unchanged by an app update; a name already in Yours offers
+"Open yours"; the library ships in the export format and passes the import check; a test fails the build
+if a library routine breaks the import check or the house style (verb-first names, one job, plural list /
+singular item, no counts or minutes, no kept list, no wait step); at 390 px and 200 % text nothing is cut.
+
+### P-105 Adding a library method from where you write (B-17 slice 2) `[feature]` `[ux]` M
+*Status:* todo
+*Why:* D-24 ("Only when summoned").
+*Done when:* "@" and Add's "a routine" list Yours and Library under headings; a library row opens the
+sheet with Copy and add; one Undo removes both; typing "@" and part of a method's name offers it; nothing
+is copied by Return; a giving field on the runner lists Yours only; no list appears while the person types
+their own words.
+
+### P-106 Templates (B-17 slice 3) `[feature]` `[data]` M
+*Status:* todo
+*Why:* D-24; after P-99.
+*Done when:* as B-17 slice 3 — Learn ▢, Find out ▢, Make ▢, Make a decision, "Work it out as you go";
+Copy… names the copy and brings what it calls, by name; copied twice gives two routines with separate
+kept lists that call the same methods; a name in use is refused in the sheet and nothing is overwritten.
 
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
@@ -319,6 +345,11 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
   `docs/product/briefs/B-09-home-live-map.md` (UI audit and panel folded in).
 - **D-17 B-10: fewer parts — a calm journal in a playful world** — superseded 2026-11-24 by B-11
   before a decision. Brief: `docs/product/briefs/B-10-refined-home.md`.
+- **D-24 B-17: a library of methods and adding one where you write** — **answered 2026-11-27 by the owner**
+  (relayed from the second session): "Go, after P-98"; words "Library and Copy"; the composer "Only when
+  summoned" ("@" or Add's "a routine"; typed words stay words); contents "Conventions in, waits out".
+  → P-104 (library + house style), P-105 (adding from where you write), P-106 (templates, after P-99).
+  Brief: `docs/product/briefs/B-17-shelf-and-composer.md`.
 - **D-23 B-16: an amendment to P-98 and P-99** — **answered 2026-11-27 by the owner: "Go on the amendment,
   P-98 follows P-97 directly"** (relayed from the second session). Order: P-97 → P-98 → P-99 → P-100.
   Three rules (order is dependency; an empty list is "no"; parts in any order join before what follows)
@@ -371,6 +402,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-27 · P-103 — conventions, from an exhaustive audit of the built UI: a quick second tap can never end a run (Done has its own ✓ and ignores presses for 0.6 s after it appears, wherever you arrive from); the way out is always top-left; Plan opened from the runner offers "Back to the run"; a paused tile shows Resume; removing a step shows Undo, removing a routine asks; a paused run can be ended from its tile (final, asks first, keeps its note); removing a routine or its last nested row never strands a routine (it keeps a home tile); one destructive dialog everywhere; an empty home offers + New; ↻ for repeat, › for open; the step field grows, Insert/Add sit below, @ or { at a word start opens the names list, inserted names are spaced; the update banner covers nothing, Jump moves by arrows, Settings errors look like errors; the visible name is the placeholder "Routines" (database, keys, base path and backup format unchanged; old exports still import). evidence: go-conventions spec red on the base build (incl. the double-tap ending the run), 853 unit tests, whole e2e suite, old exports and golden fixtures importing, `verify.sh --full`; not tried on a real phone. audit: 8 reported · 6 reproduced · 8 fixed · 0 deferred.
 - 2026-11-27 · P-102 — every ··· opens a small menu anchored to its button (Plan, home tiles), closing on an outside tap, Esc or Back (Back never leaves Plan), with a hidden Close for screen readers; the step menu reads Edit · Add a step after · Break it down · Gives… · Remove (red, last); a wait offers "Make it a step"; Move up / down by pressing the grip (or in the menu under 340 px), Alt+↑/↓ and screen-reader actions; finishing a run is final — "Done with <name>" has only a ×, every notice has a ×, Undo is a labelled button apart from it; Step out reads "Left <level>". Also fixes P-101's CI races: the runner's late focus stole focus (focusSoon gives up once focus has moved), menus return focus at once. evidence: go-menu and rewritten go-plan / go-notice specs red on the base build, the three CI flakes 55/55 under the slow mode, 840 unit tests, the whole e2e suite, `verify.sh --full`. audit: 9 reported · 5 reproduced · 9 fixed · 0 deferred.
 - 2026-11-27 · P-101 — moves like a debugger and a calmer home: the runner's bottom row is Step in · Step out · Next (Done only on the press that ends the run), Pause and Plan in the top line; Pause asks for an optional note; home keeps its order, marks the last run, and a paused tile resumes on tap; "planning" is gone as a state; Plan's Home back in the band; notices hide on the next tap while Undo stays until the next change (panel, Ctrl/⌘+Z, Plan's ···); values typed in a sheet, a trace of where a value came from, hoisted gives, an Insert button; Start over (the run or one level) with a confirm and Undo; a value for a step already passed can be given from the values row; removing a giving step names its readers, which then ask (dashed in Plan). No new stored fields. evidence: go-moves and go-restart specs red on the base build, 833 unit tests, the whole e2e suite, golden fixtures loading, `verify.sh --full`; not tried on a real phone. audit: 9 reported · 7 reproduced · 9 fixed · 0 deferred.
 - 2026-11-26 · P-96 — values, and one way to move on the runner: a step gives a named value (Plan: Gives…, a names bar above the keyboard, chips); later steps show it in place; a values row opens a sheet with where it came from, what reads it, Keep and Close; a routine's own given names never collide with its parent's; a reading step with no value asks; a new round clears values given after the divider so they ask again; values stored as lists from the start (no migration). One navigation scheme: top = context only, the filled button lowest, side doors one row above (Pause and go home · Plan / Step in; ⌂ Home on Plan), Finish now in the pull-up panel; Next reads Done only when it ends the whole run and finishing goes home with Undo, never Plan; the paused screen and "Ends here" are gone; home has no title or prompt, the paused run carries its values and Resume is the bottom bar; notices in their own row. evidence: golden fixture p96-* frozen before the engine, 795 unit tests (values, scope, rounds, Undo value by value, persistence on every path, fuzz), go-values / go-nav / go-pause specs red on the old build, `verify.sh --full`; not tried on a real phone. audit: 7 reported · 5 reproduced · 7 fixed · 0 deferred.

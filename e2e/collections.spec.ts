@@ -31,7 +31,7 @@ const V1 = file({ version: 1, threads: {}, activities: { o1: act('o1', 'hemmed',
 /** A format-2 backup holding a routine and a run. */
 const V2 = file({ version: 2, threads: {}, activities: { i1: act('i1', 'cut', 5) }, routines: { r1: routine }, runs: { n1: run } });
 
-const EARLIER = 'Your earlier wanders and lines are kept, and are in every export.';
+const EARLIER = 'Earlier data from the previous app is kept in your backup files.';
 const preview = (page: Page) => page.getByTestId('import-preview');
 const REPLACE_TITLE = 'Replace what’s here with this backup?';
 
@@ -57,8 +57,8 @@ test('a format-1 backup and a format-2 backup holding a routine both import; aft
   // Format 1: imports as it always has, and what's exported from then on is format 2.
   await choose(page, V1);
   await expect(page.getByRole('group', { name: REPLACE_TITLE })).toBeFocused();
-  await expect(preview(page)).toContainText(/This backup has 2 activities, from \S.*2026\./);
-  await expect(preview(page)).toContainText('Replacing would add 2 and remove 1 activity, and remove 1 wander.');
+  await expect(preview(page)).toContainText(/This backup has 2 items from the previous app, from \S.*2026\./); // P-103: "items from the previous app" (was activities / wanders).
+  await expect(preview(page)).toContainText('Replacing would add 2 and remove 2 items from the previous app.'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
   await page.getByRole('button', { name: 'Replace', exact: true }).click();
   await expect(page.getByText(IMPORTED, { exact: true })).toBeVisible();
   const afterV1 = await exported(page);
@@ -71,8 +71,8 @@ test('a format-1 backup and a format-2 backup holding a routine both import; aft
   // Format 2 with a routine and a run: the preview names them, and Replace takes them.
   await choose(page, V2);
   await expect(page.getByRole('group', { name: REPLACE_TITLE })).toBeFocused();
-  await expect(preview(page)).toContainText(/This backup has 1 activity, 1 routine and 1 run, on \S.*2026\./);
-  await expect(preview(page)).toContainText('Replacing would add 1 and remove 2 activities, and add 1 routine, and add 1 run.');
+  await expect(preview(page)).toContainText(/This backup has 1 routine, 1 run and 1 item from the previous app, on \S.*2026\./); // P-103: "items from the previous app" (was activities / wanders).
+  await expect(preview(page)).toContainText('Replacing would add 1 routine, and add 1 run, and add 1 and remove 2 items from the previous app.'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
   await page.getByRole('button', { name: 'Replace', exact: true }).click();
   await expect(page.getByText(IMPORTED, { exact: true })).toBeVisible();
 
@@ -91,7 +91,7 @@ test('a format-1 backup and a format-2 backup holding a routine both import; aft
   await page.getByRole('button', { name: 'Close', exact: true }).click();
   // …and a format-1 backup now says the routine and the run would go.
   await choose(page, V1);
-  await expect(preview(page)).toContainText('Replacing would add 2 and remove 1 activity, and remove 1 routine, and remove 1 run.');
+  await expect(preview(page)).toContainText('Replacing would remove 1 routine, and remove 1 run, and add 2 and remove 1 item from the previous app.'); // P-103: the previous app's records are "items from the previous app" (was activities / wanders).
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await page.reload();
   await expect(page.getByText(EARLIER, { exact: true })).toBeVisible();

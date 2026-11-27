@@ -170,7 +170,8 @@ export type Verb =
   | { kind: 'reason'; runId: Id; text: string }
   | { kind: 'home'; runId: Id }
   | { kind: 'next'; runId: Id }
-  | { kind: 'done'; runId: Id }
+  /** P-103: `whole` — the whole run ends where it stands (a paused tile's "End this run"), at any depth; else the level it is in. */
+  | { kind: 'done'; runId: Id; whole?: true }
   | { kind: 'stepIn'; runId: Id }
   | { kind: 'back'; runId: Id }
   | { kind: 'jump'; runId: Id; to: JumpTo }
@@ -747,14 +748,15 @@ function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; a
 }
 
 /** The run ends: by Done at the top, or by itself. Its place stays as it was. */
-function end(data: Data, l: Loaded, by: 'done' | 'finished', env: Env): Result {
+function end(data: Data, l: Loaded, by: 'done' | 'finished', env: Env, keepNote = false): Result {
   const record = patched(l.raw, {
     ...(l.at.repaired && { frames: l.at.frames }),
     endedAt: env.now,
     endedBy: by,
     touchedAt: env.now,
     waitingSince: undefined,
-    reason: undefined,
+    // P-103 audit F6: "End this run" keeps the person's pause note in the record.
+    ...(!keepNote && { reason: undefined }),
     mode: undefined,
   });
   const next = setStatus(putRun(data, record), l.run.id, undefined);
@@ -887,9 +889,16 @@ function next(data: Data, runId: Id, env: Env): Result {
   return a.ended || a.asking ? end(data, l, 'finished', env) : moved(data, l, a, env);
 }
 
-function doneWith(data: Data, runId: Id, env: Env): Result {
+function doneWith(data: Data, runId: Id, env: Env, whole?: true): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
+  // P-103: the whole run, from a paused tile — ended where it stands (its place and its pause note kept). Only a
+  // paused run (audit F5): never the one running, never one resting on a wait (it is waited for, not put down).
+  if (whole) {
+    if (l.raw.status === 'running') return refuse(data, 'running');
+    if (l.at.item && isWait(l.at.item)) return refuse(data, 'cannot');
+    return end(data, l, 'done', env, true);
+  }
   // Done exists only when running, and at the edge.
   if (l.at.item && l.run.mode === 'plan') return refuse(data, 'planning');
   if (l.at.frames.length === 1) return end(data, l, 'done', env);
@@ -1111,6 +1120,8 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
   if (!routine || !s || s.removedAt) return refuse(data, 'gone');
   const has = (id: Id) => s.items.some((i) => i.id === id);
   let after: Routine | undefined;
+  /** P-103: the named routines this edit leaves nothing using — each gets its tile on home, in the same write. */
+  let freed: Routine[] = [];
   if (edit.kind === 'addStep' || edit.kind === 'addWait') {
     const words = tidy(edit.kind === 'addStep' ? edit.text : edit.wait);
     if (!words) return refuse(data, 'empty');
@@ -1119,6 +1130,9 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
   } else if (edit.kind === 'remove') {
     if (!has(edit.item)) return refuse(data, 'no-such-step');
     after = editItems(routine, s, { remove: edit.item });
+    const item = s.items.find((i) => i.id === edit.item)!;
+    // (A step broken down is the row's own, and goes with it — so does what it used.)
+    freed = isRef(item) ? strandedBy(data, ownedFrom(data, item.ref, readRoutine(data, item.ref)?.named === false), { routineId, itemId: item.id }) : [];
   } else if (edit.kind === 'reword') {
     const item = s.items.find((i) => i.id === edit.item);
     if (!item) return refuse(data, 'no-such-step');
@@ -1186,9 +1200,56 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     // Out of the lists. A run of it is ended or kept first (the confirm that reaches open runs is a later slice).
     if (openRuns(data).some((r) => r.routineId === routineId)) return refuse(data, 'has-run');
     after = patched(routine, { removedAt: env.now });
+    // P-103: what only this routine (and its steps broken down) used is not left unreachable.
+    freed = strandedBy(data, ownedFrom(data, routineId, true));
   }
   if (!after) return refuse(data, 'cannot');
-  return done(resettle(data, putRoutine(data, after), env));
+  const next = putRoutine(data, after);
+  return done(resettle(data, freed.reduce((d, r) => putRoutine(d, patched(r, { home: true })), next), env));
+}
+
+/**
+ * P-103 (audit F-7): what goes with a removal — `id` itself when `own` (the routine removed, or a step broken
+ * down), and every unnamed sequence (step broken down) inside what goes — and the named routines it uses.
+ */
+function ownedFrom(data: Data, id: Id, own: boolean): { gone: Set<Id>; used: Set<Id> } {
+  const gone = new Set<Id>();
+  const used = new Set<Id>();
+  if (!own) {
+    used.add(id);
+    return { gone, used };
+  }
+  const walk = (seq: Id) => {
+    if (gone.has(seq)) return;
+    gone.add(seq);
+    for (const i of readRoutine(data, seq)?.items ?? []) {
+      if (!isRef(i)) continue;
+      if (readRoutine(data, i.ref)?.named === false) walk(i.ref);
+      else used.add(i.ref);
+    }
+  };
+  walk(id);
+  return { gone, used };
+}
+
+/**
+ * P-103 (audit F-7): the routines a removal leaves unreachable — named, not on home, not removed, and used by
+ * nothing that stays (`row`: the one row being removed). Without a tile nothing could reach them again.
+ */
+function strandedBy(data: Data, what: { gone: Set<Id>; used: Set<Id> }, row?: { routineId: Id; itemId: Id }): Routine[] {
+  const out: Routine[] = [];
+  for (const ref of what.used) {
+    const target = own(data.routines, ref);
+    const t = readRoutine(data, ref);
+    if (!target || !t || !t.named || t.home || t.removedAt || t.ownerRunId || what.gone.has(ref)) continue;
+    const stillUsed = Object.keys(data.routines).some((id) => {
+      const other = readRoutine(data, id);
+      if (!other || other.removedAt || what.gone.has(id)) return false;
+      return other.items.some((i) => isRef(i) && i.ref === ref && !(row && id === row.routineId && i.id === row.itemId));
+    });
+    if (!stillUsed) out.push(target);
+  }
+  return out;
 }
 
 /**
@@ -1360,7 +1421,7 @@ export function runVerb(data: Data, verb: Verb, env: Env): Result {
     case 'next':
       return next(data, verb.runId, env);
     case 'done':
-      return doneWith(data, verb.runId, env);
+      return doneWith(data, verb.runId, env, verb.whole);
     case 'stepIn':
       return stepIn(data, verb.runId, env);
     case 'back':

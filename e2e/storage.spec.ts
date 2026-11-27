@@ -25,7 +25,7 @@ test('data saved by the first release (localStorage) moves into SQLite once — 
   await expect(home(page).tiles).toHaveCount(0);
   const before = await exported(page);
   await expect(page.getByText('Saved in a database in this browser.')).toBeVisible();
-  await expect(page.getByTestId('go-settings-earlier')).toHaveText('Your earlier wanders and lines are kept, and are in every export.');
+  await expect(page.getByTestId('go-settings-earlier')).toHaveText('Earlier data from the previous app is kept in your backup files.');
   // Every record, as the first release wrote it (repaired on the way in: names trimmed, a blank note dropped, "to" de-duplicated).
   expect(before.threads).toEqual({
     't-guitar': { id: 't-guitar', name: 'play guitar', next: 'learn the F chord', hidden: false, createdAt: '2026-11-01T10:00:00.000Z' },
@@ -126,7 +126,7 @@ test('the “couldn’t open” screen says which step failed, for bug reports, 
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Download this browser’s local copy', exact: true }).click();
   const file = await download;
-  expect(file.suggestedFilename()).toMatch(/^wanderment-raw-\d{4}-\d\d-\d\d\.json$/);
+  expect(file.suggestedFilename()).toMatch(/^routines-local-copy-\d{4}-\d\d-\d\d\.json$/);
   const raw = JSON.parse(readFileSync((await file.path())!, 'utf8')) as Record<string, string>;
   expect(raw['wanderment:journal']).toBe('{"changes":{}}');
   // Nothing of the app is shown over data it can't read.

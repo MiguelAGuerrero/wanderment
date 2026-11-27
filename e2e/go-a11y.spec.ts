@@ -93,7 +93,8 @@ test('the runner and its panel: axe and the rules on each; reading order context
   await expectRules(page, r.screen, 1, 1);
   // Spoken names: icon-only and changing buttons, and the mark.
   await expect(r.pause).toHaveAccessibleName('Pause and go home');
-  await expect(r.pause).toHaveText('');
+  // P-103 (2; was: no visible word): ❚❚ Pause — the mark and the word.
+  await expect(r.pause).toHaveText('Pause');
   await expect(r.handle).toHaveAccessibleName('More about this step');
   await expect(r.screen.getByRole('img', { name: 'Last step of this round', exact: true })).toBeVisible();
   const order = await r.screen.evaluate((root) =>
@@ -102,7 +103,8 @@ test('the runner and its panel: axe and the rules on each; reading order context
     ),
   );
   // P-101 (rulings 1–2; was: … handle, pause, middle, Next): the top line's doors after the path; the moves before Next.
-  expect(order).toEqual(['heading', 'go-context', 'go-pause', 'go-plan-door', 'go-note', 'go-notice-slot', 'go-handle', 'go-step-out', 'go-next']);
+  // P-103 (2; was: the path, then ❚❚): ❚❚ Pause first, the way out; then the path, then Plan.
+  expect(order).toEqual(['heading', 'go-pause', 'go-context', 'go-plan-door', 'go-note', 'go-notice-slot', 'go-handle', 'go-step-out', 'go-next']);
   // The notice is a polite live region, in the flow (it can cover nothing).
   const slot = r.screen.getByTestId('go-notice-slot');
   await expect(slot).toHaveAttribute('aria-live', 'polite');
@@ -154,11 +156,12 @@ test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, w
   expect(outlines.filter((c) => c === 'rgb(244, 241, 232)')).toHaveLength(1);
   // Reading order: the band (the word, Home — P-101, ruling 2), the heading, where you are, the rows, the open row, the notice, the filled button.
   const order = await p.screen.evaluate((root) =>
-    [...root.querySelectorAll('[data-testid="go-plan-word"], [data-testid="go-plan-home"], [role="heading"], [data-testid="go-plan-line"], [data-testid="go-plan-row"], [data-testid="go-plan-add"], [data-testid="go-notice-slot"], [data-testid="go-plan-forward"]')].map(
+    [...root.querySelectorAll('[data-testid="go-plan-word"], [data-testid="go-plan-home"], [data-testid="go-plan-back"], [role="heading"], [data-testid="go-plan-line"], [data-testid="go-plan-row"], [data-testid="go-plan-add"], [data-testid="go-notice-slot"], [data-testid="go-plan-forward"]')].map(
       (e) => (e as HTMLElement).dataset.testid ?? 'heading',
     ),
   );
-  expect(order).toEqual(['go-plan-word', 'go-plan-home', 'heading', 'go-plan-line', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-add', 'go-notice-slot', 'go-plan-forward']);
+  // P-103 (2, 3; was: the word, then Home): the way out first, top-left — opened from the runner, "Back to the run".
+  expect(order).toEqual(['go-plan-back', 'go-plan-word', 'heading', 'go-plan-line', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-add', 'go-notice-slot', 'go-plan-forward']);
 
   // A step's menu — P-102 (was: a dialog with its step as the heading): a menu named by its step; no filled button.
   await p.more('Vibe check').click();
@@ -299,7 +302,8 @@ test('focus has its own ring; sheets take focus and give it back; focus is never
   expect(await p.here.evaluate((e) => getComputedStyle(e).outlineStyle)).toBe('none');
   // Tab order in Plan — P-101 (ruling 2; was: Home the bottom side door, before the filled button): Home in
   // the band, then the heading's menu, the rows, …, and the filled button, lowest.
-  await p.home.focus();
+  // P-103 (3): opened from the runner, the way out is "Back to the run", in Home's place.
+  await p.back.focus();
   await page.keyboard.press('Tab');
   await expect(p.more('Hand studies of my left hand')).toBeFocused();
   // A menu (P-102; was: a sheet, focus on its heading): focus in, on its first item, and back to what opened it.
@@ -392,11 +396,12 @@ test('without Reduce Motion nothing takes long and nothing moves a control: a sh
   await runner(page).plan.click();
   const p = plan(page);
   const forward = await p.forward.boundingBox();
-  const home = await p.home.boundingBox();
+  // P-103 (3): opened from the runner, the band's way out is "Back to the run".
+  const home = await p.back.boundingBox();
   await p.more('Add the shadows').click();
   await arrived(page, 'go-plan-menu');
   expect(await p.forward.boundingBox()).toEqual(forward);
-  expect(await p.home.boundingBox()).toEqual(home);
+  expect(await p.back.boundingBox()).toEqual(home);
 });
 
 for (const [label, size] of [
@@ -469,7 +474,8 @@ for (const [label, size] of [
       expect(band.x).toBe(0);
       expect(band.width).toBe(size.width);
       await expect(p.word).toBeInViewport({ ratio: 1 });
-      await expect(p.home).toBeInViewport({ ratio: 1 });
+      // P-103 (2, 3): the way out, top-left — opened from the runner "Back to the run", else ⌂ Home (the edge, below).
+      await expect(p.screen.locator('[data-testid="go-plan-back"], [data-testid="go-plan-home"]')).toBeInViewport({ ratio: 1 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     };
     await pinned();

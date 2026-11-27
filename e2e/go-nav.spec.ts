@@ -46,13 +46,13 @@ test.describe('the runner', () => {
     await expect(r.screen.getByRole('button', { name: /^Home/ })).toHaveCount(0);
     await expect(r.pause).toHaveAccessibleName('Pause and go home');
     await expect(r.plan).toHaveText('Plan');
-    // One line: the path, then ❚❚, then Plan — above the note.
+    // One line — P-103 (2; was: the path, then ❚❚, then Plan): ❚❚ Pause first (the way out, top-left), the path, then Plan — above the note.
     const c = (await r.context.boundingBox())!;
     const p = (await r.pause.boundingBox())!;
     const m = (await r.plan.boundingBox())!;
     expect(Math.abs(p.y - m.y)).toBeLessThan(2);
-    expect(c.x).toBeLessThan(p.x);
-    expect(p.x).toBeLessThan(m.x);
+    expect(p.x).toBeLessThan(c.x);
+    expect(c.x).toBeLessThan(m.x);
     expect(await bottom(r.plan)).toBeLessThanOrEqual(await top(r.note));
     expect(await filled(r.next)).toBe(PAPER);
     await expect(r.next).toHaveText('Next');
@@ -176,7 +176,9 @@ test.describe('Plan', () => {
     const hm = (await p.home.boundingBox())!;
     expect(hm.y).toBeGreaterThanOrEqual(band.y);
     expect(hm.y + hm.height).toBeLessThanOrEqual(band.y + band.height + 0.5);
-    expect(hm.x + hm.width).toBeGreaterThan(band.x + band.width - 40);
+    // P-103 (2; was: at its right edge): ⌂ Home at the band's left edge, before the word.
+    expect(hm.x).toBeLessThan(band.x + 40);
+    expect(hm.x + hm.width).toBeLessThanOrEqual((await p.word.boundingBox())!.x + 1);
     await expect(p.done).toHaveCount(0);
     await expect(p.forward).toHaveText('Resume at Vibe check');
     expect(await top(p.forward)).toBeGreaterThanOrEqual(await bottom(p.list) - 1);

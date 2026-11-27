@@ -20,8 +20,8 @@ import { holdsData, RECONNECTING_NOTICE, useStore } from '@/store/useStore';
 import { G, SP } from './tokens';
 import { Bar, Btn, Field, focusSoon, GoScreen, H1, T, TextRef, ViewRef } from './ui';
 
-/** Said to someone whose data holds wanders or lines from before this design (no counts: B-11 §6). */
-export const EARLIER_KEPT = 'Your earlier wanders and lines are kept, and are in every export.';
+/** Said to someone whose data holds records from the previous app (no counts: B-11 §6). P-103 (owner): no old names. */
+export const EARLIER_KEPT = 'Earlier data from the previous app is kept in your backup files.';
 
 export function Settings() {
   const data = useStore((st) => st.data);
@@ -29,6 +29,8 @@ export function Settings() {
   const holding = useStore(holdsData);
   const focused = useIsFocused();
   const [message, setMessage] = useState<string>();
+  /** P-103 (12; audit F-26): what was wrong with the file chosen — in the app's error style, by Import. */
+  const [failed, setFailed] = useState<string>();
   /** The refusal note is about now: once the data is back it's gone. */
   const said = message === RECONNECTING_NOTICE && holding ? undefined : message;
   const [pasting, setPasting] = useState(false);
@@ -102,6 +104,7 @@ export function Settings() {
   };
 
   const exportData = async () => {
+    setFailed(undefined);
     await exportBackup(data);
     setMessage('Exported.');
   };
@@ -114,9 +117,11 @@ export function Settings() {
       setPreview(previewImport(json));
       setPreviews((n) => n + 1);
       setMessage(undefined);
+      setFailed(undefined);
     } catch (e) {
       setPreview(undefined);
-      setMessage((e as Error).message);
+      setMessage(undefined);
+      setFailed((e as Error).message);
     }
   };
 
@@ -183,6 +188,11 @@ export function Settings() {
           {kept === 'not-granted' && <Btn label="Ask the browser to keep it" onPress={askToKeep} style={styles.start} />}
           <Btn label="Export everything (.json)" onPress={exportData} style={styles.start} testID="go-settings-export" />
           <Btn ref={importRef} label="Import from a backup" onPress={importData} style={styles.start} testID="go-settings-import" />
+          {!!failed && (
+            <T color={G.err} role="alert" accessibilityRole="alert" testID="go-settings-error">
+              {`! ${failed}`}
+            </T>
+          )}
           {pasting && (
             <View style={styles.lines}>
               <Field value={pasted} onChangeText={setPasted} multiline placeholder="Paste backup JSON" style={styles.paste} accessibilityLabel="Backup JSON" />

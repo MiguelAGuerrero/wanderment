@@ -17,16 +17,17 @@ const data = (threads: Thread[] = [], activities: Activity[] = []): Data => ({
 });
 const legacy = (d: unknown) => JSON.stringify({ state: { data: d, showShading: true }, version: 1 });
 
+// P-103 (the owner: no retired-app words in Settings): the messages say "items from the previous app", not "wanders".
 describe('the strict check (imports)', () => {
   it('refuses wanders or activities given as a list instead of records', () => {
-    expect(() => fromBackup(backup({ version: 1, threads: [], activities: {} }))).toThrow('The backup’s wanders or activities aren’t in the right shape.');
-    expect(() => fromBackup(backup({ version: 1, threads: {}, activities: [act('a1', 'x')] }))).toThrow('The backup’s wanders or activities aren’t in the right shape.');
+    expect(() => fromBackup(backup({ version: 1, threads: [], activities: {} }))).toThrow('The backup’s items from the previous app aren’t in the right shape.');
+    expect(() => fromBackup(backup({ version: 1, threads: {}, activities: [act('a1', 'x')] }))).toThrow('The backup’s items from the previous app aren’t in the right shape.');
   });
 
   it('refuses wanders or activities that aren’t records at all', () => {
     for (const bad of ['x', 3, null, true]) {
-      expect(() => fromBackup(backup({ version: 1, threads: bad, activities: {} })), String(bad)).toThrow('The backup is missing wanders or activities.');
-      expect(() => fromBackup(backup({ version: 1, threads: {}, activities: bad })), String(bad)).toThrow('The backup is missing wanders or activities.');
+      expect(() => fromBackup(backup({ version: 1, threads: bad, activities: {} })), String(bad)).toThrow('The backup is missing the previous app’s items.');
+      expect(() => fromBackup(backup({ version: 1, threads: {}, activities: bad })), String(bad)).toThrow('The backup is missing the previous app’s items.');
     }
   });
 
@@ -58,7 +59,7 @@ describe('the strict check (imports)', () => {
     const named = (...ts: Thread[]) => backup(data(ts));
     // Case.
     expect(() => fromBackup(named(thread('t1', 'draw'), thread('t2', 'Draw')))).toThrow(
-      'Two wanders have the same name: “draw” and “Draw”. Rename one in the file, or in the app the backup came from and export it again.',
+      'Two items from the previous app have the same name: “draw” and “Draw”. Rename one in the file, or in the app the backup came from and export it again.',
     );
     // An NFC pair: "Café" composed vs "Cafe" + combining acute.
     const composed = 'Café';
@@ -69,20 +70,20 @@ describe('the strict check (imports)', () => {
     expect(() => fromBackup(named(thread('t1', 'play  guitar'), thread('t2', ' play guitar')))).toThrow(/same name/);
     // A hidden one counts too, and says it's hidden so it can be found.
     expect(() => fromBackup(named(thread('t1', 'draw'), thread('t2', 'DRAW', { hidden: true })))).toThrow(
-      'Two wanders have the same name: “draw” and “DRAW” (hidden). Rename one in the file, or in the app the backup came from and export it again.',
+      'Two items from the previous app have the same name: “draw” and “DRAW” (hidden). Rename one in the file, or in the app the backup came from and export it again.',
     );
   });
 
   it('names every clash, or the first few and how many more', () => {
     const three = backup(data([thread('t1', 'draw'), thread('t2', 'Draw'), thread('t3', 'DRAW'), thread('t4', 'run'), thread('t5', 'Run')]));
-    expect(() => fromBackup(three)).toThrow('Some wanders have the same name: “draw”, “Draw” and “DRAW”; “run” and “Run”. Rename them in the file, or in the app the backup came from and export it again.');
+    expect(() => fromBackup(three)).toThrow('Some items from the previous app have the same name: “draw”, “Draw” and “DRAW”; “run” and “Run”. Rename them in the file, or in the app the backup came from and export it again.');
     const many = backup(data(['a', 'b', 'c', 'd', 'e'].flatMap((n) => [thread(`${n}1`, n), thread(`${n}2`, n.toUpperCase())])));
-    expect(() => fromBackup(many)).toThrow('Some wanders have the same name: “a” and “A”; “b” and “B”; “c” and “C”; and 2 more. Rename them in the file, or in the app the backup came from and export it again.');
+    expect(() => fromBackup(many)).toThrow('Some items from the previous app have the same name: “a” and “A”; “b” and “B”; “c” and “C”; and 2 more. Rename them in the file, or in the app the backup came from and export it again.');
   });
 
   it('caps the message: at most three names a group, each clipped to 40 characters (audit F5)', () => {
     const thirty = backup(data(Array.from({ length: 30 }, (_, i) => thread(`t${i}`, i % 2 ? 'draw' : 'DRAW'))));
-    expect(() => fromBackup(thirty)).toThrow('Some wanders have the same name: “DRAW”, “draw”, “DRAW” and 27 more. Rename them in the file, or in the app the backup came from and export it again.');
+    expect(() => fromBackup(thirty)).toThrow('Some items from the previous app have the same name: “DRAW”, “draw”, “DRAW” and 27 more. Rename them in the file, or in the app the backup came from and export it again.');
     const long = 'a'.repeat(5000);
     let message = '';
     try {
@@ -90,7 +91,7 @@ describe('the strict check (imports)', () => {
     } catch (e) {
       message = (e as Error).message;
     }
-    expect(message).toBe(`Two wanders have the same name: “${'a'.repeat(39)}…” and “${'A'.repeat(39)}…”. Rename one in the file, or in the app the backup came from and export it again.`);
+    expect(message).toBe(`Two items from the previous app have the same name: “${'a'.repeat(39)}…” and “${'A'.repeat(39)}…”. Rename one in the file, or in the app the backup came from and export it again.`);
     // Clipped by characters, never through one: an emoji at the cut stays whole.
     const emoji = `${'b'.repeat(38)}🎨🎨🎨`;
     expect(() => fromBackup(backup(data([thread('t1', emoji), thread('t2', emoji.toUpperCase())])))).toThrow(`“${'b'.repeat(38)}🎨…” and “${'B'.repeat(38)}🎨…”`);

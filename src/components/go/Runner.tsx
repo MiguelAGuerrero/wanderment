@@ -21,7 +21,7 @@
  * the keyboard; under the note the field reads the label and the value, and a tap opens the sheet.
  */
 import { router, useIsFocused } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { NOTE_PAD, NOTE_SIZES, noteType } from '@/domain/goText';
@@ -42,6 +42,12 @@ const GUTTER = 16;
 const NOTE_FLOOR = 96;
 /** A press this soon after a drag is the drag's own mouse-up, not a tap. */
 const AFTER_DRAG_MS = 600;
+/**
+ * P-103 (audit F-1, the blocker): Done takes Next's place when the next press would end the run — and a
+ * quick second tap on Next must never land on it. For this long after Done appears in Next's place, a press
+ * on it does nothing (finishing is final: there is no Undo to catch it).
+ */
+export const DONE_GUARD_MS = 600;
 
 /** Home, from any `/go` screen: back to it when it is beneath, else in its place. Never a redirect from there. */
 export function goHome() {
@@ -69,6 +75,8 @@ export function Runner({ runId }: { runId: string }) {
   const typing = !!entry;
   /** P-101 (ruling 2): Plan was pressed here — once the run is paused, its Plan (this address), in this screen's place. */
   const toPlan = useRef<string | null>(null);
+  /** P-103 (3): Plan was opened from here, over this screen — coming back (its Back, the browser's) resumes where you were. */
+  const fromHere = useRef(false);
   const pauseBtn = useRef<ViewRef>(null);
   /** The note is full (its words scroll inside it): Plan carries the quiet mark (breaking a step down is planning). */
   const [full, setFull] = useState(false);
@@ -81,15 +89,27 @@ export function Runner({ runId }: { runId: string }) {
   const planning = !!v?.planning;
   useEffect(() => {
     // Only the screen in front moves (one beneath another would move that one instead).
+    if (running && !planning && focused) fromHere.current = false;
     if ((running && !planning) || !focused) return;
-    // P-101 (ruling 4): Plan is a view — pressed here, the run is paused and its Plan takes this screen's place.
-    if (toPlan.current && status !== 'ended') router.replace(toPlan.current as never);
+    // P-103 (3; was P-101: in this screen's place): Plan, pressed here, opens over the runner — Back returns here.
+    if (toPlan.current && status !== 'ended') {
+      const to = toPlan.current;
+      toPlan.current = null;
+      fromHere.current = true;
+      router.push(to as never);
+      return;
+    }
+    // Back from that Plan (its own Back, or the browser's): the run is taken up again exactly where it was.
+    if (fromHere.current && status === 'paused' && !planning) {
+      fromHere.current = false;
+      if (act().resumeRun(runId).ok) return;
+    }
     // At the edge (an earlier build's run): its Plan, in this screen's place.
     else if (planning && status !== 'ended') router.replace(`/go/run/${runId}/plan`);
     // P-96 (ruling 7): paused (Pause), ended (the last Next, Finish now), left or gone: home — where the
     // paused run is first, or the notice says what finished, with Undo.
     else goHome();
-  }, [running, planning, focused, status, runId]);
+  }, [running, planning, focused, status, runId, act]);
 
   const closePanel = () => {
     setPanel(false);
@@ -104,6 +124,22 @@ export function Runner({ runId }: { runId: string }) {
     if (focused) later(note);
   }, [focused]);
 
+  // P-103 (1; audit F1): Done is held — a press on it does nothing — for DONE_GUARD_MS after it takes Next's place,
+  // and after the runner appears or comes back (a second tap on Plan's "Resume at <last step>", or a tile's Resume,
+  // lands right here): whichever is later. A key press on it (focused, deliberate) still works; so does Return on the note.
+  const doneKey = v?.next === 'done' ? `${v.step.itemId}|${v.depth}` : '';
+  const [held, setHeld] = useState(false);
+  useLayoutEffect(() => {
+    if (!doneKey || !focused) return;
+    // Before the frame is painted, so no press can land between Done appearing and its hold.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHeld(true);
+    const t = setTimeout(() => setHeld(false), DONE_GUARD_MS);
+    return () => {
+      clearTimeout(t);
+      setHeld(false);
+    };
+  }, [doneKey, focused]);
   const next = () => {
     if (!v) return;
     act().nextStep(runId);
@@ -111,7 +147,7 @@ export function Runner({ runId }: { runId: string }) {
   const plan = () => {
     setPanel(false);
     // P-101 (ruling 2): inside a call, the innermost routine's Plan; else the run's.
-    toPlan.current = v?.planIn ? `/go/run/${runId}/plan?in=${encodeURIComponent(v.planIn.seq)}` : `/go/run/${runId}/plan`;
+    toPlan.current = v?.planIn ? `/go/run/${runId}/plan?in=${encodeURIComponent(v.planIn.seq)}&from=run` : `/go/run/${runId}/plan?from=run`;
     // One write: the run is paused (plainly, ruling 4). The route then follows it (above) — also when the
     // press is kept while reconnecting and applied once the data is back.
     act().planRun(runId);
@@ -166,7 +202,8 @@ export function Runner({ runId }: { runId: string }) {
   const restartSheet =
     restarting !== null ? (
       <Confirm
-        title={`Start ${restarting === 0 ? v.name : v.level} over? Your place and values in it go.`}
+        title={`Start ${restarting === 0 ? v.name : v.level} over?`}
+        body="Your place and values in it go."
         action="Start over"
         testID="go-restart-confirm"
         onCancel={() => setRestarting(null)}
@@ -183,6 +220,41 @@ export function Runner({ runId }: { runId: string }) {
   // text) the button says "Plan" and its spoken name keeps the routine (the path beside it names it too).
   const planSpoken = v.planIn ? `Plan ${v.planIn.name}` : 'Plan';
   const planLabel = v.planIn && !compact ? planSpoken : 'Plan';
+  const pathWords = (
+    <View style={[styles.contextWords, compact && styles.contextWordsAlone]} testID="go-context">
+      {!!v.parent && <T dim>{`${v.parent} ›`}</T>}
+      <T bold size={18}>
+        {v.level}
+      </T>
+      {/* P-101 (ruling 7): what this step's (or this level's) smaller steps give, hoisted. */}
+      {v.gives.length > 0 && <Gives names={v.gives} testID="go-context-gives" />}
+    </View>
+  );
+  const planDoor = (
+    <Btn
+      label={planLabel}
+      spoken={full ? `${planSpoken}. This step is long` : planSpoken !== planLabel ? planSpoken : undefined}
+      mark={full && !narrow ? 'split' : undefined}
+      testID="go-plan-door"
+      dataSet={{ marked: full ? 'true' : 'false' }}
+      onPress={plan}
+      style={styles.planDoor}
+    />
+  );
+  /* P-103 (2; was P-101 ruling 2: both doors at its right): the top line — ❚❚ Pause, the one way out, first at
+   its left; the path (it wraps; not a control); Plan at its right. Under 340 px the path has a line of its own, beneath.
+   Pinned above the column (as an app bar is), so the way out never scrolls away — but with almost no room
+   (under 360 px tall: large text AND the keyboard up) it scrolls with the column, so the note keeps its room. */
+  const topLine = (
+    <View style={styles.context}>
+      <Btn ref={pauseBtn} mark="pause" label="Pause" spoken="Pause and go home" onPress={() => { setPanel(false); setPausing(true); }} testID="go-pause" style={styles.pauseDoor} />
+      {compact && <View style={styles.contextGap} />}
+      {!compact && pathWords}
+      {planDoor}
+      {compact && pathWords}
+    </View>
+  );
+  const pinTop = !seen || seen.height >= 360;
 
   return (
     <GoScreen testID="go-runner" layer={layer}>
@@ -190,29 +262,9 @@ export function Runner({ runId }: { runId: string }) {
       {/* Said once on arriving (from Plan, a start, a reload): running, and the step. */}
       {focused && <Said text={`Running: ${v.step.kind === 'wait' ? `Wait for: ${shown}` : shown}`} />}
       {/* With almost no room (large text AND the keyboard up) the column scrolls before anything goes: the note keeps a least size. */}
+      {pinTop && topLine}
       <ScrollView style={styles.column} contentContainerStyle={styles.columnBody} keyboardShouldPersistTaps="handled" testID="go-column">
-      {/* P-101 (ruling 2): the top line — the path on the left (it wraps; not a control), the doors at its right. */}
-      <View style={styles.context}>
-        <View style={[styles.contextWords, compact && styles.contextWordsAlone]} testID="go-context">
-          {!!v.parent && <T dim>{`${v.parent} ›`}</T>}
-          <T bold size={18}>
-            {v.level}
-          </T>
-          {/* P-101 (ruling 7): what this step's (or this level's) smaller steps give, hoisted. */}
-          {v.gives.length > 0 && <Gives names={v.gives} testID="go-context-gives" />}
-        </View>
-        {/* The doors, at its right: they wrap beneath it (Plan's words too) when the room runs out — never cut off. */}
-        <Btn ref={pauseBtn} mark="pause" spoken="Pause and go home" onPress={() => { setPanel(false); setPausing(true); }} testID="go-pause" />
-        <Btn
-          label={planLabel}
-          spoken={full ? `${planSpoken}. This step is long` : planSpoken !== planLabel ? planSpoken : undefined}
-          mark={full && !narrow ? 'split' : undefined}
-          testID="go-plan-door"
-          dataSet={{ marked: full ? 'true' : 'false' }}
-          onPress={plan}
-          style={styles.planDoor}
-        />
-      </View>
+      {!pinTop && topLine}
       {/* Audit F6: with little room the values and the note on them are one row high and scroll inside it. */}
       <ScrollView style={tight && styles.valuesTight} contentContainerStyle={tight && styles.valuesTightBody} nestedScrollEnabled keyboardShouldPersistTaps="handled" testID="go-values-area">
         <ValuesRow
@@ -224,7 +276,8 @@ export function Runner({ runId }: { runId: string }) {
         {/* P-101 (ruling 3): the pause note, read on the way back in (until the first move drops it). */}
         {!!v.reason && (
           <View style={styles.reason} testID="go-runner-reason">
-            <Mark name="pause" size={20} color={G.dim} />
+            {/* P-103 (10): the note's own mark — ❚❚ is the Pause button's alone. */}
+            <Mark name="note" size={20} color={G.dim} />
             <T style={styles.shrink}>{v.reason}</T>
           </View>
         )}
@@ -285,8 +338,11 @@ export function Runner({ runId }: { runId: string }) {
                   ref={nextBtn}
                   label={v.next === 'itsHappened' ? 'It’s happened' : done ? 'Done' : 'Next'}
                   spoken={v.next === 'itsHappened' ? `It’s happened: ${shown}` : done ? `Done with ${v.name}` : undefined}
+                  // P-103 (1): Done has its own mark, the check — never Next's arrow.
+                  mark={done ? 'check' : undefined}
                   markAfter={v.next === 'itsHappened' || done ? undefined : 'forward'}
                   onPress={next}
+                  hold={done && held}
                   size={18}
                   style={styles.next}
                   testID="go-next"
@@ -552,7 +608,7 @@ function Panel({ runId, restart, onRestart, onClose, onUndo, onMoved }: PanelPro
         <View ref={first} style={styles.where} {...(WEB && ({ tabIndex: -1 } as object))} testID="go-where">
           {!!p.reason && (
             <View style={styles.line} testID="go-panel-reason">
-              <Mark name="pause" color={G.dim} />
+              <Mark name="note" color={G.dim} />
               <T style={styles.shrink}>{p.reason}</T>
             </View>
           )}
@@ -638,10 +694,12 @@ function PauseSheet({ name, reason, onPause, onClose, fallback }: { name: string
 const styles = StyleSheet.create({
   shrink: { flexShrink: 1 },
   // P-101 (ruling 2): the path (it wraps) and, at its right, the doors; with too little room the doors go beneath, at the right.
-  context: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: SP.s2, marginHorizontal: GUTTER, marginTop: SP.s2, borderWidth: 2, borderColor: G.line, paddingRight: SP.s1, paddingVertical: SP.s1 },
+  context: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: SP.s2, marginHorizontal: GUTTER, marginTop: SP.s2, borderWidth: 2, borderColor: G.line, paddingHorizontal: SP.s1, paddingVertical: SP.s1 },
   // Tall enough for a parent and a level, always: the note does not move when a level is entered.
   contextWords: { flexGrow: 1, flexShrink: 1, flexBasis: 96, minWidth: 0, minHeight: 56, justifyContent: 'center', paddingHorizontal: SP.s3 - 4, paddingVertical: SP.s1 },
   planDoor: { flexShrink: 1, maxWidth: '100%' },
+  pauseDoor: { flexShrink: 0, paddingHorizontal: SP.s2 },
+  contextGap: { flexGrow: 1 },
   valuesTight: { flexGrow: 0, flexShrink: 0, maxHeight: 64 },
   valuesTightBody: { paddingBottom: SP.s1 },
   // Under 340 px (large text): the path has the line to itself, the doors beneath it at the right.

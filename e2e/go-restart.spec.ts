@@ -8,7 +8,7 @@
  * Gives… on another step turns them back; one Undo restores the step and its gives.
  */
 import { expect, test } from './fixtures';
-import { arrived, expectEdit, home, phoneKeyboard, plan, planMenu, RoutineSpec, runner, saved, exported, setVisibility, startGo, tile, undoEdit } from './goFixture';
+import { arrived, expectEdit, expectRemoved, home, phoneKeyboard, plan, planMenu, RoutineSpec, runner, saved, exported, setVisibility, startGo, tile, undoEdit } from './goFixture';
 
 const DRAWING: RoutineSpec = { id: 'draw', name: 'Drawing practice', steps: ['Select the subject matter', 'Warm up', 'Find photos of {subject}', { routine: 'sketch' }, 'Rank your drawings'] };
 const SKETCH: RoutineSpec = { id: 'sketch', name: 'Sketch', home: false, steps: [{ text: 'Pick a pencil', gives: 'pencil' }, 'Draw with the {pencil}'] };
@@ -71,7 +71,9 @@ for (const size of [
       await r.panel.getByTestId('go-restart-level').click();
       const ask = page.getByTestId('go-restart-confirm');
       await expect(ask).toHaveRole('alertdialog');
-      await expect(ask).toContainText('Start Sketch over? Your place and values in it go.');
+      // P-103 (8; was one sentence as the title): the one confirm — the question as its title, the consequence in one line.
+      await expect(ask.getByRole('heading')).toHaveText('Start Sketch over?');
+      await expect(ask).toContainText('Your place and values in it go.');
       // Cancel changes nothing.
       await ask.getByRole('button', { name: 'Cancel', exact: true }).click();
       await expect(r.words).toHaveText('Draw with the 2B');
@@ -132,8 +134,8 @@ for (const size of [
       await expect(ask).toContainText('It gives {subject}, which 2 steps read. They’ll ask for it when run.');
       await expect(ask.getByTestId('go-plan-readers')).toContainText('Find photos of');
       await expect(ask.getByTestId('go-plan-readers')).toContainText('Rank');
-      // Close: nothing goes.
-      await ask.getByRole('button', { name: 'Close', exact: true }).last().click();
+      // Cancel: nothing goes. (P-103 (8; was a sheet with Close): the one confirm, Cancel.)
+      await ask.getByRole('button', { name: 'Cancel', exact: true }).click();
       await expect(p.row('Select the subject matter')).toHaveCount(1);
       await planMenu(page, 'Select the subject matter', 'Remove');
       await page.getByTestId('go-plan-remove').click();
@@ -143,7 +145,8 @@ for (const size of [
       await expect(dashed.first()).toHaveText('asks {subject}');
       expect(await dashed.first().evaluate((e) => getComputedStyle(e).borderTopStyle)).toBe('dashed');
       // One Undo: the step and its gives.
-      await expectEdit(page, 'Removed “Select the subject matter”');
+      // P-103 (5; was expectEdit — no notice): removing a step says so, with Undo (and its Undo stays in the menu).
+      await expectRemoved(page, 'Removed “Select the subject matter”');
       await undoEdit(page);
       await expect(p.row('Select the subject matter').getByTestId('go-plan-gives')).toHaveText('gives {subject}');
       await expect(dashed).toHaveCount(0);

@@ -191,7 +191,8 @@ test('(5) home: a paused tile’s ··· opens the same anchored menu — Start 
   const menu = await arrived(page, 'go-tile-menu');
   await expect(menu).toHaveRole('menu');
   await expect(menu).toHaveAccessibleName('Five steps');
-  await expect(menuItems(menu)).toHaveText(['Start over']);
+  // P-103 (6; was: Start over alone): End this run too, after a line, in red.
+  await expect(menuItems(menu)).toHaveText(['Start over', 'End this run']);
   await expect(menuItems(menu).first()).toHaveAccessibleName('Start over: Five steps');
   await expect(menuItems(menu).first()).toBeFocused();
   const b = (await more.boundingBox())!;

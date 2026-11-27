@@ -12,7 +12,7 @@
  * J36-a/b/c and J36-f are rewritten below (each says what it was).
  */
 import { expect, test } from './fixtures';
-import { addStep, arrived, closeMenu, expectEdit, expectSteps, home, menuItems, pauseRun, place, plan, planMenu, planMove, planType, runner, startGo, tile, tileBody, sinceDate, undoEdit } from './goFixture';
+import { addStep, arrived, closeMenu, expectEdit, expectRemoved, expectSteps, home, menuItems, pauseRun, place, plan, planMenu, planMove, planType, runner, startGo, tile, tileBody, sinceDate, undoEdit } from './goFixture';
 
 /** A wait seeded nine days ago reads its date (within the last week it would be a day's name). */
 const SINCE = sinceDate(9);
@@ -167,7 +167,8 @@ test('J36-a, J36-b, J36-c (P-102): a wait stored in a routine shows in Plan amon
   await expect(p.row('a signed contract')).toHaveAttribute('data-kind', 'wait');
   await planMenu(page, 'Celebrate', 'Remove');
   // Its Undo names what went.
-  await expectEdit(page, 'Removed “Celebrate”');
+  // P-103 (5; was expectEdit — no notice): removing a step says so, with Undo (and its Undo stays in the menu).
+  await expectRemoved(page, 'Removed “Celebrate”');
   await expectSteps(page, ['Send the application', 'Note the answer in the tracker', 'Wait for a signed contract']);
   await undoEdit(page);
   await expectSteps(page, ['Send the application', 'Note the answer in the tracker', 'Wait for a signed contract', 'Celebrate']);

@@ -131,7 +131,7 @@ function Blocked({ storage, messageRef }: { storage: Extract<StorageStatus, { st
   );
 }
 
-/** Last resort on web: everything Wanderment keeps in localStorage, as a file, untouched. */
+/** Last resort on web: everything the app keeps in localStorage (its keys still start with `wanderment`), as a file, untouched. */
 function downloadRawData() {
   const raw: Record<string, string | null> = {};
   for (let i = 0; i < localStorage.length; i++) {
@@ -141,7 +141,7 @@ function downloadRawData() {
   const url = URL.createObjectURL(new Blob([JSON.stringify(raw, null, 2)], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `wanderment-raw-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = `routines-local-copy-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   URL.revokeObjectURL(url);
 }

@@ -10,7 +10,7 @@ import { shareBackup } from '@/storage/nativeBackup';
  */
 export async function exportBackup(data: Data): Promise<void> {
   const json = toBackup(data);
-  const filename = `wanderment-${new Date().toISOString().slice(0, 10)}.json`;
+  const filename = `routines-backup-${new Date().toISOString().slice(0, 10)}.json`;
   if (Platform.OS === 'web') {
     const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
     const link = document.createElement('a');

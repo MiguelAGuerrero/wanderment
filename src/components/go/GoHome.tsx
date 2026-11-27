@@ -24,7 +24,7 @@ import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
 import { decideWhere, wentHome, whereDecided } from './session';
 import { G, hueOf, SP, TARGET } from './tokens';
-import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Menu, MenuItem, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
+import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Menu, MenuItem, MenuSep, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
 import { Parts } from './Values';
 
 export function GoHome() {
@@ -69,6 +69,8 @@ export function GoHome() {
   /** P-101 amendment (ruling 9): a paused tile's ··· (its menu), then Start over asked. */
   const [tileMenu, setTileMenu] = useState<Tile | null>(null);
   const [restarting, setRestarting] = useState<Tile | null>(null);
+  /** P-103 (6): "End this run" asked, for this tile's run. */
+  const [ending, setEnding] = useState<Tile | null>(null);
   /** P-102 audit F5: each tile's ··· (by routine), what its menu hangs from. */
   const [mores] = useState<Record<string, unknown>>(() => ({}));
   const newBtn = useRef<ViewRef>(null);
@@ -101,7 +103,7 @@ export function GoHome() {
     else focusOn(title);
   };
   useKeys(
-    focused && !naming && !tileMenu && !restarting,
+    focused && !naming && !tileMenu && !restarting && !ending,
     {
       'mod+z': () => {
         if (!can) return;
@@ -122,13 +124,28 @@ export function GoHome() {
           <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newBtn} />
         ) : restarting?.runId ? (
           <Confirm
-            title={`Start ${restarting.name} over? Your place and values in it go.`}
+            title={`Start ${restarting.name} over?`}
+            body="Your place and values in it go."
             action="Start over"
             testID="go-restart-confirm"
             onCancel={() => setRestarting(null)}
             onAct={() => {
               act().restartRun(restarting.runId!, 0);
               setRestarting(null);
+              focusOn(title);
+            }}
+          />
+        ) : ending?.runId ? (
+          // P-103 (6): ending a paused run — the existing end verb for the whole run; final, like every finish.
+          <Confirm
+            title={`End this run of ${ending.name}?`}
+            body="It ends where it is, with its pause note kept; the routine stays to start again."
+            action="End this run"
+            testID="go-end-confirm"
+            onCancel={() => setEnding(null)}
+            onAct={() => {
+              act().endRun(ending.runId!);
+              setEnding(null);
               focusOn(title);
             }}
           />
@@ -144,6 +161,22 @@ export function GoHome() {
                 setTileMenu(null);
               }}
             />
+{/* P-103 audit F5: only a paused run is ended here — one resting on a wait is waited for, not put down. */}
+            {tileMenu.state === 'paused' && (
+              <>
+            <MenuSep />
+                <MenuItem
+                  label="End this run"
+                  spoken={`End this run of ${tileMenu.name}`}
+                  danger
+                  testID="go-tile-end"
+                  onPress={() => {
+                    setEnding(tileMenu);
+                    setTileMenu(null);
+                  }}
+                />
+              </>
+            )}
           </Menu>
         ) : null
       }>
@@ -154,6 +187,14 @@ export function GoHome() {
         <Btn kind="plain" mark="gear" spoken="Settings" onPress={() => router.push('/go/settings')} style={styles.settings} testID="go-settings-btn" />
       </View>
       <ScrollView style={styles.flex} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" testID="go-tiles">
+        {/* P-103 (9; audit F-10): with no routines, one line says what will be here; + New, below, is its one action. */}
+        {tiles.length === 0 && (
+          <View style={styles.empty}>
+            <T dim size={18} style={styles.emptyWords} testID="go-home-empty">
+              Your routines will be here.
+            </T>
+          </View>
+        )}
         <View style={styles.grid}>
           {tiles.map((t) => (
             <TileBox key={t.routineId} tile={t} wide={columns === 1} onPress={() => choose(t)} onPlan={() => toPlan(t.routineId, t.runId)} onMore={t.runId && t.state !== 'running' ? () => setTileMenu(t) : undefined} moreRef={(el) => { mores[t.routineId] = el; }} unavailable={busy(t)} />
@@ -234,7 +275,8 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef }: 
       </View>
       {(!!l.line || !!l.mark) && (
         <View style={styles.tileLine}>
-          {l.mark && <Mark name={l.mark === 'wait' ? 'wait' : 'pause'} size={20} color={color} />}
+          {/* P-103 (10): ⧗ for waiting; a paused tile has no mark (❚❚ is the runner's Pause alone) — its Resume says it. */}
+          {l.mark === 'wait' && <Mark name="wait" size={20} color={color} />}
           {!!l.line && (
             <T ink style={styles.tileName} testID="go-tile-line">
               {l.parts ? <Parts parts={l.parts} ink={color} on={hue.c} /> : l.line}
@@ -277,6 +319,8 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef }: 
       <View style={styles.tileFoot}>
         {/* Nothing going: Start (none with no steps yet — Plan is where the first step is added). */}
         {!going && !tile.empty && <Btn ink kind="outline" disabled={unavailable} label={l.button} spoken={l.spoken} onPress={onPress} style={styles.tileBtn} />}
+        {/* P-103 (4; audit F-3): a run's way back in, in words, where Start sits — its body still resumes too. */}
+        {going && tile.action === 'resume' && <Btn ink kind="outline" disabled={unavailable} label="Resume" spoken={l.spoken} onPress={onPress} style={styles.tileBtn} testID="go-tile-resume" />}
         {tile.action !== 'plan' && <Btn ink kind="outline" label="Plan" spoken={`Plan ${tile.name}`} onPress={onPlan} style={going || tile.empty ? styles.tileBtn : styles.tilePlanBtn} />}
         {onMore && <Btn ref={moreRef} ink kind="plain" mark="more" spoken={`More for ${tile.name}`} onPress={onMore} testID="go-tile-more" />}
       </View>
@@ -286,6 +330,8 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef }: 
 
 const styles = StyleSheet.create({
   flex: { flex: 1, minHeight: 0 },
+  empty: { paddingVertical: SP.s6, alignItems: 'center' },
+  emptyWords: { textAlign: 'center' },
   away: { opacity: 0 },
   bar: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingLeft: SP.s3, paddingRight: SP.s2, gap: SP.s1 },
   settings: { width: TARGET, paddingHorizontal: 0, justifyContent: 'center' },

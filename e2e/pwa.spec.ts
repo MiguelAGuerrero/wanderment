@@ -18,8 +18,8 @@ test('the manifest is linked, valid, and its icons load', async ({ page, request
   expect(res.ok()).toBe(true);
   const manifest = await res.json();
   expect(manifest).toMatchObject({
-    name: 'Wanderment',
-    short_name: 'Wanderment',
+    name: 'Routines',
+    short_name: 'Routines',
     start_url: '/wanderment/',
     scope: '/wanderment/',
     display: 'standalone',
