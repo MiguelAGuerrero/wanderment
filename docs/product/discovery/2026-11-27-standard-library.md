@@ -2,8 +2,8 @@
 
 _Discovery for the owner's request of 2026-11-27. Curated by /product from three research reports
 (learning and reflection; deciding, solving, researching and getting started; big templates and how
-libraries are packaged). The raw reports are local files: ,
-, . Nothing here is built, and nothing here is a decision._
+libraries are packaged). The raw reports are local files: `.polish/product/discovery-stdlib-learning.md`,
+`-deciding.md`, `-templates.md`. Nothing here is built, and nothing here is a decision._
 
 > **Verification caveat. No source page could be opened.** This environment's network refused the
 > publishers' and PubMed's pages, so every citation below comes from a search-result summary
@@ -22,7 +22,7 @@ project, etc. … generalizable enough to be used towards any specific purpose."
 Chosen by the owner for this round: a catalogue only (no brief, nothing built); research-backed first,
 with practitioner conventions labelled; a tight core; web research with sources.
 
-Every routine is written in the notation of [](../briefs/B-16-thread-queues.md):
+Every routine is written in the notation of [`../briefs/B-16-thread-queues.md`](../briefs/B-16-thread-queues.md):
 **asks** (a name it reads), **gives** (a name it produces), **adds to** (work it puts on a list),
 For each, In any order. All need P-98 and P-99 except where marked.
 
@@ -36,7 +36,7 @@ For each, In any order. All need P-98 and P-99 except where marked.
    person takes a copy per aim (DESIGN.md: "to vary, copy"). A small method keeps no list, so one
    routine can be called from everywhere.
 3. **A called method cannot yet hand anything back.** DESIGN.md: a name a routine gives inside itself
-   is its own. So "Find how it fails" can ask  and cannot give  to its caller.
+   is its own. So "Find how it fails" can ask `{plan}` and cannot give `{reasons}` to its caller.
    All three reports hit this independently. It is the real question behind "proper inputs and
    outputs", and it is the owner's to settle (see Questions).
 4. **What the refusals cost.** Spacing by schedule (strong evidence) survives only as a kept list with
