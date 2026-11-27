@@ -114,7 +114,7 @@ Become a better drawer
     Study
       For each topic:  colour theory               + Add
         Find a guide or video on {topic}
-        Summarise it in two lines
+        Close it and write two lines from memory
 ```
 "I want to learn how to draw cartoons too" is + Add on subjects. A different kind of work with its own
 processing is a second part with its own list and method (P-99), each keeping its own place.
@@ -174,7 +174,7 @@ them, "staying oriented" breaks inside a routine the way it used to break across
 ```
 Become a better drawer
   Practise            at Deliberate practice · subject: hands        ← you are here
-  Study               at Summarise it in two lines · topic: colour theory
+  Study               at Close it and write two lines from memory · topic: colour theory
   Artwork             waiting for feedback on the thumbnail · since Tuesday
 ```
 - One line per part, in the app's existing wordings: "at <step>" with its values in place, "waiting for
@@ -199,7 +199,7 @@ or changing parts is Plan's.
 - a finished part and a stopped part are told apart in words, and that record survives export and
   import;
 - at 390 px and at 200 % text every line wraps and none is cut; each row has a full spoken name ("Study,
-  at Summarise it in two lines, in Become a better drawer") and is at least 48 px;
+  at Close it and write two lines from memory, in Become a better drawer") and is at least 48 px;
 - no count, percentage or "left" appears anywhere in it.
 
 **Data.** A derived view: it reads the places P-99 already stores for each part. The one stored
