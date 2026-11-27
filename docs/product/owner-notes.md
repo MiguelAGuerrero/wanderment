@@ -18,6 +18,16 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — Screenshot: writing a for each as words in Add a step
+(Screenshot, no words: Plan for "Improve my workout routine" — "List out my doubts · gives {concerns}";
+the Add row being typed: "For each concern, @{concerns}researc…" with "{ } Insert" and "Add" beside it;
+the third line of the field is cut off.)
+Interpretation (ours): (1) for each is not built yet (P-98), so it was typed as words; (2) "@" was typed
+— the convention in Notion, Slack and others is that @ opens a picker to insert a reference; (3) Insert
+put "{concerns}" with no space before the next word; (4) the field clips its third line and the two
+buttons squeeze it.
+Led to: the conventions audit's fix batch (after P-102); P-98 for for each.
+
 ## 2026-11-27 — Lists change by being given again; a value can be a routine; finished parts take up again (relayed)
 "Right now, I don't think there are any mutations or writes that steps perform, so the only way we keep
 state is if a routine steps forward. And somehow, we can overwrite the value presented, so there might be
