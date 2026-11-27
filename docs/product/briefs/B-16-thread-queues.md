@@ -213,6 +213,9 @@ asks by itself. This is how a method is sharpened by running it.
   name where it runs, then asked.
 
 **P-99**
+- A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:
+  "Yes, a finished part takes up again when its list changes"): it reads as ready again, at that
+  item, and a block it belongs to is no longer finished until it returns.
 - An In any order block inside a for each keeps each part's place per item.
 - Stated as a test: the step after the block cannot be reached while any part has not returned or been
   stopped.
