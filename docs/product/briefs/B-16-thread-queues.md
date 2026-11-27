@@ -216,6 +216,10 @@ asks by itself. This is how a method is sharpened by running it.
 - A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:
   "Yes, a finished part takes up again when its list changes"): it reads as ready again, at that
   item, and a block it belongs to is no longer finished until it returns.
+- A consequence, stated as a test: a step that stands after an In any order block, and that the run had
+  already been able to reach, waits again if a part of that block takes up again before the step is
+  done. The run's place is not moved back by this; the step simply reads as waiting on that part, in
+  the tree view and on the tile, until the part returns. Work already done is never undone.
 - An In any order block inside a for each keeps each part's place per item.
 - Stated as a test: the step after the block cannot be reached while any part has not returned or been
   stopped.

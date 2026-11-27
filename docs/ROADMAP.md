@@ -76,7 +76,10 @@ ultimately joined together"; "a thread has managed its own state … done once t
 *Done when:* an In any order block starts one child run per part, each with its own place and values;
 the runner offers the parts to choose; a part returns what it gives; the block finishes when every part
 has returned or been stopped; parts cannot outlive the block. Canvas row 6. From B-16 (D-23): a part whose for each has finished takes up
-again when its list gains an item (it reads as ready again; its block is not finished until it returns);
+again when its list gains an item (it reads as ready again; its block is not finished until it returns); a step after the block that the run could already
+reach waits again while such a part is going (it reads as waiting on that part in the tree view and on the
+tile) — designer's ruling, to confirm in P-99's contract: the run's place is not moved back and work
+already done is never undone;
 an In any order block inside a for each keeps each part's place per item; the step after the block cannot be
 reached while any part has not returned or been stopped (stated as a test). The tree view (owner, 2026-11-27: "Scope the tree view
 alongside P-99"; B-16 §"With P-99"): the pull-up panel of a run inside an In any order block lists every
