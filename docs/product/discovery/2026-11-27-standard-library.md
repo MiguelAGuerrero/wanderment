@@ -5,10 +5,15 @@ _Discovery for the owner's request of 2026-11-27. Curated by /product from three
 libraries are packaged). The raw reports are local files: `.polish/product/discovery-stdlib-learning.md`,
 `-deciding.md`, `-templates.md`. Nothing here is built, and nothing here is a decision._
 
-> **Verification caveat. No source page could be opened.** This environment's network refused the
-> publishers' and PubMed's pages, so every citation below comes from a search-result summary
-> ("search") or from recall ("memory"), as marked. Effect sizes and study counts must be checked
-> against the papers before anything is shown to a person or quoted as fact.
+> **Verification caveat. No source page could be opened, on two attempts.** The first pass was refused
+> by this environment's network. For the second, PubMed's two sites were allowed, and PubMed itself
+> then refused automated access. So every citation below still comes from a search-result summary
+> ("search") or from recall ("memory"), as marked. A second, independent search pass cross-checked 24
+> of about 50 citations: 13 agreed, and the discrepancies it found are corrected below (still at
+> "search" grade). Effect sizes and study counts must be checked against the papers by a person before
+> anything is shown or quoted as fact. Not cross-checked at all: S9, S11, S12, S13, B4. S14's grade
+> ("moderate to strong") rests on two studies and may be nearer "moderate". Detail:
+> `.polish/product/discovery-stdlib-verification.md` (local).
 
 ## What was asked
 The owner: "productivity routines, whether that be reflection, research, decision making, problem
@@ -83,7 +88,7 @@ be written in the app as it stands.
 
 ### S1. Recall before you look
 For fixing material in memory and finding what has not stuck.
-- **Sources:** Dunlosky et al. 2013 (high utility); Rowland 2014 (g = 0.50; 0.69 past a day);
+- **Sources:** Dunlosky et al. 2013 (high utility); Rowland 2014 (g = 0.50);
   Adesope et al. 2017. All [search], none opened.
 - **Evidence: strong.** Hundreds of experiments, several meta-analyses, across ages and materials.
   Weaker evidence for complex skills than for facts and concepts.
@@ -108,8 +113,9 @@ Recall before you look                                   asks {material}
 ### S2. Work through the errors
 For turning feedback or a comparison into specific changes.
 - **Sources:** Wisniewski, Zierer and Hattie 2020 (d = 0.48; information-rich feedback larger)
-  [search]; Kluger and DeNisi 1996 (a third of interventions harmful when attention goes to the
-  self) [memory]; Keith and Frese 2008 (d = 0.44; 0.80 on transfer to new tasks) [search].
+  [search]; Kluger and DeNisi 1996 (d = .41 on average, yet over a third of
+  interventions lowered performance; the authors' account is that feedback hurts as it moves
+  attention from the task to the self) [search, secondary]; Keith and Frese 2008 (d = 0.44; 0.80 on transfer to new tasks) [search].
 - **Evidence: strong that it helps on average; moderate for this exact form.** The wording "in the
   work, not in you" is there because of Kluger and DeNisi.
 
@@ -135,8 +141,8 @@ Work through the errors                                  asks {attempt}
 ### S3. Review after doing
 For learning from a piece of work that has just ended (the after-action review).
 - **Sources:** Tannenbaum and Cerasoli 2013 (46 samples; about 20–25 % better performance); Ellis
-  and Davidi 2005 (review successes as well as failures); Di Stefano et al. 2023 (reflection beat
-  extra practice). [search]
+  and Davidi 2005 (review successes as well as failures); Di Stefano, Gino, Pisano and Staats (working paper 2014, revised 2023; journal version
+  listed as in press, Management Science; reflection beat extra practice). [search]
 - **Evidence: strong** for structured debriefs, with individuals as well as teams. The four-question
   wording itself is the US Army's convention; the meta-analysis supports the structure (an intent, a
   comparison, causes, a forward change), not those exact words.
@@ -162,8 +168,8 @@ Review after doing                                       asks {work}
 ### S4. Practise at the edge
 One sitting of deliberate practice on one thing.
 - **Sources:** Ericsson, Krampe and Tesch-Römer 1993 (definition) [search, as quoted by later
-  papers]; Macnamara, Hambrick and Oswald 2014 (about 12 % of variance overall, 21 % in music, under
-  1 % in professions) [search].
+  papers]; Macnamara, Hambrick and Oswald 2014 (26 % of variance in games, 21 % in music, 18 % in sports, 4 % in
+  education, under 1 % in professions; about 12 % overall per the press release) [search].
 - **Evidence: moderate, and contested.** The link between accumulated practice and level is
   correlational and its size is argued over. The ingredients (a target just beyond reach, a way to
   judge, immediate feedback, another attempt) have experimental support of their own (S1
@@ -213,11 +219,12 @@ Explain each step                                        asks {example}
 
 ### S6. Teach it plainly
 For finding the holes in what you think you understand. Known as the Feynman technique.
-- **Sources:** Kobayashi 2024 (g = 0.48 for teaching after preparing to teach); Koh, Lee and Lim
+- **Sources:** Kobayashi 2024 (Educational Psychology Review; 39 studies; g = 0.27 overall for teaching
+  after studying, 0.48 when the studying was done expecting to teach); Koh, Lee and Lim
   2018 (the benefit comes from retrieving, so the notes must be closed) [search]. The named
   four-step technique: study-skills pages and a 2026 review of mixed small studies [search].
 - **Evidence: practitioner convention**, built from parts with moderate support (retrieval, S1
-  and S5). Step one is not optional: explaining with the source open showed no benefit in Koh et al.
+  and S5). Step one is not optional: explaining with the source open showed no benefit in Koh et al., a single study.
 
 ```
 Teach it plainly                                         asks {topic}
@@ -239,8 +246,9 @@ Teach it plainly                                         asks {topic}
 Distributed practice and successive relearning: recall again after a gap, until it comes easily.
 - **Sources:** Dunlosky et al. 2013 (high utility); Cepeda et al. 2006 (*Psychological Bulletin*
   132, 354–380; 317 experiments); Rawson and Dunlosky, "Successive Relearning" (2022, *Current
-  Directions in Psychological Science*); a 2021 meta-analysis of spaced against massed retrieval
-  (*Educational Psychology Review*; 29 studies, g = 0.74; authors not confirmed). [search]
+  Directions in Psychological Science*); Latimier, Peyre and Ramus 2021
+  (*Educational Psychology Review* 33, 959–987; 29 studies; spaced against massed retrieval g = 0.74;
+  expanding against uniform gaps g = 0.03, not significant). [search]
   https://journals.sagepub.com/doi/full/10.1177/09637214221100484
 - **Evidence: strong**, and the method the refusals cost most.
 
@@ -257,7 +265,8 @@ Come back to it
   - *Changed:* no schedule. The gap is whenever the person next runs it. Something recalled easily
     leaves the list (B-16: "a kept item leaves the list when its turn is done"); something missed is
     added back by the last step, which is rule 2 doing a Leitner box's job with one box.
-  - *Lost:* expanding intervals, due dates and the reminder, which are what spaced-repetition
+  - *Lost:* due dates and the reminder (expanding intervals showed no advantage over even ones
+    in Latimier et al.), which are what spaced-repetition
     software exists for. Also lost: an item recalled once never returns unless the person adds it
     again. For facts in bulk, a dedicated tool is the honest recommendation.
   - *Risk:* a missed item added back inside the same sitting comes round again at once, which is
@@ -434,8 +443,8 @@ model).
   Bloom's "2 sigma" is not a safe number.
 - *The self-regulated learning cycle* (Zimmerman: forethought, performance, self-reflection, round
   again) ([review](https://revistas.um.es/analesps/article/view/analesps.30.2.167221)). **Evidence:
-  moderate** for training it (Dignath and Büttner 2008, school pupils; a later university meta-analysis
-  reports g = 0.38, both via secondary listings).
+  moderate** for training it (Dignath and Büttner 2008, school pupils; Theobald 2021 (Contemporary Educational Psychology 66) reports a
+  small-to-medium effect for university students (g about 0.37 to 0.38; exact figure unverified), both via secondary listings).
 
 ```
 Learn a skill                                          (copied as "Learn {skill}")
@@ -543,9 +552,8 @@ Research a question                                    (copied as "Find out: …
   **Practitioner convention.** No outcome trials found.
 - *Several prototypes at once before choosing*: Dow et al. 2010, an experiment: people who made
   alternatives in parallel produced better-performing, more varied designs and gained more confidence
-  than those who refined one ([UCSD](https://protolab.ucsd.edu/?p=3561)); Murphy et al. 2022 found the
-  same in a physical design contest. **Evidence: suggestive**, small student studies, one inconclusive
-  follow-up.
+  than those who refined one ([UCSD](https://protolab.ucsd.edu/?p=3561)); Murphy, Floresca, Fu and Linsey 2022 (Research in Engineering Design 33) found the
+  same in a physical design contest. **Evidence: suggestive**, small student studies, one inconclusive physical-prototyping experiment.
 - *Find how it fails* (S10) is called here.
 
 ```
@@ -652,7 +660,7 @@ Each is written out in the local reports.
 | **The 10,000-hour rule, logging practice hours** | A tally of what you did; refused. Also not what the research says (Macnamara et al. 2014; Ericsson himself rejected the rule) [memory for the second clause]. |
 | **Progress monitoring by recording** | Harkin et al. 2016 (*Psychological Bulletin*) found monitoring progress raises goal attainment, more so when recorded or made public [memory]. It is a count kept against a goal; refused. A fair case of a research-backed method the app declines on purpose. |
 | **Timed practice blocks, Pomodoro, "20 minutes a day"** | Timers; refused. Pomodoro is also a practitioner convention with little controlled evidence [memory]. |
-| **Specific, difficult goals with a number and a date** (Locke and Latham 2002; d = .52–.82 in earlier meta-analyses [search]) | The deadline and the number are refused. The part that fits is already inside method 5 (`{target}` and `{check}`) and method 10 (`{aim}`): a specific standard for this sitting, no date. Not written as its own routine. |
+| **Specific, difficult goals with a number and a date** (Locke and Latham 2002; d = .42–.80 against "do your best" goals in earlier meta-analyses [search; .52–.82 also appears in the paper, for a comparison not confirmed]) | The deadline and the number are refused. The part that fits is already inside method 5 (`{target}` and `{check}`) and method 10 (`{aim}`): a specific standard for this sitting, no date. Not written as its own routine. |
 | **Kolb's cycle and Gibbs's cycle as routines** | Not refused by a rule; set aside because the evidence is weak (finding 9) and method 4 covers the supported core. Gibbs's "feelings" stage could be one optional step in method 4 if the owner wants it, labelled convention. |
 | **Learning styles (matching method to "visual / auditory" learners)** | No credible evidence (Pashler et al. 2008) [memory]. |
 | **Mental practice (rehearsing a movement in the mind)** | Supported for motor skills (Driskell et al. 1994, d about 0.5) [memory]; not searched in this session, so not written up. A candidate if the owner wants motor skills covered. |
@@ -673,7 +681,7 @@ Each is written out in the local reports.
 | SMART goals | Practitioner acronym; "time-bound" is a deadline. Goal-setting theory itself (Locke & Latham) is strong but belongs to the project-template scout. |
 | Eisenhower matrix | Practitioner; "urgent" is a deadline in disguise, and it sorts a task backlog, which the app does not keep. |
 | Five whys, literally (one chain, five deep) | Practitioner, with a published case against it (Card 2017). Replaced by method 11. |
-| Analysis of Competing Hypotheses as a matrix with scores | Failed its randomised test; needs a grid and tallies. Its sound core is method 12. |
+| Analysis of Competing Hypotheses as a matrix with scores | Did not help in a controlled test with analysts (Dhami, Belton and Mandel 2019, search); needs a grid and tallies. Its sound core is "Test rival explanations" on the second shelf. |
 | Pros and cons list | In Veinott et al. 2010 (second-hand) it lowered overconfidence less than the pre-mortem; lists reasons for a favoured option without fixing criteria first. Method 8 does the job. |
 | Weighted decision matrix with totals | Arithmetic and a score; Dawes shows the weights add little. Method 8 without them. |
 | 10/10/10 (Welch), Six Thinking Hats (de Bono) | Practitioner; no supporting evidence found. Self-distancing has evidence and is one step of method 9. |
