@@ -211,6 +211,18 @@ name asks for it in place, far from where it was made.
 - **Inside a for each**, what is owed is owed per item, and is collected after the block like any
   other value given inside it.
 *(The form of the fields and "names still owed" on Step out are a designer's ruling.)*
+- **A loop can be passed over whole.** The owner (2026-11-27): "when I sufficiently understand my own
+  routine, especially when it comes to loops, it would be more overhead to just keep looping through a
+  block, and it might be more expedient to at least capture the results of that loop at the top level."
+  A for each is a step with insides like any other: the runner shows the block as one note, with Step
+  in and Next. Step in takes it item by item. Next passes over the whole loop and asks for what it
+  gives, as a list with one row per item, each row labelled with its item. Step out from inside leaves
+  the loop, keeps what the items already done gave, and asks for the rest in the same list.
+  Research on guidance and skill says the same thing from the other side: step-by-step help turns
+  from aid to hindrance as skill grows (the expertise-reversal finding; unverified, from the
+  2026-11-27 assessment), so being able to stop stepping is a sign the routine has done its job.
+  *(That the block is shown as one note with Step in and Next, and the labelled rows, are a designer's
+  ruling.)*
 
 ### A for each can declare its own list
 The owner (2026-11-27): "maybe there's better UX to have a for each loop declare its own values, like
@@ -359,6 +371,10 @@ asks by itself. This is how a method is sharpened by running it.
 - (With the self-call, when unparked:) a level whose routine has the same name as the one above is
   named by the value it was called with, in the path, Step out's notice, Start over and Jump to…; a
   long path collapses its middle to a plain-text "…"; the closed self-call row in Plan carries words.
+
+- A for each block is reached as one note with Step in and Next: Step in runs it item by item; Next
+  passes over it and asks for what it gives as a list, one row per item, labelled; Step out from inside
+  leaves the loop, keeping what was given and asking for the rest.
 
 **P-99**
 - A part whose for each has finished takes up again when its list gains an item (owner, 2026-11-27:
