@@ -530,6 +530,8 @@ interface SheetProps {
   testID?: string;
   /** Web: where focus goes when it closes, if what opened it is gone. */
   fallback?: { current: unknown };
+  /** P-109: a menu of its own is open over it — Esc and Back are the menu's, and nothing in the sheet can be reached until it closes. */
+  inert?: boolean;
 }
 
 /**
@@ -538,15 +540,22 @@ interface SheetProps {
  * Esc, Back and the scrim close it. It slides up in under 200 ms; under Reduce Motion it is just there.
  * `data-moving` says whether it is still arriving.
  */
-export function Sheet({ title, onClose, children, confirm, testID, fallback }: SheetProps) {
+export function Sheet({ title, onClose, children, confirm, testID, fallback, inert }: SheetProps) {
   const reduce = useReduce();
   const [arrived, setArrived] = useState(false);
   const moving = !reduce && !arrived;
   const [slide] = useState(() => new Animated.Value(reduce ? 1 : 0));
   const box = useRef<ViewRef>(null);
   const heading = useRef<TextRef>(null);
-  useBackCloses(true, onClose);
-  useKeys(true, { Escape: onClose }, true);
+  useBackCloses(!inert, onClose);
+  useKeys(!inert, { Escape: onClose }, true);
+  // P-109: under its own menu, the sheet can't be reached (web: `inert`, set before the menu gives focus back).
+  useLayoutEffect(() => {
+    const el = box.current as unknown as HTMLElement | null;
+    if (!WEB || !el || typeof el.setAttribute !== 'function') return;
+    if (inert) el.setAttribute('inert', '');
+    else el.removeAttribute('inert');
+  }, [inert]);
 
   // P-103 (8; audit F-28): a confirm keeps the focus inside it — Tab past its last control comes round to its first.
   useEffect(() => {

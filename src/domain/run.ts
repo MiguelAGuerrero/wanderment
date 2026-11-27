@@ -22,6 +22,7 @@
  * has one test per row.
  */
 import { normalizeName } from './model';
+import { placesWritable, tidyPlaceText } from './places';
 import { tagsOf, tagsWritable } from './tags';
 import { Data, Id, Routine, Run } from './types';
 import { capValue, isEntry, isName, MAX_ITEMS, MAX_VALUES, nameKey, namesIn, readValues, renameIn, tidyName, ValueEntry } from './values';
@@ -175,7 +176,17 @@ export type RoutineEdit =
    */
   | { kind: 'bind'; item: Id; input: string; to?: { typed: string } | { name: string } | { ask: true } }
   /** P-98: Copy — a new routine with this one's steps under a new name (refused `same-name` for one in use). */
-  | { kind: 'copy'; words: string };
+  | { kind: 'copy'; words: string }
+  /**
+   * P-109 (B-18): the routine's places (`places.ts`) — one added at the end (a new id), one changed (its id and any
+   * field this version does not know kept), moved one row, or removed (the last takes the field away). Name and
+   * where are tidied and both needed (`empty`); `gone` for a place that is not there; `cannot` on an unnamed
+   * sequence, past an end, or when the stored field is in a shape this version cannot keep (never overwritten).
+   */
+  | { kind: 'addPlace'; name: string; where: string }
+  | { kind: 'changePlace'; place: Id; name: string; where: string }
+  | { kind: 'movePlace'; place: Id; by: 1 | -1 }
+  | { kind: 'removePlace'; place: Id };
 
 export type Verb =
   | { kind: 'start'; routineId: Id }
@@ -1592,6 +1603,24 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     const had = Array.isArray(routine.tags) ? routine.tags : undefined;
     if (had ? had.length === tags.length && had.every((t, i) => t === tags[i]) : !tags.length) return done(data);
     after = patched(routine, { tags: tags.length ? tags : undefined });
+  } else if (edit.kind === 'addPlace' || edit.kind === 'changePlace' || edit.kind === 'movePlace' || edit.kind === 'removePlace') {
+    if (!s.named || !placesWritable(routine.places)) return refuse(data, 'cannot');
+    const list = [...((routine.places as Record<string, unknown>[] | undefined) ?? [])];
+    const at = edit.kind === 'addPlace' ? -1 : list.findIndex((p) => p.id === edit.place);
+    if (edit.kind !== 'addPlace' && at < 0) return refuse(data, 'gone');
+    if (edit.kind === 'addPlace' || edit.kind === 'changePlace') {
+      const name = tidyPlaceText(String(edit.name ?? ''));
+      const where = tidyPlaceText(String(edit.where ?? ''));
+      if (!name || !where) return refuse(data, 'empty');
+      if (edit.kind === 'addPlace') list.push({ id: env.id(), name, where });
+      else if (list[at].name === name && list[at].where === where) return done(data);
+      else list[at] = { ...list[at], name, where };
+    } else if (edit.kind === 'movePlace') {
+      const to = at + (edit.by === 1 ? 1 : -1);
+      if (to < 0 || to >= list.length) return refuse(data, 'cannot');
+      [list[at], list[to]] = [list[to], list[at]];
+    } else list.splice(at, 1);
+    after = patched(routine, { places: list.length ? list : undefined });
   } else if (edit.kind === 'divider') {
     if (edit.from !== undefined && dividerAt(edit.from, s.items.length) === undefined) return refuse(data, 'cannot');
     after = patched(routine, { repeatFrom: edit.from });

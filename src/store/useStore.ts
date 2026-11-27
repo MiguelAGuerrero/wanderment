@@ -364,7 +364,8 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
           // carries its notice there, once.
           // P-103 (audit F-4): removing a step is said, with its Undo, as every Remove (the conventional snackbar).
           // P-98: Copy is said too ("Copied “X” as “Y”" with its Undo): it makes a routine that is not on this screen.
-          ...(verb.kind === 'editRoutine' && verb.edit.kind !== 'removeRoutine' && verb.edit.kind !== 'remove' && verb.edit.kind !== 'copy' && { quiet: true as const }),
+          // P-109: the Places sheet's changes are said in the sheet, each with its Undo (the routine's menu is under it).
+          ...(verb.kind === 'editRoutine' && verb.edit.kind !== 'removeRoutine' && verb.edit.kind !== 'remove' && verb.edit.kind !== 'copy' && !PLACE_EDITS.has(verb.edit.kind) && { quiet: true as const }),
           ...((r.said?.kind === 'ended' || verb.kind === 'new' || verb.kind === 'plan' || verb.kind === 'jump' || (verb.kind === 'editRoutine' && verb.edit.kind === 'removeRoutine')) && { follows: true as const }),
         }
       : undefined,
@@ -373,6 +374,9 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   });
   return did;
 }
+
+/** P-109: the Places sheet's edits (each said, with its Undo, in the sheet). */
+const PLACE_EDITS = new Set<RoutineEdit['kind']>(['addPlace', 'changePlace', 'movePlace', 'removePlace']);
 
 /** P-98: what Step in says when the run is as deep as it can go. */
 export const STEP_IN_TOO_DEEP = 'Can’t step in any deeper';

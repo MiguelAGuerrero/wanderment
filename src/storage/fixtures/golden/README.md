@@ -108,3 +108,21 @@ before and write nothing by loading, and every field that build did not know mus
 | `p98-expected.json` | that build's store | what those four must read as |
 
 `freeze-p98.ts.txt` is the script that wrote them.
+
+## P-109 (frozen 2026-11-27, before places)
+
+Written the same way by the build before P-109 (`173867e`), where a routine had no `places` and nothing in the
+app opened an address. It started from `p98-schema4.sqlite` (so everything above is in it) and was then used
+through its own store actions. P-109 reads a routine's places (none here) and offers "Open <host>" for an
+http(s) address typed in a step, a value or the pause note; this data must load exactly as before and write
+nothing by loading.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p109-schema4.sqlite` | that build, ordinary saves, over `p98-schema4.sqlite` | everything in `p98-schema4.sqlite`, plus "Product design" (tagged "design"): a step whose words hold a Google Docs address, a step giving `{page}`, a step reading it, and a step whose words only look like other schemes ("javascript:alert(1)", "file:///etc/passwd"); a run of it paused on "Work in {page}" with `{page}` given as a Notion address and a pause note holding a Figma address; and P-96's "Read a chapter" running again |
+| `p109-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p109-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p109-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p109-expected.json` | that build's store | what those four must read as |
+
+`freeze-p109.ts.txt` is the script that wrote them.

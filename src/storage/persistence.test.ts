@@ -3966,6 +3966,215 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(JSON.parse(toBackup(held)).data).toEqual(held);
     });
   });
+
+  // ───────── P-109: places ─────────
+  describe('P-109: places survive reload, journal replay, the fallback, hand-over, export and import — a shape this version does not know is kept, an unsafe Where stays words', () => {
+    type Ids = { placed: string; other: string };
+    const placesIn = (data: { routines: Record<string, Record<string, unknown>> }, id: string) => data.routines[id].places as { id: string; name: string; where: string }[] | undefined;
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * Through the store's actions, as a person would in the Places sheet: two routines made with New, a step each;
+     * on one, three places added (a Notion address, words, a Google Docs address), the words one changed, the last
+     * moved up; on the other one added, then removed (the field goes).
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const a = g().createRoutine('Product design');
+      const b = g().createRoutine('Make a game');
+      if (!a.ok || !a.routineId || !b.ok || !b.routineId) throw new Error('New: was refused');
+      const all = [
+        g().editRoutine(a.routineId, { kind: 'addStep', text: 'Sketch' }),
+        g().editRoutine(b.routineId, { kind: 'addStep', text: 'Sketch the HUD' }),
+        g().editRoutine(a.routineId, { kind: 'addPlace', name: 'Design doc', where: 'https://www.notion.so/team/Design-1a2b' }),
+        g().editRoutine(a.routineId, { kind: 'addPlace', name: 'Sketchbook', where: 'left shelf' }),
+        g().editRoutine(a.routineId, { kind: 'addPlace', name: 'Brief', where: ' https://docs.google.com/document/d/1AbC/edit ' }),
+      ];
+      const [, book, brief] = placesIn(store.getState().data, a.routineId)!;
+      all.push(
+        g().editRoutine(a.routineId, { kind: 'changePlace', place: book.id, name: 'Sketchbook', where: 'left shelf, the grey one' }),
+        g().editRoutine(a.routineId, { kind: 'movePlace', place: brief.id, by: -1 }),
+        g().editRoutine(b.routineId, { kind: 'addPlace', name: 'Board', where: 'https://trello.com/b/1' }),
+      );
+      all.push(g().editRoutine(b.routineId, { kind: 'removePlace', place: placesIn(store.getState().data, b.routineId)![0].id }));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { placed: a.routineId, other: b.routineId };
+    }
+    const isAsBuilt = (data: { routines: Record<string, Record<string, unknown>> }, ids: Ids) => {
+      expect(placesIn(data, ids.placed)!.map((p) => [p.name, p.where])).toEqual([
+        ['Design doc', 'https://www.notion.so/team/Design-1a2b'],
+        ['Brief', 'https://docs.google.com/document/d/1AbC/edit'],
+        ['Sketchbook', 'left shelf, the grey one'],
+      ]);
+      expect('places' in data.routines[ids.other]).toBe(false);
+    };
+
+    it('reload: saved to SQLite as kept (in order, tidied), the same after a reload; a routine with none has no field', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      isAsBuilt(shown, ids);
+      expect(await onDisk()).toEqual(shown);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      const { placesShown } = await import('@/domain/places');
+      expect(placesShown(store.getState().data.routines[ids.placed].places).map((p) => p.host ?? p.where)).toEqual(['notion.so', 'docs.google.com', 'left shelf, the grey one']);
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), the places are there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const shown = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      isAsBuilt(store.getState().data, ids);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('the localStorage fallback keeps them, and moves them into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      expect(JSON.parse(env.ls.get('wanderment')!).state.data.routines[ids.placed].places).toHaveLength(3);
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      expect(store.getState().data).toEqual(shown);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(shown);
+      expect(await onDisk()).toEqual(shown);
+      isAsBuilt(store.getState().data, ids);
+    });
+
+    it('hand-over with a take-back: a place added here, still only in the journal when the page is hidden, stays on top of another page’s place on another routine; that one is taken too', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      writeGate = deferred();
+      expect(store.getState().editRoutine(ids.placed, { kind: 'addPlace', name: 'Figma', where: 'https://www.figma.com/file/X' }).ok).toBe(true);
+      await tick(0);
+      const figma = placesIn(store.getState().data, ids.placed)![3];
+      expect(store.getState().editRoutine(ids.placed, { kind: 'changePlace', place: figma.id, name: 'Figma file', where: figma.where }).ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRoutines.map((r: { id: string }) => r.id)).toEqual([ids.placed]);
+      const mine = store.getState().data.routines[ids.placed];
+
+      const { editRoutine } = await import('@/domain/run');
+      const other = editRoutine(await onDisk(), ids.other, { kind: 'addPlace', name: 'Board', where: 'https://trello.com/b/2' }, { now: '2026-11-27T12:00:00.000Z', id: () => 'other-page-place' });
+      expect(other.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [other.data.routines[ids.other]] } as never);
+      db.close();
+
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.routines[ids.placed]).toEqual(mine);
+      expect(placesIn(store.getState().data, ids.placed)!.map((p) => p.name)).toEqual(['Design doc', 'Brief', 'Sketchbook', 'Figma file']);
+      expect(placesIn(store.getState().data, ids.other)).toEqual([{ id: 'other-page-place', name: 'Board', where: 'https://trello.com/b/2' }]);
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('undo of a place removed is taken back on screen and on disk', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const before = store.getState().data;
+      expect(store.getState().editRoutine(ids.placed, { kind: 'removePlace', place: placesIn(before, ids.placed)![0].id }).ok).toBe(true);
+      await tick(30);
+      expect(placesIn(await onDisk(), ids.placed)).toHaveLength(2);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+    });
+
+    it('export → import: places are in the backup and its preview; a file with unsafe Wheres and a shape this version does not know replaces it — kept exactly, opening nothing — through a reload, the journal, the fallback and another export', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const { importHolds } = await import('@/domain/importText');
+      const { placesShown, placesWritable } = await import('@/domain/places');
+      const json = toBackup(exported);
+      const file = JSON.parse(json);
+      expect(file.data.routines[ids.placed].places).toEqual(placesIn(exported, ids.placed));
+      const same = previewImport(json);
+      expect(same.plan).toMatchObject({ identical: true });
+      expect(same.incoming).toEqual(exported);
+      expect(importHolds(same.plan)).toBe('This backup has 2 routines with 3 places.');
+
+      // A crafted file: Wheres in every unsafe scheme on one routine, a later version's shape on the other.
+      const unsafe = ['javascript:alert(document.domain)', 'JaVaScRiPt:alert(1)', 'data:text/html,<script>alert(1)</script>', 'file:///etc/passwd', 'vbscript:msgbox(1)', ' notion://www.notion.so/x'];
+      file.data.routines[ids.placed].places = unsafe.map((where, i) => ({ id: `u${i}`, name: `Trap ${i}`, where }));
+      const later = { version: 2, groups: [{ name: 'Docs', items: [{ url: 'javascript:alert(1)' }] }] };
+      file.data.routines[ids.other].places = later;
+      const differs = previewImport(JSON.stringify(file));
+      expect(differs.plan).toMatchObject({ identical: false, routines: { changed: 2 } });
+      expect(importHolds(differs.plan)).toBe('This backup has 2 routines with 6 places.');
+      expect(confirmImport(differs).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      // Shown as words, every one: nothing opens.
+      expect(placesShown(store.getState().data.routines[ids.placed].places).map((p) => [p.where.trim(), p.href])).toEqual(unsafe.map((w) => [w.trim(), undefined]));
+      // The later shape: read as none, never overwritten — an edit is refused and it stays.
+      expect(placesShown(store.getState().data.routines[ids.other].places)).toEqual([]);
+      expect(placesWritable(store.getState().data.routines[ids.other].places)).toBe(false);
+      expect(store.getState().editRoutine(ids.other, { kind: 'addPlace', name: 'A', where: 'a' })).toMatchObject({ ok: false, reason: 'cannot' });
+      // Another edit to that routine keeps it; through the journal and out again.
+      env.state.hangWrites = true;
+      expect(store.getState().editRoutine(ids.other, { kind: 'rename', words: 'Make a game, v2' }).ok).toBe(true);
+      await tick(30);
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data.routines[ids.other]).toMatchObject({ words: 'Make a game, v2', places: later });
+      const held = store.getState().data;
+      // Where SQLite can't run (a fresh browser): the same file imported there is kept in the fallback, as it is.
+      (await import('./persistence')).stopPersistence();
+      env.ls.clear();
+      env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-')), 'db.sqlite');
+      env.state.openError = new Error('no OPFS');
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      const fresh = await import('@/store/importBackup');
+      expect(fresh.confirmImport(fresh.previewImport(toBackup(held))).ok).toBe(true);
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment')!).state.data.routines[ids.other].places).toEqual(later);
+      store = await reload();
+      expect(store.getState().data).toEqual(held);
+      expect(JSON.parse(toBackup(store.getState().data)).data).toEqual(held);
+    });
+  });
 });
 
 // P-89: the control is gone with the old app; the saved setting is still a person's data, kept as it is.

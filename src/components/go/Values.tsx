@@ -20,12 +20,14 @@
 import { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { addressesIn } from '@/domain/places';
 import { MAX_VALUE } from '@/domain/values';
 import { partsText, StepPart, valueDetail, ValueField, valueFrom, ValueShown, valueTrace, wordsShown } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
 import { decorative } from '../a11y';
 import { Mark } from './marks';
+import { OpenRows } from './Places';
 import { G, SP, TARGET } from './tokens';
 import { Btn, focusOn, GrowField, Sheet, T, ViewRef } from './ui';
 
@@ -233,6 +235,8 @@ export function ValueSheet({ runId, name, onClose, fallback }: { runId: string; 
           ))}
         </View>
       )}
+      {/* P-109 (B-18 journey 4): an address in the value — "Open <host>" (the words stay words). */}
+      <OpenRows addresses={addressesIn(d.text)} />
       <Btn kind="filled" ref={keepBtn} label="Keep" spoken={`Keep ${d.name}`} onPress={keep} size={18} testID="go-value-keep" />
       <Btn label="Close" onPress={onClose} testID="go-value-close" />
     </Sheet>

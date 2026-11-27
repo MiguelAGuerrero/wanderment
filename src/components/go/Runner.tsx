@@ -31,6 +31,7 @@ import { useStore } from '@/store/useStore';
 import { OwedSheet } from './Calls';
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
+import { OpenRows, PlaceRow } from './Places';
 import { decideWhere } from './session';
 import { face, G, hueOf, SP, TARGET } from './tokens';
 import { EntrySheet, Gives, Parts, ValueFields, ValueSheet, ValuesRow } from './Values';
@@ -634,7 +635,7 @@ function Panel({ runId, restart, onRestart, onClose, onUndo, onMoved }: PanelPro
           {!!p.reason && (
             <View style={styles.line} testID="go-panel-reason">
               <Mark name="note" color={G.dim} />
-              <T style={styles.shrink}>{p.reason}</T>
+              <T style={[styles.shrink, styles.anywhere]}>{p.reason}</T>
             </View>
           )}
           {round && (
@@ -670,6 +671,23 @@ function Panel({ runId, restart, onRestart, onClose, onUndo, onMoved }: PanelPro
           )}
           {where.length === 0 && !p.wait && <View style={styles.rule} />}
         </View>
+        {/* P-109 (B-18 journey 3): the routine's places, under what the panel already holds — the run began in, then the one you are in. */}
+        {p.places?.map((g) => (
+          <View key={`${g.inner ? 'in' : 'root'}:${g.routine}`} style={styles.places} testID="go-panel-places">
+            <T bold dim role="heading" aria-level={3} accessibilityRole="header">
+              {g.inner ? `Places in ${g.routine}` : 'Places'}
+            </T>
+            <View role="list" aria-label={g.inner ? `Places in ${g.routine}` : 'Places'}>
+              {g.places.map((pl) => (
+                <View key={pl.id} role="listitem">
+                  <PlaceRow place={pl} />
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+        {/* P-109 (journey 4): an address typed in the step, a value or the pause note. */}
+        {p.addresses && <OpenRows addresses={p.addresses} />}
         {can && <Btn kind="plain" mark="undo" label={`Undo ${can.label}`} onPress={onUndo} />}
         {backTo !== undefined && (
           <Btn
@@ -760,4 +778,7 @@ const styles = StyleSheet.create({
   where: { gap: SP.s1, paddingBottom: SP.s2, ...(WEB && ({ outlineStyle: 'none' } as object)) },
   line: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.s2, minHeight: 28 },
   rule: { height: 0 },
+  places: { gap: SP.s1, paddingBottom: SP.s2 },
+  // P-109: an address typed in the note is one long word — it breaks where it must (never cut at 200 % text).
+  anywhere: WEB ? ({ overflowWrap: 'anywhere' } as object) : {},
 });

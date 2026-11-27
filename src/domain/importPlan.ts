@@ -1,5 +1,6 @@
 import { hasOwn } from './migrate';
 import { declaredWhys } from './model';
+import { placesOf } from './places';
 import { Collection, COLLECTIONS, Data, Id } from './types';
 
 /** The collections added after wanders and activities (P-85): counted under their own names. */
@@ -37,6 +38,8 @@ export interface ImportSummary {
   identical: boolean;
   /** The backup has no records of any kind. */
   empty: boolean;
+  /** P-109: the places the routines hold, here and in the backup (said with the routines, only when there are any). */
+  places: { here: number; incoming: number };
 }
 
 /** What replacing what's here with a backup would do (P-04), collection by collection. Computing it changes nothing. */
@@ -50,10 +53,14 @@ export function planImport(current: Data, incoming: Data): ImportPlan {
     incoming: counts(incoming),
     dateRange: dateRange(incoming),
     ...diffs,
+    places: { here: placeCount(current), incoming: placeCount(incoming) },
     identical: COLLECTIONS.every((c) => !diffs[c].added && !diffs[c].removed && !diffs[c].changed),
     empty: COLLECTIONS.every((c) => !Object.keys(incoming[c]).length),
   };
 }
+
+/** P-109: every place the routines hold, as read (`places.ts`). */
+const placeCount = (data: Data) => Object.values(data.routines).reduce((n, r) => n + placesOf(r.places).length, 0);
 
 function counts(data: Data): ImportCounts {
   const threads = Object.values(data.threads);

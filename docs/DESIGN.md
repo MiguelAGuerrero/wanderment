@@ -95,6 +95,31 @@ routines in their own words — and runs them with the person, one small step at
   chip, each chip "#tag ×" removes itself, **Keep** (filled) keeps them — with what is still typed — and Close
   leaves them as they were. Keep is one Plan edit (its Undo in the routine's menu, and Ctrl/⌘+Z). Plan shows
   them under the heading.
+- **Places** *(built, P-109; B-18 slice 1; the owner: "a reference … to ease the burden of remembering where and how I
+  was working")*: where a routine's work lives, kept on the routine as `places: { id, name, where }[]`, in the person's
+  order; a routine stored without them has none (nothing is converted), and a field in another shape (a later
+  version's) is kept and never overwritten (Places… then offers no edits). **Where** is a pasted address or plain
+  words. **Only an `http:` or `https:` address opens** — by its own text (it starts with `http://` or `https://`,
+  any case, holds no space or control character and names a host); everything else — `javascript:`, `data:`,
+  `file:`, `vbscript:`, another app's own scheme, a relative path, words — is shown as words and opens nothing,
+  whatever brought it (typing, paste, an import). An address is shown by its host ("notion.so": "www." dropped; a
+  host in other scripts in its ASCII form), never whole; opening hands it to the system and asks nothing back — on
+  the web a new tab with `noopener`, never the app's own window — and the run stays exactly where it is. Seen in
+  three spots: **under Plan's heading**, after the tags, the names in a line (the link mark, then "Design doc ·
+  The brief · Sketchbook"), wrapping, each a full target — an address opens ("Open Design doc, notion.so"), words
+  open the Places sheet at that row ("Sketchbook, left shelf"); **on a home tile**, one mark-only door (the link
+  mark, "Places for <routine>") in its foot after Resume and Plan, before ···, only when the routine has places — it
+  opens the same list to open, nothing to edit; **in the runner's pull-up panel**, under what it holds, "Places"
+  (inside a routine used as a step: the run's first routine's, then "Places in <routine>"). Never on the runner's
+  face. The **Places sheet** (Plan's routine ··· → **Places…**, named routines): "Places for <name>", rows of name
+  and host (or words), each row's ··· an anchored menu — **Change** · **Move up** · **Move down** · a line ·
+  **Remove** (red); **+ Add a place** opens Name and Where in place with the filled **Add** (Change: **Keep**) and
+  Cancel; **Close** lowest. Every change is one Plan edit, said in the sheet ("Added / Changed / Moved / Removed
+  “<place>”") with its Undo and ×, its Undo also in the routine's menu and Ctrl/⌘+Z. Copy copies places. **Typed
+  addresses** *(journey 4)*: each http(s) address in the step's words, a value in play or the pause note gets an
+  **"Open <host>"** row in the panel (and, for a value, in the value sheet); the words themselves stay words. The
+  import preview counts places with the routines ("2 routines with 3 places"). (Designed, not built yet: other
+  apps' own schemes, B-18 slice 2, only if the owner's phone check shows a need.)
 - **One version per name.** A name always means one routine. To vary, copy — *(built, P-98)* **Copy…** on Plan's
   routine ··· and a My routines row's ···: a sheet with the name (suggested "<name> (copy)"), the filled Copy (a
   name in use is refused: "! Another routine has this name"); the copy has the same steps (its steps broken down
@@ -251,7 +276,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   step down is planning).
 - **The person's words are never clipped, counted or warned about.**
 - **The pull-up panel** *(built)*: swiping up on the runner or tapping the note. It holds where you
-  are in this run (the round, "Last step of the round", "then: <next step>", values in place) and the
+  are in this run (the round, "Last step of the round", "then: <next step>", values in place), *(P-109)* the
+  routine's Places and an "Open <host>" row per address typed (see **Places**), and the
   actions that move you without planning: Back to <step>, Jump to…, and *(P-101 amendment)* **Start
   <level> over** (inside a call or a breakdown) and **Start <routine> over** — each asked first. *(P-101:
   Finish <level> now is gone — Step out.)*
@@ -309,7 +335,7 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   button, "Insert {name}"; ←/→ between them; Return inserts and goes back to the field; Esc goes back
   without inserting); typing the braces works anywhere. One press moves one row: next to "Repeat from
   here" a step passes it and nothing else moves. The routine's own menu holds **Undo <edit>** (the last
-  Plan edit's, while it is the last action), its name, Tags…, **Copy…** *(P-98)*, **Start over** (with a run), adding "Repeat from
+  Plan edit's, while it is the last action), its name, Tags…, **Places…** *(P-109)*, **Copy…** *(P-98)*, **Start over** (with a run), adding "Repeat from
   here", and — with no run going — Remove *(P-96: no "Ends here")*. **Removing a step that gives a name
   other steps read** *(P-101 amendment, ruling 11)* asks first, naming them — "Remove “<step>”? It gives
   {name}, which N steps read. They'll ask for it when run." — *(P-103: the one confirm, Cancel filled and Remove
@@ -376,7 +402,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
 - **The filled button is the safe or forward choice**, one per screen or sheet. **Red and "!" only
   for errors and the irreversible.**
 - **One vocabulary, and one wording and one mark per meaning.** A mark never means two things (now,
-  repeats, routine, wait, forward, fold, more, pause each have their own).
+  repeats, routine, wait, forward, fold, more, pause each have their own; *P-109:* the link — two chain links — is
+  Places' and an "Open <host>" row's alone).
 - **Nothing is counted against you.** No streaks, deadlines, notifications or tallies of what you
   did; nothing shows how much is left; no timers. A repeat number you set and the round you are on
   are context, **shown only in the panel**. Counts appear otherwise only in the import preview.

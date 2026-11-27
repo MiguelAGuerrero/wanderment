@@ -44,6 +44,7 @@ import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWind
 import { callersOf, Refusal, routineNamed, RoutineEdit } from '@/domain/run';
 import { myRoutines } from '@/domain/routines';
 import { namesOffered, PlanDivider, PlanRow, planView, readersOf, rowMoves } from '@/domain/runView';
+import { placesShown, placesWritable } from '@/domain/places';
 import { tagsOf, tagsWritable } from '@/domain/tags';
 import { isName, MAX_NAME, nameKey, parseWords, suggestName, tidyName } from '@/domain/values';
 import { useStore } from '@/store/useStore';
@@ -56,6 +57,7 @@ import { Notice, useRunUndo } from './Notice';
 import { Repeat } from './Repeat';
 import { goHome } from './Runner';
 import { readDraft, writeDraft } from './session';
+import { PlacesLine, PlacesSheet } from './Places';
 import { TagsSheet, tagWords } from './Tags';
 import { G, SP, TARGET } from './tokens';
 import { Btn, caretToEnd, Confirm, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Menu, MenuItem, MenuSep, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
@@ -100,7 +102,7 @@ function readTyping(key: string): Typing | null {
   }
 }
 
-type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true } | { addRoutine: true } | { bind: string; input: string } | { inputs: string } | { copy: true };
+type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true } | { addRoutine: true } | { bind: string; input: string } | { inputs: string } | { copy: true } | { places: true; at?: string };
 
 export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: string; routineId?: string; inSeq?: string; fromRun?: boolean; fromList?: boolean }) {
   const data = useStore((s) => s.data);
@@ -119,6 +121,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   const id = runId ?? routineId ?? '';
   /** P-97: the routine's tags (read tolerantly: none stored = none). */
   const tags = tagsOf(v ? data.routines[v.routineId]?.tags : undefined);
+  /** P-109: the routine's places (read tolerantly: none stored = none). */
+  const places = placesShown(v ? data.routines[v.routineId]?.places : undefined);
 
   const [menu, setMenu] = useState<Open | null>(null);
   /** P-102: each ··· (by its `data-more` key: a row's key, '' for the routine's, `divider:<seq>`) — what its menu hangs from. */
@@ -707,6 +711,9 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
     />
   ) : givesRow ? (
     <GivesSheet row={givesRow} edit={edit} onClose={close} fallback={title} />
+  ) : menu && 'places' in menu ? (
+    // P-109: the routine's places — each change one Plan edit, said in the sheet with its Undo.
+    <PlacesSheet routineId={v.routineId} name={v.name} edit at={menu.at} onClose={close} fallback={title} />
   ) : menu && 'tags' in menu ? (
     // P-97: the routine's tags (a comma or Return makes a chip); Keep is one Plan edit, its Undo in this menu.
     <TagsSheet
@@ -737,6 +744,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
       <MenuItem label="Change the name" onPress={() => startTyping({ mode: 'name', path: '', text: v.name })} />
       {/* P-97: tags, for My routines' filter. */}
       {v.named && tagsWritable(v ? data.routines[v.routineId]?.tags : undefined) && <MenuItem label="Tags…" spoken={`Tags for ${v.name}`} testID="go-plan-tags-item" onPress={() => setMenu({ tags: true })} />}
+      {/* P-109: where its work lives (B-18). */}
+      {v.named && placesWritable(data.routines[v.routineId]?.places) && <MenuItem label="Places…" spoken={`Places for ${v.name}`} testID="go-plan-places-item" onPress={() => setMenu({ places: true })} />}
       {/* P-98: Copy — the same routine under a new name (to vary, copy). */}
       {v.named && <MenuItem label="Copy…" spoken={`Copy ${v.name}`} testID="go-plan-copy-item" onPress={() => setMenu({ copy: true })} />}
       {/* P-101 amendment (ruling 9): its run, from this routine's first step (asked first; Undo). */}
@@ -807,7 +816,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
   const backToRun = () => (forward?.kind === 'resume' ? goForward() : goHome());
   const foot = (
     <>
-      <Notice onUndone={() => focusOn(title)} reserve={!floor} />
+      {/* P-109: the Places sheet says its own changes (its notice is in it). */}
+      {menu && 'places' in menu ? <View style={!floor && styles.noticeRoom} /> : <Notice onUndone={() => focusOn(title)} reserve={!floor} />}
       {/* P-101 (ruling 2; was P-96: Home the bottom-left side door): Home is in the band. Done, at the edge only, is the right side door. */}
       {v.canDone && (
         <View style={styles.doors} testID="go-side-doors">
@@ -884,6 +894,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList }: { runId?: s
               {tagWords(tags)}
             </T>
           )}
+          {/* P-109: its places, by name — an address opens; words open the Places sheet at that row. */}
+          {v.named && places.length > 0 && typing?.mode !== 'name' && <PlacesLine places={places} onWords={(at) => setMenu({ places: true, at })} />}
 
           {shownRows.map((row, i) => {
             const key = keyOf(row.path);
@@ -1514,6 +1526,8 @@ function toRow(list: { current: unknown }, key: string, title: { current: unknow
 }
 
 const styles = StyleSheet.create({
+  // P-109: the notice's room kept while the Places sheet holds the notice (nothing beneath moves).
+  noticeRoom: { minHeight: 64 },
   flex: { flex: 1, minHeight: 0 },
   shrink: { flexShrink: 1 },
   callName: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', gap: SP.s1 },

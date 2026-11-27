@@ -43,21 +43,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-109 Places: named links on a routine (B-18 slice 1) `[feature]` `[data]` `[ux]` M
-*Status:* todo
-*Why:* owner, 2026-11-26/27: "a reference … to ease the burden of remembering where and how I was
-working"; "Let's build the references". D-25.
-*Done when:* as B-18 slice 1 — Places… in Plan's routine menu (a sheet: rows of name + where; add,
-change, reorder, remove, each with Undo); the names under Plan's heading; the list in the runner's
-pull-up panel (never on the runner's face); one door on a home tile only when the routine has places; an
-address typed in a step, a value or the pause note gets an "Open <host>" row in the panel and the value
-sheet; a Where that is plain words opens nothing; ONLY http: and https: addresses may be opened —
-anything else (javascript:, data:, file:, other schemes), including from an import, shows as words;
-`places` stored on the routine (old data reads as none; nothing converted; survives every storage path);
-a phone check on the owner's installed iPhone (a Notion link and a Google Docs link tapped once each,
-the result written down); a UI audit first on the tile's third control, the Places mark and the line
-under Plan's heading at 200 % text.
-
 ### P-107 For each over a list given above `[feature]` `[data]` `[ux]` L
 *Status:* todo
 *Why:* owner, 2026-11-27 (real use): "I was trying to write a for each and apply a function over them";
@@ -426,6 +411,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-27 · P-109 — Places: named links on a routine (B-18 slice 1): Places… in Plan's routine menu (add, change, reorder, remove, with Undo); the names under Plan's heading; the list in the runner's pull-up panel; a door on a home tile only when the routine has places; "Open <host>" rows for addresses typed in steps, values and the pause note; only http(s) opens — any other scheme, including from an import, shows as words; `places` stored on the routine body (old data reads as none, unknown shapes kept). evidence: golden p109-* frozen from 173867e, 22 domain + 2 store + 6 persistence tests, go-places spec at 390×844 and 200 % text, 966 unit tests, `verify.sh --full` (387 e2e); the owner's iPhone check is pending. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-98 — calls: a routine as a step (Add's "A routine" or "@"), its row showing what it asks (with {x} · with {y} as x · with <words> as x · asks {x}) and what it gives; inputs resolve typed → by name → asked and are the callee's own copy; leaving hands back only what the row gives, one name given twice becomes one list; passing a call or breakdown without stepping in asks for owed names after Next / Step out (never on the step); calls to a removed routine say so and can't be stepped into; Plan refuses a routine as its own step; Copy… with Undo; removing a called routine names its callers. No migration (older builds read a call as Step in). evidence: golden p98-* frozen from 671e654, ~30 unit/store/persistence tests, go-calls spec at 390×844 and 195×422, 928 unit tests, `verify.sh --full`. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-97 — My routines and a calmer home: a My routines page (⌂ Home top-left) lists every named routine A–Z with accent-folded headings, Find and tag filters, rows saying when a run is going, and a ··· with Start, Plan, Tags…, Remove; tags are typed on a routine (Plan's ··· → Tags…) and stored in its body (no migration; a newer shape is never overwritten); home shows only runs in motion, split into Ongoing (no end) and Finishing (has an end), with My routines and + New as side doors; going home always lands on home. evidence: golden fixture p97-* frozen first, go-routines spec red on the base build, tags through reload / journal / fallback / hand-over / export / import, 887 unit tests, the whole e2e suite, every routine from older fixtures still reachable, `verify.sh --full`. audit: 6 reported · 4 reproduced · 6 fixed · 0 deferred.
 - 2026-11-27 · P-103 — conventions, from an exhaustive audit of the built UI: a quick second tap can never end a run (Done has its own ✓ and ignores presses for 0.6 s after it appears, wherever you arrive from); the way out is always top-left; Plan opened from the runner offers "Back to the run"; a paused tile shows Resume; removing a step shows Undo, removing a routine asks; a paused run can be ended from its tile (final, asks first, keeps its note); removing a routine or its last nested row never strands a routine (it keeps a home tile); one destructive dialog everywhere; an empty home offers + New; ↻ for repeat, › for open; the step field grows, Insert/Add sit below, @ or { at a word start opens the names list, inserted names are spaced; the update banner covers nothing, Jump moves by arrows, Settings errors look like errors; the visible name is the placeholder "Routines" (database, keys, base path and backup format unchanged; old exports still import). evidence: go-conventions spec red on the base build (incl. the double-tap ending the run), 853 unit tests, whole e2e suite, old exports and golden fixtures importing, `verify.sh --full`; not tried on a real phone. audit: 8 reported · 6 reproduced · 8 fixed · 0 deferred.

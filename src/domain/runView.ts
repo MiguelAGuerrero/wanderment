@@ -6,6 +6,7 @@
  */
 import { advance, bindingOf, callIO, callWords, currentRun, Frame, givenIn, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, passedGives, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
 import { hash } from './hash';
+import { addressesIn, PlaceShown, placesOf, placesShown, tidyPlaceText } from './places';
 import { Data, Id } from './types';
 import { joinItems, nameKey, namesIn, parseWords, tidyName, ValueEntry, valueText } from './values';
 
@@ -550,6 +551,13 @@ export interface PanelView {
   wait?: { words: string; since?: string };
   /** Why it was paused, tidied: readable here until the first Next after Resume drops it (P-86 part 2). */
   reason?: string;
+  /**
+   * P-109 (B-18 journey 3): the places of the routine the run began in, then — inside a routine used as a step —
+   * those of the (named) routine the run is in, if it has any. Absent: nothing to show (a routine with none: nothing new).
+   */
+  places?: { routine: string; places: PlaceShown[]; inner?: true }[];
+  /** P-109 (journey 4): "Open <host>" — each http(s) address typed in the step's words, a value in play or the pause note, once. */
+  addresses?: { href: string; host: string }[];
 }
 
 export function panelView(data: Data, runId: Id): PanelView | undefined {
@@ -563,6 +571,8 @@ export function panelView(data: Data, runId: Id): PanelView | undefined {
   const to = next && !next.ended && !next.asking ? place(data, { ...run, frames: next.frames }) : undefined;
   const back = previous(data, run);
   const wait = waitingOf(run, at);
+  const places = placesOfRun(data, run.routineId, frames);
+  const addresses = addressesIn(item && (isStep(item) ? item.text : isWait(item) ? item.wait : undefined), ...(runnerView(data, runId)?.values.map((x) => x.text) ?? []), run.reason);
   return {
     ...(looping && { round: { n: frame.round, ...(seq.repeat !== undefined && frame.round <= seq.repeat && { of: seq.repeat }) } }),
     lastOfRound: lastOfRound(at),
@@ -570,7 +580,20 @@ export function panelView(data: Data, runId: Id): PanelView | undefined {
     ...(back && { backTo: wordsOf(data, run, seq.items.find((i) => i.id === back.at)) }),
     ...(wait && { wait }),
     ...(tidy(run.reason) && { reason: tidy(run.reason) }),
+    ...(places.length > 0 && { places }),
+    ...(addresses.length > 0 && { addresses }),
   };
+}
+
+/** P-109: the root routine's places, then the innermost named routine's (when it is another and has some). */
+function placesOfRun(data: Data, root: Id, frames: Frame[]): NonNullable<PanelView['places']> {
+  const group = (id: Id, inner?: true) => {
+    const r = readRoutine(data, id);
+    const places = placesShown(data.routines[id]?.places);
+    return r && places.length ? { routine: r.words, places, ...(inner && { inner }) } : undefined;
+  };
+  const inner = [...frames].reverse().find((f) => readRoutine(data, f.seq)?.named)?.seq;
+  return [group(root), inner && inner !== root ? group(inner, true) : undefined].filter((g): g is NonNullable<typeof g> => !!g);
 }
 
 /**
@@ -1117,6 +1140,12 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     if (e.kind === 'renameValue') return `Renamed {${tidyName(e.from)}} to {${tidyName(e.to)}}`;
     // P-97: the Tags sheet's Keep.
     if (e.kind === 'tags') return `Changed the tags of ${quoted(s?.words ?? '')}`;
+    // P-109: the Places sheet — each change named by the place.
+    if (e.kind === 'addPlace') return `Added ${quoted(tidyPlaceText(e.name))}`;
+    if (e.kind === 'changePlace' || e.kind === 'movePlace' || e.kind === 'removePlace') {
+      const p = placesOf(data.routines[verb.routineId]?.places).find((x) => x.id === e.place);
+      return `${e.kind === 'changePlace' ? 'Changed' : e.kind === 'movePlace' ? 'Moved' : 'Removed'} ${quoted(p?.name ?? '')}`;
+    }
     return 'Changed Repeat from here';
   }
   if (verb.kind === 'new') return `Made ${quoted(verb.words)}`;

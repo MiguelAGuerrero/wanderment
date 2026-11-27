@@ -819,7 +819,8 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     // A routine with a run going can't be removed: it is not offered. (P-101 amendment, ruling 9: its run can be started over.)
     // (P-97: and Tags…, after the name.)
     // (P-98, rewritten: and Copy…, after Tags….)
-    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Copy…', 'Start over']);
+    // (P-109, rewritten: and Places…, after Tags….)
+    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Places…', 'Copy…', 'Start over']);
     await sheet.getByRole('menuitem', { name: 'Change the name', exact: true }).click();
     await expect(p.typed).toHaveValue('Test out the app');
     await p.typed.fill('Apply to Acme');
@@ -837,7 +838,8 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     sheet = await arrived(page, 'go-plan-routine');
     // P-102: Remove last, after a line, in red.
     // (P-98, rewritten: and Copy…, after Tags….)
-    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Copy…', 'Add Repeat from here', 'Remove Apply to Initech']);
+    // (P-109, rewritten: and Places…, after Tags….)
+    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Places…', 'Copy…', 'Add Repeat from here', 'Remove Apply to Initech']);
     await expect(sheet.getByRole('separator')).toHaveCount(1);
     await expect(menuItems(sheet).last()).toHaveAttribute('data-danger', 'true');
     await sheet.getByRole('menuitem', { name: 'Remove Apply to Initech', exact: true }).click();

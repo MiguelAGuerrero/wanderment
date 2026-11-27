@@ -27,6 +27,8 @@ export interface RoutineSpec {
   madeDaysAgo?: number;
   /** P-97: its tags, as stored (no "#"). */
   tags?: string[];
+  /** P-109: its places, as stored (raw: `{ id, name, where }`, or anything an import could bring). */
+  places?: unknown;
 }
 
 export interface RunSpec {
@@ -84,6 +86,7 @@ export function goBackup(routines: RoutineSpec[], runs: RunSpec[] = [], now = Da
       open: r.open ?? true,
       home: r.home ?? true,
       ...(r.tags && { tags: r.tags }),
+      ...(r.places !== undefined && { places: r.places }),
     };
   });
   const outRuns: Record<string, unknown> = {};
@@ -501,7 +504,7 @@ export async function startFromRoutines(page: Page, name: string) {
 }
 
 /** A sheet or confirm, once it has arrived (it slides in unless Reduce Motion is on). */
-export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-plan-reorder' | 'go-tile-menu' | 'go-new-sheet' | 'go-gives-sheet' | 'go-value-sheet' | 'go-pause-sheet' | 'go-entry-sheet' | 'go-routine-menu' | 'go-tags-sheet'): Promise<Locator> {
+export async function arrived(page: Page, testId: 'go-plan-menu' | 'go-plan-repeat' | 'go-plan-routine' | 'go-plan-reorder' | 'go-tile-menu' | 'go-new-sheet' | 'go-gives-sheet' | 'go-value-sheet' | 'go-pause-sheet' | 'go-entry-sheet' | 'go-routine-menu' | 'go-tags-sheet' | 'go-places-sheet' | 'go-place-menu'): Promise<Locator> {
   const sheet = page.getByTestId(testId);
   await expect(sheet).toHaveAttribute('data-moving', 'false');
   return sheet;
