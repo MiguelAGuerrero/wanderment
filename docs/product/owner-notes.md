@@ -18,6 +18,12 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-27 — Confirmed: a for each that applies a routine to each item
+"Yes I was trying to write a for each and apply a function over them"
+Interpretation (ours): real use needs P-98 (for each over a list, calling a routine per item) — the
+first need for it from actual use rather than design.
+Led to: proposal to build P-98 before P-97.
+
 ## 2026-11-27 — Screenshot: writing a for each as words in Add a step
 (Screenshot, no words: Plan for "Improve my workout routine" — "List out my doubts · gives {concerns}";
 the Add row being typed: "For each concern, @{concerns}researc…" with "{ } Insert" and "Add" beside it;
