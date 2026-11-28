@@ -113,6 +113,20 @@ the kind of answer.
 | Decide | What is the choice between? · What matters in it? | The options · the tests |
 | Work it out | What is the first small step? · And after that, if you know? | The first steps |
 
+**How each ask maps to the app's constructs** (the owner: fine "as long as it's clear how those
+questions map to our constructs"). The composer never names these; Plan shows them when it ends.
+
+| The ask | What it makes in the routine |
+|---|---|
+| What are you starting? | The routine's name |
+| Which start | Which template is copied: its steps, calls and loops |
+| An answer that is one thing (who it is for; the question; the aim) | The words of a step, in place of the step that would have asked |
+| An answer that is several things (parts; options; sources; what matters) | The items of a list a for each runs over, kept in the routine |
+| What must be true for it to be done? | The list that "Check and mend" judges against |
+| Nothing typed | That part is left out |
+| "Do you know them all now, or will you find more as you go?" | Whether the loop ends with a step that shows the list to adjust |
+| "Try each of these, or pick one now?" | Whether the for each over the options stays, or it goes straight to Choose |
+
 ### Journey 2a — Each question uses what was just said
 The owner (2026-11-28): "Ensure that this composer uses natural language and framing based on the
 user's decisions, so it reads naturally and sharpens its language over time based on user input." Asked
@@ -195,8 +209,12 @@ The owner: "the input reads just enough for it to sound like as if the user wrot
 - Template steps that were not asked about stay in the library's words, and say "it", never "▢" or a
   name in braces for something that is fixed for this routine.
 - **The inference here is small and visible:** lower-casing the first letter of what was typed where it
-  joins a sentence, and dropping a leading "to" or the start's own verb ("make a zine" typed under Make
-  it becomes "Make a zine", not "Make make a zine").
+  joins a sentence; not repeating the start's own verb ("make a zine" typed under Make it becomes "Make
+  a zine"); and, under Learn it, putting "to" before a plain verb so the name reads as a sentence
+  ("play piano" becomes "Learn to play piano"; "to play piano" and "drawing hands" are kept as typed).
+- **The owner's test for all of it** (2026-11-28): "It doesn't have to sound like them. It just has to
+  use their inputs to sound natural and express what the routine is about … learn something, [or]
+  rather … learn to play piano, sounds a lot better, provided we accept those inputs."
 
 ### Journey 5 — Ending in Plan
 After the last question, or on **Skip** at any point, the composer closes into the routine's Plan: the
@@ -297,11 +315,16 @@ words of the questions and the wording rules of Journey 4 ship with the library 
 - **The composer as one of the owner's own routines.** No build; still a good probe, and it cannot
   write its answers into a routine.
 
-## Questions for the owner
-1. The five lines under the starts, and the questions in the table: are these your words?
-2. Is "Plan" as the filled button on the New sheet right, with the starts as rows above it, or should
-   choosing a start be the main path?
-3. Should "Work it out" be the marked start when nothing is recognised, or should nothing be marked?
+## Answered, and still to confirm
+- **The wording** of the starts' lines and the questions: accepted by the owner (2026-11-28: "Your
+  words are fine, as long as … it's clear how those questions map to our constructs, and they allow
+  enough inputs to contextualize it that would make it sound natural").
+- **Which button is filled on the New sheet** *(designer's ruling, not yet the owner's)*: the marked
+  start is the filled button, and "Just a name" beneath it makes an empty routine as New does today.
+  The owner called this onboarding, so the composer is the main path and the plain name is the side
+  path. (The first draft had it the other way round; Journey 1's drawing shows that earlier layout.)
+- **What is marked when nothing is recognised** *(designer's ruling, not yet the owner's)*: "Work it
+  out", the most general start.
 
 ## Decision requested
 **D-26:** Build B-19, slice 1? **Go** / **Go, but change …** / **Not now** / **No**.
