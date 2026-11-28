@@ -290,27 +290,31 @@ describe('amendment, ruling 9: Start over — the whole run, or the level it is 
 describe('amendment, ruling 10: a name given by a step already passed can be given now', () => {
   const drawing = () => world(seq('D', 'Drawing practice', [step('sel', 'Select the subject >subject'), step('warm', 'Warm up'), step('find', 'Find photos of {subject}'), step('late', 'Rank them >best')]));
 
-  it('passed with it empty: the values row offers it, "not given yet"; given now from the step the run is on, readers read it, and it says where it was given', () => {
+  // (P-110, rewritten: was "the values row offers it, 'not given yet'" — the owner: no placeholders for values not given;
+  // the values row lists only what is held. Giving it late from the step the run is on still works.)
+  it('passed with it empty: the values row shows nothing for it; given now from the step the run is on, readers read it, and it says where it was given', () => {
     let { d, id } = start(drawing(), 'D');
     d = walk(d, id, 'next');
-    expect(runnerView(d, id)!.missing).toEqual(['subject']);
+    expect(runnerView(d, id)!.values).toEqual([]);
     d = ok(d, { kind: 'value', runId: id, name: 'subject', text: 'hands', item: 'warm' });
-    expect(runnerView(d, id)!.missing).toEqual([]);
     expect(runnerView(d, id)!.values.map((v) => [v.name, v.text])).toEqual([['subject', 'hands']]);
     expect(valueDetail(d, id, 'subject')).toMatchObject({ from: 'Warm up', late: true });
     d = walk(d, id, 'next');
     expect(runnerView(d, id)!.step.parts).toEqual([{ kind: 'text', text: 'Find photos of ' }, { kind: 'value', name: 'subject', text: 'hands' }]);
   });
 
-  it('Gives… added in Plan to a step before where the run is: offered too; a name given by a later step, or by nothing, is not', () => {
+  // (P-110, rewritten: was "offered too" in the values row as "not given yet" — the owner: no placeholders. Gives… added
+  // in Plan to a passed step: nothing stands in for it; the step reading it asks for it where it is read.)
+  it('Gives… added in Plan to a step before where the run is: no placeholder; the step reading it asks there', () => {
     const d0 = world(seq('D', 'Drawing practice', [step('sel', 'Select the subject'), step('warm', 'Warm up'), step('find', 'Find photos of {subject}'), step('late', 'Rank them >best')]));
     let { d, id } = start(d0, 'D');
     d = walk(d, id, 'next');
-    expect(runnerView(d, id)!.missing).toEqual([]);
     const r = runVerb(d, { kind: 'pause', runId: id }, env());
     const edited = (r.data.routines.D.items as Item[]).map((i) => (i.id === 'sel' ? { ...i, out: 'subject' } : i));
     d = { ...r.data, routines: { ...r.data.routines, D: { ...r.data.routines.D, items: edited } } };
-    expect(runnerView(d, id)!.missing).toEqual(['subject']);
+    expect(runnerView(d, id)!.values).toEqual([]);
+    d = walk(ok(d, { kind: 'resume', runId: id }), id, 'next');
+    expect(runnerView(d, id)!.fields).toEqual([{ name: 'subject', text: '', gives: false }]);
   });
 
   it('a step that neither gives nor reads it cannot give a name nobody passed', () => {

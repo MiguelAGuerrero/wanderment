@@ -300,13 +300,16 @@ for (const size of [
       ]);
       await vs.getByTestId('go-value-close').click();
       // Back a step: the address typed in the step's words gets its row.
+      // (P-111, restored: owner ruling Back keeps it — P-110 had the value's address go with a Back that cleared {page}.)
       await r.handle.click();
       await r.panel.getByRole('button', { name: /^Back to/ }).click();
       await r.handle.click();
       await expect(r.panel.getByTestId('go-open-address')).toHaveText(['Open notion.so']);
       await r.panel.getByRole('button', { name: /^Back to/ }).click();
       await r.handle.click();
-      await expect(r.panel.getByTestId('go-open-address')).toHaveText(['Open docs.google.com', 'Open notion.so']);
+      // (P-111, rewritten: was ['Open docs.google.com', 'Open notion.so'] — Back past "Pick the page" keeps {page} stored but,
+      // its giving step now below the place, not held there (P-110), so its address shows again only when it is reached.)
+      await expect(r.panel.getByTestId('go-open-address')).toHaveText(['Open docs.google.com']);
     });
 
     test('SAFETY: from an import, javascript:, data:, file:, vbscript:, other schemes and relative paths show as words and open nothing — in Plan, on the tile, in the panel; the preview counts the places', async ({ page }) => {

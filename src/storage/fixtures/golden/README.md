@@ -171,3 +171,22 @@ load exactly as before and write nothing by loading.
 | `p108-old-build.json` | that build's `planView` and `runnerView` | what it SHOWED: both blocks as steps broken down, passed straight through on the run; `▤ {way}` as the step "{way}" with the routine's name in place as words, no Step in; inside "Try ways"' for each, the item with its words |
 
 `freeze-p108.ts.txt` is the script that wrote them.
+
+## P-110 (frozen 2026-11-27, before values follow the place)
+
+Written the same way by the build before P-110 (`1b005ac`, P-108), through its own store actions only (no Import: no
+new stored shape). It started from `p108-schema4.sqlite` (so everything above is in it) and left runs that break
+P-110's rule — "a value is held only while the step that gives it is above the place" — as that build let a person
+make them. P-110 changes how they are **read** (a value whose giving step is not above the place is not shown, and a
+step never asks ahead), never what is stored: this data must load exactly as before and write nothing by loading.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p110-schema4.sqlite` | that build, ordinary saves, over `p108-schema4.sqlite` | everything in `p108-schema4.sqlite`, plus "Document Iteration"; "Iterate on the app" ("Envision how I’d expect {feature} to work", "Pick a feature" gives `{feature}`, "Build {feature}", "@Document Iteration" as words), a run of it with `{feature}` asked AHEAD at the reader, moved past the giver, Jumped back to the first step, paused; "Write the post" ("Choose a subject" gives `{subject}`, "Draft {subject}", "Edit {subject}"), a run with `{subject}` given, moved on, Jumped back onto its giving step, paused; and P-96's "Read a chapter" running again |
+| `p110-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p110-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p110-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p110-expected.json` | that build's store | what those four must read as |
+| `p110-old-build.json` | that build's `planView` and `runnerView` | what it SHOWED: `{feature}` asked at the reader ahead of its giver; the value kept (and shown, and in the reader's field) after the Jump back; "Resume at Build {feature}" and "at Envision how I’d expect {feature} to work" with the name as written; `{subject}` kept after the Jump back onto its step |
+
+`freeze-p110.ts.txt` is the script that wrote them.

@@ -53,7 +53,9 @@ describe('F1: Undo never drops a typed value, and brings back what the action cl
     st().nextStep(id);
     st().typeValue(id, 'pick', 'feature', 'signup');
     st().jumpTo(id, { level: 0 } as never);
-    expect(vals(id)).toEqual(['0:base=web']);
+    // (P-110, rewritten: was ['0:base=web'] — the start of the level is "Setup", which gives {base}: moving the place
+    // back onto it clears {base} too. The rest of F1 stands: the Undo keeps what was typed since.)
+    expect(vals(id)).toEqual([]);
     st().typeValue(id, 's', 'base', 'mobile');
     expect(st().undoLast()).toBe(true);
     expect([here(id), round(id)]).toEqual(['pick', 2]);
@@ -93,6 +95,7 @@ describe('F2: Back to across a round boundary', () => {
     expect(vals(id)).toEqual(['0:base=web', '0:feature=signup']);
   });
 
+  // (P-111, restored: owner ruling Back keeps it — P-110 had moved this to a Back from "Test" to "Pick".)
   it('Back to that clears nothing still leaves no notice and no Undo (P-95)', () => {
     const id = started('R');
     st().typeValue(id, 's', 'base', 'web');
@@ -104,6 +107,7 @@ describe('F2: Back to across a round boundary', () => {
 });
 
 describe('F3: typing over a filled value in the step’s own field (ruling 4)', () => {
+  // (P-111, restored: owner ruling Back keeps it — P-110 had dropped the Next then Back to "Setup" before reopening its field.)
   it('cleared: "Cleared {base}" with Undo, once; Undo brings it back', () => {
     const id = started('R');
     st().typeValue(id, 's', 'base', 'web');

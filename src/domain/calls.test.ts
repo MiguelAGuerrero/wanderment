@@ -263,11 +263,12 @@ describe('a step owes what its insides give (Next or Step out past it without st
     expect(undone(d, past)).toEqual(json(d));
     expect(valueDetail(past, id, 'findings')).toMatchObject({ from: 'Research', text: 'rest more' });
     expect(valueTrace(past, id, 'findings')!.map((l) => [l.routine, l.step])).toEqual([['Improve my workout routine', 'Research']]);
-    // Left empty: nothing stored; the reader asks, and the values row says it is not given yet.
+    // Left empty: nothing stored; the reader asks, and the values row lists only what is held.
     const empty = walk(d, id, 'next');
     expect(entries(empty, id)).toEqual(['0:concerns=form@doubts']);
     expect(runnerView(empty, id)!.fields).toEqual([{ name: 'findings', text: '', gives: false }]);
-    expect(runnerView(empty, id)!.missing).toEqual([]);
+    // (P-110, rewritten: was `missing` toEqual([]) — the "not given yet" placeholders are gone; the values row holds {concerns} only.)
+    expect(runnerView(empty, id)!.values.map((v) => v.name)).toEqual(['concerns']);
   });
 
   it('a step broken down: only the names its smaller steps give that something outside it reads', () => {

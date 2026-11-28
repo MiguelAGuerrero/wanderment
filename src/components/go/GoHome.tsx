@@ -8,7 +8,7 @@
  * doors: + New (its own sheet asks for the name). The notice has its own row above them, never over a tile.
  *
  * P-101 (ruling 5): the order never changes because of a pause (runs by when each was started, then the
- * routines with nothing going); the run touched last carries a small "last" mark, in words. A run's tile
+ * routines with nothing going); the run touched last carries a small "Last ran" mark, in words (P-110; was "last"). A run's tile
  * body is the way back in — "Resume <name>" — and its Plan button stays; the filled Resume bar is gone.
  * Nothing reads "planning": a run is running or paused.
  *
@@ -298,7 +298,7 @@ const RING_INK = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: 
 /**
  * A tile: the routine's colour, its name, where its run is (P-96: with its values in place, marked as
  * values — inverted). P-101 (ruling 5): a run's tile BODY is its way back in — a button, "Resume <name>"
- * (at the edge: "Plan <name>") — with Plan beside it; the run touched last says "last". A routine with
+ * (at the edge: "Plan <name>") — with Plan beside it; the run touched last says "Last ran" (P-110). A routine with
  * nothing going has Start (outlined, never filled) and Plan.
  */
 function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, onPlaces, onKept }: TileProps) {
@@ -312,10 +312,10 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, on
         <T ink bold size={18} style={styles.tileName}>
           {tile.name}
         </T>
-        {/* The run touched last: a small mark in words (not colour alone). */}
+        {/* The run touched last: a small mark in words (not colour alone). P-110 (the owner: "last is relative … ambiguous"): "Last ran". */}
         {tile.current && going && (
           <T ink bold style={styles.last} testID="go-tile-last">
-            last
+            Last ran
           </T>
         )}
       </View>
@@ -338,7 +338,7 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, on
     </>
   );
   // What its body's button says: the action and the name, then what the body shows.
-  const said = [l.spoken, tile.current && going ? 'last' : '', l.line, l.reason].filter(Boolean).join(', ');
+  const said = [l.spoken, tile.current && going ? 'Last ran' : '', l.line, l.reason].filter(Boolean).join(', ');
   return (
     <View
       style={[styles.tile, wide ? styles.tileWide : styles.tileHalf, { backgroundColor: hue.c }, hard(6, hue.d)]}

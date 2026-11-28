@@ -3408,7 +3408,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(g().changeValue(ids.runId, 'subject', '').ok).toBe(true);
       // (The reader asks for it where it stands; the step after it, which does not read it, offers it.)
       expect(g().nextStep(ids.runId).ok).toBe(true);
-      expect(runnerView(g().data, ids.runId)!.missing).toEqual(['subject']);
+      // (P-110, rewritten: was `missing` toEqual(['subject']) — no "not given yet" placeholder; it is still given late here.)
+      expect(runnerView(g().data, ids.runId)!.values.map((v) => v.name)).not.toContain('subject');
       const here = runnerView(g().data, ids.runId)!.step.itemId!;
       expect(g().typeValue(ids.runId, here, 'subject', 'given late').ok).toBe(true);
       await tick(30);
@@ -4343,6 +4344,10 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       // A list replaced from its field (the run moved back to its giving step by Jump to, whose own Undo is then replaced).
       expect(store.getState().jumpTo(ids.runId, { path: [ids.find] }).ok).toBe(true);
       await tick(30);
+      // (P-110, rewritten: was the list replaced straight after the Jump — a Jump back onto the step that gives {photos}
+      // now clears it; so it is given there first, then replaced.)
+      expect(store.getState().typeList(ids.runId, ids.find, 'photos', ['the dancer', 'the boxer', 'the cellist']).ok).toBe(true);
+      await tick(30);
       const jumped = store.getState().data;
       expect(store.getState().typeList(ids.runId, ids.find, 'photos', ['the dancer']).ok).toBe(true);
       store.getState().typedOver(ids.runId, ids.find, 'photos', 'the dancer, the boxer and the cellist', ['the dancer', 'the boxer', 'the cellist']);
@@ -4565,6 +4570,10 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       // The routine value replaced by words in its field, then the field left: "Changed {way}", and its Undo puts the routine back.
       expect(g().jumpTo(ids.runId, { path: [ids.choose] }).ok).toBe(true);
       await tick(30);
+      // (P-110, rewritten: was the value replaced straight after the Jump — a Jump back onto the step that gives {way}
+      // now clears it; so the routine is given there first, then replaced by words.)
+      expect(g().typeValue(ids.runId, ids.choose, 'way', 'Draw with guidelines', [{ ref: ids.guide, name: 'Draw with guidelines' }]).ok).toBe(true);
+      await tick(30);
       before = g().data;
       expect(g().typeValue(ids.runId, ids.choose, 'way', 'freely').ok).toBe(true);
       g().typedOver(ids.runId, ids.choose, 'way', 'Draw with guidelines', undefined, [{ ref: ids.guide, name: 'Draw with guidelines' }]);
@@ -4629,6 +4638,263 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect((held.runs[ids.runId].values as Record<string, unknown>[])[1]).toMatchObject({ refs: 'a later shape' });
       expect((held.runs[ids.runId].frames as Record<string, unknown>[])[0]).toMatchObject({ eachSeen: { later: 1 } });
       expect(JSON.parse(toBackup(held)).data).toEqual(held);
+    });
+  });
+
+  // ───────── P-110: values follow the place; "Make it a call" ─────────
+
+  describe('P-110: values cleared by a move back, a step made a call, and a kept list reordered mid-sitting survive reload, journal replay, the fallback, hand-over, undo, export and import — a run stored before P-110 is read without writing and kept until a move', () => {
+    type Ids = { iterate: string; doc: string; env: string; pick: string; build: string; at: string; runId: string };
+    const itemsOf = (data: { routines: Record<string, Record<string, unknown>> }, id: string) => data.routines[id].items as Record<string, unknown>[];
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * Through the store's actions, as the owner did: "Document Iteration"; "Iterate on the app" — "Envision how I’d expect
+     * {feature} to work", "Pick a feature" gives {feature}, "Build {feature}", "@Document Iteration" (typed as words).
+     * Started: Next, {feature} given, Next — on "Build checkout".
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const doc = g().createRoutine('Document Iteration');
+      const made = g().createRoutine('Iterate on the app');
+      if (!made.ok || !made.routineId || !doc.ok || !doc.routineId) throw new Error('New: was refused');
+      const iterate = made.routineId;
+      const all = [g().editRoutine(doc.routineId, { kind: 'addStep', text: 'Write down what changed' })];
+      for (const text of ['Envision how I’d expect {feature} to work', 'Pick a feature', 'Build {feature}', '@Document Iteration']) all.push(g().editRoutine(iterate, { kind: 'addStep', text }));
+      const [env_, pick, build_, at] = itemsOf(g().data, iterate).map((i) => i.id as string);
+      all.push(g().editRoutine(iterate, { kind: 'gives', item: pick, name: 'feature' }));
+      const started = g().startRoutine(iterate);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      all.push(g().nextStep(started.runId), g().typeValue(started.runId, pick, 'feature', 'checkout'), g().nextStep(started.runId));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { iterate, doc: doc.routineId, env: env_, pick, build: build_, at, runId: started.runId };
+    }
+    const valuesOf_ = (data: { runs: Record<string, Record<string, unknown>> }, ids: Ids) => ((data.runs[ids.runId].values as { name: string; items: string[] }[] | undefined) ?? []).map((v) => `${v.name}=${v.items.join('|')}`);
+    const atOf = (data: { runs: Record<string, Record<string, unknown>> }, ids: Ids) => (data.runs[ids.runId].frames as { at: string }[])[0].at;
+
+    it('reload: a Jump back before the giving step is saved as it is made — the value gone, on disk — and its Undo brings place and value back, on disk too', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const before = store.getState().data;
+      expect(valuesOf_(before as never, ids)).toEqual(['feature=checkout']);
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.env] }).ok).toBe(true);
+      await tick(30);
+      const jumped = await onDisk();
+      expect([atOf(jumped as never, ids), valuesOf_(jumped as never, ids)]).toEqual([ids.env, []]);
+      store = await reload();
+      expect(store.getState().data).toEqual(jumped);
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.build] }).ok).toBe(true);
+      await tick(30);
+      // (Moving on never gives it back: it was cleared.)
+      expect(valuesOf_(await onDisk() as never, ids)).toEqual([]);
+      store = await reload();
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.env] }).ok).toBe(true);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(atOf(await onDisk() as never, ids)).toBe(ids.build);
+      // The Undo of the first Jump (a fresh store: the one Undo there is is the last action's).
+      (await import('./persistence')).stopPersistence();
+      store = await reload();
+      store.setState({ data: before });
+      await tick(30);
+      // (P-111, rewritten: owner ruling Back keeps it — was backTo, which no longer clears; a Jump onto the giving step does.)
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.pick] }).ok).toBe(true);
+      await tick(30);
+      expect([atOf(await onDisk() as never, ids), valuesOf_(await onDisk() as never, ids)]).toEqual([ids.pick, []]);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+    });
+
+    // P-111 (owner rulings "Back keeps it", "A Plan edit never clears a run's values"): what Back and a Plan edit keep is on disk, across reloads and later moves.
+    it('P-111: Back onto the giving step keeps {feature} on disk; a Plan edit that puts its step below the place keeps it stored across a reload and the moves before it is reached', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      await tick(30);
+      expect([atOf(await onDisk() as never, ids), valuesOf_(await onDisk() as never, ids)]).toEqual([ids.pick, ['feature=checkout']]);
+      store = await reload();
+      expect(valuesOf_(store.getState().data as never, ids)).toEqual(['feature=checkout']);
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      // Plan: "Pick a feature" dragged below "@Document Iteration" — below the place ("Build checkout").
+      expect(store.getState().editRoutine(ids.iterate, { kind: 'move', item: ids.pick, by: 2 }).ok).toBe(true);
+      await tick(30);
+      expect(valuesOf_(await onDisk() as never, ids)).toEqual(['feature=checkout']);
+      store = await reload();
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      await tick(30);
+      expect([atOf(await onDisk() as never, ids), valuesOf_(await onDisk() as never, ids)]).toEqual([ids.at, ['feature=checkout']]);
+      store = await reload();
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      await tick(30);
+      expect([atOf(await onDisk() as never, ids), valuesOf_(await onDisk() as never, ids)]).toEqual([ids.pick, ['feature=checkout']]);
+    });
+
+    // (P-111, rewritten: owner ruling Back keeps it — was "a Back that clears {feature}" with backTo; a Jump onto its giving step clears it.)
+    it('journal replay: a Jump that clears {feature}, kept while no write commits (the tab dies), is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      env.state.hangWrites = true;
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.pick] }).ok).toBe(true);
+      await tick(30);
+      const data = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      expect([atOf(data as never, ids), valuesOf_(data as never, ids)]).toEqual([ids.pick, []]);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('the localStorage fallback keeps a value cleared by a move and a step made a call, and moves them into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.env] }).ok).toBe(true);
+      expect(store.getState().editRoutine(ids.iterate, { kind: 'toCall', item: ids.at, routine: ids.doc }).ok).toBe(true);
+      await tick(30);
+      const data = store.getState().data;
+      const blob = JSON.parse(env.ls.get('wanderment')!).state.data;
+      expect(valuesOf_(blob, ids)).toEqual([]);
+      expect(itemsOf(blob, ids.iterate)[3]).toEqual({ id: ids.at, ref: ids.doc, words: 'Document Iteration' });
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(data);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('hand-over with a take-back: a Jump back that cleared {feature}, still only in the journal when hidden, stays on top of another page’s step added to the routine; the other page’s step is taken', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      writeGate = deferred();
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.env] }).ok).toBe(true);
+      await tick(0);
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRuns.map((r: { id: string }) => r.id)).toEqual([ids.runId]);
+      const mine = store.getState().data.runs[ids.runId];
+      const { editRoutine } = await import('@/domain/run');
+      const other = editRoutine(await onDisk(), ids.iterate, { kind: 'addStep', text: 'Ship it' }, { now: '2026-11-28T12:00:00.000Z', id: () => 'other-page-step' });
+      expect(other.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [other.data.routines[ids.iterate]] } as never);
+      db.close();
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.runs[ids.runId]).toEqual(mine);
+      expect(valuesOf_(store.getState().data as never, ids)).toEqual([]);
+      expect(itemsOf(store.getState().data as never, ids.iterate).map((i) => i.id)).toContain('other-page-step');
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('undo of "Make it a call" and of a kept list reordered mid-sitting: taken back on screen and on disk; the reorder drops no item not yet done, after a reload too', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      let before = store.getState().data;
+      expect(store.getState().editRoutine(ids.iterate, { kind: 'toCall', item: ids.at, routine: ids.doc }).ok).toBe(true);
+      await tick(30);
+      expect(itemsOf(await onDisk(), ids.iterate)[3]).toEqual({ id: ids.at, ref: ids.doc, words: 'Document Iteration' });
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      // A kept list, gone through: on "c" of a, b, c, d, reordered d, c, a, b in Plan — d still comes round.
+      const g = () => store.getState();
+      expect(g().pauseRun(ids.runId).ok).toBe(true);
+      const made = g().createRoutine('Practise');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      const practise = made.routineId;
+      expect(g().editRoutine(practise, { kind: 'addEach', item: 'x', list: 'xs', own: 'kept' }).ok).toBe(true);
+      const kept = (itemsOf(g().data, practise)[0] as { ref: string }).ref;
+      expect(g().editRoutine(kept, { kind: 'keptList', items: ['a', 'b', 'c', 'd'] }).ok).toBe(true);
+      expect(g().editRoutine(kept, { kind: 'addStep', text: 'Practise {x}' }).ok).toBe(true);
+      const started = g().startRoutine(practise);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      const run2 = started.runId;
+      expect([g().nextStep(run2).ok, g().nextStep(run2).ok]).toEqual([true, true]);
+      const { runnerView } = await import('@/domain/runView');
+      const words = () => runnerView(store.getState().data, run2)!.step.parts.map((p) => ('text' in p ? p.text : `{${p.name}}`)).join('');
+      expect(words()).toBe('Practise c');
+      before = g().data;
+      expect(g().editRoutine(kept, { kind: 'keptList', items: ['d', 'c', 'a', 'b'] }).ok).toBe(true);
+      await tick(30);
+      expect(g().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      expect(g().editRoutine(kept, { kind: 'keptList', items: ['d', 'c', 'a', 'b'] }).ok).toBe(true);
+      expect(g().nextStep(run2).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(words()).toBe('Practise d');
+      // Past d, a and b (done before the reorder) never come round again: the sitting is over.
+      expect(store.getState().nextStep(run2).ok).toBe(true);
+      expect(store.getState().data.runs[run2].endedAt).toBeDefined();
+    });
+
+    it('export → import: a run stored before P-110 with a value given ahead of its giving step is imported exactly, read without writing (not shown), kept by a Next that reaches its giving step, and cleared by a Jump past it — through the journal and out again', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const file = JSON.parse(toBackup(store.getState().data));
+      // As the build before left it (p110-old-build.json "jumpedBack"): asked at the reader, then Jumped back before both.
+      file.data.runs[ids.runId].frames = [{ seq: ids.iterate, at: ids.env, round: 1 }];
+      file.data.runs[ids.runId].values = [{ name: 'feature', items: ['checkout'], level: 0, seq: ids.iterate, item: ids.env, words: 'Envision how I’d expect {feature} to work', at: '2026-11-28T01:00:01.000Z', later: { x: 1 } }];
+      file.data.runs[ids.runId].status = 'paused';
+      expect(confirmImport(previewImport(JSON.stringify(file))).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      const { runnerView } = await import('@/domain/runView');
+      expect(runnerView(store.getState().data, ids.runId)!.values).toEqual([]);
+      expect(runnerView(store.getState().data, ids.runId)!.fields).toEqual([]);
+      expect(await onDisk()).toEqual(file.data);
+      env.state.hangWrites = true;
+      expect(store.getState().resumeRun(ids.runId).ok).toBe(true);
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      await tick(30);
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(runnerView(store.getState().data, ids.runId)!.fields).toEqual([{ name: 'feature', text: 'checkout', gives: true }]);
+      expect((store.getState().data.runs[ids.runId].values as Record<string, unknown>[])[0]).toMatchObject({ later: { x: 1 } });
+      expect(JSON.parse(toBackup(store.getState().data)).data).toEqual(store.getState().data);
+      // Back again, then a Jump past it without reaching it: cleared, said.
+      store.setState({ data: file.data });
+      await tick(30);
+      expect(store.getState().resumeRun(ids.runId).ok).toBe(true);
+      expect(store.getState().jumpTo(ids.runId, { path: [ids.build] }).ok).toBe(true);
+      expect(store.getState().runNotice?.text).toContain('Cleared {feature}');
+      await tick(30);
+      expect(valuesOf_(await onDisk() as never, ids)).toEqual([]);
     });
   });
 });

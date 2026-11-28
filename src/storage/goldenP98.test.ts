@@ -203,6 +203,7 @@ describe('the build with calls reads that data: the call, what it gives back, th
     expect(s().backTo('p98-011').ok).toBe(true);
     expect(s().data.runs['p98-011'].frames).toEqual([(BEFORE.data.runs['p98-011'].frames as unknown[])[0], { ...(BEFORE.data.runs['p98-011'].frames as Record<string, unknown>[])[1], at: 'p98-002' }]);
     expect(s().nextStep('p98-011').ok).toBe(true);
+    // (P-111, restored: owner ruling Back keeps it — P-110 had given {findings} again here after the Back that cleared it.)
     expect(s().nextStep('p98-011').ok).toBe(true);
     const after = runnerView(s().data, 'p98-011')!;
     expect(after.step.words).toBe('Decide using {findings}');

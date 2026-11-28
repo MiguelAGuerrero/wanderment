@@ -293,12 +293,8 @@ export function Runner({ runId }: { runId: string }) {
       {!pinTop && topLine}
       {/* Audit F6: with little room the values and the note on them are one row high and scroll inside it. */}
       <ScrollView style={tight && styles.valuesTight} contentContainerStyle={tight && styles.valuesTightBody} nestedScrollEnabled keyboardShouldPersistTaps="handled" testID="go-values-area">
-        <ValuesRow
-          values={v.values}
-          missing={v.missing}
-          onOpen={(name) => { setPanel(false); setSheet(name); }}
-          onGive={(name) => { setPanel(false); setEntry({ name, text: '', gives: true }); }}
-        />
+        {/* P-110 (the owner: "not displaying placeholders if those values aren't supplied"): only the values held at the place. */}
+        <ValuesRow values={v.values} onOpen={(name) => { setPanel(false); setSheet(name); }} />
         {/* P-101 (ruling 3): the pause note, read on the way back in (until the first move drops it). */}
         {!!v.reason && (
           <View style={styles.reason} testID="go-runner-reason">

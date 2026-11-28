@@ -4,7 +4,8 @@
  * writes, and nothing throws on damaged data — a run or routine that can't be shown reads as
  * undefined, and the screen goes home.
  */
-import { advance, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, passedGives, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
+import { routineInWords } from './atPick';
+import { advance, canCall, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, givenAhead, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
 import { hash } from './hash';
 import { addressesIn, PlaceShown, placesOf, placesShown, tidyPlaceText } from './places';
 import { Data, Id } from './types';
@@ -187,6 +188,8 @@ function fieldsFor(data: Data, run: RunState, at: Place): ValueField[] {
   for (const n of namesIn(wordsOf(data, run, item))) {
     if (gives && n.key === nameKey(gives)) continue;
     const e = visibleValue(data, run, n.key, at.frames);
+    // P-110: never ahead — a name a later step of its routine gives is asked there, not here (its words show it as written).
+    if (!e && givenAhead(data, run, at.frames, n.key)) continue;
     // It asks while nothing gave it — and keeps its field while the value is the one typed here.
     if (!e || (e.item === item.id && e.level === scope)) out.push({ name: n.name, text: e ? asTyped(e) : '', gives: false, ...refsField(e), ...(slotOf(item) && { routines: true as const }) });
   }
@@ -557,11 +560,6 @@ export interface RunnerView {
   /** P-101 (ruling 3): the pause note, read on the way back in (lines tidied) until the first move drops it. */
   reason?: string;
   /**
-   * P-101 amendment (ruling 10): names given by steps already passed, with no value yet — the values row's
-   * "{ } name: not given yet", each given now from the step the run is on (`typeValue(runId, step.itemId, name, text)`).
-   */
-  missing: string[];
-  /**
    * P-98: Step out of a call or a step broken down before what it owes was given — the names still empty: Step out
    * first shows a field for each (`doneLevel(runId, owed)`). Empty: Step out leaves at once.
    */
@@ -595,7 +593,9 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
   const words = held && 'routine' in held ? target!.words : held && 'removed' in held ? `${held.removed} (removed)` : item ? wordsOf(data, run, item) : '';
   const heldRoutine = !!held && !('words' in held);
   const kind = heldRoutine ? 'routine' : item && ownBlock(data, run, item) ? 'step' : item ? kindOf(item) : 'step';
-  const middle = target?.items.length && frames.length < MAX_DEPTH ? 'stepIn' : 'plan';
+  // (P-110, the P-108 investigator's repro 3: a value holding a routine the run is already in offers no Step in — the engine refuses it.)
+  const into = !!target?.items.length && !(held && 'routine' in held && frames.some((f) => f.seq === held.routine));
+  const middle = into && frames.length < MAX_DEPTH ? 'stepIn' : 'plan';
   let inner: Seq | undefined;
   for (let j = frames.length - 1; j > 0 && !inner; j--) {
     const s = view(data, run, frames[j].seq);
@@ -627,11 +627,10 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
     ...(!run.endedAt && { finish: { name: levelWords(seq), ends: wouldEnd(data, { kind: 'done', runId }) } }),
     ...(waiting && { waiting }),
     // P-98: past the depth it can go, Step in is still there — and says, in words, why it goes no deeper.
-    moves: { stepIn: !!target?.items.length, ...(frames.length > 1 && { stepOut: { name: levelWords(seq) } }) },
+    moves: { stepIn: into, ...(frames.length > 1 && { stepOut: { name: levelWords(seq) } }) },
     ...(inner && { planIn: { seq: inner.id, name: inner.words } }),
     gives,
     ...(reason && { reason }),
-    missing: run.endedAt ? [] : passedGives(data, run, at).map((p) => p.name),
     stepOutOwes: run.endedAt ? [] : stepOutOwes(data, run, at),
     nextOwes: run.endedAt || !isRef(item) ? [] : owedBy(data, run, frames, item).filter((n) => !visibleValue(data, run, nameKey(n), frames)),
   };
@@ -918,6 +917,14 @@ export interface PlanRow {
   each?: { item: string; list: string; own?: true; kept?: ShownItem[] };
   /** P-108: a routine row whose routine is a value — `▤ {slot}` (it reads the name; "asks" when nothing gives it). */
   slot?: string;
+  /**
+   * P-110: Plan of a run — the row's words with the values held at the run's place in place of `{name}` (a name not
+   * given stays as written). Only when one is in place; `shown` is the same as words.
+   */
+  parts?: StepPart[];
+  shown?: string;
+  /** P-110: a step whose words are exactly "@<routine name>" — offered as a call to it (`editRoutine(seq, { kind: 'toCall', item, routine })`), never made one by itself. */
+  asCall?: { routine: Id; name: string };
 }
 
 /**
@@ -1021,6 +1028,18 @@ export interface PlanView {
  * Plan (P-90). `{ runId }`: that run's Plan (undefined once it has ended or is gone). `{ routineId }`:
  * the routine's — which is its open run's Plan when it has one (one surface per run). Reads only.
  */
+/**
+ * The named routines, oldest first: the order "@<name>" resolves same-named routines in (only an import makes them) —
+ * Plan's rows offering Make it a call, a step added as "@<name>", and Return in the "@" list alike (P-111).
+ */
+export function routinesByAge(data: Data): { routineId: Id; name: string }[] {
+  return Object.keys(data.routines)
+    .map((id) => readRoutine(data, id))
+    .filter((x): x is Seq => !!x && x.named && !x.removedAt)
+    .sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : 1))
+    .map((x) => ({ routineId: x.id, name: x.words }));
+}
+
 export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: Id }): PlanView | undefined {
   const run = 'runId' in of ? readRun(data, of.runId) : openRuns(data).filter((r) => r.routineId === of.routineId && !!place(data, r)).sort(lastTouched)[0];
   if ('runId' in of && (!run || run.endedAt)) return undefined;
@@ -1108,6 +1127,33 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
     return { inputs, gives: io.gives };
   };
   walk(root.id, [], [root.id], true, root.id, []);
+  // P-110: Plan of a run shows the values held at its place in the words (the run's own frames, from its root).
+  if (run && at) {
+    const base = inAt > 0 ? inAt : 0;
+    for (const r of rows) {
+      if (r.each || r.call || !parseWords(r.words).some((x) => x.kind === 'name')) continue;
+      let k = 0;
+      while (k < r.path.length - 1 && at.frames[base + k + 1] && at.frames[base + k].at === r.path[k] && at.frames[base + k + 1].from === r.path[k]) k++;
+      // (Inside a routine used as a step the run is not in: its names are its own — as written.)
+      let mine = true;
+      for (let j = k; j < r.path.length - 1 && mine; j++) {
+        const row = rows.find((x) => x.path.length === j + 1 && x.path.every((id, q) => id === r.path[q]));
+        if (!row?.broken) mine = false;
+      }
+      if (!mine) continue;
+      const parts = partsFor(data, run, r.words, at.frames.slice(0, base + k + 1));
+      if (parts.some((x) => x.kind === 'value')) Object.assign(r, { parts, shown: partsText(parts) });
+    }
+  }
+  // P-110: a step whose words are "@<routine name>" — offered as a call (only where the engine would make it one).
+  {
+    const named = routinesByAge(data);
+    for (const r of rows) {
+      if (r.kind !== 'step' || r.gives || r.slot || !/^\s*@/.test(r.words)) continue;
+      const target = routineInWords(r.words, named);
+      if (target && canCall(data, r.seq, target)) r.asCall = { routine: target, name: named.find((x) => x.routineId === target)!.name };
+    }
+  }
   // Audit F9: a name is given for a step only by a step above it (before it, in run order).
   const given = new Set<string>();
   const items: { path: Id[]; key: string }[] = [];
@@ -1126,13 +1172,14 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
     return { ...base, planning: false, line: '', edge: false, canDone: false, forward: { kind: 'start', label: 'Start', routineId: root.id, ready: root.items.length > 0 }, unfolded: false };
   }
   const planning = !isRunning(data, run);
-  const here = at.item ? wordsOf(data, run, at.item) : undefined;
+  // P-110: "Resume at …" (and "at …") with the values held at the place in its words.
+  const here = at.item ? partsText(partsFor(data, run, wordsOf(data, run, at.item), at.frames)) : undefined;
   return {
     ...base,
     runId: run.id,
     planning,
     line: !planning ? '' : here === undefined ? 'nothing next yet' : `at ${here}`,
-    ...(at.item && { at: here, hereKind: kindOf(at.item) }),
+    ...(at.item && { at: wordsOf(data, run, at.item), hereKind: kindOf(at.item) }),
     edge: !at.item,
     canDone: !at.item,
     ...(at.item && { forward: { kind: 'resume' as const, label: `Resume at ${here}`, runId: run.id } }),
@@ -1140,6 +1187,68 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
     restartLevel: inAt > 0 ? inAt : 0,
   };
 }
+
+/**
+ * P-111 (owner, 2026-11-27: "the breakdown step be its own view"): a Plan row that has insides, and how they open —
+ * `view`, as a view of its own (a step broken down, a for each: the routine's own smaller steps); `fold`, in place by its
+ * chevron (a routine used as a step: a routine of its own, with its own Plan). P-112 opens the same insides on the runner.
+ */
+export function insidesOf(row: Pick<PlanRow, 'kind' | 'broken' | 'each'>): 'view' | 'fold' | undefined {
+  if (row.kind !== 'routine') return undefined;
+  return row.broken || row.each ? 'view' : 'fold';
+}
+
+/** P-111: a Plan row's key — its path, its item ids joined (unique per row). */
+export const planKey = (path: Id[]): string => path.join('/');
+/** P-111: `?at=` for the routine's own steps (no row's insides); `at` absent is where the run is (`planAt`). */
+export const PLAN_TOP = 'top';
+
+/** P-111: what one view of Plan shows — the routine's steps, or one row's insides. */
+export interface PlanAt {
+  /** The row whose insides this is ('' for the routine's own steps). */
+  key: string;
+  row?: PlanRow;
+  /** The rows under it, in order (every depth): what this view lists. */
+  rows: PlanRow[];
+  /** Its rows' first depth (a row's `depth - base` is how far in it is drawn). */
+  base: number;
+  /** The view one up (the routine's: key ''), with its words — the path back. */
+  up?: { key: string; words: string };
+}
+
+/**
+ * P-111: the view of Plan at `at` — a row's key whose insides open as a view, or PLAN_TOP. Absent: where the run is —
+ * the innermost such row the run is in (as "Plan <routine>" opens the innermost routine), else the routine's. A key
+ * that is no longer one (removed, undone, made a step again) reads as the nearest view above it. Reads only.
+ */
+export function planAt(v: Pick<PlanView, 'rows' | 'name'>, at: string | undefined): PlanAt {
+  const byKey = new Map(v.rows.map((r) => [planKey(r.path), r]));
+  const opens = (k: string) => {
+    const r = byKey.get(k);
+    return !!r && insidesOf(r) === 'view';
+  };
+  /** `k` itself, or the nearest key above it that opens as a view ('' for none). */
+  const nearest = (k: string): string => {
+    const ids = k.split('/');
+    for (let n = ids.length; n > 0; n--) {
+      const c = ids.slice(0, n).join('/');
+      if (opens(c)) return c;
+    }
+    return '';
+  };
+  let key = '';
+  if (at === undefined) {
+    const deepest = v.rows.filter((r) => r.within && insidesOf(r) === 'view').sort((a, b) => b.path.length - a.path.length)[0];
+    if (deepest) key = planKey(deepest.path);
+  } else if (at !== PLAN_TOP && at !== '') key = nearest(at);
+  const row = key ? byKey.get(key) : undefined;
+  if (!row) return { key: '', rows: v.rows, base: 0 };
+  const rows = v.rows.filter((r) => r.path.length > row.path.length && row.path.every((id, i) => r.path[i] === id));
+  const upKey = nearest(row.path.slice(0, -1).join('/'));
+  const upRow = upKey ? byKey.get(upKey) : undefined;
+  return { key, row, rows, base: row.depth + 1, up: { key: upKey, words: upRow ? (upRow.shown ?? upRow.words) : v.name } };
+}
+
 
 /** A routine for the plain editor. Undefined when it is gone or removed. */
 export interface RoutineView {
@@ -1267,6 +1376,8 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     if (e.kind === 'reword') return `Changed ${item(e.item)}`;
     if (e.kind === 'breakDown') return `Broke down ${item(e.item)}`;
     if (e.kind === 'toWait') return `Made ${item(e.item)} a wait`;
+    // P-110: a step whose words name a routine, made a call to it.
+    if (e.kind === 'toCall') return `Made ${item(e.item)} a call to ${quoted(readRoutine(data, e.routine)?.words ?? '')}`;
     if (e.kind === 'toStep') return `Made ${item(e.item)} a step`;
     if (e.kind === 'divider' && e.from !== undefined && s?.items[e.from]) return `Repeat from here ${from === undefined ? 'added' : 'moved'} above ${item(s.items[e.from].id)}`;
     // (An unnamed sequence is a step that was broken down: its words are that step's, and they were changed.)

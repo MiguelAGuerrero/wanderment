@@ -1,0 +1,591 @@
+{
+  "planIterate": {
+    "line": "",
+    "forward": "Start",
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Envision how I’d expect {feature} to work",
+        "here": false,
+        "reads": [
+          "feature"
+        ],
+        "asks": [
+          "feature"
+        ],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick a feature",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": "feature"
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Build {feature}",
+        "here": false,
+        "reads": [
+          "feature"
+        ],
+        "asks": [],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "@Document Iteration",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": null
+      }
+    ]
+  },
+  "onEnvision": {
+    "line": "",
+    "forward": "Resume at Envision how I’d expect {feature} to work",
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Envision how I’d expect {feature} to work",
+        "here": true,
+        "reads": [
+          "feature"
+        ],
+        "asks": [
+          "feature"
+        ],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick a feature",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": "feature"
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Build {feature}",
+        "here": false,
+        "reads": [
+          "feature"
+        ],
+        "asks": [],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "@Document Iteration",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": null
+      }
+    ],
+    "runner": {
+      "step": "step",
+      "words": "Envision how I’d expect {feature} to work",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Envision how I’d expect "
+        },
+        {
+          "kind": "blank",
+          "name": "feature"
+        },
+        {
+          "kind": "text",
+          "text": " to work"
+        }
+      ],
+      "fields": [
+        {
+          "name": "feature",
+          "text": "",
+          "gives": false
+        }
+      ],
+      "values": [],
+      "missing": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    }
+  },
+  "onPick": {
+    "line": "",
+    "forward": "Resume at Pick a feature",
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Envision how I’d expect {feature} to work",
+        "here": false,
+        "reads": [
+          "feature"
+        ],
+        "asks": [
+          "feature"
+        ],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick a feature",
+        "here": true,
+        "reads": [],
+        "asks": [],
+        "gives": "feature"
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Build {feature}",
+        "here": false,
+        "reads": [
+          "feature"
+        ],
+        "asks": [],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "@Document Iteration",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": null
+      }
+    ],
+    "runner": {
+      "step": "step",
+      "words": "Pick a feature",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Pick a feature"
+        }
+      ],
+      "fields": [
+        {
+          "name": "feature",
+          "text": "checkout",
+          "gives": true
+        }
+      ],
+      "values": [
+        {
+          "name": "feature",
+          "items": [
+            "checkout"
+          ]
+        }
+      ],
+      "missing": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    }
+  },
+  "onBuild": {
+    "line": "",
+    "forward": "Resume at Build {feature}",
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Envision how I’d expect {feature} to work",
+        "here": false,
+        "reads": [
+          "feature"
+        ],
+        "asks": [
+          "feature"
+        ],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick a feature",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": "feature"
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Build {feature}",
+        "here": true,
+        "reads": [
+          "feature"
+        ],
+        "asks": [],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "@Document Iteration",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": null
+      }
+    ],
+    "runner": {
+      "step": "step",
+      "words": "Build {feature}",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Build "
+        },
+        {
+          "kind": "value",
+          "name": "feature",
+          "text": "checkout"
+        }
+      ],
+      "fields": [],
+      "values": [
+        {
+          "name": "feature",
+          "items": [
+            "checkout"
+          ]
+        }
+      ],
+      "missing": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    }
+  },
+  "jumpedBack": {
+    "line": "",
+    "forward": "Resume at Envision how I’d expect {feature} to work",
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Envision how I’d expect {feature} to work",
+        "here": true,
+        "reads": [
+          "feature"
+        ],
+        "asks": [
+          "feature"
+        ],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick a feature",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": "feature"
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Build {feature}",
+        "here": false,
+        "reads": [
+          "feature"
+        ],
+        "asks": [],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "@Document Iteration",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": null
+      }
+    ],
+    "runner": {
+      "step": "step",
+      "words": "Envision how I’d expect {feature} to work",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Envision how I’d expect "
+        },
+        {
+          "kind": "value",
+          "name": "feature",
+          "text": "checkout"
+        },
+        {
+          "kind": "text",
+          "text": " to work"
+        }
+      ],
+      "fields": [
+        {
+          "name": "feature",
+          "text": "checkout",
+          "gives": false
+        }
+      ],
+      "values": [
+        {
+          "name": "feature",
+          "items": [
+            "checkout"
+          ]
+        }
+      ],
+      "missing": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    }
+  },
+  "planPaused": {
+    "line": "at Envision how I’d expect {feature} to work",
+    "forward": "Resume at Envision how I’d expect {feature} to work",
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Envision how I’d expect {feature} to work",
+        "here": true,
+        "reads": [
+          "feature"
+        ],
+        "asks": [
+          "feature"
+        ],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick a feature",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": "feature"
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Build {feature}",
+        "here": false,
+        "reads": [
+          "feature"
+        ],
+        "asks": [],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "@Document Iteration",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": null
+      }
+    ],
+    "runner": {
+      "step": "step",
+      "words": "Envision how I’d expect {feature} to work",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Envision how I’d expect "
+        },
+        {
+          "kind": "value",
+          "name": "feature",
+          "text": "checkout"
+        },
+        {
+          "kind": "text",
+          "text": " to work"
+        }
+      ],
+      "fields": [
+        {
+          "name": "feature",
+          "text": "checkout",
+          "gives": false
+        }
+      ],
+      "values": [
+        {
+          "name": "feature",
+          "items": [
+            "checkout"
+          ]
+        }
+      ],
+      "missing": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    }
+  },
+  "onEdit": {
+    "line": "",
+    "forward": "Resume at Edit {subject}",
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Choose a subject",
+        "here": false,
+        "reads": [],
+        "asks": [],
+        "gives": "subject"
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Draft {subject}",
+        "here": false,
+        "reads": [
+          "subject"
+        ],
+        "asks": [],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Edit {subject}",
+        "here": true,
+        "reads": [
+          "subject"
+        ],
+        "asks": [],
+        "gives": null
+      }
+    ],
+    "runner": {
+      "step": "step",
+      "words": "Edit {subject}",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Edit "
+        },
+        {
+          "kind": "value",
+          "name": "subject",
+          "text": "tides"
+        }
+      ],
+      "fields": [],
+      "values": [
+        {
+          "name": "subject",
+          "items": [
+            "tides"
+          ]
+        }
+      ],
+      "missing": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "done"
+    }
+  },
+  "jumpedOntoGiver": {
+    "line": "",
+    "forward": "Resume at Choose a subject",
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Choose a subject",
+        "here": true,
+        "reads": [],
+        "asks": [],
+        "gives": "subject"
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Draft {subject}",
+        "here": false,
+        "reads": [
+          "subject"
+        ],
+        "asks": [],
+        "gives": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Edit {subject}",
+        "here": false,
+        "reads": [
+          "subject"
+        ],
+        "asks": [],
+        "gives": null
+      }
+    ],
+    "runner": {
+      "step": "step",
+      "words": "Choose a subject",
+      "parts": [
+        {
+          "kind": "text",
+          "text": "Choose a subject"
+        }
+      ],
+      "fields": [
+        {
+          "name": "subject",
+          "text": "tides",
+          "gives": true
+        }
+      ],
+      "values": [
+        {
+          "name": "subject",
+          "items": [
+            "tides"
+          ]
+        }
+      ],
+      "missing": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    }
+  }
+}

@@ -236,7 +236,14 @@ export type RoutineEdit =
    * P-108: a routine row whose routine is a value (`▤ {name}`) — a step `{ id, text: '{name}', slot: true }` (an older
    * build reads the step "{name}", showing the value as words). After a row or at the end; `cannot` for no name.
    */
-  | { kind: 'addSlot'; name: string; after?: Id | null };
+  | { kind: 'addSlot'; name: string; after?: Id | null }
+  /**
+   * P-110: a plain step made a call to a routine (its ··· "Make it a call", for words "@<routine name>"; "@" chosen while
+   * changing its words) — the same item, under the same id, now `{ id, ref, words }`. `words`: other words typed there
+   * stay — the step keeps them and the call is added right after it (one write). Refused as `addCall` (`gone`,
+   * `cannot`, `self`), and `not-a-step` for anything but a plain step that gives no name.
+   */
+  | { kind: 'toCall'; item: Id; routine: Id; words?: string };
 
 export type Verb =
   | { kind: 'start'; routineId: Id }
@@ -311,6 +318,8 @@ export interface Result {
   running?: { runId: Id; name: string };
   /** This write folded the run's this-run changes (from the build before) into its routine: the routine's name. */
   folded?: string;
+  /** P-110: a move cleared these values (their giving steps are no longer above the place): said, with its Undo. */
+  cleared?: string[];
 }
 
 // ───────── reading ─────────
@@ -741,7 +750,44 @@ function matched(was: string[], now: string[]): Map<number, number> {
     } else if (L[i + 1][k] >= L[i][k + 1]) i++;
     else k++;
   }
+  // (P-110, the P-108 investigator's repro 1: an item moved past others is still that item — matched by its words, in
+  // order, among the ones the in-order match left — so a reorder never drops one.)
+  const taken = new Set(out.values());
+  for (let i = 0; i < a.length; i++) {
+    if (out.has(i)) continue;
+    const k = b.findIndex((w, j) => w === a[i] && !taken.has(j));
+    if (k < 0) continue;
+    out.set(i, k);
+    taken.add(k);
+  }
   return out;
+}
+
+/**
+ * P-110 (the P-108 investigator's repro 1: "an item not yet done is never dropped by a reorder"): the item a for each
+ * level goes to next in its list as it reads now, and the list as it then has seen it — the items done (and those added
+ * before its place, which never come round), then that item, then the rest. Undefined: past the last. With nothing
+ * moved, the item after its place and the list as it reads (as P-108 had it).
+ */
+function nextEach(list: string[], f: Frame): { k: number; seen: string[]; each: number } | undefined {
+  const { at, gone } = eachAt(list, f);
+  const p = f.each ?? 0;
+  const seen = f.eachSeen;
+  if (!seen || p >= seen.length) {
+    const k = gone ? at : at + 1;
+    return k < list.length ? { k, seen: [...list], each: k } : undefined;
+  }
+  const origin = new Map<number, number>();
+  for (const [o, k] of matched(seen, list)) origin.set(k, o);
+  // Still to do: an item it began with, after its place; or one added after where it is now.
+  const todo = (i: number) => {
+    const o = origin.get(i);
+    return o === undefined ? (gone ? i >= at : i > at) : o > p;
+  };
+  const k = list.findIndex((_, i) => todo(i));
+  if (k < 0) return undefined;
+  const done = list.filter((_, i) => !todo(i));
+  return { k, seen: [...done, list[k], ...list.filter((_, i) => i !== k && todo(i))], each: done.length };
 }
 
 /**
@@ -850,6 +896,134 @@ function topIndexOf(data: Data, run: RunState, s: Seq, itemId: Id): number {
 /** The run's values that can be read (`readValues`); visible or not. */
 export const valuesOf = (_data: Data, run: RunState): ValueEntry[] => run.values;
 
+// ───────── values follow the place (P-110) ─────────
+
+/**
+ * P-110: where an item of the routine at level `level` stands against the place: `above` (passed), `at` (the step the run
+ * is on, or a step inside the row it rests on), `inside` (the row the run is inside: Step in, a for each, a call),
+ * `below` (not reached), `unknown` (not an item of that routine — an input's call row, a step removed in Plan).
+ */
+export type Standing = 'above' | 'at' | 'inside' | 'below' | 'unknown';
+export function standingOf(data: Data, run: RunState, frames: Frame[], level: number, itemId: Id): Standing {
+  for (let i = level; i < frames.length; i++) {
+    const s = view(data, run, frames[i].seq);
+    if (!s) return 'unknown';
+    const t = topIndexOf(data, run, s, itemId);
+    const idx = frames[i].at === null ? s.items.length : s.items.findIndex((x) => x.id === frames[i].at);
+    if (t < 0 || idx < 0) return 'unknown';
+    // (A step of a for each's block, or of a repeating part, was passed in an earlier round: what it gave a level below
+    // the loop — a list given again from inside it — is above the place.)
+    if (t > idx && i > level && ((s.each && (frames[i].each ?? 0) > 0) || (frames[i].round > 1 && s.repeatFrom !== undefined && t >= s.repeatFrom))) return 'above';
+    if (t !== idx) return t < idx ? 'above' : 'below';
+    const row = s.items[t];
+    const into = frames[i + 1];
+    const inner = !!into && isRef(row) && into.from === row.id && into.seq === row.ref;
+    if (row.id === itemId) return inner ? 'inside' : 'at';
+    if (!inner) return 'at';
+  }
+  return 'unknown';
+}
+
+/** P-110: an item of a routine gives this name (its own name, what a call hands back, what a step broken down or a for each gives, an own list). */
+function givesKey(data: Data, run: RunState, i: Item, key: string): boolean {
+  if (nameKey(outOf(i) ?? '') === key) return true;
+  if (!isRef(i)) return false;
+  if (isLiveCall(data, i)) return callIO(data, i.ref).gives.some((g) => nameKey(g) === key);
+  const s = view(data, run, i.ref);
+  if (s?.named !== false) return false;
+  return givenIn(data, run, i.ref).has(key) || (!!s.each?.own && nameKey(s.each.list) === key);
+}
+
+/** P-110: the items of the routine at `seqId` (its smaller steps too) that give the name, in the routine's order. */
+function giversOf(data: Data, run: RunState, seqId: Id, key: string): Item[] {
+  const top = view(data, run, seqId);
+  if (!top) return [];
+  const all = routineBody(data, run, seqId).flatMap((b) => b.items.filter((i) => givesKey(data, run, i, key)));
+  return all.map((i) => ({ i, at: topIndexOf(data, run, top, i.id) })).sort((a, b) => a.at - b.at).map((x) => x.i);
+}
+
+const giving = new WeakMap<Data['routines'], WeakMap<RunState, Map<string, Id>>>();
+/**
+ * P-110: the step that gives a value, as the rule reads it — the step it was given at, when that step gives the name (or
+ * nothing in its routine gives it: a name asked where it is read); else the first step of its routine that gives it (a
+ * value an earlier build let a reader ask for AHEAD of its giving step belongs to that giving step).
+ */
+function givingItem(data: Data, run: RunState, frames: Frame[], v: ValueEntry): Id {
+  const f = frames[v.level];
+  if (!f || f.seq !== v.seq) return v.item;
+  let byRun = giving.get(data.routines);
+  if (!byRun) giving.set(data.routines, (byRun = new WeakMap()));
+  let memo = byRun.get(run);
+  if (!memo) byRun.set(run, (memo = new Map()));
+  const k = `${f.seq}|${nameKey(v.name)}|${v.item}`;
+  const had = memo.get(k);
+  if (had !== undefined) return had;
+  let out = v.item;
+  if (routineBody(data, run, f.seq).some((b) => b.items.some((i) => i.id === v.item))) {
+    const gs = giversOf(data, run, f.seq, nameKey(v.name));
+    if (gs.length && !gs.some((g) => g.id === v.item)) out = gs[0].id;
+  }
+  memo.set(k, out);
+  return out;
+}
+
+/** P-110: where a stored value's giving step stands against the place `frames`. */
+export const valueStanding = (data: Data, run: RunState, frames: Frame[], v: ValueEntry): Standing => standingOf(data, run, frames, v.level, givingItem(data, run, frames, v));
+/** P-110: a value is held only while the step that gives it is above the place (or is the place: its own field). */
+const isHeld = (data: Data, run: RunState, frames: Frame[], v: ValueEntry): boolean => valueStanding(data, run, frames, v) !== 'below';
+
+/**
+ * P-110 ("a value is asked only at its giving step, never ahead"): the routine the step at the place reads its values in
+ * gives this name, and no step of it that gives it has been reached — the reader does not ask (its words show the name
+ * as written); the giving step will.
+ */
+export function givenAhead(data: Data, run: RunState, frames: Frame[], key: string): boolean {
+  if (!frames.length) return false;
+  const scope = scopeLevel(data, run, frames, frames.length - 1);
+  if (!givenIn(data, run, frames[scope].seq).has(key)) return false;
+  const gs = giversOf(data, run, frames[scope].seq, key);
+  return gs.length > 0 && gs.every((g) => standingOf(data, run, frames, scope, g.id) === 'below');
+}
+
+/**
+ * P-110: after a move, the values whose giving step the move took the place back over go — now below it, and held before
+ * it (P-111, owner: "A Plan edit never clears a run's values" — one a Plan edit put below the place stays stored, hidden,
+ * and shows again in its step's field when the run reaches it; no later move deletes it); on it, when the move went back
+ * (`back`: Jump, Start over — it asks again there); and one an earlier build gave AHEAD (at a reader) that the move went
+ * past without reaching its giving step (Jump). A Next that reaches a giving step keeps the value an earlier build gave
+ * ahead: it shows there, in that step's own field. (P-111, owner: "Back keeps it" — Back clears nothing: `runVerb` does
+ * not settle it.) What cannot be read is kept. The names cleared, for the notice (its Undo is the whole write).
+ */
+function settlePlace(before: Data, after: Data, runId: Id, back: boolean): { data: Data; cleared: string[] } {
+  const raw = own(after.runs, runId);
+  const run = readRun(after, runId);
+  const was = readRun(before, runId);
+  if (!raw || !run || run.endedAt || !Array.isArray(raw.values) || !raw.values.length) return { data: after, cleared: [] };
+  const now = place(after, run)?.frames;
+  const then = was ? place(before, was)?.frames : undefined;
+  // (Nowhere else — a Jump onto the step it is on: nothing moved back.)
+  if (!now || (then && JSON.stringify(then) === JSON.stringify(now))) return { data: after, cleared: [] };
+  const cleared: string[] = [];
+  const kept = raw.values.filter((v) => {
+    // (What cannot be read is kept — P-108: a value whose `refs` are in a shape this version cannot read too.)
+    if (!isEntry(v) || ((v as { refs?: unknown }).refs !== undefined && !Array.isArray((v as { refs?: unknown }).refs))) return true;
+    const b = valueStanding(after, run, now, v);
+    const same = () => (was ? was.values.find((e) => e.level === v.level && e.seq === v.seq && nameKey(e.name) === nameKey(v.name) && e.item === v.item) : undefined);
+    /** It was below the place before this move (an earlier build's value given ahead; one a Plan edit put below). */
+    const wasBelow = () => {
+      const e = same();
+      return !!e && !!was && !!then && valueStanding(before, was, then, e) === 'below';
+    };
+    // (Given ahead: at a step that is not the one that gives it — only an earlier build stored these.)
+    const ahead = () => givingItem(after, run, now, v) !== v.item;
+    const goes = (b === 'below' && (!wasBelow() || ahead())) || (b === 'at' && back) || ((b === 'above' || b === 'inside') && wasBelow() && ahead());
+    if (goes && !cleared.some((c) => nameKey(c) === nameKey(v.name))) cleared.push(v.name);
+    return !goes;
+  });
+  if (kept.length === raw.values.length) return { data: after, cleared: [] };
+  return { data: putRun(after, patched(raw, { values: kept.length ? kept : undefined })), cleared };
+}
+
 /**
  * The value of a name (its key) as the step the run is on sees it (ruling 2): its own routine's, if it
  * has one; a name its routine gives is its own and never read from further down, even before its giving
@@ -859,7 +1033,8 @@ export function visibleValue(data: Data, run: RunState, key: string, at: Frame[]
   if (!at?.length || (!run.values.length && !eachLevels(data, run, at).length)) return undefined;
   for (let j = scopeLevel(data, run, at, at.length - 1); ; j = scopeLevel(data, run, at, j - 1)) {
     // (P-108: a for each's own list is seen only on its row and inside its block.)
-    const e = run.values.find((v) => v.level === j && v.seq === at[j].seq && nameKey(v.name) === key && !hiddenOwn(data, at, j, v));
+    // (P-110: and a value only while the step that gives it is above the place.)
+    const e = run.values.find((v) => v.level === j && v.seq === at[j].seq && nameKey(v.name) === key && !hiddenOwn(data, at, j, v) && isHeld(data, run, at, v));
     if (e) return e;
     // P-107: a for each level's item.
     const each = j > 0 ? view(data, run, at[j].seq)?.each : undefined;
@@ -936,7 +1111,8 @@ export function valuesInPlay(data: Data, run: RunState): ValueEntry[] {
 
 /** P-107: a run's values at level `j` of `frames`, its for each item included (the value sheet's trace). */
 export function valuesAtLevel(data: Data, run: RunState, frames: Frame[], j: number): ValueEntry[] {
-  const own_ = run.values.filter((v) => v.level === j && v.seq === frames[j]?.seq);
+  // (P-110: only what is held at the place.)
+  const own_ = run.values.filter((v) => v.level === j && v.seq === frames[j]?.seq && isHeld(data, run, frames, v));
   const each = j > 0 ? view(data, run, frames[j].seq)?.each : undefined;
   const item = each && !own_.some((v) => nameKey(v.name) === nameKey(each.item)) ? eachValue(data, run, frames, j) : undefined;
   return item ? [...own_, item] : own_;
@@ -1122,6 +1298,12 @@ export function callersOf(data: Data, routineId: Id): Seq[] {
     if (bodyOf((x) => readRoutine(data, x), id).some((b) => b.items.some((i) => isRef(i) && i.ref === routineId))) out.push(s);
   }
   return out.sort((a, b) => (a.words.toLowerCase() < b.words.toLowerCase() ? -1 : a.words.toLowerCase() > b.words.toLowerCase() ? 1 : 0));
+}
+
+/** P-110: a routine can be made a step of the routine (or step broken down) `seqId` — named, there, not removed, and not this one or one that uses it. */
+export function canCall(data: Data, seqId: Id, target: Id): boolean {
+  const t = readRoutine(data, target);
+  return !!t && t.named && !t.removedAt && !reaches(data, t.id, ownersOf(data, seqId));
 }
 
 /** The named routines a sequence is part of: itself when named, else those whose steps broken down hold it. */
@@ -1357,12 +1539,11 @@ export function advance(data: Data, run: RunState, from: Frame[]): Advance {
     // (an item added comes round; one taken out, the next in its place) — and ends past the last.
     if (s.each && frames.length > 1) {
       const list = eachList(data, run, frames, frames.length - 1);
-      const { at: i, gone } = eachAt(list, f);
-      const k = gone ? i : i + 1;
-      if (k < list.length && s.items.length) {
-        f.each = k;
-        f.eachText = list[k];
-        f.eachSeen = [...list];
+      const to = nextEach(list, f);
+      if (to && s.items.length) {
+        f.each = to.each;
+        f.eachText = list[to.k];
+        f.eachSeen = to.seen;
         f.at = s.items[0].id;
         f.round = 1;
         return { frames, popped };
@@ -1954,6 +2135,24 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     if (reaches(data, t.id, ownersOf(data, routineId))) return refuse(data, 'self');
     if (typeof edit.after === 'string' && !has(edit.after)) return refuse(data, 'no-such-step');
     after = editItems(routine, s, { insert: [{ id: env.id(), ref: t.id, words: t.words } as Item, edit.after] });
+  } else if (edit.kind === 'toCall') {
+    const item = s.items.find((i) => i.id === edit.item);
+    if (!item) return refuse(data, 'no-such-step');
+    if (!isStep(item) || slotOf(item) || outOf(item)) return refuse(data, 'not-a-step');
+    const t = typeof edit.routine === 'string' ? readRoutine(data, edit.routine) : undefined;
+    if (!t || t.removedAt) return refuse(data, 'gone');
+    if (!t.named) return refuse(data, 'cannot');
+    if (reaches(data, t.id, ownersOf(data, routineId))) return refuse(data, 'self');
+    const keep = edit.words === undefined ? '' : tidy(edit.words);
+    if (keep) {
+      const first = editItems(routine, s, { set: [item.id, reworded(item, keep)] });
+      const s1 = first && readRoutine(putRoutine(data, first), routineId);
+      after = first && s1 ? editItems(first, s1, { insert: [{ id: env.id(), ref: t.id, words: t.words } as Item, item.id] }) : undefined;
+    } else {
+      // (The same id: a run standing on it stays on it. Fields this version does not know stay on it.)
+      const { text: _words, ...rest } = item;
+      after = editItems(routine, s, { set: [item.id, { ...rest, ref: t.id, words: t.words } as Item] });
+    }
   } else if (edit.kind === 'addEach') {
     const each = eachField({ item: edit.item, list: edit.list });
     if (!each || (edit.own !== undefined && edit.own !== 'asked' && edit.own !== 'kept')) return refuse(data, 'cannot');
@@ -2367,16 +2566,26 @@ function setKept(data: Data, seqId: Id, items: unknown, refs: unknown): Result {
   const routine = own(data.routines, seqId);
   const s = readRoutine(data, seqId);
   if (!routine || !s?.each?.kept || s.each.locked || !Array.isArray(items) || (refs !== undefined && !Array.isArray(refs))) return refuse(data, 'cannot');
+  // (P-110, the P-108 investigator's repro 2: given without refs, an item keeps the ref of the kept item it is — at its
+  // own place when the words are the same there, else the first unused one with the same words — never another's.)
+  const was = s.each.kept;
+  const used = new Set<number>();
+  const refOf = (x: unknown, i: number): ListRef | null => {
+    const k = was[i] === x && !used.has(i) ? i : was.findIndex((w, j) => w === x && !used.has(j));
+    if (k < 0) return null;
+    used.add(k);
+    return s.each!.refs?.[k] ?? null;
+  };
   const pairs = items
-    .map((x, i) => ({ text: x, ref: Array.isArray(refs) ? (refs[i] as ListRef | null) : (s.each!.refs?.[s.each!.kept!.indexOf(x as string)] ?? null) }))
+    .map((x, i) => ({ text: x, ref: Array.isArray(refs) ? (refs[i] as ListRef | null) : refOf(x, i) }))
     .filter((p): p is { text: string; ref: ListRef | null } => text(p.text) && !!p.text.trim())
     .slice(0, MAX_ITEMS)
     .map((p) => ({ text: capValue(p.text), ref: liveRef(data, p.ref, p.text) }));
   const kept = pairs.map((p) => p.text);
   const r = pairs.map((p) => p.ref);
-  const was = isObject(routine.each) ? routine.each : {};
+  const header = isObject(routine.each) ? routine.each : {};
   if (JSON.stringify(kept) === JSON.stringify(s.each.kept) && JSON.stringify(r) === JSON.stringify(s.each.refs ?? s.each.kept.map(() => null))) return done(data);
-  return done(putRoutine(data, patched(routine, { each: patched({ ...was }, { kept, refs: r.some(Boolean) ? r : undefined }) })));
+  return done(putRoutine(data, patched(routine, { each: patched({ ...header }, { kept, refs: r.some(Boolean) ? r : undefined }) })));
 }
 
 /** P-96: a value given, changed or cleared at the run's place (see the `value` verb). Kept as typed, capped; blank clears it. */
@@ -2414,6 +2623,8 @@ function setValue(data: Data, runId: Id, typedName: string, typedText: string, i
     // P-101 amendment (ruling 10): a name a step already passed gives, with no value yet — given now, here.
     const passed = !(gives && nameKey(gives) === key) && !reads ? passedGives(data, l.run, l.at).find((p) => nameKey(p.name) === key) : undefined;
     if (!(gives && nameKey(gives) === key) && !reads && !passed) return refuse(data, 'cannot');
+    // P-110: never ahead — a reader before every step that gives the name does not give it.
+    if (!(gives && nameKey(gives) === key) && !passed && !visible && givenAhead(data, l.run, frames, key)) return refuse(data, 'cannot');
     // The step that gives it, or asks for it (nothing visible): its own level's value, from it. A step reading a value there is: that value.
     const own_ = (gives && nameKey(gives) === key) || !visible;
     level = passed ? passed.level : own_ ? scopeLevel(data, l.run, frames, frames.length - 1) : visible!.level;
@@ -2522,7 +2733,15 @@ function landEach(r: Result, runId: Id | undefined, env: Env): Result {
 export function runVerb(data: Data, verb: Verb, env: Env): Result {
   const r = verbOf(data, verb, env);
   // P-107: every move that can arrive on a for each row.
-  if (verb.kind === 'start' || verb.kind === 'next' || (verb.kind === 'done' && !verb.whole) || verb.kind === 'stepIn' || verb.kind === 'back' || verb.kind === 'jump' || verb.kind === 'restart') return landEach(r, verb.kind === 'start' ? r.runId : verb.runId, env);
+  if (verb.kind === 'start' || verb.kind === 'next' || (verb.kind === 'done' && !verb.whole) || verb.kind === 'stepIn' || verb.kind === 'back' || verb.kind === 'jump' || verb.kind === 'restart') {
+    const landed = landEach(r, verb.kind === 'start' ? r.runId : verb.runId, env);
+    // P-110: and a value is held only while the step that gives it is above the place.
+    if (verb.kind === 'start' || !landed.ok || landed.data === data) return landed;
+    // (P-111, owner: "Back keeps it" — Back clears nothing; what it passes back over is hidden until it is reached again.)
+    if (verb.kind === 'back') return landed;
+    const { data: next, cleared } = settlePlace(data, landed.data, verb.runId, verb.kind === 'jump' || verb.kind === 'restart');
+    return cleared.length ? { ...landed, data: next, cleared } : landed;
+  }
   return r;
 }
 

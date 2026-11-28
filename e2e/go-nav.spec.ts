@@ -122,7 +122,7 @@ test.describe('the runner', () => {
     await expect(page).toHaveURL(/\/go$/);
     await expect(h.tiles.first()).toContainText('Drawing practice');
     const t = tile(page, 'Drawing practice');
-    await expect(t.getByTestId('go-tile-last')).toHaveText('last');
+    await expect(t.getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
     await expect(t.getByTestId('go-tile-line')).toHaveText('at Find three reference photos of hands');
     await expect(tileBody(page, 'Drawing practice')).toHaveAccessibleName(/^Resume Drawing practice/);
     await expect(t.getByRole('button', { name: 'Plan Drawing practice', exact: true })).toBeVisible();

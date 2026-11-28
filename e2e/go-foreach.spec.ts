@@ -127,7 +127,8 @@ for (const [label, size] of [
       await expect(p.typed).toHaveCount(0);
       // Moved above Decide: what each concern gave is given above it (no "asks").
       await planMove(page, 'For each concern in {concerns}', 'up');
-      await expect(p.words).toHaveText(['List out my doubts', 'For each concern in {concerns}', 'Research', 'Decide using {findings}']);
+      // (P-111, rewritten: was with 'Research' after the block — a for each's steps are in its own view once the field is left.)
+      await expect(p.words).toHaveText(['List out my doubts', 'For each concern in {concerns}', 'Decide using {findings}']);
       await expect(p.row('For each concern in {concerns}').getByTestId('go-plan-hoisted')).toHaveText('gives {findings}');
       await noSerious(page);
       await rules(page, p.screen);
@@ -147,7 +148,11 @@ for (const [label, size] of [
 
       // Kept: after a reload, and in the export, in the shape an older build reads as a step broken down.
       await page.reload();
-      await expect(plan(page).words).toHaveText(['List out my doubts', 'For each concern in {concerns}', 'Research', 'Note one thing to try', 'Decide using {findings}']);
+      // (P-111, rewritten: was the block's steps after it, open in place — they are in its own view.)
+      await expect(plan(page).words).toHaveText(['List out my doubts', 'For each concern in {concerns}', 'Decide using {findings}']);
+      await plan(page).screen.getByRole('button', { name: 'Open For each concern in {concerns}', exact: true }).click();
+      await expect(plan(page).title).toHaveText('For each concern in {concerns}');
+      await expect(plan(page).words).toHaveText(['Research', 'Note one thing to try']);
       const data = await exported(page);
       const row = data.routines.improve.items![1] as { id: string; ref: string };
       expect(Object.keys(row).sort()).toEqual(['id', 'ref']);
@@ -157,13 +162,15 @@ for (const [label, size] of [
       const q = await planOf(page, 'improve');
       await q.screen.getByTestId('go-plan-add-each').click();
       await (await sheet(page, 'go-each-sheet')).getByRole('button', { name: 'For each concern in {concerns}', exact: true }).click();
-      await expect(q.words).toHaveCount(6);
+      // (P-111, rewritten: was 6 — the first block's two steps are in its own view.)
+      await expect(q.words).toHaveCount(4);
       await page.keyboard.press('Escape');
       await q.screen.getByTestId('go-plan-more').click();
       const routineMenu = await sheet(page, 'go-plan-routine');
       await expect(routineMenu.getByTestId('go-plan-undo')).toHaveText('Undo added “For each concern in {concerns}”');
       await routineMenu.getByTestId('go-plan-undo').click();
-      await expect(q.words).toHaveText(['List out my doubts', 'For each concern in {concerns}', 'Research', 'Note one thing to try', 'Decide using {findings}']);
+      // (P-111, rewritten: was with the block's steps after it, open in place — they are in its own view.)
+      await expect(q.words).toHaveText(['List out my doubts', 'For each concern in {concerns}', 'Decide using {findings}']);
     });
 
     test('running: the doubts as a list (rows, Return, a paste split); inside, “concern 1 of 3: form” goes to Research; each concern’s findings are collected for Decide; Step out with Undo; kept across a reload', async ({ page }) => {

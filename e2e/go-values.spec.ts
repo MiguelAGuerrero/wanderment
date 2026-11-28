@@ -398,6 +398,7 @@ test.describe('fixes after the audit', () => {
   test('F3 (ruling 4): a filled value typed over in the step’s own field — "Changed {x}" with Undo, once — P-101 (rulings 6–7; was: typed in place, and "the Next that follows keeps the Undo"): kept from its sheet; the notice goes at the next tap', async ({ page }) => {
     await startGo(page, run1('draw'), 'runner', [DRAWING]);
     const r = runner(page);
+    // (P-111, restored: owner ruling Back keeps it — given, Next, then Back to the giving step to type over it.)
     await give(page, 'subject', 'figures in motion');
     await r.handle.click();
     await r.panel.getByRole('button', { name: /^Back to/ }).click();
