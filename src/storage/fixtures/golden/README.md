@@ -250,3 +250,24 @@ nothing by loading, show the SAVED routine everywhere (runs and home too), and r
 | `p115-old-build.json` | that build's `planView`, `runnerView`, `homeShown` and `tileLine` | what it SHOWED: each routine's saved steps (never the draft's), the runner of Morning pages on "Write three pages", Sunday reset with "Plan the week" after its own edit, and the copy's steps |
 
 `freeze-p115.ts.txt` is the script that wrote them.
+
+## P-113 (frozen 2026-11-28, before a routine can call itself)
+
+Written the same way by the build before P-113 (`ea9c98f`, P-115), through its own store actions and its Import (for
+what only an import could make there: that build's Plan refused a routine as a step of itself, directly or through
+another — `self`). It started from `p115-schema4.sqlite` (so everything above is in it). P-113 stores nothing new: a
+self-call row is a call row, and a run inside one is frames and values as before, so there is no migration — this data
+must load exactly and write nothing by loading. What changes is how it is read and run: each call stores its own
+input copy on Step in (that build stepped in but passed none, so the inner level asked again), Plan adds such a row,
+and a level is named by the value it was called with.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p113-schema4.sqlite` | that build, ordinary saves (and one Import), over `p115-schema4.sqlite` | everything in `p115-schema4.sqlite`, plus "Research a question" (Find what bears on {question}; List the questions this raises → {leads}; for each lead, Research a question itself with question from {lead} — the row and its binding carrying fields this version does not know; Write the answer to {question} → {answer}), "Ping" → "Pong" → "Ping" (through another), and a run of Research a question that build took through its own Step in three levels deep (its leads given at two levels, no input stored inside either call), paused "reading the dose studies" |
+| `p113-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p113-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p113-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p113-expected.json` | that build's store | what those four must read as |
+| `p113-old-build.json` | that build's `planView`, `runnerView`, `panelView`, `homeShown` and `tileLine`, and its Plan's refusals | what it SHOWED: `self` for a routine as its own step (directly and through Pong); Plan's rows (the self-call row not opened); the runner on the self-call row (Step in offered), then inside it asking {question} again at each level; the tile's path ("Research a question › For each lead › Research a question …") |
+
+`freeze-p113.ts.txt` is the script that wrote them.

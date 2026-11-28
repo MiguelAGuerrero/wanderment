@@ -117,7 +117,7 @@ routines in their own words — and runs them with the person, one small step at
   in, and so does any step typed as words. A routine value is drawn with the routine mark wherever values show. What
   a run chooses is never stored on the routine (owner: "Edit Plan by hand"). (Not built: renaming the item from the
   block's menu; reordering a list's rows; a routine's typed inputs carried with the value; a call row giving a
-  routine; a routine calling itself; kept lists shared between parts — B-16, parked.)
+  routine; kept lists shared between parts — B-16, parked. *(P-113: a routine calling itself is built — see **Routine**.)*)
 - **In any order** *(built, P-99; B-16 rule 3 and "With P-99"; the owner: "a thread has managed its own state … done once
   that single thread returns")*: a block whose **parts** are taken up in any order, each a step or a step broken down.
   Stored as a step broken down (a row `{ id, ref }` to an unnamed sequence "In any order") carrying `any: true`, so **an
@@ -171,10 +171,21 @@ routines in their own words — and runs them with the person, one small step at
 - **Routine** *(built)*: a named, ordered sequence. Each item is a step, a wait step or another
   routine. It has one divider, **Repeat from here**: items above run once, items below repeat —
   **until I'm done** (the default) or **a number of times** the person sets. With no divider it runs
-  once through. A routine can't contain itself: *(P-98)* Plan refuses to add a routine as a step of itself,
-  directly or through another, in words ("“X” can’t be a step of itself" / "“Y” uses “X”, so it can’t be a step of
-  it"); data an import brings that holds itself is run, and past the depth limit Step in says "Can’t step in any
-  deeper". *(P-96: its last Next finishes it either way; an
+  once through. **A routine can call itself** *(built, P-113; B-16 "A routine can call itself"; the owner, 2026-11-28:
+  "Unpark self-calls")*, directly or through another: Plan adds it as any call (Add's **A routine**, "@", Make it a
+  call), and says nothing against it. In Plan such a row is **closed** — never opened in place — and says so in words
+  where a row that opens has its chevron: "this routine" (one open above it, when planning another: "open above").
+  Running, **each call is its own level with its own inputs passed in**, exactly as a call to another routine (typed →
+  by name → asked; the callee's own copy) — "Find out ▢" passes each lead as the inner {question}. Listing nothing is
+  where it stops. **Depth is bounded**: a run holds at most 64 levels; there Step in says "Can’t step in any deeper"
+  and the run stays where it is — Next passes the call and Step out leaves the level (never a lockout). **A level is
+  named by the value it was called with** (B-16; the owner: "Yes, with '…'"): a level whose routine is open below it
+  too reads "<name>: <value>" — the caller's name for it when passed by name ("lead: pricing"), else the input's; a
+  value over 60 characters is cut with "…" — in the runner's path, Step out's name and notice ("Left lead: pricing"),
+  Start over, Jump to… and the home row; the for each holding the call is not named again ("Find out › lead:
+  pricing"). Inside a routine calling itself the runner's path is the first › … › the last two ("…" is plain text,
+  never a control; no count). (Older builds read the rows as calls; their Plan refuses to add one, and their Step in
+  goes in but asks the inputs again — a level they entered so has no input stored, and asks it here too.) *(P-96: its last Next finishes it either way; an
   "ends here" stored by an earlier build is kept and read, and no longer offered.)*
 - **Run** *(built)*: a routine being carried out — where the person is at every level (including the
   round), running or paused *(P-101: a `mode: 'plan'` stored by an earlier build is kept and read as paused; nothing writes it)*, a pause reason (the Pause note), and a definite
@@ -497,10 +508,10 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   a step added whose words are exactly **"@<routine name>"** (case and spacing aside — from Add a step, Add a step
   after, inside a for each, with the list open or put away) **is a call to it**; "@" works **while changing a step's
   words** too (a plain step that gives nothing): a routine chosen there makes the step a call to it — other words
-  typed stay as the step's, with the call right after it — one edit, one Undo; a refusal (itself) is said in words.
+  typed stay as the step's, with the call right after it — one edit, one Undo; a refusal (a removed routine) is said in words.
   A step stored as the words "@<routine name>" is **offered, never made**, a call: its ··· has **Make it a call**
-  ("Make it a call to <name>") after Edit, one edit with its Undo (not offered for the routine itself, or one that
-  uses it). Its placeholder is one string *(F-2: while the empty field has the focus, one line under it, "Type @ for a
+  ("Make it a call to <name>") after Edit, one edit with its Undo (*P-113:* for the routine itself, or one that uses
+  it, too). Its placeholder is one string *(F-2: while the empty field has the focus, one line under it, "Type @ for a
   routine, { for a value")*. **Move up / Move down are not on the step menu** where there is a grip: the grip,
   pressed, opens its own small menu, **Move up · Move down** (each unavailable at its end) — the way to
   reorder without a drag *(P-102 audit: nothing by gesture alone)*; under 340 px, with no grip, they are on

@@ -4,7 +4,7 @@
  * - `CallLines`: under a call row's name in Plan — a `with …` line for each input (a target: it opens what fills
  *   it), and "gives {a}, {b}".
  * - `RoutinesSheet`: Add's "a routine" — the person's routines, A–Z, each with what it asks and gives; a tap adds it
- *   as a step; a routine that would be a step of itself is refused, in words.
+ *   as a step (P-113: itself too); a refusal (a removed routine) is said in words.
  * - `BindSheet`: what fills one input — a name given above (`{y} as x`), typed words, or Ask when it runs.
  * - `InputsSheet`: Edit inputs on a call with more than one.
  * - `CopySheet`: Copy… on a routine's ··· — the name (suggested "<name> (copy)"), filled Copy; a name in use is refused.

@@ -1,0 +1,593 @@
+{
+  "refusedSelf": {
+    "ok": false,
+    "reason": "self"
+  },
+  "refusedThrough": {
+    "ok": false,
+    "reason": "self"
+  },
+  "planResearch": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Find what bears on {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "List the questions this raises",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "leads",
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each lead in {leads}",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Research a question",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": {
+          "inputs": [
+            {
+              "input": "question",
+              "mode": "name",
+              "name": "lead"
+            }
+          ],
+          "gives": [
+            "leads",
+            "answer"
+          ]
+        }
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Write the answer to {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "answer",
+        "call": null
+      }
+    ]
+  },
+  "planPing": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Ping {ball}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "Pong",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": {
+          "inputs": [
+            {
+              "input": "ball",
+              "mode": "asks"
+            }
+          ],
+          "gives": []
+        }
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Pong {ball}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Ping",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": {
+          "inputs": [
+            {
+              "input": "ball",
+              "mode": "asks"
+            }
+          ],
+          "gives": []
+        }
+      }
+    ]
+  },
+  "runnerOnSelfCall": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Find what bears on {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "List the questions this raises",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "leads",
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each lead in {leads}",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Research a question",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "gives": null,
+        "call": {
+          "inputs": [
+            {
+              "input": "question",
+              "mode": "name",
+              "name": "lead"
+            }
+          ],
+          "gives": [
+            "leads",
+            "answer"
+          ]
+        }
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Write the answer to {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "answer",
+        "call": null
+      }
+    ],
+    "runner": {
+      "level": "For each lead",
+      "parent": "Research a question",
+      "depth": 2,
+      "step": "routine",
+      "words": "Research a question",
+      "middle": "stepIn",
+      "fields": [],
+      "values": [
+        {
+          "name": "question",
+          "items": [
+            "Is creatine safe long-term?"
+          ]
+        },
+        {
+          "name": "leads",
+          "items": [
+            "What doses were studied?",
+            "Who funded the studies?"
+          ]
+        },
+        {
+          "name": "lead",
+          "items": [
+            "What doses were studied?"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": true,
+        "stepOut": {
+          "name": "For each lead"
+        }
+      },
+      "next": "next"
+    },
+    "panel": {
+      "then": "Research a question"
+    },
+    "tile": {
+      "line": "at Research a question",
+      "path": [
+        "Research a question",
+        "For each lead"
+      ]
+    }
+  },
+  "runnerLevel2": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Find what bears on {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "List the questions this raises",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "leads",
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each lead in {leads}",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Research a question",
+        "broken": false,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "call": {
+          "inputs": [
+            {
+              "input": "question",
+              "mode": "name",
+              "name": "lead"
+            }
+          ],
+          "gives": [
+            "leads",
+            "answer"
+          ]
+        }
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Write the answer to {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "answer",
+        "call": null
+      }
+    ],
+    "runner": {
+      "level": "Research a question",
+      "parent": "For each lead",
+      "depth": 3,
+      "step": "step",
+      "words": "Find what bears on {question}",
+      "middle": "plan",
+      "fields": [
+        {
+          "name": "question",
+          "text": "",
+          "gives": false
+        }
+      ],
+      "values": [
+        {
+          "name": "lead",
+          "items": [
+            "What doses were studied?"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": false,
+        "stepOut": {
+          "name": "Research a question"
+        }
+      },
+      "next": "next"
+    },
+    "panel": {
+      "then": "List the questions this raises"
+    },
+    "tile": {
+      "line": "at Find what bears on {question}",
+      "path": [
+        "Research a question",
+        "For each lead",
+        "Research a question"
+      ]
+    }
+  },
+  "runnerLevel3": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Find what bears on {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "List the questions this raises",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "leads",
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each lead in {leads}",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Research a question",
+        "broken": false,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "call": {
+          "inputs": [
+            {
+              "input": "question",
+              "mode": "name",
+              "name": "lead"
+            }
+          ],
+          "gives": [
+            "leads",
+            "answer"
+          ]
+        }
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Write the answer to {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "answer",
+        "call": null
+      }
+    ],
+    "runner": {
+      "level": "Research a question",
+      "parent": "For each lead",
+      "depth": 5,
+      "step": "step",
+      "words": "Find what bears on {question}",
+      "middle": "plan",
+      "fields": [
+        {
+          "name": "question",
+          "text": "",
+          "gives": false
+        }
+      ],
+      "values": [
+        {
+          "name": "lead",
+          "items": [
+            "What dose sizes?"
+          ]
+        },
+        {
+          "name": "lead",
+          "items": [
+            "What dose sizes?"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": false,
+        "stepOut": {
+          "name": "Research a question"
+        }
+      },
+      "next": "next"
+    },
+    "panel": {
+      "then": "List the questions this raises"
+    },
+    "tile": {
+      "line": "at Find what bears on {question}",
+      "path": [
+        "Research a question",
+        "For each lead",
+        "Research a question",
+        "For each lead",
+        "Research a question"
+      ]
+    }
+  },
+  "pausedDeep": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Find what bears on {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "List the questions this raises",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "leads",
+        "call": null
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "For each lead in {leads}",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "call": null
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Research a question",
+        "broken": false,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "call": {
+          "inputs": [
+            {
+              "input": "question",
+              "mode": "name",
+              "name": "lead"
+            }
+          ],
+          "gives": [
+            "leads",
+            "answer"
+          ]
+        }
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Write the answer to {question}",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "answer",
+        "call": null
+      }
+    ],
+    "runner": {
+      "level": "Research a question",
+      "parent": "For each lead",
+      "depth": 5,
+      "step": "step",
+      "words": "Find what bears on {question}",
+      "middle": "plan",
+      "fields": [
+        {
+          "name": "question",
+          "text": "",
+          "gives": false
+        }
+      ],
+      "values": [
+        {
+          "name": "lead",
+          "items": [
+            "What dose sizes?"
+          ]
+        },
+        {
+          "name": "lead",
+          "items": [
+            "What dose sizes?"
+          ]
+        }
+      ],
+      "moves": {
+        "stepIn": false,
+        "stepOut": {
+          "name": "Research a question"
+        }
+      },
+      "next": "next"
+    },
+    "panel": {
+      "then": "List the questions this raises"
+    },
+    "tile": {
+      "line": "at Find what bears on {question}",
+      "path": [
+        "Research a question",
+        "For each lead",
+        "Research a question",
+        "For each lead",
+        "Research a question"
+      ]
+    }
+  },
+  "ids": {
+    "research": "p113-001",
+    "ping": "p113-007",
+    "pong": "p113-009",
+    "block": "p113-004",
+    "run": "p113-012"
+  }
+}

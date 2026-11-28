@@ -39,19 +39,12 @@ You steer both by editing this file and by telling `/product` how you use the ap
 
 ## Inbox
 
-_Empty. Write here — one line is enough._
+- Runner at 195×422 inside a call: the column has almost no height and value fields are covered (P-113 build notes; go-a11y keeps ❚❚ and Plan in view).
 
 ## Now
 
-### P-113 A routine can call itself `[feature]` `[data]` M
-*Status:* in-progress
-*Why:* owner, 2026-11-28: "Unpark self-calls" (the library's Find out ▢ needs it).
-*Done when:* a routine can call itself, each call its own level with its own inputs passed in (the lead,
-not the question again); deep levels are named by the value they were called with, "…" in long paths;
-depth stays bounded and is said; Find out ▢ works end to end.
-
 ### P-114 Onboarding through a composer `[feature]` `[ux]` L
-*Status:* todo
+*Status:* in-progress
 *Why:* owner, 2026-11-28: "a proper on boarding process … a composer of sorts guide you through a set up
 of a routine … leverage the library functions as a scaffold to interpret a users intent."
 *Done when:* a brief (B-19) agreed with the owner first, from B-17's composer and the guided-composer
@@ -340,6 +333,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-28 · P-113 — a routine can call itself: Plan no longer refuses a routine as its own step (directly or through another), the row reads "this routine"; each call is its own level with its own inputs (the stored input now stands as any call's input does, so Find out ▢ passes each lead in); a deeper level is named by the value it was called with ("lead: pricing"), long paths collapse to first › … › last two; depth stays 64 and Step in at the limit says "Can't step in any deeper". evidence: golden p113-* frozen from ea9c98f, selfCall (11, red at base) + persistence (5) + golden (10) tests, go-self-call spec at 390×844 and 195×422, 202 implicated e2e, `verify.sh`. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred, owner 2026-11-27).
 - 2026-11-28 · P-115 — Plan: Edit, then Save or Cancel: Plan opens read-only (no grips, Add or step ···; disclosure, a row's view and Places still work); Edit (the left side door) starts a draft; every change goes into it with step-by-step Undo; Save (filled) writes it as one change with one Undo; Cancel discards it with an Undo; + New opens into Edit; runs and home read the saved routine until Save; the draft is stored on the routine (`draft`), survives reload, journal, fallback, hand-over and export/import, and Plan reopens in Edit; a routine changed elsewhere asks before Save replays over it; old data reads as no draft. evidence: golden p115-* frozen from 3790d66, draft (19) + store (9) + golden (12) + persistence (8) tests, go-plan-edit spec at 390×844 and 195×422 (the accidental drag, then Cancel), `verify.sh --full`. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred, owner 2026-11-27).
 - 2026-11-28 · F-3, F-2 — the four held fixes, by owner ruling (Back keeps values across a "Repeat from here" round; removing the call the run is inside hands its values back; a `queue` this version can't read is kept; Home's queue steps into a call's first step), the panel's "Back to …" names where Back lands; and the surfaces review: a template copied under a callee's name is refused; Copy says "which uses your “X”"; a for each's kept list is not read as an ask; "@" chips wrap at 195 px; sheets speak "blank" for ▢; home's Resume says its routine and why it is off; "@…" survives Close; dead assertions made real; four two-job library steps split; tab arrow keys and home Alt+↑/↓; short hints on Where, the pause note, list rows, the step and value fields, Add ("Type @ for a routine, { for a value") and Gives. evidence: f2 domain + store tests (14 red at base), F-3 persistence tests (4 red at base), go-final-surfaces spec, `verify.sh --full` (479 e2e). audit: 22 reported · 20 reproduced · 18 fixed · 4 deferred (the final review, `.polish/product/final-audit-surfaces.md`; self-calls and the library door left to their own items).
 - 2026-11-28 · F-1 — final review fixes, engine and stored data: Back after a for each keeps every item's value; a Jump forward collects for each rounds and joins In any order blocks, a Jump back says what it dropped; a redo replaces only its own share of a joined list (`givers` per item); removing in Plan the for each or In any order the run is inside hands values back; See ahead drafts are kept (session only) across Pause, Back, Jump and Plan; a part ended by Step out of its last call reads finished; Start/Next on an unreadable parts record say so; Copy gives each shared breakdown its own copy; rebuilt records (parts, kept-list refs, Jump by path, Start over) keep what this version can't read; an oversized kept list is locked, never cut; Undo of a take-up is exact. Left: an older build open in another tab (owner, with the PWA update flow); four fixes held by older tests → F-3. evidence: f1 domain + store tests (26 red at base), F-1 persistence block (7 red at base), go-chunks drafts e2e, `verify.sh --full` (971 s). audit: 25 reported · 22 reproduced · 18 fixed · 7 deferred (the final review, `.polish/product/final-audit-engine.md`, `final-audit-storage.md`).

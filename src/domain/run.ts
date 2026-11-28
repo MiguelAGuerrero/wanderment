@@ -25,7 +25,7 @@ import { normalizeName } from './model';
 import { placesWritable, tidyPlaceText } from './places';
 import { tagsOf, tagsWritable } from './tags';
 import { Data, Id, Routine, Run } from './types';
-import { capValue, isEntry, isName, MAX_ITEMS, MAX_VALUES, nameKey, namesIn, parseWords, readValues, renameIn, tidyName, ValueEntry } from './values';
+import { capValue, isEntry, isName, joinItems, MAX_ITEMS, MAX_VALUES, nameKey, namesIn, parseWords, readValues, renameIn, tidyName, ValueEntry } from './values';
 
 /** A level is one frame; nothing goes deeper than this (a routine that holds itself can't run away). */
 export const MAX_DEPTH = 64;
@@ -1290,7 +1290,10 @@ function givingItem(data: Data, run: RunState, frames: Frame[], v: ValueEntry): 
 }
 
 /** P-110: where a stored value's giving step stands against the place `frames`. */
-export const valueStanding = (data: Data, run: RunState, frames: Frame[], v: ValueEntry): Standing => standingOf(data, run, frames, v.level, givingItem(data, run, frames, v));
+export const valueStanding = (data: Data, run: RunState, frames: Frame[], v: ValueEntry): Standing =>
+  // P-113: an input a call passed in is given from outside its level — for a routine calling itself too, whose call row is
+  // also one of its own steps (below the place). It stands as any call's input does (its routine never gives the name).
+  isInputCopy(data, run, frames, v) && !givenIn(data, run, v.seq).has(nameKey(v.name)) ? 'unknown' : standingOf(data, run, frames, v.level, givingItem(data, run, frames, v));
 /** P-110: a value is held only while the step that gives it is above the place (or is the place: its own field). */
 const isHeld = (data: Data, run: RunState, frames: Frame[], v: ValueEntry): boolean => valueStanding(data, run, frames, v) !== 'below';
 
@@ -1463,9 +1466,10 @@ export function valuesInPlay(data: Data, run: RunState): ValueEntry[] {
   const again = eachLevels(data, run, at).flatMap((j) => keys.map((k) => roundValue(data, run, at, j, k)).filter((e): e is ValueEntry => !!e && visibleValue(data, run, nameKey(e.name), at) === e));
   stored.push(...again);
   // P-107: each for each level's item, where it is seen (never stored).
+  // (P-113: once — a routine calling itself inside its for each has that block at more than one level, its item the nearest.)
   const items = eachLevels(data, run, at)
     .map((j) => visibleValue(data, run, nameKey(view(data, run, at[j].seq)!.each!.item), at))
-    .filter((e): e is ValueEntry => !!e && !run.values.includes(e));
+    .filter((e, k, all): e is ValueEntry => !!e && !run.values.includes(e) && all.findIndex((x) => x?.level === e.level && nameKey(x.name) === nameKey(e.name)) === k);
   return [...stored, ...items].sort((a, b) => a.level - b.level);
 }
 
@@ -1577,6 +1581,57 @@ export function callInto(data: Data, run: RunState, frames: Frame[], j: number):
   return isRef(item) && item.ref === frames[j].seq && view(data, run, item.ref)?.named ? item : undefined;
 }
 
+/** P-113: no more of the value a level was called with is shown in its name than this (the rest is "…"). */
+export const CALLED_WITH_MAX = 60;
+
+/**
+ * P-113 (B-16, "a level is named by what it was given"; the owner: "Yes, with '…'"): a level whose routine is open
+ * below it too — a routine calling itself, directly or through another — is named by the value it was called with,
+ * "<name>: <value>" (the caller's name for it when it is passed by name: "lead: pricing"; else the input's). Undefined
+ * for any other level, and for one called with nothing (it reads its routine's name).
+ */
+export function calledWith(data: Data, run: RunState, frames: Frame[], i: number): string | undefined {
+  const c = calledBy(data, run, frames, i);
+  return c && `${c.label}: ${c.words.length > CALLED_WITH_MAX ? `${c.words.slice(0, CALLED_WITH_MAX - 1).trimEnd()}…` : c.words}`;
+}
+function calledBy(data: Data, run: RunState, frames: Frame[], i: number): { label: string; words: string } | undefined {
+  const s = i > 0 ? view(data, run, frames[i]?.seq) : undefined;
+  if (!s?.named || !frames.slice(0, i).some((f) => f.seq === s.id)) return undefined;
+  const call = callInto(data, run, frames, i);
+  if (!call) return undefined;
+  for (const input of callIO(data, s.id).asks) {
+    const b = bindingOf(call, nameKey(input));
+    if (b && 'ask' in b) continue;
+    const label = b && 'name' in b ? b.name : input;
+    const copy = run.values.find((v) => v.level === i && v.seq === s.id && v.item === call.id && nameKey(v.name) === nameKey(input));
+    const caller = b && 'typed' in b ? b.typed : visibleValue(data, run, nameKey(label), frames.slice(0, i))?.items;
+    const words = (typeof caller === 'string' ? caller : joinItems(caller ?? copy?.items ?? [])).replace(/\s+/g, ' ').trim();
+    if (words) return { label, words };
+  }
+  return undefined;
+}
+
+/** A level's name: P-113, by the value it was called with (`calledWith`); a for each by its item ("For each photo"); else its routine's (or step's) words. */
+export function levelName(data: Data, run: RunState, frames: Frame[], i: number): string {
+  const s = view(data, run, frames[i]?.seq);
+  return calledWith(data, run, frames, i) ?? (s?.each ? `For each ${s.each.item}` : (s?.words ?? ''));
+}
+
+/**
+ * P-113: the levels a run is in, by name, as its path reads them — its routine first. A for each holding a routine that
+ * calls itself is not named again: the level it called is named by its item ("Find out › lead: pricing").
+ */
+export function runPath(data: Data, run: RunState, frames: Frame[]): string[] {
+  return frames.flatMap((f, i) => {
+    const each = i > 0 ? view(data, run, f.seq)?.each : undefined;
+    const next = each && i + 1 < frames.length ? calledBy(data, run, frames, i + 1) : undefined;
+    return next && frames[i + 1].from === f.at && nameKey(next.label) === nameKey(each!.item) ? [] : [levelName(data, run, frames, i)];
+  });
+}
+
+/** P-113: the run is inside a routine that calls itself (some level is named by the value it was called with). */
+export const inSelfCall = (data: Data, run: RunState, frames: Frame[]): boolean => frames.some((_, i) => calledWith(data, run, frames, i) !== undefined);
+
 /**
  * P-108: what a routine row whose routine is a value holds where the run stands — the routine (by reference: as it is
  * now), a routine removed (its name then), or words. Undefined: nothing gave the name yet (the row asks).
@@ -1674,10 +1729,13 @@ export function callersOf(data: Data, routineId: Id): Seq[] {
   return out.sort((a, b) => (a.words.toLowerCase() < b.words.toLowerCase() ? -1 : a.words.toLowerCase() > b.words.toLowerCase() ? 1 : 0));
 }
 
-/** P-110: a routine can be made a step of the routine (or step broken down) `seqId` — named, there, not removed, and not this one or one that uses it. */
-export function canCall(data: Data, seqId: Id, target: Id): boolean {
+/**
+ * P-110: a routine can be made a step of the routine (or step broken down) `seqId` — named, there, not removed. (P-113:
+ * this one, or one that uses it, too: a routine may call itself.)
+ */
+export function canCall(data: Data, _seqId: Id, target: Id): boolean {
   const t = readRoutine(data, target);
-  return !!t && t.named && !t.removedAt && !reaches(data, t.id, ownersOf(data, seqId));
+  return !!t && t.named && !t.removedAt;
 }
 
 /** The named routines a sequence is part of: itself when named, else those whose steps broken down hold it. */
@@ -1686,20 +1744,6 @@ function ownersOf(data: Data, seqId: Id): Set<Id> {
   if (readRoutine(data, seqId)?.named) return out;
   for (const id of Object.keys(data.routines)) if (readRoutine(data, id)?.named && bodyOf((x) => readRoutine(data, x), id).some((b) => b.id === seqId)) out.add(id);
   return out;
-}
-
-/** `from` is one of `targets`, or uses one of them as a step, at any depth (each sequence looked into once). */
-function reaches(data: Data, from: Id, targets: Set<Id>): boolean {
-  const seen = new Set<Id>();
-  const todo = [from];
-  while (todo.length) {
-    const id = todo.pop()!;
-    if (targets.has(id)) return true;
-    if (seen.has(id)) continue;
-    seen.add(id);
-    for (const i of readRoutine(data, id)?.items ?? []) if (isRef(i)) todo.push(i.ref);
-  }
-  return false;
 }
 
 /** The names given inside a step broken down that something outside it, in its routine, reads. */
@@ -2274,11 +2318,15 @@ function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; a
   // (P-107: a for each is named by its item, as on the runner's path: "Left For each photo".)
   // (P-99: a block whose part returned is named only once it is passed: a part's own end is not the block's.)
   const live = (f: Frame) => to.frames.some((g) => g.at === f.from && partsOf(g));
+  // (P-113: a level a routine calling itself entered, by the value it was called with: "Finished lead: pricing".)
   const names = popped
-    .filter((f) => !(view(data, l.run, f.seq)?.any && live(f)))
-    .map((f) => {
+    .map((f, k) => ({ f, k }))
+    .filter(({ f }) => !(view(data, l.run, f.seq)?.any && live(f)))
+    .map(({ f, k }) => {
+      const i = l.at.frames.length - 1 - k;
+      const by = l.at.frames[i]?.seq === f.seq ? calledWith(data, l.run, l.at.frames, i) : undefined;
       const s = view(data, l.run, f.seq);
-      return s?.each ? `For each ${s.each.item}` : (s?.words ?? '');
+      return by ?? (s?.each ? `For each ${s.each.item}` : (s?.words ?? ''));
     });
   let folded: string | undefined;
   // The edge: nothing can run there, so the run is in Plan (and its old this-run changes are folded) in this same write.
@@ -2551,9 +2599,8 @@ function stepIn(data: Data, runId: Id, env: Env): Result {
     if (!held || !('routine' in held)) return refuse(data, held && 'removed' in held ? 'gone' : 'not-a-routine');
     const t = view(data, l.run, held.routine)!;
     if (!t.items.length) return refuse(data, 'empty');
+    // (P-113: a routine already open in this run is stepped into again — its own level, as any call; bounded by the depth.)
     if (l.at.frames.length >= MAX_DEPTH) return refuse(data, 'too-deep');
-    // (A routine already open in this run is not stepped into again: the self-call is parked.)
-    if (l.at.frames.some((f) => f.seq === t.id)) return refuse(data, 'self');
     const out = moved(data, l, { frames: [...l.at.frames, { seq: t.id, at: t.items[0].id, round: 1, from: item!.id }] }, env);
     return { ...out, data: addValues(out.data, runId, inputsFor(data, l.run, l.at.frames, { id: item!.id, ref: t.id }, env)) };
   }
@@ -2853,8 +2900,7 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     const t = typeof edit.routine === 'string' ? readRoutine(data, edit.routine) : undefined;
     if (!t || t.removedAt) return refuse(data, 'gone');
     if (!t.named) return refuse(data, 'cannot');
-    // The self-call is parked (B-16): never this routine, nor one that uses it, at any depth.
-    if (reaches(data, t.id, ownersOf(data, routineId))) return refuse(data, 'self');
+    // (P-113: a routine may call itself, directly or through another — each call is its own level; the depth is bounded.)
     if (typeof edit.after === 'string' && !has(edit.after)) return refuse(data, 'no-such-step');
     after = editItems(routine, s, { insert: [{ id: env.id(), ref: t.id, words: t.words } as Item, edit.after] });
   } else if (edit.kind === 'toCall') {
@@ -2864,7 +2910,6 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     const t = typeof edit.routine === 'string' ? readRoutine(data, edit.routine) : undefined;
     if (!t || t.removedAt) return refuse(data, 'gone');
     if (!t.named) return refuse(data, 'cannot');
-    if (reaches(data, t.id, ownersOf(data, routineId))) return refuse(data, 'self');
     const keep = edit.words === undefined ? '' : tidy(edit.words);
     if (keep) {
       const first = editItems(routine, s, { set: [item.id, reworded(item, keep)] });

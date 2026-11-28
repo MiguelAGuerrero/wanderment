@@ -81,7 +81,9 @@ describe('Plan adds a routine as a step (a call row)', () => {
     expect(whatChanged(d0, { kind: 'editRoutine', routineId: 'I', edit: { kind: 'addCall', routine: 'R' } })).toBe('Added “Research”');
   });
 
-  it('refused, in words the screen says: a routine as a step of itself, directly or through another; a removed one; a step broken down', () => {
+  // P-113 (rewritten; was: a routine as a step of itself refused `self`, directly or through another — the self-call was
+  // parked. The owner, 2026-11-28: "Unpark self-calls"). It is added as any call; a removed one and a step broken down are still refused.
+  it('a routine as a step of itself, directly or through another, is added as any call; refused, in words: a removed one; a step broken down', () => {
     const d0 = world(
       seq('A', 'Alpha', [call('ab', 'B'), call('brk', 'BRK')]),
       seq('B', 'Beta', [call('bc', 'C')]),
@@ -89,12 +91,12 @@ describe('Plan adds a routine as a step (a call row)', () => {
       seq('X', 'Gone', [step('x1')], { removedAt: '2026-11-02T00:00:00.000Z' }),
       unnamed('BRK', 'A step broken down', [step('k1')]),
     );
-    expect(edit(d0, 'A', { kind: 'addCall', routine: 'A' })).toMatchObject({ ok: false, reason: 'self', data: d0 });
-    // Gamma is used by Beta, which Alpha uses: Alpha in Gamma (or Beta) would hold itself.
-    expect(edit(d0, 'C', { kind: 'addCall', routine: 'A' })).toMatchObject({ ok: false, reason: 'self' });
-    expect(edit(d0, 'B', { kind: 'addCall', routine: 'A' })).toMatchObject({ ok: false, reason: 'self' });
-    // Inside a step broken down of Alpha: still Alpha's own steps.
-    expect(edit(d0, 'BRK', { kind: 'addCall', routine: 'A' })).toMatchObject({ ok: false, reason: 'self' });
+    expect(items(okEdit(d0, 'A', { kind: 'addCall', routine: 'A' }), 'A').at(-1)).toEqual({ id: 'x1', ref: 'A', words: 'Alpha' });
+    // Gamma is used by Beta, which Alpha uses: Alpha in Gamma (or Beta) calls itself through another.
+    expect(items(okEdit(d0, 'C', { kind: 'addCall', routine: 'A' }), 'C').at(-1)).toMatchObject({ ref: 'A', words: 'Alpha' });
+    expect(items(okEdit(d0, 'B', { kind: 'addCall', routine: 'A' }), 'B').at(-1)).toMatchObject({ ref: 'A', words: 'Alpha' });
+    // Inside a step broken down of Alpha: Alpha's own steps.
+    expect(items(okEdit(d0, 'BRK', { kind: 'addCall', routine: 'A' }), 'BRK').at(-1)).toMatchObject({ ref: 'A', words: 'Alpha' });
     expect(edit(d0, 'A', { kind: 'addCall', routine: 'X' })).toMatchObject({ ok: false, reason: 'gone' });
     expect(edit(d0, 'A', { kind: 'addCall', routine: 'nope' })).toMatchObject({ ok: false, reason: 'gone' });
     expect(edit(d0, 'C', { kind: 'addCall', routine: 'BRK' })).toMatchObject({ ok: false, reason: 'cannot' });

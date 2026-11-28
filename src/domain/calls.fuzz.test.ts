@@ -1,9 +1,11 @@
 /**
- * P-98: random walks with calls. Routines that read and give a few names; Plan adds calls (never one that would
- * make a routine hold itself), binds inputs, copies, removes routines; runs step in and out, give values, press
+ * P-98: random walks with calls. Routines that read and give a few names; Plan adds calls (P-113: one that makes a
+ * routine call itself too), binds inputs, copies, removes routines; runs step in and out, give values, press
  * Next and Step out with what they owe. After every accepted verb or edit: nothing throws, a refused one returns
- * the very same data, what is stored survives JSON as it is, no routine holds itself, every value is in scope,
- * a called routine's input is never written below it, and one Undo restores the data exactly. Seeded.
+ * the very same data, what is stored survives JSON as it is, no run is deeper than the depth limit, every value is
+ * in scope, a called routine's input is never written below it, and one Undo restores the data exactly. Seeded.
+ * (P-113, rewritten: was "no routine holds itself" — the self-call was parked; now the walks must make some and run
+ * them, and the depth bound holds.)
  */
 import { describe, expect, it } from 'vitest';
 
@@ -39,28 +41,37 @@ function world(): Data {
   return { ...emptyData(), routines };
 }
 
-/** No routine reaches itself through its rows (a call, a step broken down). */
-function noSelf(d: Data, label: string) {
+/** P-113: the routines that reach themselves through their rows (a call, a step broken down) — counted, so the walks are seen to make some. */
+function selfHolding(d: Data): number {
+  let n = 0;
   for (const id of Object.keys(d.routines)) {
     const seen = new Set<Id>();
     const todo = (readRoutine(d, id)?.items ?? []).filter(isRef).map((i) => i.ref);
     while (todo.length) {
       const x = todo.pop()!;
-      expect(x, `${label}: ${id} holds itself`).not.toBe(id);
+      if (x === id) {
+        n++;
+        break;
+      }
       if (seen.has(x)) continue;
       seen.add(x);
       for (const i of readRoutine(d, x)?.items ?? []) if (isRef(i)) todo.push(i.ref);
     }
   }
+  return n;
 }
+let selfMade = 0;
+/** P-113: runs stood inside a routine already open below them (a self-call stepped into). */
+let selfRun = 0;
 
 function invariants(prev: Data, d: Data, label: string) {
   expect(saved(d), `${label}: survives JSON`).toEqual(d);
-  noSelf(d, label);
+  if (selfHolding(d)) selfMade++;
   for (const id of Object.keys(d.runs)) {
     const r = readRun(d, id)!;
     if (r.endedAt) continue;
     expect(r.frames.length).toBeLessThanOrEqual(MAX_DEPTH);
+    if (r.frames.some((f, i) => r.frames.slice(0, i).some((g) => g.seq === f.seq))) selfRun++;
     expect(place(d, r)!.repaired, `${label}: nothing to repair`).toBe(false);
     for (const raw of (d.runs[id].values as unknown[]) ?? []) expect(isEntry(raw), `${label}: a readable value`).toBe(true);
     for (const e of r.values) expect(e.level < r.frames.length && r.frames[e.level].seq === e.seq, `${label}: ${e.name}@${e.level} in scope`).toBe(true);
@@ -121,5 +132,8 @@ describe('random walks with calls', () => {
         d = r.data;
       }
     }
+    // (P-113: the walks made routines that call themselves, and ran them.)
+    expect(selfMade).toBeGreaterThan(0);
+    expect(selfRun).toBeGreaterThan(0);
   });
 });

@@ -308,10 +308,11 @@ describe('"@" across spaces', () => {
     expect(json(undone(d0, d))).toEqual(json(d0));
   });
 
-  it('Make it a call: not for itself (no offer, refused in words); not for a step that gives a name; a run on the step stays on it', () => {
+  // P-113 (rewritten; was: not for itself — no offer, refused `self` — while the self-call was parked): offered for itself too.
+  it('Make it a call: for itself too (P-113); not for a step that gives a name; a run on the step stays on it', () => {
     const self = world(seq('I', 'Iterate', [step('doc', '@Iterate')]));
-    expect(planView(self, { routineId: 'I' })!.rows[0].asCall).toBeUndefined();
-    expect(edit(self, 'I', { kind: 'toCall', item: 'doc', routine: 'I' }).reason).toBe('self');
+    expect(planView(self, { routineId: 'I' })!.rows[0].asCall).toEqual({ routine: 'I', name: 'Iterate' });
+    expect((okEdit(self, 'I', { kind: 'toCall', item: 'doc', routine: 'I' }).routines.I.items as Item[])[0]).toEqual({ id: 'doc', ref: 'I', words: 'Iterate' });
     const gives = world(seq('I', 'Iterate', [step('doc', '@Document Iteration >x')]), seq('DOC', 'Document Iteration', [step('w')]));
     expect(edit(gives, 'I', { kind: 'toCall', item: 'doc', routine: 'DOC' }).reason).toBe('not-a-step');
     const s = start(world(seq('I', 'Iterate', [step('doc', '@Document Iteration')]), seq('DOC', 'Document Iteration', [step('w')])), 'I');
@@ -370,14 +371,17 @@ describe('P-108 repros', () => {
     expect((d.routines.K.each as { refs?: unknown }).refs).toEqual([{ ref: 'GYM', name: 'Gym' }, null, null]);
   });
 
-  it('3. a value holding the routine that is running offers no Step in (the engine refuses it)', () => {
+  // P-113 (rewritten; was: offers no Step in, the engine refuses it `self` — while the self-call was parked): a routine
+  // may call itself, through a value holding it too — Step in is offered and goes in, its own level at its first step.
+  it('3. a value holding the routine that is running offers Step in, and goes into its own level (P-113)', () => {
     const d0 = world(seq('S', 'Self', [step('pick', 'Pick a way >way'), slot('sl', 'way')]));
     const s = start(d0, 'S');
     let d = ok(s.d, { kind: 'value', runId: s.id, name: 'way', text: 'Self', item: 'pick', refs: [{ ref: 'S', name: 'Self' }] });
     d = next(d, s.id);
     const v = runnerView(d, s.id)!;
-    expect(go(d, { kind: 'stepIn', runId: s.id }).reason).toBe('self');
-    expect(v.moves.stepIn).toBe(false);
-    expect(v.middle).toBe('plan');
+    expect(v.moves.stepIn).toBe(true);
+    expect(v.middle).toBe('stepIn');
+    d = ok(d, { kind: 'stepIn', runId: s.id });
+    expect(readRun(d, s.id)!.frames.map((f) => [f.seq, f.at])).toEqual([['S', 'sl'], ['S', 'pick']]);
   });
 });

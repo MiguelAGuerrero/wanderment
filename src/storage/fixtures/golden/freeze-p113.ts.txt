@@ -1,0 +1,239 @@
+/**
+ * P-113 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE a routine can call itself (ea9c98f, P-115: schema 4,
+ * data format 2; Plan refused a routine as a step of itself, and a call into a routine already open in the run passed
+ * none of its inputs: the inner level asked them again). Run once, in that commit, with P113_OUT set; never part of the
+ * suite. It starts from `p115-schema4.sqlite` (everything frozen before) and uses that build's own store actions — and
+ * its Import, for what only an import could make there: the self-call rows themselves ("Research a question" calling
+ * itself for each lead, with `question` bound to `{lead}`; "Ping" → "Pong" → "Ping", through another). That build then
+ * RUNS the self-call through its own actions, several levels deep, and pauses there. What that build SHOWED (its Plan,
+ * its runner at each level, its tile, and its refusal to add a routine as its own step) is written to
+ * `p113-old-build.json`: the proof of what an older build does with this data.
+ */
+import { copyFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const OUT = process.env.P113_OUT!;
+
+const env = vi.hoisted(() => {
+  const ls = new Map<string, string>();
+  const state = { dbPath: '', openError: undefined as Error | undefined, hangWrites: false };
+  const localStorage = {
+    get length() {
+      return ls.size;
+    },
+    key: (i: number) => [...ls.keys()][i] ?? null,
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => void ls.set(k, String(v)),
+    removeItem: (k: string) => void ls.delete(k),
+  };
+  (globalThis as { localStorage?: unknown }).localStorage = localStorage;
+  return { ls, state, localStorage };
+});
+
+vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => env.localStorage.getItem(k),
+    setItem: async (k: string, v: string) => env.localStorage.setItem(k, v),
+    removeItem: async (k: string) => env.localStorage.removeItem(k),
+  },
+}));
+vi.mock('./expoDb', async () => {
+  const { nodeDb } = await import('./nodeDb');
+  return {
+    openExpoDb: async () => {
+      if (env.state.openError) throw env.state.openError;
+      const db = nodeDb(env.state.dbPath);
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+    },
+  };
+});
+vi.mock('./nativeBackup', () => ({ scheduleBackup: () => {} }));
+
+const settle = () => new Promise((r) => setTimeout(r, 40));
+
+async function load() {
+  vi.resetModules();
+  const { startPersistence } = await import('./persistence');
+  const { useStore } = await import('@/store/useStore');
+  await startPersistence();
+  return useStore;
+}
+type Store = Awaited<ReturnType<typeof load>>;
+
+/** Ids are a counter and the clock is fixed and stepped, so every session makes the same records. */
+let n = 0;
+let clock = 0;
+const T0 = Date.parse('2026-11-28T13:00:00.000Z');
+const tick = (minutes = 3) => vi.setSystemTime(new Date((clock += minutes * 60000)));
+
+beforeEach(() => {
+  env.ls.clear();
+  env.state.openError = undefined;
+  env.state.hangWrites = false;
+  env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-freeze113-')), 'db.sqlite');
+  n = 0;
+  clock = T0;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(T0));
+  vi.stubGlobal('crypto', { randomUUID: () => `p113-${String(++n).padStart(3, '0')}` });
+});
+afterEach(async () => {
+  (await import('./persistence')).stopPersistence();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+/** What that build showed: Plan's rows of the routine, the runner at a place, and the run's line on home. */
+const old: Record<string, unknown> = {};
+async function views(key: string, store: Store, routineId: string, runId?: string) {
+  const { planView, runnerView, homeShown, panelView } = await import('@/domain/runView');
+  const { tileLine } = await import('@/domain/goText');
+  const data = store.getState().data;
+  const plan = planView(data, runId ? { runId } : { routineId });
+  const run = runId ? runnerView(data, runId) : undefined;
+  const panel = runId ? panelView(data, runId) : undefined;
+  const tile = runId ? homeShown(data).find((t) => t.runId === runId) : undefined;
+  old[key] = JSON.parse(
+    JSON.stringify({
+      rows: plan?.rows.map((r) => ({ depth: r.depth, kind: r.kind, words: r.words, broken: r.broken ?? false, here: r.here, within: r.within, gives: r.gives ?? null, call: r.call ?? null })),
+      ...(run && { runner: { level: run.level, parent: run.parent ?? null, depth: run.depth, step: run.step.kind, words: run.step.words, middle: run.middle, fields: run.fields, values: run.values.map((v) => ({ name: v.name, items: v.items })), moves: run.moves, next: run.next } }),
+      ...(panel && { panel: { then: panel.then ?? null } }),
+      ...(tile && { tile: { line: tileLine(tile).line, path: tile.path ?? [] } }),
+    }),
+  );
+}
+
+/** What a person did with the build before P-113, through its own actions (and Import). */
+async function drive(store: Store) {
+  const s = () => store.getState();
+  const ok = (d: { ok: boolean; runId?: string; routineId?: string; reason?: string }) => {
+    expect(d, JSON.stringify(d)).toMatchObject({ ok: true });
+    s().dismissRunNotice();
+    tick();
+    return (d.runId ?? d.routineId)!;
+  };
+  type Row = { id: string; text?: string; ref?: string; out?: string };
+  const items = (routineId: string) => s().data.routines[routineId].items as Row[];
+  const item = (routineId: string, words: string) => items(routineId).find((i) => i.text === words)!.id;
+  const make = (name: string, steps: string[]) => {
+    const id = ok(s().createRoutine(name));
+    for (const st of steps) ok(s().editRoutine(id, { kind: 'addStep', text: st }));
+    return id;
+  };
+  const here = (runId: string) => {
+    const r = s().data.runs[runId] as { frames: { at: string }[] };
+    return r.frames[r.frames.length - 1].at;
+  };
+  const { toBackup } = await import('@/domain/backup');
+  const { previewImport, confirmImport } = await import('@/store/importBackup');
+  /** Exported, changed by hand, imported back (Settings' Import, Replace). */
+  const reimport = (change: (d: import('@/domain/types').Data) => void) => {
+    const file = JSON.parse(toBackup(s().data));
+    change(file.data);
+    const r = confirmImport(previewImport(JSON.stringify(file)));
+    expect(r.ok).toBe(true);
+    tick();
+  };
+  ok(s().pauseRun('p96-050'));
+
+  // "Research a question" (B-16's own example), through that build's Plan: its steps, what they give, and a for each.
+  const research = make('Research a question', ['Find what bears on {question}', 'List the questions this raises']);
+  ok(s().editRoutine(research, { kind: 'gives', item: item(research, 'List the questions this raises'), name: 'leads' }));
+  ok(s().editRoutine(research, { kind: 'addEach', item: 'lead', list: 'leads' }));
+  ok(s().editRoutine(research, { kind: 'addStep', text: 'Write the answer to {question}' }));
+  ok(s().editRoutine(research, { kind: 'gives', item: item(research, 'Write the answer to {question}'), name: 'answer' }));
+  const block = items(research).find((i) => i.ref)!.ref!;
+  // That build's Plan refuses the routine as a step of itself (said "“Research a question” can’t be a step of itself").
+  const refused = s().editRoutine(block, { kind: 'addCall', routine: research });
+  expect(refused).toMatchObject({ ok: false, reason: 'self' });
+  old.refusedSelf = { ok: refused.ok, reason: refused.reason };
+  // Two routines calling each other: Ping calls Pong (allowed), Pong calling Ping is refused there.
+  const ping = make('Ping', ['Ping {ball}']);
+  const pong = make('Pong', ['Pong {ball}']);
+  ok(s().editRoutine(ping, { kind: 'addCall', routine: pong }));
+  const refusedThrough = s().editRoutine(pong, { kind: 'addCall', routine: ping });
+  expect(refusedThrough).toMatchObject({ ok: false, reason: 'self' });
+  old.refusedThrough = { ok: refusedThrough.ok, reason: refusedThrough.reason };
+  // Only an import could make the self-calls there: the for each's call to Research a question, its question the lead;
+  // and Pong's call to Ping. (Unknown fields on the row, to be kept.)
+  reimport((d) => {
+    (d.routines[block].items as unknown[]).push({ id: 'p113-self', ref: research, words: 'Research a question', with: [{ input: 'question', name: 'lead', later: 'kept' }], later: { kept: true } });
+    (d.routines[pong].items as unknown[]).push({ id: 'p113-back', ref: ping, words: 'Ping' });
+  });
+  await views('planResearch', store, research);
+  await views('planPing', store, ping);
+
+  // That build runs it: the question, the leads, into the for each, and Step in on the self-call — twice.
+  const run = ok(s().startRoutine(research));
+  ok(s().typeValue(run, here(run), 'question', 'Is creatine safe long-term?'));
+  ok(s().nextStep(run));
+  ok(s().typeList(run, here(run), 'leads', ['What doses were studied?', 'Who funded the studies?']));
+  ok(s().nextStep(run));
+  await views('runnerOnSelfCall', store, research, run);
+  ok(s().stepIn(run));
+  // (The old build steps in, but the inner level asks {question} again: the lead was not passed.)
+  await views('runnerLevel2', store, research, run);
+  ok(s().nextStep(run));
+  ok(s().typeList(run, here(run), 'leads', ['What dose sizes?']));
+  ok(s().nextStep(run));
+  ok(s().stepIn(run));
+  await views('runnerLevel3', store, research, run);
+  ok(s().pauseRun(run, 'reading the dose studies'));
+  await views('pausedDeep', store, research, run);
+  // Last: the run the app is on, running.
+  ok(s().resumeRun('p96-050'));
+  await settle();
+  return { research, ping, pong, block, run };
+}
+const settingsOf = (store: Store) => {
+  const s = store.getState();
+  return { showShading: s.showShading, recentSearches: s.recentSearches, leftAsIs: s.leftAsIs, whyOfferOff: s.whyOfferOff, firstRunDone: s.firstRunDone };
+};
+const snapshot = (store: Store) => JSON.parse(JSON.stringify({ data: store.getState().data, settings: settingsOf(store) }));
+let expected: { data: import('@/domain/types').Data; settings: ReturnType<typeof settingsOf> };
+
+it('1. the database (schema 4), the backup and what the store held', async () => {
+  copyFileSync(join(__dirname, 'fixtures/golden/p115-schema4.sqlite'), env.state.dbPath);
+  let store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+  old.ids = await drive(store);
+  await settle();
+  expected = snapshot(store);
+  expect(env.ls.has('wanderment:journal')).toBe(false);
+  store = await load();
+  expect(snapshot(store)).toEqual(expected);
+  const { nodeDb } = await import('./nodeDb');
+  const db = nodeDb(env.state.dbPath);
+  expect(await db.all('PRAGMA user_version')).toEqual([{ user_version: 4 }]);
+  await db.exec('VACUUM');
+  db.close();
+  copyFileSync(env.state.dbPath, join(OUT, 'p113-schema4.sqlite'));
+  writeFileSync(join(OUT, 'p113-expected.json'), JSON.stringify(expected, null, 2) + '\n');
+  writeFileSync(join(OUT, 'p113-old-build.json'), JSON.stringify(old, null, 2) + '\n');
+  const { toBackup } = await import('@/domain/backup');
+  writeFileSync(join(OUT, 'p113-backup.json'), toBackup(store.getState().data, new Date('2026-11-28T14:30:00.000Z')));
+});
+
+it('2. the pending journal (eight keys): everything, never committed', async () => {
+  const store = await load();
+  env.state.hangWrites = true;
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  const raw = env.ls.get('wanderment:journal')!;
+  expect(Object.keys(JSON.parse(raw).changes).sort()).toEqual(['deleteActivities', 'deleteRoutines', 'deleteRuns', 'deleteThreads', 'upsertActivities', 'upsertRoutines', 'upsertRuns', 'upsertThreads']);
+  writeFileSync(join(OUT, 'p113-journal.json'), raw);
+});
+
+it('3. the fallback blob (a browser that can’t run SQLite)', async () => {
+  env.state.openError = new Error('no OPFS');
+  const store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  writeFileSync(join(OUT, 'p113-fallback.json'), env.ls.get('wanderment')!);
+});

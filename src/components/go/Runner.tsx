@@ -308,7 +308,8 @@ export function Runner({ runId }: { runId: string }) {
   const long = full && !cv;
   const pathWords = (
     <View style={[styles.contextWords, compact && styles.contextWordsAlone]} testID="go-context">
-      {!!v.parent && <T dim>{`${v.parent} ›`}</T>}
+      {/* P-113: inside a routine that calls itself, a long path is first › … › the last two ("…" is plain text, never a control). */}
+      {!!v.parent && <T dim>{`${[...(v.trail ?? []), v.parent].join(' › ')} ›`}</T>}
       <T bold size={18}>
         {v.level}
       </T>

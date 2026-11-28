@@ -56,8 +56,12 @@ describe('Copy', () => {
 describe('a call and its inputs are Plan edits: quiet, with the routine’s Undo', () => {
   it('Add a routine, then bind an input: each its own Undo', () => {
     const before = st().data;
-    expect(st().editRoutine('R', { kind: 'addCall', routine: 'I' })).toMatchObject({ ok: false, reason: 'self' });
-    expect(st().data).toBe(before);
+    // (P-113, rewritten; was: refused `self` — Research is used by Improve, so it called itself through another. Now added
+    // as any call, a quiet Plan edit with its Undo.)
+    expect(st().editRoutine('R', { kind: 'addCall', routine: 'I' })).toMatchObject({ ok: true });
+    expect(st().runNotice).toMatchObject({ text: 'Added “Improve my workout routine”', quiet: true });
+    expect(st().undoLast()).toBe(true);
+    expect(st().data).toEqual(before);
     useStore.setState({ data: { ...before, routines: { ...before.routines, T: { id: 'T', words: 'Train', named: true, createdAt: at, items: [] } } } });
     const base = st().data;
     expect(st().editRoutine('T', { kind: 'addCall', routine: 'R' }).ok).toBe(true);

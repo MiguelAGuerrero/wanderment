@@ -122,17 +122,23 @@ test.describe('Plan: a routine as a step', () => {
     await expect(p.add).toHaveValue('');
   });
 
-  test('a routine as a step of itself is refused, in words — directly, and through another', async ({ page }) => {
+  // P-113 (rewritten; was: refused, in words — "“Improve my workout routine” uses “Research”, so it can’t be a step of it" /
+  // "“Research” can’t be a step of itself" — while the self-call was parked. The owner, 2026-11-28: "Unpark self-calls").
+  test('a routine as a step of itself is added as any call, nothing said against it — directly, and through another; its row is closed', async ({ page }) => {
     await seedGo(page, [CALLED, RESEARCH]);
     const p = await planOf(page, 'research');
     await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.screen.getByTestId('go-plan-add-routine').click();
     const pick = await sheet(page, 'go-routines-sheet');
     await pick.getByRole('button', { name: /^Add as a step: Improve my workout routine/ }).click();
-    await expect(pick.getByTestId('go-routines-sheet-error')).toHaveText('! “Improve my workout routine” uses “Research”, so it can’t be a step of it');
-    await pick.getByRole('button', { name: /^Add as a step: Research/ }).click();
-    await expect(pick.getByTestId('go-routines-sheet-error')).toHaveText('! “Research” can’t be a step of itself');
-    await expect(p.words).toHaveText(['Look into asks {concerns}', 'Note what I found']);
+    await expect(page.getByTestId('go-routines-sheet')).toHaveCount(0);
+    await p.screen.getByTestId('go-plan-add-routine').click();
+    const again = await sheet(page, 'go-routines-sheet');
+    await again.getByRole('button', { name: /^Add as a step: Research/ }).click();
+    await expect(page.getByTestId('go-routines-sheet')).toHaveCount(0);
+    await expect(page.getByTestId('go-routines-sheet-error')).toHaveCount(0);
+    await expect(p.words).toHaveText(['Look into asks {concerns}', 'Note what I found', 'Improve my workout routine', 'Research']);
+    await expect(p.row('Research').getByTestId('go-plan-closed')).toHaveText('this routine');
   });
 
   test('a call row’s ···: Open (its Plan), Edit inputs, Remove', async ({ page }) => {

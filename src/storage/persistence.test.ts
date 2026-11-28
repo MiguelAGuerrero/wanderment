@@ -6059,6 +6059,166 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(confirmImport).toBeDefined();
     });
   });
+
+  // ───────── P-113: a routine can call itself ─────────
+  describe('P-113: a run several levels deep in a routine that calls itself survives reload, journal replay, the fallback, undo and export → import — each level with its own input, named by it', () => {
+    type Ids = { routineId: string; runId: string; block: string; leads: string };
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * As a person would, in Plan (Edit, then Save): + New "Research a question" — "Find what bears on {question}", "List
+     * the questions this raises" (gives {leads}), a for each over {leads} holding Research a question itself (its question
+     * from {lead}), "Write the answer to {question}" (gives {answer}); Save. Then a run: the question, two leads, Step in;
+     * a lead raised there, Step in again — three levels of it, five in all — and Pause.
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const made = g().createRoutine('Research a question');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      const id = made.routineId;
+      const draftItems = (seq: string) => (draftOf(g().data, id).routines[seq].items as { id: string; text?: string; ref?: string }[]);
+      const all = [g().editDraft(id, id, { kind: 'addStep', text: 'Find what bears on {question}' }), g().editDraft(id, id, { kind: 'addStep', text: 'List the questions this raises' })];
+      const leads = draftItems(id)[1].id;
+      all.push(g().editDraft(id, id, { kind: 'gives', item: leads, name: 'leads' }), g().editDraft(id, id, { kind: 'addEach', item: 'lead', list: 'leads' }));
+      const block = draftItems(id)[2].ref!;
+      // The routine as a step of itself: added like any other, nothing said against it.
+      all.push(g().editDraft(id, block, { kind: 'addCall', routine: id }));
+      all.push(g().editDraft(id, block, { kind: 'bind', item: draftItems(block)[0].id, input: 'question', to: { name: 'lead' } }));
+      all.push(g().editDraft(id, id, { kind: 'addStep', text: 'Write the answer to {question}' }));
+      all.push(g().editDraft(id, id, { kind: 'gives', item: draftItems(id)[3].id, name: 'answer' }), g().saveDraft(id));
+      const started = g().startRoutine(id);
+      if (!started.ok || !started.runId) throw new Error('Start: was refused');
+      const runId = started.runId;
+      const first = (g().data.routines[id].items as { id: string }[])[0].id;
+      all.push(g().typeValue(runId, first, 'question', 'Is honey worth it?'), g().nextStep(runId), g().typeList(runId, leads, 'leads', ['pricing', 'costs']), g().nextStep(runId), g().stepIn(runId));
+      all.push(g().nextStep(runId), g().typeList(runId, leads, 'leads', ['who sets prices']), g().nextStep(runId), g().stepIn(runId), g().pauseRun(runId, 'three levels in'));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { routineId: id, runId, block, leads };
+    }
+    let draftOf: (data: import('@/domain/types').Data, id: string) => import('@/domain/types').Data;
+    beforeEach(async () => {
+      draftOf = (await import('@/domain/draft')).draftData;
+    });
+    const isAsBuilt = async (data: import('@/domain/types').Data, ids: Ids) => {
+      const { runnerView } = await import('@/domain/runView');
+      expect((data.routines[ids.block].items as Record<string, unknown>[])[0]).toMatchObject({ ref: ids.routineId, words: 'Research a question', with: [{ input: 'question', name: 'lead' }] });
+      const run = data.runs[ids.runId] as unknown as { frames: { seq: string }[]; values: { name: string; level: number; items: string[] }[] };
+      expect(run.frames.map((f) => f.seq)).toEqual([ids.routineId, ids.block, ids.routineId, ids.block, ids.routineId]);
+      // Each call's own input, at its own level (never the question again).
+      expect(run.values.filter((v) => v.name === 'question').map((v) => [v.level, v.items])).toEqual([
+        [0, ['Is honey worth it?']],
+        [2, ['pricing']],
+        [4, ['who sets prices']],
+      ]);
+      const v = runnerView(data, ids.runId)!;
+      expect(v).toMatchObject({ depth: 5, level: 'lead: who sets prices', parent: 'lead: pricing', trail: ['Research a question'], fields: [] });
+      expect(v.step.parts).toContainEqual({ kind: 'value', name: 'question', text: 'who sets prices' });
+    };
+
+    it('reload: saved to SQLite as made, the same after a reload — five levels deep, each with its own question', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      await isAsBuilt(shown, ids);
+      expect(await onDisk()).toEqual(shown);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      await isAsBuilt(store.getState().data, ids);
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), all of it is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const shown = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      await isAsBuilt(store.getState().data, ids);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('the localStorage fallback keeps it, and moves it into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      await isAsBuilt(JSON.parse(env.ls.get('wanderment')!).state.data, ids);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(shown);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('resumed after a reload it carries on and finishes cleanly; Step out’s Undo takes the level back, on screen and on disk', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      store = await reload();
+      const g = () => store.getState();
+      expect(g().resumeRun(ids.runId).ok).toBe(true);
+      const before = g().data;
+      expect(g().doneLevel(ids.runId).ok).toBe(true);
+      expect((g().data.runs[ids.runId].frames as unknown[]).length).toBeLessThan(5);
+      expect(g().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      // On to the end: nothing asks {question} below the first level, and the run ends.
+      const { runnerView } = await import('@/domain/runView');
+      for (let k = 0; k < 40 && !g().data.runs[ids.runId].endedAt; k++) {
+        const v = runnerView(g().data, ids.runId)!;
+        if (v.depth > 1) expect(v.fields.map((f) => f.name)).not.toContain('question');
+        expect((v.next === 'done' ? g().doneLevel(ids.runId) : g().nextStep(ids.runId)).ok).toBe(true);
+      }
+      expect(g().data.runs[ids.runId].endedAt).toBeDefined();
+      await tick(30);
+      expect(await onDisk()).toEqual(g().data);
+      store = await reload();
+      expect(store.getState().data.runs[ids.runId].endedAt).toBeDefined();
+    });
+
+    it('export → import: the self-call and the deep run are in the backup; the same file is identical; imported in a fresh browser, it reads the same through a reload and another export', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const json = toBackup(exported);
+      await isAsBuilt(JSON.parse(json).data, ids);
+      const { previewImport } = await import('@/store/importBackup');
+      expect(previewImport(json).plan).toMatchObject({ identical: true });
+      (await import('./persistence')).stopPersistence();
+      env.ls.clear();
+      env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-')), 'db.sqlite');
+      store = await reload();
+      const fresh = await import('@/store/importBackup');
+      expect(fresh.confirmImport(fresh.previewImport(json)).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(exported);
+      await isAsBuilt(store.getState().data, ids);
+      expect(JSON.parse(toBackup(store.getState().data)).data).toEqual(exported);
+    });
+  });
 });
 
 // P-89: the control is gone with the old app; the saved setting is still a person's data, kept as it is.

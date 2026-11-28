@@ -1375,7 +1375,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                       {/* P-103 (10; was ▤, the routine's mark, as a button): the disclosure chevron — › shut, ⌄ open. P-111: a
                           step broken down or a for each goes into its own view (›); a routine used as a step opens in place. */}
                       {insides === 'view' && <InsidesBtn words={shownWords} onPress={() => openView(row)} testID="go-plan-insides" dataSet={{ insides: key }} />}
-                      {insides === 'fold' && <InsidesBtn words={row.words} open={open} onPress={() => setFolds({ ...folds, [key]: !open })} />}
+                      {insides === 'fold' && !row.closed && <InsidesBtn words={row.words} open={open} onPress={() => setFolds({ ...folds, [key]: !open })} />}
                       {row.kind === 'wait' && (
                         <View style={styles.rowMark}>
                           <Mark name="wait" color={G.dim} />
@@ -1403,6 +1403,12 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                               <Chips words={row.words} asks={row.asks} parts={row.parts} />
                             </T>
                           </Pressable>
+                          {/* P-113 (B-16): a routine calling itself — a closed row, said in words where a row that opens has its chevron. */}
+                          {!!row.closed && (
+                            <T dim testID="go-plan-closed">
+                              {row.closed === 'this' ? 'this routine' : 'open above'}
+                            </T>
+                          )}
                           {!!row.call && <CallLines name={row.words} call={row.call} onInput={editing ? (input) => setMenu({ bind: key, input }) : undefined} />}
                           {!!row.gives && (
                             <T dim testID="go-plan-gives">
