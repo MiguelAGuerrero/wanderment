@@ -43,6 +43,40 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
+### F-1 Final review fixes: engine and stored data `[data]` M
+*Status:* in-progress
+*Why:* the final adversarial review (owner, 2026-11-27: "defer all auditing at the end in one batch
+review"): `.polish/product/final-audit-engine.md` and `final-audit-storage.md`; owner rulings 2026-11-28.
+*Done when:* every reproduced data-loss and rule-break finding in those two reports is fixed with a test
+that was red first (Back after a for each, Jump discarding silently, values doubled on a redo, Back across
+a round, Remove in Plan, See ahead drafts on Pause/Back/Jump/Plan, finished vs stopped, rebuilt records
+dropping unknown fields, kept-list refs and caps, requeue over unreadable values, Undo of a take-up, Copy's
+shared breakdown, an older open tab wiping newer shapes); Home's queue steps into a call's first step;
+`verify.sh --full`.
+
+### F-2 Final review fixes: surfaces, library and short text `[ux]` `[a11y]` M
+*Status:* todo
+*Why:* `.polish/product/final-audit-surfaces.md`; owner 2026-11-28 short-text rule.
+*Done when:* every reproduced finding there is fixed (template copied under a callee's name refused, Copy
+says when it uses your routine of that name, kept lists not read as asks, "@" list not cut at 200 %,
+spoken titles without "▢", Resume naming its routine and saying why it is off, "@…" kept after Close,
+dead "no headings" assertions); short hints where they help (Where, pause note, list rows, the step and
+value fields, Add's "@" and "{", Gives, the read-only Places sheet); `verify.sh --full`.
+
+### P-113 A routine can call itself `[feature]` `[data]` M
+*Status:* todo
+*Why:* owner, 2026-11-28: "Unpark self-calls" (the library's Find out ▢ needs it).
+*Done when:* a routine can call itself, each call its own level with its own inputs passed in (the lead,
+not the question again); deep levels are named by the value they were called with, "…" in long paths;
+depth stays bounded and is said; Find out ▢ works end to end.
+
+### P-114 Onboarding through a composer `[feature]` `[ux]` L
+*Status:* todo
+*Why:* owner, 2026-11-28: "a proper on boarding process … a composer of sorts guide you through a set up
+of a routine … leverage the library functions as a scaffold to interpret a users intent."
+*Done when:* a brief (B-19) agreed with the owner first, from B-17's composer and the guided-composer
+discovery; then built as the brief says.
+
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
 *Why:* B-11 lists Erase in Settings, but it has never existed; split out of P-89 as a new destructive

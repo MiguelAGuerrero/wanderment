@@ -18,6 +18,23 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-28 — Rulings from the final review; onboarding through a composer
+Answered in chat on the final review's questions:
+- How a new user reaches the library: "There should be a proper on boarding process, and I believe that was
+  the success where you have a composer of sorts guide you through a set up of a routine to simplify the
+  process of translating your thoughts into the app without relying on the apps constructs so much. And
+  that's where we leverage the library functions as a scaffold to interpret a users intent."
+- "Find out ▢" calling itself: "Unpark self-calls" — a routine calling itself is to work, passing its inputs.
+- Home's queue at a call not stepped into: "Step into the first step" — the row shows the call's first
+  step and Resume lands there.
+- Back across a "Repeat from here" round: "Keeps across rounds" — Back never clears; only a new round,
+  going forward, clears.
+Interpretation (ours): the onboarding composer is B-17's composer (discovery 2026-11-27-guided-composer.md),
+now asked for as the first-run path, using library methods as scaffolds; it needs its own brief before
+building. Self-calls leave B-16's parked list.
+Led to: the final-review fix batches (F-1 engine/storage, F-2 surfaces); P-113 (self-calls); P-114
+(onboarding composer, brief first).
+
 ## 2026-11-28 — Short helpful text is welcome; long explanations are not
 Relayed from the second session: "I think I've been misinterpreted on the instructional aspect of things. I
 didn't want there to be a lot of descriptive text on how the app works, but quick and insightful or
