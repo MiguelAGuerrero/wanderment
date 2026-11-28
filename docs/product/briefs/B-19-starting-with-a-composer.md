@@ -142,6 +142,36 @@ So the questions sharpen as the person answers:
   done?"). A plain question is always correct; a woven one is a nicety.
 - **Nothing here is remembered.** Closing the composer forgets it. The routine holds the answers.
 
+### How the phrasing is made
+The owner (2026-11-28): "We can pull in any natural language libraries that could resolve basic
+phrasing, or we can implement it ourselves using a simple heuristic for things like pluralization,
+prepositions, nouns, present progressives, etc., so that we don't have to risk sounding awkward."
+
+**Proposed: our own small rules first, and a library only if a test shows it reads better.**
+- The app already does one of these by rule: the singular of a list's name for "For each…" ("photos" →
+  "photo", "stories" → "story"; `src/domain/values.ts`). The composer's rules extend that file's
+  approach: a pure function from the start, the typed words and the question's pattern to a sentence.
+- **What the rules cover:** the leading article or possessive ("a", "an", "the", "my" → "your" in a
+  question); the form of the first word, so the pattern can be chosen (an -ing form: "drawing hands" →
+  "… when drawing hands"; a plain verb: "draw hands" → "… to draw hands"; a noun phrase: "the zine" →
+  "… with the zine"; a question: used as it stands); singular and plural for a list and its item; and
+  trimming the start's own verb.
+- **What they do not attempt:** tense beyond the -ing form, agreement inside the person's words, or
+  anything that changes what the person typed in the routine.
+- **Awkwardness is tested, not guessed.** A corpus of real phrases (every routine name the owner has
+  made, plus the examples in this brief and the discovery files) is run through the rules; each output
+  is read by a person and marked fine, plain (fell back) or wrong. The bar: none wrong; plain is
+  acceptable. The corpus and its expected outputs are a unit test, so a rule change that breaks a
+  phrase fails the build.
+- **A library, compared on the same corpus before it is added.** Candidates, checked on the registry
+  on 2026-11-28: `compromise` 14.21.0 (MIT; pure JavaScript, tags parts of speech and converts verb
+  forms and plurals; 3.0 MB unpacked, and from memory roughly 250 kB minified, against a common bundle
+  of 536 kB today); `pluralize` 8.0.0 (MIT; 18 kB unpacked; plurals only, which the app already
+  handles); `wink-nlp` 2.4.0 (MIT; needs a separate language model, from memory over 1 MB). None has
+  native code. The rule for adding one: it must turn outputs our rules mark "plain" into "fine"
+  without turning any into "wrong", by enough to be worth its weight in an app that loads offline on a
+  phone. English only either way.
+
 ### Journey 3 — The plain follow-up
 Where an answer cannot settle the structure, one more plain question does. Each is asked only when the
 answer makes it relevant.
@@ -224,6 +254,10 @@ skip it is; the composer's question sitting above a Plan-like list; Then and Ski
    question leaves a valid routine; Plan (the filled button) still makes an empty routine exactly as
    today; nothing is marked for words it does not recognise; a second question carries a short first answer and falls back to "it" for a long one or a list, and "my" in what was typed reads "your" in a question while the routine keeps "my"; the composer cannot be reached from the
    runner; at 390 px and 200 % text nothing is cut and every target is at least 48 px.
+1a. **The phrasing rules and their corpus** `[feature]` S, built first and inside slice 1. The pure
+   function, the corpus as a unit test, and one comparison run against `compromise` with the result
+   written down. *Done when:* no corpus phrase reads wrong; the comparison says in numbers how many
+   "plain" outputs the library would improve and what it adds to the bundle.
 2. **The other three starts, with the plain follow-ups** `[feature]` `[ux]` M. Learn it, Find out,
    Decide; the follow-ups of Journey 3; an empty answer leaving a part out. *Done when:* "Learn it" with
    no topics typed makes a routine with no Study part; "more as I go" adds the step that adjusts the
