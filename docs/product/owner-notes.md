@@ -18,6 +18,35 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-28 — B-19, starting with a composer (drafted with the second session)
+Relayed from the second session; the owner's choices and words while drafting B-19:
+- For whom: "Me, starting anything new."
+- How it begins: "We should provide reason[able] defaults or templates based on the most common user goals or
+  tasks to get done, generalizable enough, where the inputs into those routines can[…] provide enough
+  context to really contextualize it, so think like [to] start a project where a project might be an input,
+  and the input reads just enough for it to sound like as if the user wrote it themselves without going
+  through the library or the composer. This requires a little bit of inference, but I'm OK with that."
+- Where it ends: "In Plan, to look it over." Hard cases: "Ask a plain follow-up."
+- Language: "Ensure that this composer uses natural language and framing based on the user's decisions, so
+  it reads naturally and sharpens its language over time based on user input"; mechanism chosen: "It uses
+  what I just said" (one sitting; nothing stored).
+- Phrasing: "We can pull in any natural language libraries that could resolve basic phrasing, or we can
+  implement it ourselves using a simple heuristic for things like pluralization, prepositions, nouns,
+  present progressives, etc."
+- Wording: "Your words are fine, as long as … it's clear how those questions map to our constructs, and
+  they allow enough inputs to contextualize it that would make it sound natural … learn to play piano,
+  sounds a lot better, provided we accept those inputs … It doesn't have to sound like them. It just has to
+  use their inputs to sound natural and express what the routine is about."
+- The New sheet: "Just the name isn't very expressive. It should read something like, I'll define it
+  myself, or from scratch. Something that expresses you're going to start from zero. And when nothing is
+  recognized, work it out is fine, or figure it out as you go."
+- Asked for a small study of adjacent products' phrasing ("Let's do some research, small, quick research on
+  adjacent products to determine proper phrasing"); B-19's wording was revised from it (not yet seen by
+  the owner): "What do you want to do?", "Continue", "Skip the rest", and the questions reworded.
+- D-26, asked in chat 2026-11-28 ("Build B-19, slice 1?"): "Build slice 1" — after F-1, F-2 and P-113, with
+  a UI audit of its written screens first.
+Led to: B-19 (docs/product/briefs/B-19-starting-with-a-composer.md); D-26 answered.
+
 ## 2026-11-28 — Rulings from the final review; onboarding through a composer
 Answered in chat on the final review's questions:
 - How a new user reaches the library: "There should be a proper on boarding process, and I believe that was

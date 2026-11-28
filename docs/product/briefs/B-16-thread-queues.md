@@ -181,8 +181,9 @@ Research a question                          asks {question} · gives {answer}
   chevron, so it does not read as broken. *(The words are a designer's ruling.)*
 - **Which shape, in the person's terms:** is there something to write after the smaller ones come
   back? If yes, the routine calls itself; if no, it is a list given again. The owner does both
-  ("Both, depending"), so the list given again is built first and the self-call when a routine of
-  theirs needs an answer to wait on its sub-answers.
+  ("Both, depending"), so the list given again was built first. **Unparked 2026-11-28**
+  (owner: "Unpark self-calls"): the library's "Find out ▢" calls itself and needs its inputs passed
+  in. It is roadmap item P-113.
 - **When to use which:** a routine that calls itself when each item may raise more of the same and
   the parent needs the results; a for each whose list is given again when the work is flat and taken
   as it comes ("Work it out as you go").

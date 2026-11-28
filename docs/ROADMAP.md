@@ -43,16 +43,14 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### F-1 Final review fixes: engine and stored data `[data]` M
+### F-3 Final review fixes held by older tests `[data]` S
 *Status:* in-progress
-*Why:* the final adversarial review (owner, 2026-11-27: "defer all auditing at the end in one batch
-review"): `.polish/product/final-audit-engine.md` and `final-audit-storage.md`; owner rulings 2026-11-28.
-*Done when:* every reproduced data-loss and rule-break finding in those two reports is fixed with a test
-that was red first (Back after a for each, Jump discarding silently, values doubled on a redo, Back across
-a round, Remove in Plan, See ahead drafts on Pause/Back/Jump/Plan, finished vs stopped, rebuilt records
-dropping unknown fields, kept-list refs and caps, requeue over unreadable values, Undo of a take-up, Copy's
-shared breakdown, an older open tab wiping newer shapes); Home's queue steps into a call's first step;
-`verify.sh --full`.
+*Why:* F-1 built four owner-ruled fixes that existing tests pin the other way (kept as patches in
+`.polish/product/f1-blocked/`): Back across a "Repeat from here" round keeps values (owner 2026-11-28);
+removing in Plan the call the run is inside hands its values back (owner 2026-11-27); a `queue` this
+version can't read is kept; Home's queue steps into a call's first step (owner 2026-11-28).
+*Done when:* the four patches applied, the pinned tests rewritten to the rulings and marked; the panel's
+"Back to …" names where Back lands; implicated specs.
 
 ### F-2 Final review fixes: surfaces, library and short text `[ux]` `[a11y]` M
 *Status:* todo
@@ -360,6 +358,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-28 · F-1 — final review fixes, engine and stored data: Back after a for each keeps every item's value; a Jump forward collects for each rounds and joins In any order blocks, a Jump back says what it dropped; a redo replaces only its own share of a joined list (`givers` per item); removing in Plan the for each or In any order the run is inside hands values back; See ahead drafts are kept (session only) across Pause, Back, Jump and Plan; a part ended by Step out of its last call reads finished; Start/Next on an unreadable parts record say so; Copy gives each shared breakdown its own copy; rebuilt records (parts, kept-list refs, Jump by path, Start over) keep what this version can't read; an oversized kept list is locked, never cut; Undo of a take-up is exact. Left: an older build open in another tab (owner, with the PWA update flow); four fixes held by older tests → F-3. evidence: f1 domain + store tests (26 red at base), F-1 persistence block (7 red at base), go-chunks drafts e2e, `verify.sh --full` (971 s). audit: 25 reported · 22 reproduced · 18 fixed · 7 deferred (the final review, `.polish/product/final-audit-engine.md`, `final-audit-storage.md`).
 - 2026-11-28 · P-104, P-105, P-106 — the library (B-17 slices 1–4): My routines gains Yours | Library (opens on Library while Yours is empty; Find shows both); 15 methods and 5 templates ship in the export format and pass the import check; a row shows one line on what it is for and opens a preview with Copy (one write, one Undo, brings what it calls by name, theirs used where the name exists), Open yours, or Copy… for templates (a name in use is refused); "@" and Add's "a routine" list Yours and Library under headings, a library row's Copy and add copies and adds in one Undo, and Return never picks a library row. A test fails the build if any library routine breaks the import check or the house style (docs/product/library.md). evidence: library tests + persistence, go-library and go-templates specs at 390×844 and 195×422, 149 implicated e2e, 1243 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-28 · P-99 — In any order: Plan's Add makes an In any order block of parts (inside it, Add a part); on the runner the parts are listed and the filled button reads Start/Resume <part>; each part keeps its own place and values (put down and handed back, never seen by another part); the pull-up panel and a home tile's ··· show where every part stands at every level (first / at <step> / finished / stopped) and tapping one moves there; the step after the block can't be reached until every part has returned or been stopped; what parts give under one name is collected into one list in order given. Stored as a breakdown with `any: true` plus a parts record (older builds read a breakdown; no migration). Parked by the owner: joins that reopen. Also fixes four See ahead value-loss bugs (typing over gets "Changed {name}" with Undo; an empty draft means unchanged; a refused draft refuses Next and says so; Step out keeps or names drafts). evidence: golden p99-* frozen from 475e70d (with what the old build shows), anyOrder (23) + golden (10) + persistence (6) + p112 tests, go-any-order spec at 390×844 and 195×422, 189 implicated e2e, 1210 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-28 · P-112 — See ahead: a toggle in the runner's bottom bar (off: one step as before); on, the steps in view are one condensed sheet (16 px rows, a giving step's field on one line), a dashed "then: <words>" row pulls the next step in and Fewer takes it back, steps with insides open in place as an outline (P-111's control), spacing tightens with more rows but never below 48 px targets, then scrolls; rows follow the engine's own Next; Next takes everything in view as done in one move with one Undo ("Took N steps as done"); nothing stored. evidence: chunk (16) + store (2) tests, go-chunks spec at 390×844 and 195×422, implicated runner specs, 1166 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).

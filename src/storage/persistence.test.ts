@@ -1628,6 +1628,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       tapped: [],
       // P-102: the notice's × (session only: it puts the notice away, as a tap would).
       hideNotice: [],
+      // F-1 (engine #6): the runner's See ahead view, kept per run and place while the runner is away (session only).
+      setSeeAhead: ['r1', { on: true }],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>
@@ -5448,6 +5450,232 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(store.getState().data).toEqual(file.data);
       expect(await order(await onDisk())).toEqual(['Routine C', 'Routine B', 'Routine A']);
       expect(JSON.parse(toBackup(store.getState().data)).data).toEqual(file.data);
+    });
+  });
+
+  // ───────── F-1: who gave each item of a list ─────────
+  describe('F-1: who gave each item of a list (`givers`) — collected by a for each, joined by an In any order block — and the parts Back puts down survive reload, journal replay, the fallback, undo, export and import; givers an older build left out of line are read as none and nothing is rewritten', () => {
+    type Ids = { drawing: string; block: string; row: string; find: string; draw: string; runId: string };
+    const itemsOf = (data: { routines: Record<string, Record<string, unknown>> }, id: string) => data.routines[id].items as Record<string, unknown>[];
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * Through the store's actions, as a person would: New "Drawing practice"; "Find reference photos" gives {photos};
+     * "Warm up the hand" gives {drawing}; Add's "For each…" makes "For each photo in {photos}", inside it "Draw {photo}"
+     * gives {drawing}; "Rank the {drawing}" after it. Started: two photos, "warm-up", "dancer sketch", "boxer sketch" —
+     * the run on "Rank": one list of three, given by three givers.
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const made = g().createRoutine('Drawing practice');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      const drawing = made.routineId;
+      const all = [g().editRoutine(drawing, { kind: 'addStep', text: 'Find reference photos' }), g().editRoutine(drawing, { kind: 'addStep', text: 'Warm up the hand' })];
+      const [find, warm] = itemsOf(g().data, drawing).map((i) => i.id as string);
+      all.push(g().editRoutine(drawing, { kind: 'gives', item: find, name: 'photos' }), g().editRoutine(drawing, { kind: 'gives', item: warm, name: 'drawing' }), g().editRoutine(drawing, { kind: 'addEach', item: 'photo', list: 'photos' }));
+      const row = itemsOf(g().data, drawing)[2] as { id: string; ref: string };
+      all.push(g().editRoutine(row.ref, { kind: 'addStep', text: 'Draw {photo}' }));
+      const draw = itemsOf(g().data, row.ref)[0].id as string;
+      all.push(g().editRoutine(row.ref, { kind: 'gives', item: draw, name: 'drawing' }), g().editRoutine(drawing, { kind: 'addStep', text: 'Rank the {drawing}' }));
+      const started = g().startRoutine(drawing);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      const runId = started.runId;
+      all.push(g().typeList(runId, find, 'photos', ['the dancer', 'the boxer']), g().nextStep(runId));
+      all.push(g().typeValue(runId, warm, 'drawing', 'warm-up'), g().nextStep(runId));
+      all.push(g().typeValue(runId, draw, 'drawing', 'dancer sketch'), g().nextStep(runId));
+      all.push(g().typeValue(runId, draw, 'drawing', 'boxer sketch'), g().nextStep(runId));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { drawing, block: row.ref, row: row.id, find, draw, runId };
+    }
+    const isAsBuilt = (data: { runs: Record<string, Record<string, unknown>> }, ids: Ids) => {
+      const values = data.runs[ids.runId].values as { name: string; items: string[]; level: number; givers?: unknown[] }[];
+      const drawn = values.find((v) => v.name === 'drawing')!;
+      expect([drawn.items, drawn.level]).toEqual([['warm-up', 'dancer sketch', 'boxer sketch'], 0]);
+      expect(drawn.givers).toEqual([null, { by: `${ids.row}#0`, item: ids.draw }, { by: `${ids.row}#1`, item: ids.draw }]);
+    };
+    const words = async (data: unknown, ids: Ids) => {
+      const { runnerView } = await import('@/domain/runView');
+      const v = runnerView(data as never, ids.runId)!;
+      return { step: v.step.parts.map((p) => ('text' in p ? p.text : `{${p.name}}`)).join(''), field: v.fields.find((f) => f.name === 'drawing')?.text };
+    };
+    /** Back into the loop, Back to the first photo, its drawing redone, on to "Rank": one list, the first photo's share replaced. */
+    const redo = (store: Store, ids: Ids) => {
+      const g = () => store.getState();
+      const all = [g().backTo(ids.runId), g().backTo(ids.runId), g().typeValue(ids.runId, ids.draw, 'drawing', 'dancer redrawn'), g().nextStep(ids.runId), g().nextStep(ids.runId)];
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+    };
+
+    it('reload: saved to SQLite with who gave each item — the same after a reload, and Back into the loop reads each photo’s drawing from it', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const data = store.getState().data;
+      isAsBuilt(data as never, ids);
+      expect(await words(data, ids)).toMatchObject({ step: 'Rank the warm-up, dancer sketch and boxer sketch' });
+      expect(await onDisk()).toEqual(data);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      expect(await words(store.getState().data, ids)).toEqual({ step: 'Draw the boxer', field: 'boxer sketch' });
+      // Back writes no value (the round's drawing is read from the list in place).
+      expect(store.getState().data.runs[ids.runId].values).toEqual(data.runs[ids.runId].values);
+      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      expect(await words(store.getState().data, ids)).toEqual({ step: 'Draw the dancer', field: 'dancer sketch' });
+      await tick(30);
+      store = await reload();
+      expect(await words(store.getState().data, ids)).toEqual({ step: 'Draw the dancer', field: 'dancer sketch' });
+      const g = () => store.getState();
+      expect([g().typeValue(ids.runId, ids.draw, 'drawing', 'dancer redrawn'), g().nextStep(ids.runId), g().nextStep(ids.runId)].map((r) => r.ok)).toEqual([true, true, true]);
+      expect(await words(store.getState().data, ids)).toMatchObject({ step: 'Rank the warm-up, dancer redrawn and boxer sketch' });
+      await tick(30);
+      expect(await onDisk()).toEqual(store.getState().data);
+      store = await reload();
+      expect(await words(store.getState().data, ids)).toMatchObject({ step: 'Rank the warm-up, dancer redrawn and boxer sketch' });
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), all of it is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      redo(store, ids);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const data = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      expect(await words(store.getState().data, ids)).toMatchObject({ step: 'Rank the warm-up, dancer redrawn and boxer sketch' });
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('the localStorage fallback keeps it, and moves it into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const data = store.getState().data;
+      isAsBuilt(JSON.parse(env.ls.get('wanderment')!).state.data, ids);
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      expect(store.getState().data).toEqual(data);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(data);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('undo of a Jump forward out of the loop (it collected the round it was in): taken back on screen and on disk', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      expect(store.getState().typeValue(ids.runId, ids.draw, 'drawing', 'boxer redrawn').ok).toBe(true);
+      await tick(30);
+      const before = store.getState().data;
+      const rank = itemsOf(before as never, ids.drawing)[3].id as string;
+      expect(store.getState().jumpTo(ids.runId, { path: [rank] }).ok).toBe(true);
+      expect(await words(store.getState().data, ids)).toMatchObject({ step: 'Rank the warm-up, dancer sketch and boxer redrawn' });
+      await tick(30);
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(store.getState().data).toEqual(before);
+      expect(await onDisk()).toEqual(before);
+    });
+
+    it('export → import: who gave each item goes out and comes back exactly, and Back reads from it after the import', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(store.getState().data);
+      const file = JSON.parse(json);
+      isAsBuilt(file.data, ids);
+      expect(previewImport(json).plan).toMatchObject({ identical: true });
+      // Into an emptied app: the same data, after a reload.
+      expect(store.getState().replaceData((await import('@/domain/types')).emptyData())).toBe(true);
+      await tick(30);
+      expect(confirmImport(previewImport(json)).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      expect(await words(store.getState().data, ids)).toEqual({ step: 'Draw the boxer', field: 'boxer sketch' });
+    });
+
+    it('givers an older build left out of line with the items (it added one without them) load as stored, are not read, and nothing is written', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const data = JSON.parse(JSON.stringify(store.getState().data));
+      const drawn = (data.runs[ids.runId].values as { name: string; items: string[] }[]).find((v) => v.name === 'drawing')!;
+      drawn.items.push('an older build’s sketch');
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRuns: [data.runs[ids.runId]] } as never);
+      db.close();
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      expect(await onDisk()).toEqual(data);
+      expect(await words(store.getState().data, ids)).toMatchObject({ step: 'Rank the warm-up, dancer sketch, boxer sketch and an older build’s sketch' });
+      // Back into the loop: nothing is read from them (the round's field is empty), and nothing is lost.
+      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      expect(await words(store.getState().data, ids)).toEqual({ step: 'Draw the boxer', field: '' });
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      expect(await words(store.getState().data, ids)).toMatchObject({ step: 'Rank the warm-up, dancer sketch, boxer sketch and an older build’s sketch' });
+    });
+
+    it('In any order: Back onto the block’s row puts each part down with what it gave; saved, the same after a reload, and passing it again replaces the join', async () => {
+      fakeLocks();
+      let store = await load();
+      const g = () => store.getState();
+      const made = g().createRoutine('Hands');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      const hands = made.routineId;
+      const all = [g().editRoutine(hands, { kind: 'addAny', parts: ['Study', 'Master copy'] }), g().editRoutine(hands, { kind: 'addStep', text: 'Compare {copies}' })];
+      const row = itemsOf(g().data, hands)[0] as { id: string; ref: string };
+      const [study, copy] = itemsOf(g().data, row.ref).map((i) => i.id as string);
+      all.push(g().editRoutine(row.ref, { kind: 'gives', item: study, name: 'copies' }), g().editRoutine(row.ref, { kind: 'gives', item: copy, name: 'copies' }));
+      const started = g().startRoutine(hands);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      const runId = started.runId;
+      all.push(g().takeUpPart(runId, 0, study), g().typeValue(runId, study, 'copies', 'a study'), g().nextStep(runId));
+      all.push(g().takeUpPart(runId, 0, copy), g().typeValue(runId, copy, 'copies', 'a copy'), g().nextStep(runId));
+      all.push(g().backTo(runId));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      await tick(30);
+      const data = g().data;
+      const parts = (data.runs[runId].frames as { parts?: { list: { item: string; values?: { items: string[] }[] }[] } }[])[0].parts!;
+      expect(parts.list.map((p) => [p.item, p.values?.map((v) => v.items)])).toEqual([
+        [study, [['a study']]],
+        [copy, [['a copy']]],
+      ]);
+      expect(await onDisk()).toEqual(data);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      const { runnerView } = await import('@/domain/runView');
+      expect(store.getState().takeUpPart(runId, 0, copy).ok).toBe(true);
+      expect(runnerView(store.getState().data, runId)!.fields.find((f) => f.name === 'copies')?.text).toBe('a copy');
+      expect([store.getState().typeValue(runId, copy, 'copies', 'a better copy'), store.getState().nextStep(runId), store.getState().doneLevel(runId)].map((r) => r.ok)).toEqual([true, true, true]);
+      const step = runnerView(store.getState().data, runId)!.step.parts.map((p) => ('text' in p ? p.text : `{${p.name}}`)).join('');
+      expect(step).toBe('Compare a study and a better copy');
+      await tick(30);
+      expect(await onDisk()).toEqual(store.getState().data);
     });
   });
 });

@@ -5,7 +5,7 @@
  * undefined, and the screen goes home.
  */
 import { routineInWords } from './atPick';
-import { activePart, anyBlock, backUp, Part, partsJoined, partsOf, partToTakeUp, advance, canCall, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, queueRuns, givenAhead, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
+import { activePart, anyBlock, backUp, lockedParts, Part, partsJoined, partsOf, partToTakeUp, advance, canCall, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, queueRuns, givenAhead, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
 import { hash } from './hash';
 import { addressesIn, PlaceShown, placesOf, placesShown, tidyPlaceText } from './places';
 import { Data, Id } from './types';
@@ -376,6 +376,7 @@ export interface Tile {
   part?: string;
 }
 
+
 /** A routine and its smaller steps, as stored (each once). */
 function bodyOf_(data: Data, id: Id): Seq[] {
   const out: Seq[] = [];
@@ -639,7 +640,7 @@ export interface RunnerView {
    * is 'take'): the part put down last ("Resume <part>"), else the first not taken up ("Start <part>"). Once every part
    * has returned or been stopped, the filled button is Next (or Done) again: the block is passed.
    */
-  choose?: { level: number; parts: PartShown[]; take?: { part: Id; words: string; resume: boolean } };
+  choose?: { level: number; parts: PartShown[]; take?: { part: Id; words: string; resume: boolean }; locked?: true };
   /** P-96: pressing it ends the whole run (`nextStep` then answers `home: true`). */
   ends: boolean;
   /**
@@ -698,12 +699,15 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
   // P-99: on an In any order block's row, choosing a part.
   const choosing = !!item && !!anyBlock(data, run, item);
   const L = frames.length - 1;
-  const takeId = choosing && !partsJoined(data, run, frames, L) ? partToTakeUp(data, run, frames, L) : undefined;
+  // (F-1, engine #8: with a record of parts this version cannot read, no part is offered — taking one up is refused.)
+  const locked = choosing && lockedParts(frames[L]);
+  const takeId = choosing && !locked && !partsJoined(data, run, frames, L) ? partToTakeUp(data, run, frames, L) : undefined;
   const takeItem = takeId ? view(data, run, anyBlock(data, run, item)!.id)?.items.find((x) => x.id === takeId) : undefined;
   const choose = choosing
     ? {
         level: L,
         parts: partsTree(data, runId).find((g) => g.level === L)?.parts ?? [],
+        ...(locked && { locked: true as const }),
         ...(takeItem && { take: { part: takeItem.id, words: wordsOf(data, run, takeItem), resume: !!partsOf(frames[L])?.list.find((p) => p.item === takeItem.id)?.frames } }),
       }
     : undefined;

@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 
+import type { Drafts } from '@/domain/chunk';
 import { applyUndo, sameValue, UndoEntry, undoEntry } from '@/domain/diff';
 import { Settings } from '@/domain/migrate';
 import { LogInput, logActivity, newId } from '@/domain/model';
-import { activePart, ChunkGiven, currentRun, place, editRoutine, Given, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
+import { activePart, ChunkGiven, currentRun, holdsLockedParts, place, editRoutine, Given, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
 import { copiedWords, Copied, copyAndAdd, copyFromLibrary } from '@/domain/library';
 import { Acted, noticeFor, runnerView, whatChanged } from '@/domain/runView';
 import { Data, emptyData, Id, Run } from '@/domain/types';
@@ -153,6 +154,13 @@ interface State {
   runNotice?: RunNotice;
   /** B-11 (P-86), P-90: Next, Done, Pause, Resume, Step in or Plan pressed while reconnecting. Session only. */
   toVerb?: ToVerb;
+  /**
+   * F-1 (engine #6): the runner's See ahead view, per run — on or off, and at each place it was looked at from, how many
+   * steps were in view, which were open and what was typed (drafts). Kept here, not in the screen, so Pause, Plan and
+   * home (the runner goes away) and a move elsewhere never drop what was typed: back at that place, it is there again.
+   * Nothing of it is stored on disk; session only.
+   */
+  seeAhead: Record<Id, SeeAhead>;
 
   /*
    * Data-changing actions go through one gate: while the page doesn't hold the data (`holdsData`)
@@ -301,6 +309,21 @@ interface State {
   tapped: () => void;
   /** The data is back: applies the press kept while reconnecting, once, if its run is as it was. */
   verbMarked: () => void;
+  /** F-1 (engine #6): See ahead turned on or off for a run, or its view at a place changed (`seeAhead`). Changes no data. */
+  setSeeAhead: (runId: Id, patch: { on?: boolean; at?: string; chunk?: ChunkState }) => void;
+}
+
+/** F-1 (engine #6): the See ahead view at one place — how many steps are in view, which are open, what was typed. */
+export interface ChunkState {
+  n: number;
+  open: string[];
+  drafts: Drafts;
+}
+/** F-1 (engine #6): a run's See ahead view (`State.seeAhead`). */
+export interface SeeAhead {
+  on: boolean;
+  /** By place (`chunkAt`). */
+  at: Record<string, ChunkState>;
 }
 
 const emptyDraft = (): Draft => ({ text: '', toIds: [] });
@@ -383,6 +406,8 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
     if (r.running) useStore.setState({ runNotice: { verb: verb.kind, text: `${r.running.name} is running`, label: '' } });
     // P-98: the depth refusal, and a removed routine, in words.
     else if (verb.kind === 'stepIn' && (r.reason === 'too-deep' || r.reason === 'gone')) useStore.setState({ runNotice: { verb: 'stepIn', text: r.reason === 'too-deep' ? STEP_IN_TOO_DEEP : 'That routine was removed', label: '' } });
+    // F-1 (engine #8): parts started in a newer version — taking one up, or going past the block, is refused: said.
+    else if ((r.reason === 'cannot' || r.reason === 'parts') && runId !== undefined && holdsLockedParts(s.data, runId)) useStore.setState({ runNotice: { verb: verb.kind, text: PARTS_NEWER, label: '' } });
     // P-99 (repro 3): a value typed in See ahead's fields that the engine will not keep — said; nothing moved, the words stay.
     else if (r.refusedValue) useStore.setState({ runNotice: { verb: verb.kind, text: `Couldn’t keep {${r.refusedValue}}`, label: '' } });
     return { ok: false, reason: r.reason ?? 'cannot', ...(r.running && { running: r.running }) };
@@ -454,6 +479,19 @@ const LABEL_COPY = 'Copy';
 // (P-108: and + Add on a kept list — from Plan or a tile, said with its Undo.)
 const PLACE_EDITS = new Set<RoutineEdit['kind']>(['addPlace', 'changePlace', 'movePlace', 'removePlace', 'keptList']);
 
+/** F-1 (engine #8): what a refusal by a record of parts this version cannot read says. */
+export const PARTS_NEWER = 'These parts were started in a newer version of the app';
+/**
+ * F-1 (storage F7): a value typed leaves the Undo slot alone ('keep') — unless the Undo there puts back this run's record
+ * of In any order parts (a part taken up, put down, joined): that Undo puts the parts' places back whole but the values
+ * entry by entry, so what was typed since would land in another part's thread. Typing then empties the slot.
+ */
+function typingKeeps(runId: Id): 'keep' | 'clear' {
+  const u = useStore.getState().undo?.runs?.[runId];
+  const parts = (r: Run | null | undefined) => Array.isArray(r?.frames) && (r!.frames as { parts?: unknown }[]).some((f) => f && typeof f === 'object' && f.parts !== undefined);
+  return u && (parts(u.before) || parts(u.after)) && JSON.stringify(u.before?.frames) !== JSON.stringify(u.after?.frames) ? 'clear' : 'keep';
+}
+
 /** P-98: what Step in says when the run is as deep as it can go. */
 export const STEP_IN_TOO_DEEP = 'Can’t step in any deeper';
 
@@ -524,6 +562,7 @@ export const useStore = create<State>()((set, get) => ({
   whyOfferOff: false,
   firstRunDone: false,
   storage: { state: 'loading' },
+  seeAhead: {},
 
   logMarked: () => {
     const { toLog, draft, data } = get();
@@ -628,8 +667,8 @@ export const useStore = create<State>()((set, get) => ({
   backTo: gated<State['backTo']>(refused, (runId) => act({ kind: 'back', runId }, 'clear')),
   restartRun: gated<State['restartRun']>(refused, (runId, level) => act({ kind: 'restart', runId, level }, 'set')),
   editRoutine: gated<State['editRoutine']>(refused, (routineId, edit) => act({ kind: 'editRoutine', routineId, edit }, 'set')),
-  typeValue: gated<State['typeValue']>(refused, (runId, itemId, name, text, refs) => act({ kind: 'value', runId, name, text, item: itemId, ...(refs && { refs }) }, 'keep')),
-  typeList: gated<State['typeList']>(refused, (runId, itemId, name, items, refs) => act({ kind: 'value', runId, name, text: items.join('\n'), items, item: itemId, ...(refs && { refs }) }, 'keep')),
+  typeValue: gated<State['typeValue']>(refused, (runId, itemId, name, text, refs) => act({ kind: 'value', runId, name, text, item: itemId, ...(refs && { refs }) }, typingKeeps(runId))),
+  typeList: gated<State['typeList']>(refused, (runId, itemId, name, items, refs) => act({ kind: 'value', runId, name, text: items.join('\n'), items, item: itemId, ...(refs && { refs }) }, typingKeeps(runId))),
   changeValue: gated<State['changeValue']>(refused, (runId, name, text) => act({ kind: 'value', runId, name, text }, 'set')),
   typedOver: gated<State['typedOver']>(refused, typedOverValue),
   moveInQueue: gated<State['moveInQueue']>(refused, (runId, to) => act({ kind: 'queue', runId, to }, 'set')),
@@ -655,6 +694,13 @@ export const useStore = create<State>()((set, get) => ({
     }),
   // Audit F1: the notice is put away, never its Undo (that goes only with the next change).
   tapped: () => set((s) => (s.runNotice && !s.runNotice.quiet && !s.runNotice.hidden ? { runNotice: { ...s.runNotice, hidden: true } } : {})),
+
+  setSeeAhead: (runId, patch) =>
+    set((s) => {
+      const had = s.seeAhead[runId] ?? { on: false, at: {} };
+      const next: SeeAhead = { on: patch.on ?? had.on, at: patch.at !== undefined && patch.chunk ? { ...had.at, [patch.at]: patch.chunk } : had.at };
+      return { seeAhead: { ...s.seeAhead, [runId]: next } };
+    }),
 
   verbMarked: () => {
     const { toVerb, data } = get();

@@ -89,7 +89,10 @@ routines in their own words — and runs them with the person, one small step at
   list changes**: a step inside the block that gives its list gives it where the list is held, so the block **keeps
   its place** (the item it is on, by its words), **carries on to items added**, and **ends past the last**. The list's
   value sheet shows its items as rows, with no Keep. Step out leaves the loop (what this item gave is collected),
-  with "Left For each concern" and Undo; Start over on its level starts from the first item. A for each keeps its
+  with "Left For each concern" and Undo — and *(F-1)* so does a Jump forward past it. *(F-1, the owner: "Back keeps
+  it")* Back from the step after the block goes in, onto its last item's last step; Back from an item's first step
+  goes to the item before's last step. A round gone through again shows what it gave then in its steps' fields (read
+  from its share of the list, not stored again); its end replaces that share, in its place. Start over on its level starts from the first item. A for each keeps its
   place by **the list it last saw** (`eachSeen` on its level) compared with the list now — not by its item's words
   alone — so an item taken out before it, a repeated item or one reworded in case never makes it skip or repeat one.
   *(P-108, built; B-16)* **A list of its own**: For each…'s sheet also takes a name for a list the block declares
@@ -124,8 +127,13 @@ routines in their own words — and runs them with the person, one small step at
   after** · a line · **Remove**. **Running:** arriving rests on its row, which offers the parts (each with where it
   stands); a part taken up runs as its own thread — its **own place and values** (a part broken down goes in at its first
   step; parts never read what another gave) — and the filled button reads **Start <part>** / **Resume <part>** (the part
-  put down last). Next past a part's last step **returns** it ("finished"); Step out of it **stops** it ("stopped"); Back
-  from a part goes to the row, putting it down where it is. **The step after the block is reached only when every part has
+  put down last). Next past a part's last step **returns** it ("finished"); Step out of it **stops** it ("stopped") —
+  *(F-1)* Step out of a call inside a part leaves only the call; Back
+  from a part goes to the row, putting it down where it is. *(F-1)* Back onto the row from the step after the block puts
+  each part that gave something down with what it gave; passing the block again joins anew in place of it. A Jump
+  forward past the block, or a Plan Remove of it while inside, joins as Step out does; a Jump back past it says what it
+  drops ("Cleared {name}", with the Jump's Undo). A record of parts saved by a newer version offers no part and says so
+  ("These parts were started in a newer version of the app"). **The step after the block is reached only when every part has
   returned or been stopped** (Next on the row is refused until then); Step out on the row — or on a step part — leaves the
   block, stopping the rest (parts cannot outlive it), on the first layer too. What the parts give under one name is
   **collected into one list in the order given** after the block. Each part's place, values and end are kept on the
@@ -147,7 +155,9 @@ routines in their own words — and runs them with the person, one small step at
   **own copy** (changed inside, the caller's stays), and the values row says where it came from ("· from <step>").
   Leaving it (Next past its last step, or Step out) **hands back** only what its row gives; its other names stay
   its own. One name given more than once in a routine — two calls, or a call and a step — is **one list**, in the
-  order given. **A step owes what its insides give**: Next on a call (or a step broken down: only names read
+  order given. *(F-1)* Each item of that list keeps who gave it (`givers`, beside the items; an older build leaves
+  them as they are, and ones out of line are not read), so **a row that gives again replaces its own share**, never adds
+  it twice; stepped into again after Back, what the call handed back is in its giving steps' fields, to keep or change. **A step owes what its insides give**: Next on a call (or a step broken down: only names read
   outside it) not stepped into, or Step out before its giving steps, first shows a sheet with a field for each
   owed name still empty and the filled move (Next / Step out) — never anything extra on the step itself (the
   owner: no options while running a step); left empty, a later step asks. Renaming a name renames it in the
@@ -395,9 +405,11 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   under 48 px — past that the column scrolls. **Next takes everything in view as done**: one move, with what was typed,
   to the step after the last one shown; over more than one step it is said ("Took 3 steps as done") with one Undo (it
   is a skip); the chunk then resets to one step. Step in still steps into the first step in view. What a passed chunk
-  gave stays (the place is below it). Nothing is stored: what is typed is held by the screen until Next; a move leaves one
-  step in view (Undo of a Next brings back the steps in view as they were, with what was typed), and leaving the
-  runner (or a reload) turns the view off. A screen reader hears how many steps are in view as it changes.
+  gave stays (the place is below it). Nothing is stored: what is typed is held until Next; a move leaves one
+  step in view (Undo of a Next brings back the steps in view as they were, with what was typed). *(F-1, final review: typed
+  words vanished on Pause)* The view and what was typed are kept for the session, per run and per place — across Pause,
+  Plan, home and a move elsewhere: back at that place, See ahead is on and the words are where they were typed. A
+  reload turns the view off. A screen reader hears how many steps are in view as it changes.
 - **The note always fits**, keyboard up included: the type steps down first, then the note shrinks
   to the space. Words too long for it scroll inside it and Plan carries a quiet mark (breaking a
   step down is planning).

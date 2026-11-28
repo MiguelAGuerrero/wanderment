@@ -11,7 +11,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { goBackup, importBackup, RoutineSpec, runner, settled } from './goFixture';
+import { goBackup, home, importBackup, pauseRun, RoutineSpec, runner, settled } from './goFixture';
 
 const SHOTS = '.polish/current/P-112/shots';
 const PAPER = 'rgb(244, 241, 232)';
@@ -233,6 +233,28 @@ for (const [label, size] of [
       await expect(c.words).toHaveText(['Ask for a review']);
       await expect(c.toggle).toHaveAttribute('aria-pressed', 'true');
       await expect(r.context).toContainText('Get reviewed');
+    });
+
+    // F-1 (final review, engine #6): what was typed in the view's fields never vanishes silently — the runner goes away on
+    // Pause (home) and comes back on Resume with See ahead on and the words where they were typed; Next then gives them.
+    test('drafts typed in See ahead are there after Pause and Resume, and Next gives them', async ({ page }) => {
+      await importBackup(page, backup('post'));
+      await page.goto('./go');
+      const r = runner(page);
+      const c = chunk(page);
+      await c.toggle.click();
+      await c.then.click();
+      await c.input('subject').fill('tides');
+      await expect(c.words).toHaveText(['Warm up', 'Choose a subject']);
+      await pauseRun(page);
+      await home(page).screen.getByTestId('go-resume').click();
+      await expect(settled(page, 'runner')).toBeVisible();
+      await expect(c.toggle).toHaveAttribute('aria-pressed', 'true');
+      await expect(c.words).toHaveText(['Warm up', 'Choose a subject']);
+      await expect(c.input('subject')).toHaveValue('tides');
+      await r.next.click();
+      await expect(c.words).toHaveText(['Draft tides']);
+      await expect(r.values).toHaveText([/subject.*tides/]);
     });
 
     test('as rows are added the spacing tightens in steps, never under 48 px targets, then the column scrolls', async ({ page }) => {

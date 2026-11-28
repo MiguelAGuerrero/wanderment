@@ -101,10 +101,14 @@ export function Runner({ runId }: { runId: string }) {
    * are open, what was typed — belongs to the place it was chosen at: a move (Next, Step in, Undo) resets it to one step.
    * Nothing of it is stored.
    */
-  const [ahead, setAhead] = useState(false);
+  // (F-1, engine #6: kept in the store, per run and per place — Pause, Plan and home take the runner away, and a move
+  // elsewhere goes on from another place, but what was typed stays at the place it was typed at, there again on return.)
+  const seen_ = useStore((s) => s.seeAhead[runId]);
+  const ahead = !!seen_?.on;
+  const setAhead = (on: boolean) => act().setSeeAhead(runId, { on });
   const here = chunkAt(data, runId);
-  const [chunkState, setChunk] = useState<{ at: string; n: number; open: string[]; drafts: Drafts }>({ at: '', n: 1, open: [], drafts: {} });
-  const chunk = chunkState.at === here ? chunkState : { at: here, ...FRESH };
+  const chunk = { at: here, ...(seen_?.at[here] ?? FRESH) };
+  const setChunk = (c: { at: string; n: number; open: string[]; drafts: Drafts }) => act().setSeeAhead(runId, { at: c.at, chunk: { n: c.n, open: c.open, drafts: c.drafts } });
   // (P-99: not on an In any order block's row — the parts to choose are the runner's there.)
   const choosing = !!v?.choose;
   const cv = useMemo(() => (ahead && running && !v?.planning && !choosing ? chunkView(data, runId, chunk.n, new Set(chunk.open), chunk.drafts) : undefined), [ahead, running, v?.planning, choosing, data, runId, chunk.n, chunk.open, chunk.drafts]);

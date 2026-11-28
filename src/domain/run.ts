@@ -471,7 +471,14 @@ function eachField(v: unknown): Seq['each'] {
   if (v.own === true || v.kept !== undefined) out.own = true;
   if (v.kept !== undefined) {
     const raw = Array.isArray(v.kept) ? v.kept : [];
-    const whole = Array.isArray(v.kept) && raw.every(text) && (v.refs === undefined || (Array.isArray(v.refs) && v.refs.length === raw.length));
+    // (F-1, storage F3/F4: and one this version could only write back cut — over MAX_ITEMS items, an item over MAX_VALUE
+    // characters, a ref in a shape it cannot read — is gone through in full and never written over.)
+    const whole =
+      Array.isArray(v.kept) &&
+      raw.every(text) &&
+      raw.length <= MAX_ITEMS &&
+      raw.every((x) => capValue(x as string) === x) &&
+      (v.refs === undefined || (Array.isArray(v.refs) && v.refs.length === raw.length && v.refs.every(refShaped)));
     out.kept = raw.filter(text);
     if (whole && Array.isArray(v.refs)) {
       const refs = v.refs.map((r, i) => readRef(r, out.kept![i]));
@@ -482,6 +489,8 @@ function eachField(v: unknown): Seq['each'] {
   return out;
 }
 
+/** F-1 (storage F3): a stored ref this version can read the shape of — none, or a routine's id and name. */
+const refShaped = (v: unknown): boolean => v === null || (isObject(v) && text(v.ref) && !!v.ref && text(v.name));
 /** P-108: a routine an item holds, as stored — its id and name, the item's words beginning with that name; else none. */
 function readRef(v: unknown, words: unknown): ListRef | null {
   if (!isObject(v) || !text(v.ref) || !v.ref || !text(v.name) || !v.name.trim() || !text(words)) return null;
@@ -498,12 +507,141 @@ export function refsOf(e: { items: string[]; refs?: unknown } | undefined): (Lis
 }
 /** P-108: a value's items and their routines, for writing: `refs` only when one of them is a routine. */
 const withRefs = (items: string[], refs: (ListRef | null)[]): { items: string[]; refs?: (ListRef | null)[] } => (refs.some(Boolean) ? { items, refs } : { items });
-/** P-108: one value's items after another's (one name given more than once is one list), the routines beside them kept. */
-function joined(a: ValueEntry, b: ValueEntry): { items: string[]; refs?: (ListRef | null)[] } {
-  const items = [...a.items, ...b.items].slice(0, MAX_ITEMS);
-  return withRefs(items, [...refsOf(a), ...refsOf(b)].slice(0, MAX_ITEMS));
+/**
+ * F-1 (engine #1, #3): who gave one item of a value that a call handed back, a for each collected or an In any order block
+ * joined — `by`, the share it is part of (the call's row; `<row>#<n>`, the for each's round n; `<row>/<part>`, the part),
+ * `item`, the step it was given at there, and `was`, its own giver there (a value handed back that was itself collected).
+ * Stored beside the items (`givers`, one per item; null: the entry's own step gave it). A row that gives again replaces
+ * its own share and no other; Back puts a share back where it was given. An older build reads the items and leaves
+ * `givers` as it is: one that no longer lines up with the items is not read (each item is then the entry's step's).
+ */
+export interface Giver {
+  by: string;
+  item: Id;
+  was?: Giver;
+}
+const isGiver = (v: unknown, depth = 0): v is Giver => isObject(v) && text(v.by) && text(v.item) && (v.was === undefined || (depth < MAX_DEPTH && isGiver(v.was, depth + 1)));
+/** F-1: an entry's givers, one per item (null: its own step's) — what can be read; one that does not line up: none. */
+export function giverList(e: ValueEntry): (Giver | null)[] {
+  const raw = (e as { givers?: unknown }).givers;
+  if (!Array.isArray(raw) || raw.length !== e.items.length || !raw.every((g) => g === null || isGiver(g))) return e.items.map(() => null);
+  return raw as (Giver | null)[];
+}
+/** F-1: an entry's refs as stored, one per item — the stored ref where it reads for its item (fields this version does not know kept), else null. */
+function rawRefs(e: ValueEntry): unknown[] {
+  const read = refsOf(e);
+  const raw = (e as { refs?: unknown }).refs;
+  return read.map((r, i) => (r && Array.isArray(raw) ? raw[i] : null));
+}
+/** F-1: one giver's items, ready to be put in a list (`putShare`). */
+interface Share {
+  items: string[];
+  refs: unknown[];
+  givers: (Giver | null)[];
+}
+/** F-1: a value given at a level, as the share `by` of a list below it (handed back, collected, joined). */
+function asShare(e: ValueEntry, by: string): Share {
+  const gs = giverList(e);
+  return { items: [...e.items], refs: rawRefs(e), givers: e.items.map((_, i) => ({ by, item: e.item, ...(gs[i] && { was: gs[i]! }) })) };
+}
+const shareOf = (e: ValueEntry, g: Giver | null) => g?.by ?? e.item;
+/**
+ * F-1: `values` with the entry at `at` (none: -1) given `share` in place of its items whose share is `mine` — where the
+ * first of those was, else before the first that is `later`, else at the end (one name given more than once is one
+ * list, in the order given). With nothing of another giver left, it is this giver's own (`base`). Nothing left: gone.
+ */
+function putShare(values: unknown[], at: number, base: Omit<ValueEntry, 'items' | 'refs'>, mine: (by: string) => boolean, share: Share, later?: (by: string) => boolean, inPlace?: ValueEntry): unknown[] {
+  // (`inPlace`: with no value stored there, the value read in place there — a for each round's share — which this keeps.)
+  const had = at >= 0 ? (values[at] as ValueEntry) : inPlace;
+  const items: string[] = [];
+  const refs: unknown[] = [];
+  const givers: (Giver | null)[] = [];
+  let pos = -1;
+  let others = false;
+  if (had) {
+    const gs = giverList(had);
+    const rs = rawRefs(had);
+    had.items.forEach((x, i) => {
+      const by = shareOf(had, gs[i]);
+      if (pos < 0 && (mine(by) || later?.(by))) pos = items.length;
+      if (mine(by)) return;
+      others = true;
+      items.push(x);
+      refs.push(rs[i]);
+      givers.push(gs[i]);
+    });
+  }
+  if (pos < 0) pos = items.length;
+  items.splice(pos, 0, ...share.items);
+  refs.splice(pos, 0, ...share.refs);
+  givers.splice(pos, 0, ...share.givers);
+  const out = [...values];
+  if (!items.length) {
+    if (at >= 0) out.splice(at, 1);
+    return out;
+  }
+  const fields = { items: items.slice(0, MAX_ITEMS), refs: refs.some(Boolean) ? refs.slice(0, MAX_ITEMS) : undefined, givers: givers.some(Boolean) ? givers.slice(0, MAX_ITEMS) : undefined };
+  const entry = had ? patched(had, others ? fields : { ...base, ...fields, changedAt: undefined }) : patched(base as ValueEntry, fields);
+  if (at >= 0) out[at] = entry;
+  else out.push(entry);
+  return out;
+}
+/** F-1: the share key of a for each's round, and the round a key is of that row (undefined: another share). */
+const roundKey = (row: Id, n: number) => `${row}#${n}`;
+const roundOf = (row: Id, by: string): number | undefined => (by.startsWith(`${row}#`) && /^\d+$/.test(by.slice(row.length + 1)) ? Number(by.slice(row.length + 1)) : undefined);
+const partKey = (row: Id, part: Id) => `${row}/${part}`;
+
+/**
+ * F-1 (engine #1, #3; "Back keeps it"): the share `by` of every value at level `b` of `frames` put back at level `L`,
+ * where it was given — as its giving step there gave it — unless that name has a value there already. `only`: just these
+ * names. The run's values; nothing written when nothing is put back.
+ */
+function restoreShare(data: Data, runId: Id, frames: Frame[], b: number, L: number, by: string, only?: Set<string>): Data {
+  const raw = own(data.runs, runId);
+  const values: unknown[] | undefined = raw && Array.isArray(raw.values) ? raw.values : undefined;
+  if (!raw || !values || !frames[b] || !frames[L]) return data;
+  const add = sharesAt(values, frames[b].seq, b, L, frames[L].seq, by, only).filter((e) => !values.some((x) => isEntry(x) && x.level === L && x.seq === e.seq && nameKey(x.name) === nameKey(e.name)));
+  return add.length ? putRun(data, patched(raw, { values: [...values, ...add] })) : data;
+}
+/** F-1: the share `by` of each value at level `b` (routine `seqB`), as given at level `L` (routine `seqL`) — one entry per name. */
+function sharesAt(values: unknown[], seqB: Id, b: number, L: number, seqL: Id, by: string, only?: Set<string>): ValueEntry[] {
+  const add: ValueEntry[] = [];
+  for (const v of values) {
+    if (!isEntry(v) || v.level !== b || v.seq !== seqB || (only && !only.has(nameKey(v.name))) || add.some((a) => nameKey(a.name) === nameKey(v.name))) continue;
+    const gs = giverList(v);
+    const rs = rawRefs(v);
+    const at = gs.flatMap((g, i) => (g?.by === by ? [i] : []));
+    if (!at.length) continue;
+    const refs = at.map((i) => rs[i]);
+    const was = at.map((i) => gs[i]!.was ?? null);
+    add.push({ name: v.name, items: at.map((i) => v.items[i]), ...(refs.some(Boolean) && { refs: refs as ListRef[] }), ...(was.some(Boolean) && { givers: was }), level: L, seq: seqL, item: gs[at[0]]!.item, at: v.at } as ValueEntry);
+  }
+  return add;
 }
 
+const inPlace = new WeakMap<object, Map<string, ValueEntry | undefined>>();
+/**
+ * F-1 (engine #1, #12; owner: "Back keeps it"): inside a for each round gone through before — Back into it, or on into it
+ * after Back — a name with no value of its own at the for each's level reads what that round gave last time: its share
+ * of the list it was collected into, below, as its giving step gave it. Read in place, never stored: giving it anew
+ * stores the round's own value, and the round's end collects that in place of its share.
+ */
+function roundValue(data: Data, run: RunState, frames: Frame[], j: number, key: string): ValueEntry | undefined {
+  const f = frames[j];
+  if (j <= 0 || !f?.from || !view(data, run, f.seq)?.each) return undefined;
+  const b = scopeLevel(data, run, frames, j - 1);
+  const src = entryAt(data, run, frames, b, key);
+  if (!src) return undefined;
+  let memo = inPlace.get(src);
+  if (!memo) inPlace.set(src, (memo = new Map()));
+  const k = `${j}|${f.seq}|${f.from}|${f.each ?? 0}`;
+  if (!memo.has(k)) memo.set(k, sharesAt([src], src.seq, src.level, j, f.seq, roundKey(f.from, f.each ?? 0))[0]);
+  return memo.get(k);
+}
+/** F-1: a name's value at level `b` of `frames`: stored there, else read in place there (`roundValue`). */
+function entryAt(data: Data, run: RunState, frames: Frame[], b: number, key: string): ValueEntry | undefined {
+  return run.values.find((v) => v.level === b && v.seq === frames[b]?.seq && nameKey(v.name) === key) ?? roundValue(data, run, frames, b, key);
+}
 /** P-108: a step that is a routine row whose routine is a value — `{name}` alone, marked `slot`. Its name; undefined for any other item. */
 export function slotOf(i: Item | undefined): string | undefined {
   if (!isStep(i) || (i as { slot?: unknown }).slot !== true) return undefined;
@@ -575,7 +713,10 @@ function readParts(v: unknown, depth: number): Parts | undefined {
     if (frames && frames.length !== (p.frames as unknown[]).length) return undefined;
     const values = p.values === undefined ? undefined : readValues(p.values);
     if (values && values.length !== (p.values as unknown[]).length) return undefined;
+    // (F-1, storage F1: what this version does not know stays on the part and on the record, written back as it was.)
+    const { item: _i, ended: _e, touchedAt: _t, frames: _f, values: _v, since: _s, ...rest } = p;
     list.push({
+      ...rest,
       item: p.item,
       ...(p.ended !== undefined && { ended: p.ended as Part['ended'] }),
       ...(text(p.touchedAt) && { touchedAt: p.touchedAt }),
@@ -584,7 +725,8 @@ function readParts(v: unknown, depth: number): Parts | undefined {
       ...(text(p.since) && { since: p.since }),
     });
   }
-  return readable({ row: v.row, list });
+  const { row: _r, list: _l, ...rest } = v;
+  return readable({ ...rest, row: v.row, list });
 }
 
 const states = new WeakMap<Run, RunState>();
@@ -1189,8 +1331,38 @@ function settlePlace(before: Data, after: Data, runId: Id, back: boolean): { dat
     if (goes && !cleared.some((c) => nameKey(c) === nameKey(v.name))) cleared.push(v.name);
     return !goes;
   });
-  if (kept.length === raw.values.length) return { data: after, cleared: [] };
-  return { data: putRun(after, patched(raw, { values: kept.length ? kept : undefined })), cleared };
+  // F-1: a Jump or Start over into a for each — onto its row, or into a round — takes the place back over that round and
+  // the ones after it: what they gave the list below goes too (an earlier build's list, given by the row with no givers,
+  // when it is the first round).
+  let out: unknown[] = kept;
+  if (back)
+    for (let i = 1; i < now.length; i++) {
+      const row = now[i].from;
+      if (!row || !view(after, run, now[i].seq)?.each) continue;
+      const k = now[i].each ?? 0;
+      const b = scopeLevel(after, run, now, i - 1);
+      out = out.flatMap((v) => {
+        if (!isEntry(v) || v.level !== b || v.seq !== now[b].seq) return [v];
+        const gs = giverList(v);
+        const mine = (by: string) => (roundOf(row, by) ?? -1) >= k || (k === 0 && by === row);
+        if (!v.items.some((_, j) => mine(shareOf(v, gs[j])))) return [v];
+        if (!cleared.some((c) => nameKey(c) === nameKey(v.name))) cleared.push(v.name);
+        const left = putShare([v], 0, v, mine, { items: [], refs: [], givers: [] });
+        return left;
+      });
+    }
+  const had: unknown[] = raw.values;
+  if (out.length === had.length && out.every((v, i) => v === had[i])) return { data: after, cleared: [] };
+  return { data: putRun(after, patched(raw, { values: out.length ? out : undefined })), cleared };
+}
+
+/** F-1 (engine #2): the names a run holds — its values and what its parts put down gave — by key. */
+function heldNames(data: Data, runId: Id): Map<string, string> {
+  const run = readRun(data, runId);
+  const out = new Map<string, string>();
+  for (const v of run?.values ?? []) out.set(nameKey(v.name), v.name);
+  for (const f of run?.frames ?? []) for (const p of f.parts && readableParts.has(f.parts) ? f.parts.list : []) for (const v of p.values ?? []) out.set(nameKey(v.name), v.name);
+  return out;
 }
 
 /**
@@ -1205,6 +1377,9 @@ export function visibleValue(data: Data, run: RunState, key: string, at: Frame[]
     // (P-110: and a value only while the step that gives it is above the place.)
     const e = run.values.find((v) => v.level === j && v.seq === at[j].seq && nameKey(v.name) === key && !hiddenOwn(data, at, j, v) && isHeld(data, run, at, v));
     if (e) return e;
+    // F-1: a for each round gone through before reads what it gave then (none of its own stored).
+    const r = j > 0 && !run.values.some((v) => v.level === j && v.seq === at[j].seq && nameKey(v.name) === key) ? roundValue(data, run, at, j, key) : undefined;
+    if (r && isHeld(data, run, at, r)) return r;
     // P-107: a for each level's item.
     const each = j > 0 ? view(data, run, at[j].seq)?.each : undefined;
     if (each && nameKey(each.item) === key) return eachValue(data, run, at, j);
@@ -1272,6 +1447,10 @@ export function valuesInPlay(data: Data, run: RunState): ValueEntry[] {
   const at = place(data, run)?.frames;
   if (!at) return [];
   const stored = run.values.filter((e) => visibleValue(data, run, nameKey(e.name), at) === e);
+  // F-1: what a for each round gone through before gave, read in place.
+  const keys = [...new Set(run.values.map((e) => nameKey(e.name)))];
+  const again = eachLevels(data, run, at).flatMap((j) => keys.map((k) => roundValue(data, run, at, j, k)).filter((e): e is ValueEntry => !!e && visibleValue(data, run, nameKey(e.name), at) === e));
+  stored.push(...again);
   // P-107: each for each level's item, where it is seen (never stored).
   const items = eachLevels(data, run, at)
     .map((j) => visibleValue(data, run, nameKey(view(data, run, at[j].seq)!.each!.item), at))
@@ -1283,6 +1462,12 @@ export function valuesInPlay(data: Data, run: RunState): ValueEntry[] {
 export function valuesAtLevel(data: Data, run: RunState, frames: Frame[], j: number): ValueEntry[] {
   // (P-110: only what is held at the place.)
   const own_ = run.values.filter((v) => v.level === j && v.seq === frames[j]?.seq && isHeld(data, run, frames, v));
+  // (F-1: and what a for each round gone through before gave, read in place.)
+  for (const k of new Set(run.values.map((e) => nameKey(e.name)))) {
+    if (own_.some((v) => nameKey(v.name) === k) || run.values.some((v) => v.level === j && v.seq === frames[j]?.seq && nameKey(v.name) === k)) continue;
+    const r = roundValue(data, run, frames, j, k);
+    if (r && isHeld(data, run, frames, r)) own_.push(r);
+  }
   const each = j > 0 ? view(data, run, frames[j].seq)?.each : undefined;
   const item = each && !own_.some((v) => nameKey(v.name) === nameKey(each.item)) ? eachValue(data, run, frames, j) : undefined;
   return item ? [...own_, item] : own_;
@@ -1304,6 +1489,12 @@ export function readByEach(data: Data, run: RunState, frames: Frame[], key: stri
  * too), so those steps ask again; what was given before the divider stays. What cannot be read is kept.
  * Nothing is written when nothing goes.
  */
+/** F-1: how many levels, from the bottom, are the same time through in both — the same routine, from the same step, on the same item of a for each. */
+function sameTime(a: Frame[], b: Frame[]): number {
+  let same = 0;
+  while (same < a.length && same < b.length && a[same].seq === b[same].seq && (same === 0 || (a[same].from === b[same].from && (a[same].each ?? 0) === (b[same].each ?? 0)))) same++;
+  return same;
+}
 function settleValues(data: Data, runId: Id, before: Frame[]): Data {
   const raw = own(data.runs, runId)!;
   if (!Array.isArray(raw.values) || !raw.values.length) return data;
@@ -1623,11 +1814,8 @@ function handBackLevel(data: Data, runId: Id, from: Frame[], level: number, env:
     for (const e of values.filter((v): v is ValueEntry => isEntry(v) && v.level === level && v.seq === f.seq && gives.has(nameKey(v.name)))) {
       const key = nameKey(e.name);
       const at = values.findIndex((v) => isEntry(v) && v.level === scope && v.seq === from[scope].seq && nameKey(v.name) === key);
-      const had = at >= 0 ? (values[at] as ValueEntry) : undefined;
-      const entry: ValueEntry =
-        had && had.item !== call.id ? patched(had, { refs: undefined, ...joined(had, e) }) : { name: e.name, ...withRefs([...e.items], refsOf(e)), level: scope, seq: from[scope].seq, item: call.id, words, at: env.now };
-      if (at >= 0) values[at] = entry;
-      else values.push(entry);
+      // (F-1, engine #3: given by this row before — it was gone through again — its own share is replaced, never added twice.)
+      values = putShare(values, at, { name: e.name, level: scope, seq: from[scope].seq, item: call.id, words, at: env.now }, (by) => by === call.id, asShare(e, call.id), undefined, at < 0 ? roundValue(data, run, from, scope, key) : undefined);
       values = values.filter((v) => v !== e);
       changed = true;
     }
@@ -1650,16 +1838,19 @@ function collectRound(data: Data, runId: Id, from: Frame[], level: number, env: 
   if (!s?.each || !f.from) return data;
   const b = scopeLevel(data, run, from, level - 1);
   const skip = new Set([nameKey(s.each.item), nameKey(s.each.list)]);
-  const values: unknown[] = [...raw.values];
+  let values: unknown[] = [...raw.values];
   let changed = false;
+  const row = f.from;
+  const k = f.each ?? 0;
   for (const e of raw.values.filter((v): v is ValueEntry => isEntry(v) && v.level === level && v.seq === f.seq && !skip.has(nameKey(v.name)))) {
     const key = nameKey(e.name);
     const at = values.findIndex((v) => isEntry(v) && v.level === b && v.seq === from[b].seq && nameKey(v.name) === key);
-    const had = at >= 0 ? (values[at] as ValueEntry) : undefined;
-    const entry: ValueEntry =
-      had && (had.item !== f.from || (f.each ?? 0) > 0) ? patched(had, { refs: undefined, ...joined(had, e) }) : { name: e.name, ...withRefs([...e.items], refsOf(e)), level: b, seq: from[b].seq, item: f.from, words: s.words, at: env.now };
-    if (at >= 0) values[at] = entry;
-    else values.push(entry);
+    // (F-1, engine #1, #3: each round is its own share — a round gone through again replaces what it gave, in its place
+    // among the others. A list collected by an earlier build, given by the row with no givers: its first round replaces
+    // it, as that build had it.)
+    const mine = (by: string) => roundOf(row, by) === k || (k === 0 && by === row);
+    const later = (by: string) => (roundOf(row, by) ?? -1) > k;
+    values = putShare(values, at, { name: e.name, level: b, seq: from[b].seq, item: row, words: s.words, at: env.now }, mine, asShare(e, roundKey(row, k)), later, at < 0 ? roundValue(data, run, from, b, key) : undefined);
     changed = true;
   }
   return changed ? putRun(data, patched(raw, { values })) : data;
@@ -1715,7 +1906,7 @@ export function advance(data: Data, run: RunState, from: Frame[], opts: { how?: 
       if (below.at !== child.from || below.at === null || child.at === null) return { frames, popped };
       if (lockedParts(below)) return { frames: from, popped: [], waiting: true };
       const ended: Part['ended'] = how ?? 'finished';
-      const rec = withPart(partsOf(below) ?? { row: below.at, list: [] }, child.at, (p) => ({ item: p.item, ended, ...(p.touchedAt !== undefined && { touchedAt: p.touchedAt }) }));
+      const rec = withPart(partsOf(below) ?? { row: below.at, list: [] }, child.at, (p) => patched(p, { ended, frames: undefined, values: undefined, since: undefined }));
       below.parts = rec;
       how = undefined;
       if (!s.items.every((p) => rec.list.some((x) => x.item === p.id && x.ended))) return { frames, popped };
@@ -1773,7 +1964,13 @@ export function anyBlock(data: Data, run: RunState, item: Item | undefined): Seq
 /** P-99: the record of parts a level holds for the row it is on (one kept for another row, after Back, is not this one's). */
 export const partsOf = (f: Frame | undefined): Parts | undefined => (f?.parts && readableParts.has(f.parts) && f.at !== null && f.parts.row === f.at ? f.parts : undefined);
 /** P-99: the level holds a record of parts this version cannot read (a later build's): it is kept as it is — nothing that would write one is done. */
-const lockedParts = (f: Frame | undefined): boolean => !!f && f.parts !== undefined && !readableParts.has(f.parts);
+export const lockedParts = (f: Frame | undefined): boolean => !!f && f.parts !== undefined && !readableParts.has(f.parts);
+/** F-1 (engine #8): a level the run is in holds a record of parts this version cannot read — what it refuses there is said. */
+export function holdsLockedParts(data: Data, runId: Id): boolean {
+  const run = readRun(data, runId);
+  const at = run && !run.endedAt ? place(data, run) : undefined;
+  return !!at && at.frames.some(lockedParts);
+}
 /** P-99: the part the run is in, of the block whose row `frames[i]` is on; undefined on the row itself (choosing). */
 export function activePart(data: Data, run: RunState, frames: Frame[], i: number): Id | undefined {
   const into = frames[i + 1];
@@ -1793,7 +1990,7 @@ export function partsJoined(data: Data, run: RunState, frames: Frame[], i: numbe
 /** P-99: a record of parts with one part's entry changed (added at the end when it has none). */
 function withPart(rec: Parts, item: Id, change: (p: Part) => Part): Parts {
   const had = rec.list.some((p) => p.item === item);
-  return readable({ row: rec.row, list: had ? rec.list.map((p) => (p.item === item ? change(p) : p)) : [...rec.list, change({ item })] });
+  return readable({ ...rec, list: had ? rec.list.map((p) => (p.item === item ? change(p) : p)) : [...rec.list, change({ item })] });
 }
 /** P-99: the part Step in takes up from the block's row — the one put down last, else the first not taken up. */
 export function partToTakeUp(data: Data, run: RunState, frames: Frame[], i: number): Id | undefined {
@@ -1837,27 +2034,34 @@ function settleParts(data: Data, runId: Id, before: Frame[], since: string | und
       const rec = withPart(partsOf(frames[i]) ?? { row: rowB!, list: [] }, activeB, (p) =>
         p.ended
           ? { ...p, ...(gave.length ? { values: gave } : {}) }
-          : { item: p.item, touchedAt: env.now, frames: before.slice(i + 1), ...(gave.length && { values: gave }), ...(since !== undefined && before.length - 1 > i && { since }) },
+          : patched(p, { ended: undefined, touchedAt: env.now, frames: before.slice(i + 1), values: gave.length ? gave : undefined, since: since !== undefined && before.length - 1 > i ? since : undefined }),
       );
       frames[i] = { ...frames[i], parts: rec };
       changed = true;
       continue;
     }
-    if (!same || discard) continue;
+    // (F-1, engine #2: a Jump forward past the block joins, as Step out does — what the parts gave is above the place.)
+    if (!same || (discard && standingOf(data, run, frames, i, rowB!) !== 'above')) continue;
     // Passed: joined — every part's values, in the order given, one list per name below the block.
-    const all = [...(recB?.list ?? []).flatMap((p) => p.values ?? []), ...(values.filter(mine) as ValueEntry[])].map((e, k) => ({ e, k })).sort((a, b) => (a.e.at < b.e.at ? -1 : a.e.at > b.e.at ? 1 : a.k - b.k)).map((x) => x.e);
+    const all = [...(recB?.list ?? []).flatMap((p) => (p.values ?? []).map((e) => ({ e, part: p.item }))), ...(values.filter(mine) as ValueEntry[]).map((e) => ({ e, part: activeB ?? '' }))]
+      .map((x, k) => ({ ...x, k }))
+      .sort((a, b) => (a.e.at < b.e.at ? -1 : a.e.at > b.e.at ? 1 : a.k - b.k));
     values = values.filter((v) => !mine(v));
     const b = scopeLevel(data, run, before, i);
-    const fresh = new Set<string>();
-    for (const e of all) {
-      const key = nameKey(e.name);
+    // (F-1, engine #3: the block passed again — Back, then on — gives anew in place of what it gave last time, each part
+    // its own share: never added twice. A list joined by an earlier build, given by the row with no givers, is replaced.)
+    const names = [...new Set(all.map((x) => nameKey(x.e.name)))];
+    for (const key of names) {
+      const these = all.filter((x) => nameKey(x.e.name) === key);
+      const share: Share = { items: [], refs: [], givers: [] };
+      for (const x of these) {
+        const one = asShare(x.e, partKey(row.id, x.part));
+        share.items.push(...one.items);
+        share.refs.push(...one.refs);
+        share.givers.push(...one.givers);
+      }
       const at = values.findIndex((v) => isEntry(v) && v.level === b && v.seq === before[b].seq && nameKey(v.name) === key);
-      const had = at >= 0 ? (values[at] as ValueEntry) : undefined;
-      // (The block passed again — Back, then on — gives anew in place of what it gave last time.)
-      const entry: ValueEntry = had && (had.item !== row.id || fresh.has(key)) ? patched(had, { refs: undefined, ...joined(had, e) }) : { name: e.name, ...withRefs([...e.items], refsOf(e)), level: b, seq: before[b].seq, item: row.id, words: ANY_WORDS, at: env.now };
-      fresh.add(key);
-      if (at >= 0) values[at] = entry;
-      else values.push(entry);
+      values = putShare(values, at, { name: these[0].e.name, level: b, seq: before[b].seq, item: row.id, words: ANY_WORDS, at: env.now }, (by) => by === row.id || by.startsWith(`${row.id}/`), share, undefined, at < 0 ? roundValue(data, run, before, b, key) : undefined);
     }
     changed = true;
   }
@@ -1874,7 +2078,7 @@ function tookUp(data: Data, runId: Id, level: number, part: Part | undefined, pa
   const f = run.frames[level];
   if (!f || f.at === null) return data;
   const frames = [...run.frames];
-  frames[level] = { ...f, parts: withPart(partsOf(f) ?? { row: f.at, list: [] }, partId, (p) => ({ item: p.item, touchedAt: env.now })) };
+  frames[level] = { ...f, parts: withPart(partsOf(f) ?? { row: f.at, list: [] }, partId, (p) => patched(p, { ended: undefined, touchedAt: env.now, frames: undefined, values: undefined, since: undefined })) };
   let next = putRun(data, patched(raw, { frames }));
   if (part?.values?.length) next = addValues(next, runId, part.values);
   const now = place(next, readRun(next, runId)!);
@@ -1920,7 +2124,7 @@ export function backUp(data: Data, run: RunState): { level: number; row: Item } 
 }
 
 /** Back to <step>: the step before this one in this level, and its round. Undefined when there is none. */
-export function previous(data: Data, run: RunState): { at: Id; round: number } | undefined {
+export function previous(data: Data, run: RunState): { at: Id; round: number; each?: number; eachText?: string } | undefined {
   const p = place(data, run);
   if (!p) return undefined;
   const { frame, seq } = p;
@@ -1929,7 +2133,34 @@ export function previous(data: Data, run: RunState): { at: Id; round: number } |
   if (!n || at < 0) return undefined;
   // The first repeating item of a later round: the last item of the round before.
   if (at === seq.repeatFrom && frame.round > 1) return { at: seq.items[n - 1].id, round: frame.round - 1 };
-  return at > 0 ? { at: seq.items[at - 1].id, round: frame.round } : undefined;
+  if (at > 0) return { at: seq.items[at - 1].id, round: frame.round };
+  // F-1 (engine #12): the first step of a for each's later item — the last step of the item before, in its last round.
+  const k = (frame.each ?? 0) - 1;
+  if (seq.each && frame.from && k >= 0) {
+    const words = frame.eachSeen?.[k] ?? eachList(data, run, p.frames, p.frames.length - 1)[k];
+    if (words !== undefined) return { at: seq.items[n - 1].id, round: lastRound(seq), each: k, eachText: words };
+  }
+  return undefined;
+}
+/** F-1: the round a sequence's last step is in, gone through to its end (a number of rounds: the last; else the first). */
+const lastRound = (s: Seq): number => (s.repeatFrom !== undefined && s.repeat !== undefined ? s.repeat : 1);
+/**
+ * F-1 (engine #1; "Back keeps it"): Back onto a for each row goes in — onto its last item's last step, in that item's
+ * round (its values are put back there by `moved`) — and so on, for a for each that is that step. A for each with
+ * nothing to go through is its row, as before.
+ */
+function intoLast(data: Data, run: RunState, frames: Frame[]): Frame[] {
+  const out = [...frames];
+  while (out.length < MAX_DEPTH) {
+    const f = out[out.length - 1];
+    const row = view(data, run, f.seq)?.items.find((i) => i.id === f.at);
+    const block = isRef(row) ? view(data, run, row.ref) : undefined;
+    if (!block?.each || !block.items.length) break;
+    const list = eachList(data, run, [...out, { seq: block.id, at: null, round: 1, from: row!.id }], out.length);
+    if (!list.length) break;
+    out.push({ seq: block.id, at: block.items[block.items.length - 1].id, round: lastRound(block), from: row!.id, each: list.length - 1, eachText: list[list.length - 1], eachSeen: [...list] });
+  }
+  return out;
 }
 
 // ───────── writing ─────────
@@ -2011,6 +2242,13 @@ function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; a
   next = settleWait(next, l.run.id, l.at, env);
   // P-98: a call left (by Next past its last step, or Step out) hands back what its row gives.
   if (popped.length) next = handBack(next, l.run.id, l.at.frames, popped, env);
+  // F-1 (engine #2): a Jump forward out of a for each — past its row — collects the round it was in, as Step out does
+  // (what was given above the new place is held). A call left by a Jump still hands back nothing (values.test row 6).
+  if (to.discard && !to.fresh) {
+    const m = sameTime(l.at.frames, to.frames);
+    if (m >= 1 && m < l.at.frames.length && standingOf(next, readRun(next, l.run.id)!, to.frames, m - 1, l.at.frames[m].from ?? '') === 'above')
+      for (let level = l.at.frames.length - 1; level >= m; level--) if (view(next, readRun(next, l.run.id)!, l.at.frames[level].seq)?.each) next = collectRound(next, l.run.id, l.at.frames, level, env);
+  }
   // P-99: a part put down keeps its place and values; a block passed joins what its parts gave.
   // (`fresh`: Start over — the block's parts start afresh, nothing put down.)
   if (!to.fresh) next = settleParts(next, l.run.id, l.at.frames, isWait(l.at.item) ? l.run.waitingSince : undefined, env, !!to.discard);
@@ -2148,10 +2386,13 @@ function restart(data: Data, runId: Id, level: number, env: Env): Result {
   if (!Number.isInteger(level) || level < 0 || level >= was.length) return refuse(data, 'no-such-level');
   const s = view(data, l.run, was[level].seq)!;
   // (P-107: a for each from its first item.)
+  // (F-1, storage F11: a record of parts this version cannot read is kept as it is, never written over.)
   const { each: _e, eachText: _t, eachSeen: _n, parts: _p, ...level_ } = was[level];
+  const keepOwn = lockedParts(was[level]) ? { parts: was[level].parts } : {};
   // P-99: an In any order block's level from the start is its row, every part not taken up yet (the record goes).
   const { parts: _q, ...rowLevel } = was[level - 1] ?? was[level];
-  const frames = s.any && level > 0 ? [...was.slice(0, level - 1), rowLevel] : [...was.slice(0, level), { ...level_, at: s.items[0]?.id ?? null, round: 1 }];
+  const keepRow = lockedParts(was[level - 1] ?? was[level]) ? { parts: (was[level - 1] ?? was[level]).parts } : {};
+  const frames: Frame[] = s.any && level > 0 ? [...was.slice(0, level - 1), { ...rowLevel, ...keepRow }] : [...was.slice(0, level), { ...level_, ...keepOwn, at: s.items[0]?.id ?? null, round: 1 }];
   const moved_ = moved(data, l, { frames, discard: true, fresh: true }, env);
   // Audit F4: the pause note is the person's own words, not a value given inside the level: it stays.
   const out = l.raw.reason === undefined ? moved_ : { ...moved_, data: putRun(moved_.data, patched(own(moved_.data.runs, runId)!, { reason: l.raw.reason })) };
@@ -2261,8 +2502,10 @@ function leaveLevel(data: Data, runId: Id, env: Env, whole?: true): Result {
   const below = l.at.frames.slice(0, -1);
   const child = l.at.frame;
   if (below[below.length - 1].at !== child.from) return moved(data, l, { frames: below, popped: [child] }, env);
-  // (P-99: a part left by Step out is stopped; the block left from its own level stops the rest.)
-  const a = advance(data, l.run, below, { how: 'stopped', force: true });
+  // (P-99: a part left by Step out is stopped; the block left from its own level stops the rest. F-1, engine #7: only the
+  // part's own level — Step out of a call inside a part leaves the call; past the part's last step it finished.)
+  const ownPart = !!view(data, l.run, below[below.length - 1].seq)?.any;
+  const a = advance(data, l.run, below, { ...(ownPart && { how: 'stopped' as const }), force: true });
   if (a.ended || a.asking) return end(data, l, 'finished', env);
   return moved(data, l, { ...a, popped: [child, ...a.popped] }, env);
 }
@@ -2302,9 +2545,15 @@ function stepIn(data: Data, runId: Id, env: Env): Result {
     if (!list.length) return refuse(data, 'empty');
     return moved(data, l, { frames: [...l.at.frames, { seq: target.id, at: target.items[0].id, round: 1, from: item.id, each: 0, eachText: list[0], eachSeen: list }] }, env);
   }
-  const out = moved(data, l, { frames: [...l.at.frames, { seq: target.id, at: target.items[0].id, round: 1, from: item.id }] }, env);
+  const frames = [...l.at.frames, { seq: target.id, at: target.items[0].id, round: 1, from: item.id }];
+  const out = moved(data, l, { frames }, env);
+  if (!target.named) return out;
   // P-98: its inputs, each the called routine's own copy (after the move: entering a level afresh starts it empty).
-  return target.named ? { ...out, data: addValues(out.data, runId, inputsFor(data, l.run, l.at.frames, item, env)) } : out;
+  const given = addValues(out.data, runId, inputsFor(data, l.run, l.at.frames, item, env));
+  // F-1 (engine #3; "Back keeps it"): stepped into again after Back — what it handed back then is in its giving steps'
+  // fields, to keep or change; leaving hands back anew in place of it.
+  const gives = new Set(callIO(data, target.id).gives.map(nameKey));
+  return { ...out, data: restoreShare(given, runId, frames, scopeLevel(data, l.run, l.at.frames, l.at.frames.length - 1), frames.length - 1, item.id, gives) };
 }
 
 function back(data: Data, runId: Id, env: Env): Result {
@@ -2318,7 +2567,39 @@ function back(data: Data, runId: Id, env: Env): Result {
   if (up) return moved(data, l, { frames: l.at.frames.slice(0, up.level + 1) }, env);
   const p = previous(data, l.run);
   if (!p) return refuse(data, 'nothing-before');
-  return moved(data, l, { frames: [...l.at.frames.slice(0, -1), { ...l.at.frame, at: p.at, round: p.round }] }, env);
+  const frames = intoLast(data, l.run, [...l.at.frames.slice(0, -1), { ...l.at.frame, at: p.at, round: p.round, ...(p.each !== undefined && { each: p.each, eachText: p.eachText }) }]);
+  const out = moved(data, l, { frames }, env);
+  // (F-1, engine #3: onto an In any order block's row from the step after it — each part is put down with what it gave.)
+  return { ...out, data: restoreParts(out.data, runId, frames.length - 1, env) };
+}
+
+/**
+ * F-1 (engine #3; "Back keeps it"): Back onto an In any order block's row from the step after it — each part that gave
+ * something is put down at its first step with what it gave (its share of the join), to keep or change; passing the
+ * block again joins anew in place of it. A level holding a record of its parts already (or one this version cannot read)
+ * is left as it is.
+ */
+function restoreParts(data: Data, runId: Id, level: number, env: Env): Data {
+  const raw = own(data.runs, runId)!;
+  const run = readRun(data, runId)!;
+  const frames = place(data, run)?.frames;
+  const f = frames?.[level];
+  const row = f ? view(data, run, f.seq)?.items.find((i) => i.id === f.at) : undefined;
+  const block = anyBlock(data, run, row);
+  if (!frames || !f || !row || !block || f.parts !== undefined || !Array.isArray(raw.values)) return data;
+  const b = scopeLevel(data, run, frames, level);
+  const list: Part[] = [];
+  for (const part of block.items) {
+    const gave = sharesAt(raw.values, frames[b].seq, b, level + 1, block.id, partKey(row.id, part.id));
+    if (!gave.length) continue;
+    const inner = isRef(part) ? view(data, run, part.ref) : undefined;
+    const into = inner && !inner.named && !inner.any && !inner.each && inner.items.length && level + 3 <= MAX_DEPTH ? inner : undefined;
+    list.push({ item: part.id, touchedAt: env.now, frames: [{ seq: block.id, at: part.id, round: 1, from: row.id }, ...(into ? [{ seq: into.id, at: into.items[0].id, round: 1, from: part.id }] : [])], values: gave });
+  }
+  if (!list.length) return data;
+  const out = [...run.frames];
+  out[level] = { ...out[level], parts: readable({ row: row.id, list }) };
+  return putRun(data, patched(raw, { frames: out }));
 }
 
 function jump(data: Data, runId: Id, to: JumpTo, env: Env): Result {
@@ -2345,7 +2626,9 @@ function jump(data: Data, runId: Id, to: JumpTo, env: Env): Result {
       // A level the run is already in keeps its round; one entered by the jump starts at round 1.
       same = same && was[i]?.seq === s.id;
       // (P-107: and a for each level the run is in, its item.)
-      frames.push({ seq: s.id, at: id, round: same ? was[i].round : 1, ...(i > 0 && { from: to.path[i - 1] }), ...(same && was[i].each !== undefined && { each: was[i].each, ...(was[i].eachText !== undefined && { eachText: was[i].eachText }), ...(was[i].eachSeen !== undefined && { eachSeen: was[i].eachSeen }) }), ...(same && was[i].parts && (partsOf(was[i]) ? was[i].at === id : true) && { parts: was[i].parts }) });
+      // (F-1, storage F6: a level it stays in keeps the fields this version does not know, as every other move does.)
+      const { seq: _s, at: _a, round: _r, from: _f, each: _e, eachText: _t, eachSeen: _n, parts: _p, ...rest } = same ? was[i] : ({} as Frame);
+      frames.push({ ...rest, seq: s.id, at: id, round: same ? was[i].round : 1, ...(i > 0 && { from: to.path[i - 1] }), ...(same && was[i].each !== undefined && { each: was[i].each, ...(was[i].eachText !== undefined && { eachText: was[i].eachText }), ...(was[i].eachSeen !== undefined && { eachSeen: was[i].eachSeen }) }), ...(same && was[i].parts && (partsOf(was[i]) ? was[i].at === id : true) && { parts: was[i].parts }) });
       seqId = isRef(item) ? item.ref : undefined;
     }
   }
@@ -2355,6 +2638,10 @@ function jump(data: Data, runId: Id, to: JumpTo, env: Env): Result {
   const target = into >= 0 ? activePart(data, l.run, frames, into) : undefined;
   let out = moved(data, l, { frames, discard: true }, env, { kind: 'jumped', from: wordsOf(data, l.run, l.at.item) });
   if (target !== undefined) out = { ...out, data: tookUp(out.data, runId, into, partsOf(frames[into])?.list.find((p) => p.item === target), target, env) };
+  // F-1 (engine #2): what the Jump dropped — a block's parts, a round left behind, back past it — is said, with its Undo.
+  const after = heldNames(out.data, runId);
+  const gone = [...heldNames(data, runId)].filter(([k]) => !after.has(k)).map(([, name]) => name);
+  if (gone.length) out = { ...out, cleared: gone };
   // Onto nothing (the start of a routine with no steps): that is the edge, and `moved` left it in Plan.
   if (!place(out.data, readRun(out.data, runId)!)?.item) return out;
   // From the paused screen, and from Plan, too: the runner opens at the new place (a running run has no mode).
@@ -2485,6 +2772,18 @@ function resettle(before: Data, after: Data, env: Env): Data {
       if (moved_ || kept.length !== run.frames.length) frames = kept;
     }
     if (frames) data = putRun(data, patched(own(data.runs, id)!, { frames }));
+    // F-1 (engine #5; owner: "A Plan edit never clears a run's values"): the levels the edit took the run out of — a for
+    // each or an In any order block it was inside, removed — collect and join what was given in them, as Step out does,
+    // read through the routines as they were. Given by the row removed, they are held (its step is gone, not below).
+    // (A call removed still takes its level's values with it: values.test.ts row "removing a step the run is inside"
+    // pins that, against the owner's ruling — left for the owner, see .polish/current/F-1/build.md.)
+    if (frames && was && frames.length < was.frames.length) {
+      let then: Data = { ...before, runs: { ...before.runs, [id]: own(data.runs, id)! } };
+      for (let level = was.frames.length - 1; level >= frames.length; level--) if (view(then, readRun(then, id)!, was.frames[level].seq)?.each) then = collectRound(then, id, was.frames, level, env);
+      then = settleParts(then, id, was.frames, undefined, env, false);
+      const r = own(then.runs, id)!;
+      data = putRun(data, patched(own(data.runs, id)!, { values: r.values, frames: r.frames }));
+    }
     let now = place(data, readRun(data, id)!);
     if (now?.repaired) {
       data = putRun(data, patched(own(data.runs, id)!, { frames: now.frames }));
@@ -2772,17 +3071,20 @@ function copyRoutine(data: Data, routine: Routine, s: Seq, typed: string, env: E
   if (!words) return refuse(data, 'empty');
   if (routineNamed(data, words)) return refuse(data, 'same-name');
   let next = data;
-  const made = new Set<Id>();
-  const dup = (r: Routine, sq: Seq, patch: Record<string, unknown>): Routine => {
-    const id = env.id();
+  // (F-1, engine #9: a breakdown two rows share — only an import or an older build makes one — is copied once, and both
+  // rows of the copy hold the copy.)
+  const made = new Map<Id, Id>();
+  const dup = (r: Routine, sq: Seq, patch: Record<string, unknown>, id: Id = env.id()): Routine => {
     const read = new Set<unknown>(sq.items);
     const items = rawItems(r).map((raw) => {
       if (!read.has(raw)) return raw;
       const i = raw as Item;
       const inner = isRef(i) ? readRoutine(data, i.ref) : undefined;
-      if (isRef(i) && inner && !inner.named && !made.has(i.ref)) {
-        made.add(i.ref);
-        const c = dup(own(data.routines, i.ref)!, inner, { createdAt: env.now, ownerRunId: undefined, removedAt: undefined });
+      if (isRef(i) && inner && !inner.named && made.has(i.ref)) return { ...i, id: env.id(), ref: made.get(i.ref)! };
+      if (isRef(i) && inner && !inner.named) {
+        const copyId = env.id();
+        made.set(i.ref, copyId);
+        const c = dup(own(data.routines, i.ref)!, inner, { createdAt: env.now, ownerRunId: undefined, removedAt: undefined }, copyId);
         next = putRoutine(next, c);
         return { ...i, id: env.id(), ref: c.id };
       }
@@ -2977,22 +3279,30 @@ function setKept(data: Data, seqId: Id, items: unknown, refs: unknown): Result {
   // (P-110, the P-108 investigator's repro 2: given without refs, an item keeps the ref of the kept item it is — at its
   // own place when the words are the same there, else the first unused one with the same words — never another's.)
   const was = s.each.kept;
+  const header = isObject(routine.each) ? routine.each : {};
+  // (F-1, engine #10 / storage F3: a kept item's ref is written back as stored — a routine removed since still reads
+  // "(removed)", and fields this version does not know stay on it. Only a ref newly given is checked as a live routine.)
+  const storedRefs: unknown[] = Array.isArray(header.refs) ? header.refs : [];
   const used = new Set<number>();
-  const refOf = (x: unknown, i: number): ListRef | null => {
+  const keptAt = (x: unknown, i: number): number => {
     const k = was[i] === x && !used.has(i) ? i : was.findIndex((w, j) => w === x && !used.has(j));
-    if (k < 0) return null;
-    used.add(k);
-    return s.each!.refs?.[k] ?? null;
+    if (k >= 0) used.add(k);
+    return k;
   };
   const pairs = items
-    .map((x, i) => ({ text: x, ref: Array.isArray(refs) ? (refs[i] as ListRef | null) : refOf(x, i) }))
-    .filter((p): p is { text: string; ref: ListRef | null } => text(p.text) && !!p.text.trim())
+    .map((x, i) => {
+      const k = keptAt(x, i);
+      const had = k >= 0 ? (s.each!.refs?.[k] ?? null) : null;
+      const given = Array.isArray(refs) ? (refs[i] as ListRef | null) : had;
+      const same = !!had && !!given && isObject(given) && given.ref === had.ref;
+      return { text: x, ref: same ? (storedRefs[k] as ListRef) : given, keep: same };
+    })
+    .filter((p): p is { text: string; ref: ListRef | null; keep: boolean } => text(p.text) && !!p.text.trim())
     .slice(0, MAX_ITEMS)
-    .map((p) => ({ text: capValue(p.text), ref: liveRef(data, p.ref, p.text) }));
+    .map((p) => ({ text: capValue(p.text), ref: p.keep && readRef(p.ref, p.text) ? p.ref : liveRef(data, p.ref, p.text) }));
   const kept = pairs.map((p) => p.text);
   const r = pairs.map((p) => p.ref);
-  const header = isObject(routine.each) ? routine.each : {};
-  if (JSON.stringify(kept) === JSON.stringify(s.each.kept) && JSON.stringify(r) === JSON.stringify(s.each.refs ?? s.each.kept.map(() => null))) return done(data);
+  if (JSON.stringify(kept) === JSON.stringify(s.each.kept) && JSON.stringify(r) === JSON.stringify(Array.isArray(header.refs) ? header.refs : s.each.kept.map(() => null))) return done(data);
   return done(putRoutine(data, patched(routine, { each: patched({ ...header }, { kept, refs: r.some(Boolean) ? r : undefined }) })));
 }
 
@@ -3217,7 +3527,8 @@ export function runVerb(data: Data, verb: Verb, env: Env): Result {
     // (P-99: nor does taking up a part — it is where it was put down, with what it gave.)
     if (verb.kind === 'part' || (verb.kind === 'stepIn' && anyBlock(data, readRun(data, verb.runId)!, place(data, readRun(data, verb.runId)!)?.item))) return landed;
     const { data: next, cleared } = settlePlace(data, landed.data, verb.runId, verb.kind === 'jump' || verb.kind === 'restart');
-    return cleared.length ? { ...landed, data: next, cleared } : landed;
+    const all = [...(landed.cleared ?? []), ...cleared].filter((c, i, xs) => xs.findIndex((x) => nameKey(x) === nameKey(c)) === i);
+    return all.length ? { ...landed, data: next, cleared: all } : landed;
   }
   return r;
 }
