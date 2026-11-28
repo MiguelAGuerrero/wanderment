@@ -143,7 +143,8 @@ export const libraryToAdd = (data: Data, lib: Library = library()): LibraryRow[]
 /** One row of the preview sheet: read-only, indented by `depth`. */
 export interface PreviewRow {
   depth: number;
-  kind: 'step' | 'call' | 'each' | 'any' | 'part' | 'slot';
+  /** P-114: `item`, an item of a for each's kept list (the composer's "so far"; the library's own lists are empty). */
+  kind: 'step' | 'call' | 'each' | 'any' | 'part' | 'slot' | 'item';
   words: string;
   /** A step: the name it gives. */
   gives?: string;
@@ -162,6 +163,7 @@ export function libraryPreview(id: Id, lib: Library = library()): PreviewRow[] {
         out.push({ depth, kind: 'call', words: sub.words, with: binds.map((b) => (b.name !== undefined ? (b.name === b.input ? `with {${b.input}}` : `with {${b.name}} as ${b.input}`) : `with ${b.typed} as ${b.input}`)) });
       } else if (sub?.each) {
         out.push({ depth, kind: 'each', words: eachWords(sub.each) });
+        for (const k of sub.each.kept ?? []) out.push({ depth: depth + 1, kind: 'item', words: k });
         walk(sub.id, depth + 1);
       } else if (sub?.any) {
         out.push({ depth, kind: 'any', words: ANY_WORDS });

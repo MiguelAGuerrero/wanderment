@@ -43,12 +43,14 @@ You steer both by editing this file and by telling `/product` how you use the ap
 
 ## Now
 
-### P-114 Onboarding through a composer `[feature]` `[ux]` L
-*Status:* in-progress
-*Why:* owner, 2026-11-28: "a proper on boarding process … a composer of sorts guide you through a set up
-of a routine … leverage the library functions as a scaffold to interpret a users intent."
-*Done when:* a brief (B-19) agreed with the owner first, from B-17's composer and the guided-composer
-discovery; then built as the brief says.
+### P-116 The composer, slice 2: Learn it, Find out, Decide `[feature]` `[ux]` M
+*Status:* todo
+*Why:* owner D-26 (B-19); slice 1 shipped as P-114.
+*Done when:* as B-19 slice 2 — Learn it, Find out and Decide ask their questions (woven where the answer
+is short); Journey 3's plain follow-ups ("Is that all of them, or will you find more as you go?" — That's
+all · I'll find more); an empty answer leaves a part out; "Learn it" with no topics typed makes no Study
+part. Open with the owner: a routine-level list for "done", and rewording the templates where answers
+show through awkwardly.
 
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
@@ -333,6 +335,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-28 · P-114 — starting with a composer (B-19 slice 1, with 1a): New asks "What do you want to do?" (example: learn to play piano) and offers five starts, the one the first words point to filled (Work it out when nothing is recognised), plus Start from scratch; Make it and Work it out ask at most three plain questions in Plan's look with a "So far" list, write each answer into the routine's draft, and end in Plan in Edit with "Made “X”" and Undo; the other starts copy their template straight to Plan. Phrasing rules (`composedName`, `thingSaid`, `whatFor`) are ours, tested on a 72-phrase corpus (0 wrong); `compromise` measured (+21 % JS, improves 2 of 16 plain outputs, wrong 11 of 13 on "to") and not added. A UI audit ran first (`ui-audit.md`). evidence: phrasing (77) + composer (35) + store (5) tests, go-composer spec at 390×844 and 195×422, 208 implicated e2e, `verify.sh`. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred, owner 2026-11-27).
 - 2026-11-28 · P-113 — a routine can call itself: Plan no longer refuses a routine as its own step (directly or through another), the row reads "this routine"; each call is its own level with its own inputs (the stored input now stands as any call's input does, so Find out ▢ passes each lead in); a deeper level is named by the value it was called with ("lead: pricing"), long paths collapse to first › … › last two; depth stays 64 and Step in at the limit says "Can't step in any deeper". evidence: golden p113-* frozen from ea9c98f, selfCall (11, red at base) + persistence (5) + golden (10) tests, go-self-call spec at 390×844 and 195×422, 202 implicated e2e, `verify.sh`. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred, owner 2026-11-27).
 - 2026-11-28 · P-115 — Plan: Edit, then Save or Cancel: Plan opens read-only (no grips, Add or step ···; disclosure, a row's view and Places still work); Edit (the left side door) starts a draft; every change goes into it with step-by-step Undo; Save (filled) writes it as one change with one Undo; Cancel discards it with an Undo; + New opens into Edit; runs and home read the saved routine until Save; the draft is stored on the routine (`draft`), survives reload, journal, fallback, hand-over and export/import, and Plan reopens in Edit; a routine changed elsewhere asks before Save replays over it; old data reads as no draft. evidence: golden p115-* frozen from 3790d66, draft (19) + store (9) + golden (12) + persistence (8) tests, go-plan-edit spec at 390×844 and 195×422 (the accidental drag, then Cancel), `verify.sh --full`. audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred, owner 2026-11-27).
 - 2026-11-28 · F-3, F-2 — the four held fixes, by owner ruling (Back keeps values across a "Repeat from here" round; removing the call the run is inside hands its values back; a `queue` this version can't read is kept; Home's queue steps into a call's first step), the panel's "Back to …" names where Back lands; and the surfaces review: a template copied under a callee's name is refused; Copy says "which uses your “X”"; a for each's kept list is not read as an ask; "@" chips wrap at 195 px; sheets speak "blank" for ▢; home's Resume says its routine and why it is off; "@…" survives Close; dead assertions made real; four two-job library steps split; tab arrow keys and home Alt+↑/↓; short hints on Where, the pause note, list rows, the step and value fields, Add ("Type @ for a routine, { for a value") and Gives. evidence: f2 domain + store tests (14 red at base), F-3 persistence tests (4 red at base), go-final-surfaces spec, `verify.sh --full` (479 e2e). audit: 22 reported · 20 reproduced · 18 fixed · 4 deferred (the final review, `.polish/product/final-audit-surfaces.md`; self-calls and the library door left to their own items).

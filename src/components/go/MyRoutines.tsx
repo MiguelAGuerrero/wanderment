@@ -181,7 +181,7 @@ export function MyRoutines() {
       }}
     />
   ) : naming ? (
-    <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newBtn} />
+    <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newBtn} from="routines" />
   ) : tagging ? (
     <TagsSheet
       name={tagging.name}

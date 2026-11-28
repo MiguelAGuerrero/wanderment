@@ -352,8 +352,19 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   "Your routines will be here.", and + New is its one action; *(P-97)* with routines and nothing going, "Nothing
   going.", with My routines and + New. Home has **no title in words** (a heading for
   screen readers says "Home") and **no "I'm going to…" prompt**. **+ New** is the right side door: **New
-  makes the routine only** — no run until Start — in a sheet of its own ("New routine", a Name field,
-  **Plan** filled), then opens its Plan with the name filled and the open row focused.
+  makes the routine only** — no run until Start — in a sheet of its own ("New routine") *(P-114, B-19 slice 1; was: a Name
+  field and **Plan** filled)*: the field labelled **"What do you want to do?"** (placeholder "learn to play piano"), then the five
+  **starts** — the library's templates, in one fixed order, each with its line: Work it out "figure it out as you go", Make it
+  "something to build or finish", Learn it "something to get better at", Find out "a question to answer", Decide "a choice to
+  make" — the one the first words point to filled (nothing recognised: Work it out; Return takes it), then **Start from
+  scratch** (New as it was: the empty routine and its Plan with the open row focused) and Close. A start copies its template
+  under a name made from what was typed ("Make a zine about my street", "Learn to play piano"), in Edit, in one write with one
+  Undo ("Made “X”"); a name in use is refused there ("! A routine already uses that name"). Make it and Work it out then open
+  the **composer** (`/go/compose/<id>`): Plan's band and look, one question with its field, and "So far" — the routine as it
+  stands, read-only; **Continue** (filled) writes the answer into the routine's draft at once, in the person's words (several
+  lines: a list kept in the routine); **Skip the rest** (the right side door) and ⌂ Home keep what is typed; it ends in Plan in
+  Edit, the draft unsaved, with "Made “X”" and its Undo. Never from the runner; not remembered (its address opens the routine's
+  Plan). Learn it, Find out and Decide go straight to Plan for now (their questions: B-19 slice 2).
 - **My routines** *(built, P-97; route `/go/routines`)*: every named routine that is not removed, **A–Z** by
   letter alone (case and accents never move a name: "apple pie" before "Apply…", "Éclair" with the E's), under
   **letter headings** (a name starting with anything else, "#"). The top is context: **⌂ Home**, the one way out,

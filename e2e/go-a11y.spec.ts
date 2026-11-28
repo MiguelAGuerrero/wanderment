@@ -586,7 +586,12 @@ for (const [label, size] of [
     const sheet = await arrived(page, 'go-new-sheet');
     await sheet.getByTestId('go-new-name').fill('Learn the ukulele');
     await expect(sheet.getByTestId('go-new-name')).toBeInViewport();
-    await expect(sheet.getByTestId('go-new-plan')).toBeInViewport();
+    // (P-114, rewritten: was Plan in view at once — the sheet now holds five starts and Start from scratch under the
+    // field; each scrolls into reach (Return in the field takes the filled start).)
+    for (const b of [...(await sheet.getByTestId('go-new-start').all()), sheet.getByTestId('go-new-plan')]) {
+      await b.scrollIntoViewIfNeeded();
+      await expect(b).toBeInViewport();
+    }
     await expectRules(page, sheet, 2, 1);
     await expectNoSeriousViolations(page);
   });

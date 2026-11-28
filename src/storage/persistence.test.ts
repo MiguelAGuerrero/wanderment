@@ -1623,6 +1623,17 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       saveDraft: { args: ['g1'], setup: drafting(true) },
       cancelDraft: { args: ['g1'], setup: drafting(true) },
       openInEdit: { args: ['g1', [{ seq: 'g1', edit: { kind: 'addStep', text: 'From the composer' } }]], setup: going() },
+      // P-114 (B-19 slice 1): a start chosen on New's sheet (its template copied, in Edit), and an answer into the draft
+      // (g1's first step, as the step Make it's first question replaces).
+      startComposing: { args: ['make', 'a zine about my street'] },
+      composeAnswer: {
+        args: ['g1', 'make', 'for', 'For the neighbours'],
+        setup: (store) => {
+          drafting()(store);
+          const g1 = store.getState().data.routines.g1;
+          if (g1) store.setState((st) => ({ data: { ...st.data, routines: { ...st.data.routines, g1: { ...g1, items: (g1.items as { id: string }[]).map((i) => (i.id === 'a' ? { ...i, out: 'brief' } : i)) } } } }));
+        },
+      },
     };
     /** What's only on screen this session: these never change the data. */
     const NOT_DATA: Record<string, unknown[]> = {
@@ -1645,6 +1656,8 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       hideNotice: [],
       // F-1 (engine #6): the runner's See ahead view, kept per run and place while the runner is away (session only).
       setSeeAhead: ['r1', { on: true }],
+      // P-114: the composer ended — the start's notice shown where it lands (the notice only; session only).
+      composed: ['g1'],
     };
     const call = (store: Store, name: string, args: unknown[]) => (store.getState() as unknown as Record<string, (...a: unknown[]) => unknown>)[name](...args);
     const reset = (store: Store) =>

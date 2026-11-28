@@ -34,12 +34,13 @@ import { myRoutines } from '@/domain/routines';
 import { homeQueue, leftOff, opensAt, partsText, partsTree, Tile } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
+import { NewSheet } from './Composer';
 import { Grip } from './Grip';
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
 import { decideWhere, wentHome, whereDecided } from './session';
 import { G, hueOf, SP, TARGET } from './tokens';
-import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Menu, MenuItem, MenuSep, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
+import { Btn, Confirm, focusOn, focusSoon, GoScreen, hard, HiddenH1, Menu, MenuItem, MenuSep, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
 import { PartsList } from './Parts';
 import { PlacesSheet } from './Places';
 import { KeptSheet, Parts } from './Values';
@@ -395,21 +396,8 @@ export function GoHome() {
   );
 }
 
-/**
- * New (P-95, P-96): its own sheet — the name, then Plan (the routine is made only now, and its Plan
- * opens). Return in the field is the same as Plan.
- */
-export function NewSheet({ onMake, onClose, fallback }: { onMake: (words: string) => void; onClose: () => void; fallback: { current: unknown } }) {
-  const [name, setName] = useState('');
-  const make = () => (name.trim() ? onMake(name) : undefined);
-  return (
-    <Sheet title="New routine" onClose={onClose} testID="go-new-sheet" fallback={fallback}>
-      <Field value={name} onChangeText={setName} accessibilityLabel="Name" placeholder="Name" autoFocus submitBehavior="submit" returnKeyType="go" onSubmitEditing={make} testID="go-new-name" {...{ dataSet: { first: 'true' } }} />
-      <Btn kind="filled" label="Plan" spoken={name.trim() ? `Plan ${name.trim()}` : 'Plan'} disabled={!name.trim()} onPress={make} size={18} testID="go-new-plan" />
-      <Btn label="Close" onPress={onClose} />
-    </Sheet>
-  );
-}
+/** New (P-95, P-96; P-114: with the starts and the composer): its own sheet — see `Composer.tsx`. */
+export { NewSheet };
 
 /** P-100: what the filled Resume says — the top row's step (its values in place); on a wait, its routine (the wait's words are not a step to do); at the edge, its Plan. */
 export function resumeLabel(t: Tile): string {

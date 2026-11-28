@@ -8,6 +8,7 @@ import { activePart, ChunkGiven, currentRun, holdsLockedParts, place, editRoutin
 import { copiedWords, Copied, copyAndAdd, copyFromLibrary, usesYour } from '@/domain/library';
 import { beginDraft, cancelDraft, draftEdit, draftOf, DraftResult, hasChanges, saveDraft as saveTheDraft, undoDraftStep } from '@/domain/draft';
 import { Acted, noticeFor, runnerView, whatChanged } from '@/domain/runView';
+import { Ask, beginCompose, composeAnswer, StartKey } from '@/domain/composer';
 import { Data, emptyData, Id, Run } from '@/domain/types';
 import { nameKey, tidyName } from '@/domain/values';
 
@@ -334,6 +335,19 @@ interface State {
    * already (each one of the draft's steps; one write). Refused whole if any is. The screen then opens its Plan.
    */
   openInEdit: (routineId: Id, edits: { seq: Id; edit: RoutineEdit }[]) => Did;
+  /**
+   * P-114 (B-19 slice 1): a start chosen on New's sheet — its library template copied under the name made from what was
+   * typed, opened in Edit (its draft begun) — in ONE write with one Undo ("Undo New": the routine goes whole), kept quiet
+   * until the composer ends (`composed`). Refused as Copy is: `same-name` for a name in use (nothing written).
+   */
+  startComposing: (start: StartKey, typed: string) => Did;
+  /**
+   * P-114: one answer of the composer written into the routine's draft at once (as `openInEdit` writes its edits: the Undo
+   * slot is left as it is, so the start's Undo still takes the whole routine away). Refused whole if any edit is.
+   */
+  composeAnswer: (routineId: Id, start: StartKey, ask: Ask['key'], text: string) => Did;
+  /** P-114: the composer ended (its last answer, Skip the rest, ⌂ Home): the start's notice, "Made “X”" with its Undo, shown where it lands. */
+  composed: (routineId: Id) => void;
   /** P-98: a refusal said in words, in the notice's row (nothing changed, nothing to undo): Plan's "a routine as a step of itself". */
   say: (text: string) => void;
   /** The notice was put away. Session only. */
@@ -626,6 +640,9 @@ function keepPress(verb: ToVerb['verb'], runId: Id) {
   sayReconnecting();
 }
 
+/** P-114: the last start chosen on New's sheet, and its Undo — what the composer's end shows ("Made “X”"). Session only. */
+let composing: { routineId: Id; entry: UndoEntry } | undefined;
+
 export const useStore = create<State>()((set, get) => ({
   data: emptyData(),
   draft: emptyDraft(),
@@ -810,6 +827,25 @@ export const useStore = create<State>()((set, get) => ({
     if (!r.ok) return { ok: false, reason: r.reason ?? 'cannot' };
     return drafted(routineId, { ...r, routineId });
   }),
+  startComposing: gated<State['startComposing']>(refused, (start, typed) => {
+    const before = get().data;
+    const r = beginCompose(before, start, typed, envNow());
+    if (!r.ok) return { ok: false, reason: r.reason ?? 'cannot' };
+    const entry = undoEntry(before, r.data);
+    composing = { routineId: r.routineId, entry };
+    // (Said when the composer ends — in Plan, or home — as New's "Made “X”" is said in the Plan it opens.)
+    set({ data: r.data, undo: entry, runNotice: { verb: 'new', text: `Made “${r.name}”`, label: noticeFor('new', undefined).label, entry, quiet: true }, toVerb: undefined, toast: undefined });
+    return { ok: true, routineId: r.routineId };
+  }),
+  composeAnswer: gated<State['composeAnswer']>(refused, (routineId, start, ask, text) => drafted(routineId, composeAnswer(get().data, routineId, start, ask, text, envNow()))),
+  composed: (routineId) =>
+    set((s) => {
+      const n = s.runNotice;
+      // Only while this start's Undo is still the last action (and its routine is there).
+      if (!n || !composing || composing.routineId !== routineId || n.entry !== composing.entry || n.entry !== s.undo || !s.data.routines[routineId]) return {};
+      const { quiet: _q, hidden: _h, ...shown } = n;
+      return { runNotice: { ...shown, follows: true as const } };
+    }),
   say: (text) => set({ runNotice: { verb: 'editRoutine', text, label: '' } }),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
   hideNotice: () => set((s) => ({ ...(s.runNotice && !s.runNotice.hidden && { runNotice: { ...s.runNotice, hidden: true as const } }), ...(s.toast?.notice && { toast: undefined }) })),

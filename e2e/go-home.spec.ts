@@ -202,10 +202,10 @@ test('P-95 (2): New asks for the name in a sheet of its own; Plan there makes th
   let sheet = await arrived(page, 'go-new-sheet');
   await expect(sheet.getByRole('heading', { level: 2 })).toHaveText('New routine');
   const name = sheet.getByTestId('go-new-name');
-  await expect(name).toHaveAccessibleName('Name');
+  await expect(name).toHaveAccessibleName('What do you want to do?'); // (P-114, rewritten: was 'Name' — the question is the field's label.)
   await expect(name).toBeFocused();
   // Nothing named yet: Plan is unavailable. Close makes nothing.
-  await expect(sheet.getByTestId('go-new-plan')).toBeDisabled();
+  await expect(sheet.getByTestId('go-new-plan')).toBeDisabled(); // (P-114: the same button, now "Start from scratch".)
   // (The sheet's handle is a Close too: the one in words is the last.)
   await sheet.getByRole('button', { name: 'Close', exact: true }).last().click();
   await expect(page.getByTestId('go-new-sheet')).toHaveCount(0);
@@ -216,8 +216,9 @@ test('P-95 (2): New asks for the name in a sheet of its own; Plan there makes th
   sheet = await arrived(page, 'go-new-sheet');
   await sheet.getByTestId('go-new-name').fill('Learn the ukulele');
   const go = sheet.getByTestId('go-new-plan');
-  await expect(go).toHaveAccessibleName('Plan Learn the ukulele');
-  expect(await go.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(244, 241, 232)');
+  await expect(go).toHaveAccessibleName('Start from scratch: Learn the ukulele'); // (P-114, rewritten: was 'Plan Learn the ukulele'.)
+  // (P-114, rewritten: was Plan, the filled button — the filled one is now the start the words mark, here Learn it.)
+  expect(await sheet.locator('[data-testid="go-new-start"][data-start="learn"]').evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(244, 241, 232)');
   await go.click();
   await expect(plan(page).title).toHaveText('Learn the ukulele');
   await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
@@ -227,7 +228,11 @@ test('P-95 (2): New asks for the name in a sheet of its own; Plan there makes th
   await h.screen.getByTestId('go-new').click();
   sheet = await arrived(page, 'go-new-sheet');
   await sheet.getByTestId('go-new-name').fill('Bake bread');
+  // (P-114, rewritten: was Return = Plan, the empty routine — Return takes the filled start, here Work it out, whose
+  // composer Skip the rest closes into the routine's Plan.)
   await sheet.getByTestId('go-new-name').press('Enter');
+  await expect(page.getByTestId('go-compose-question')).toBeVisible();
+  await page.getByTestId('go-compose-skip').click();
   await expect(plan(page).title).toHaveText('Bake bread');
   await plan(page).home.click();
   // P-97 (was: 6 tiles): New makes the routine only, so home is as it was; both are on My routines.
