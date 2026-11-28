@@ -64,9 +64,9 @@ planning surface, in Plan's look, and never appears while running.
 ### Journey 1 — Starting (the New sheet)
 ```
 New routine
-  [ What are you starting?                         ]
+  [ What do you want to do?                        ]
   ───────────────────────────────
-  [[Work it out]]   figure it out as you go          ← the marked start is the filled button
+  [[Work it out]]   something to figure out as you go         ← the marked start is the filled button
   Make it          something to build or finish
   Learn it         something to get better at
   Find out         a question to answer
@@ -96,9 +96,9 @@ runner's single note.
 PLAN                                                          ⌂ Home
 Make a zine about my street
 
-  Who is it for, and what should it do for them?
-  [ neighbours; make them notice the street           ]
-                                                   [[Then]]   Skip
+  What is the zine about your street for?
+  [ so neighbours notice the street                   ]
+                                          [[Continue]]   Skip the rest
 
   ─ so far ─────────────────────────────
   State who it is for and what it should do for them
@@ -111,24 +111,24 @@ the kind of answer.
 
 | Start | Asks, in order | What each answer becomes |
 |---|---|---|
-| Make it | Who is it for, and what should it do for them? · What must be true for it to be done? · What are a few ways you could do it? | The first step's words · the list "done" (what Say what done is would give) · the list of options |
-| Learn it | What do you want to be able to do? · What parts could you practise by themselves? · Is there anything to study as well? | The aim · the kept list of parts · the kept list of topics |
-| Find out | What is the question? · What do you think the answer is? · Where would you look first? | The question · a step in the person's words · the first sources |
-| Decide | What is the choice between? · What matters in it? | The options · the tests |
-| Work it out | What is the first small step? · And after that, if you know? | The first steps |
+| Make it | What is it for? · How will you know it's done? · What are a few ways you could make it? | The first step's words · the list "done" (what Say what done is would give) · the list of options |
+| Learn it | What do you want to be able to do? · What parts could you practise on their own? · Is there anything to study as well? | The aim · the kept list of parts · the kept list of topics |
+| Find out | What's the question? · What do you think the answer is? · Where would you look first? | The question · a step in the person's words · the first sources |
+| Decide | What are you choosing between? · What matters to you in this choice? | The options · the tests |
+| Work it out | What's the first small step? · What comes after that, if you know? | The first steps |
 
 **How each ask maps to the app's constructs** (the owner: fine "as long as it's clear how those
 questions map to our constructs"). The composer never names these; Plan shows them when it ends.
 
 | The ask | What it makes in the routine |
 |---|---|
-| What are you starting? | The routine's name |
+| What do you want to do? | The routine's name |
 | Which start | Which template is copied: its steps, calls and loops |
 | An answer that is one thing (who it is for; the question; the aim) | The words of a step, in place of the step that would have asked |
 | An answer that is several things (parts; options; sources; what matters) | The items of a list a for each runs over, kept in the routine |
-| What must be true for it to be done? | The list that "Check and mend" judges against |
+| How will you know it's done? | The list that "Check and mend" judges against |
 | Nothing typed | That part is left out |
-| "Do you know them all now, or will you find more as you go?" | Whether the loop ends with a step that shows the list to adjust |
+| "Is that all of them, or will you find more as you go?" | Whether the loop ends with a step that shows the list to adjust |
 | "Try each of these, or pick one now?" | Whether the for each over the options stays, or it goes straight to Choose |
 
 ### Journey 2a — Each question uses what was just said
@@ -142,10 +142,10 @@ So the questions sharpen as the person answers:
 
 | Start, and what was typed | First question | Next question, after the answer |
 |---|---|---|
-| Learn it · "drawing hands" | What do you want to be able to do with drawing hands? | What parts of drawing hands could you practise by themselves? |
-| Make it · "a zine about my street" | Who is the zine about your street for, and what should it do for them? | What must be true for it to be done, for neighbours? |
+| Learn it · "drawing hands" | What do you want to be able to do? | What parts of drawing hands could you practise on their own? |
+| Make it · "a zine about my street" | What is the zine about your street for? | How will you know it's done? |
 | Find out · "why my mixes sound thin" | What do you think the answer is? | Where would you look first? |
-| Decide · "contract job or stay" | What matters in choosing between the contract job and staying? | (none) |
+| Decide · "whether to take the contract job" | What are you choosing between? | What matters to you in this choice? |
 
 - **The start sets the frame.** Learn it speaks of being able to do and of practising; Make it of who
   it is for and of done; Find out of the answer and where to look; Decide of what matters.
@@ -159,6 +159,31 @@ So the questions sharpen as the person answers:
 - **When a join cannot be made cleanly, the plain form is used** ("What must be true for it to be
   done?"). A plain question is always correct; a woven one is a nicety.
 - **Nothing here is remembered.** Closing the composer forgets it. The routine holds the answers.
+
+### The wording, checked against other products
+A small study of what well-known products say at the same moments
+(`.polish/product/discovery-composer-phrasing.md`, local; no page could be opened, so its examples are
+from search summaries or recall). What it changed here:
+- **"Continue", not "Then".** Every product found moves on with one plain action word; none uses a
+  connective. "Next" is the runner's word and would blur planning with running.
+- **"Skip the rest", not "Skip".** It closes the composer into Plan. Beside a question "Skip" reads as
+  "skip this question", which is already done by continuing with the field empty.
+- **"What do you want to do?"** as the opening field, not "What are you starting?". The common opening
+  asks what you want to do, and it draws a verb ("learn to play piano", "decide whether to stay"),
+  which is the owner's own example and what marking a start depends on. The field also has a spoken
+  label, since a placeholder disappears on typing.
+- **One question per ask.** "Who is it for, and what should it do for them?" was two; it is now "What
+  is it for?".
+- **"How will you know it's done?"** in place of "What must be true for it to be done?", which read
+  like a specification.
+- **"You" in every question, contractions where short, and no "it" with nothing to point at.**
+- **Weaving stays literal.** The one comparable example found (a form tool's recall of an earlier
+  answer) drops a short answer in unchanged and never inflects it. Two of this brief's own first
+  examples broke that ("the contract job and staying" from "contract job or stay"; "…be able to do with
+  drawing hands") and are corrected above: where a clean drop-in is not possible, the plain question.
+- **Kept as they were:** the starts' names and their lines, "Start from scratch" (others use the same
+  phrase), "What do you want to be able to do?", "What do you think the answer is?", "Where would you
+  look first?", "Try each of these, or pick one now?".
 
 ### How the phrasing is made
 The owner (2026-11-28): "We can pull in any natural language libraries that could resolve basic
@@ -193,7 +218,7 @@ prepositions, nouns, present progressives, etc., so that we don't have to risk s
 ### Journey 3 — The plain follow-up
 Where an answer cannot settle the structure, one more plain question does. Each is asked only when the
 answer makes it relevant.
-- After a list of parts or sources: **"Do you know them all now, or will you find more as you go?"**
+- After a list of parts or sources: **"Is that all of them, or will you find more as you go?"** (buttons: That's all · I'll find more)
   All now: the list is as typed. More as I go: the loop's last step is the one that shows the list to
   adjust.
 - After "Is there anything to study as well?" with nothing typed: no follow-up. An empty answer means
