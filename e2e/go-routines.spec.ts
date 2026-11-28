@@ -353,11 +353,14 @@ test.describe('home shows only what is in motion', () => {
     await expectNoSeriousViolations(page);
   });
 
-  test('My routines with no routines says so; + New routine makes one there and opens its Plan, whose way out comes back', async ({ page }) => {
+  // (P-104, rewritten: with no routines My routines opens on its Library view — B-17 journey 1, the cold start — and
+  // Find is there to find a library method; the Yours view still says "No routines yet." Was: the empty line at once, no Find.)
+  test('My routines with no routines opens on Library, and Yours says so; + New routine makes one there and opens its Plan, whose way out comes back', async ({ page }) => {
     await page.goto('./go/routines');
     const r = routines(page);
+    await expect(r.screen.getByRole('tab', { name: 'Library', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await r.screen.getByRole('tab', { name: 'Yours', exact: true }).click();
     await expect(r.empty).toHaveText('No routines yet.');
-    await expect(r.find).toHaveCount(0);
     await expectNoSeriousViolations(page);
     await r.newBtn.click();
     const sheet = await arrived(page, 'go-new-sheet');

@@ -4,6 +4,7 @@ import { applyUndo, sameValue, UndoEntry, undoEntry } from '@/domain/diff';
 import { Settings } from '@/domain/migrate';
 import { LogInput, logActivity, newId } from '@/domain/model';
 import { activePart, ChunkGiven, currentRun, place, editRoutine, Given, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
+import { copiedWords, Copied, copyAndAdd, copyFromLibrary } from '@/domain/library';
 import { Acted, noticeFor, runnerView, whatChanged } from '@/domain/runView';
 import { Data, emptyData, Id, Run } from '@/domain/types';
 import { nameKey, tidyName } from '@/domain/values';
@@ -273,6 +274,17 @@ interface State {
    * as Step in. Refused `ended` for a part that returned or was stopped.
    */
   takeUpPart: (runId: Id, level: number, part: Id) => Did;
+  /**
+   * P-104 / P-106 (B-17 journey 3): Copy from the library — the library routine `libId` made the person's (a template
+   * under `words`), with what it calls, in one write: a notice ("Copied “X”", "… and what it calls") and one Undo for
+   * all. Refused `same-name` for a name already theirs (nothing written), `empty` for no name.
+   */
+  copyFromLibrary: (libId: Id, words?: string) => Did;
+  /**
+   * P-105 (B-17 journey 4): Copy and add — the library method copied and added as a step of `seq` (after `after`; absent:
+   * at the end), in one write. A Plan edit: no notice; its Undo (the routine's menu, Ctrl/⌘+Z) removes both.
+   */
+  copyAndAdd: (libId: Id, seq: Id, after?: Id | null) => Did;
   /** P-98: a refusal said in words, in the notice's row (nothing changed, nothing to undo): Plan's "a routine as a step of itself". */
   say: (text: string) => void;
   /** The notice was put away. Session only. */
@@ -413,6 +425,30 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   });
   return did;
 }
+
+const envNow = () => ({ now: new Date().toISOString(), id: newId });
+
+/**
+ * P-104 / P-105: a copy from the library kept — the data, its one Undo, and its notice: said ("Copied “X”") from the
+ * library; `quiet` (Copy and add, a Plan edit) says nothing and its Undo is the routine's menu ("Undo added “X” …").
+ */
+function copied(r: Copied, quiet: boolean): Did {
+  if (!r.ok) return { ok: false, reason: r.reason ?? 'cannot' };
+  const s = useStore.getState();
+  const entry = undoEntry(s.data, r.data);
+  const said = copiedWords(r);
+  const name = r.made?.[0] ?? '';
+  useStore.setState({
+    data: r.data,
+    undo: entry,
+    runNotice: { verb: 'editRoutine', text: quiet ? `Added “${name}” from the library` : said, label: LABEL_COPY, entry, ...(quiet && { quiet: true as const }) },
+    toVerb: undefined,
+    toast: undefined,
+  });
+  return { ok: true, ...(r.routineId !== undefined && { routineId: r.routineId }) };
+}
+/** What a copy's Undo takes back ("Undo Copy"). */
+const LABEL_COPY = 'Copy';
 
 /** P-109: the Places sheet's edits (each said, with its Undo, in the sheet). */
 // (P-108: and + Add on a kept list — from Plan or a tile, said with its Undo.)
@@ -605,6 +641,8 @@ export const useStore = create<State>()((set, get) => ({
     const putsDown = !!run && !!at && activePart(d, run, at.frames, level) !== undefined;
     return act({ kind: 'part', runId, level, part }, putsDown ? 'set' : 'clear');
   }),
+  copyFromLibrary: gated<State['copyFromLibrary']>(refused, (libId, words) => copied(copyFromLibrary(get().data, libId, envNow(), words === undefined ? {} : { words }), false)),
+  copyAndAdd: gated<State['copyAndAdd']>(refused, (libId, seq, after) => copied(copyAndAdd(get().data, libId, seq, after, envNow()), true)),
   say: (text) => set({ runNotice: { verb: 'editRoutine', text, label: '' } }),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
   hideNotice: () => set((s) => ({ ...(s.runNotice && !s.runNotice.hidden && { runNotice: { ...s.runNotice, hidden: true as const } }), ...(s.toast?.notice && { toast: undefined }) })),

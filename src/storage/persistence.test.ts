@@ -1595,6 +1595,10 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
           }));
         },
       },
+      // P-104 / P-106: Copy from the library (a method; a template under a name).
+      copyFromLibrary: { args: ['lib-recall'] },
+      // P-105: Copy and add — the library method copied and added as a step of g1.
+      copyAndAdd: { args: ['lib-cue', 'g1'], setup: going() },
       // P-107: a list given in its step's list field (one item per row).
       typeList: {
         args: ['n1', 'a', 'topic', ['the ad', 'the poster']],
@@ -4003,6 +4007,125 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect((held.routines[ids.improve].items as Record<string, unknown>[])[1]).toMatchObject({ later: { kept: true }, with: [{ input: 'concerns', typed: 'knees' }] });
       expect((held.runs[ids.runId].frames as Record<string, unknown>[])[0].later).toEqual({ i: 2 });
       expect(JSON.parse(toBackup(held)).data).toEqual(held);
+    });
+  });
+
+  // ───────── P-104 / P-105 / P-106: the library ─────────
+  describe('P-104 / P-105 / P-106: routines copied from the library — a method with what it calls, a method copied and added as a step, a template copied twice — survive reload, journal replay, the fallback, undo and export → import; nothing of the library is stored', () => {
+    type Ids = { recall: string; plan: string; guitar: string; spanish: string };
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /** Through the store, as a person would: Copy "Recall before you look"; a routine of their own with "Set a cue to start" copied and added; "Learn ▢" copied twice. */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const recall = g().copyFromLibrary('lib-recall');
+      const own = g().createRoutine('Study for the exam');
+      if (!recall.ok || !recall.routineId || !own.ok || !own.routineId) throw new Error('refused');
+      expect(g().editRoutine(own.routineId, { kind: 'addStep', text: 'Read chapter one' }).ok).toBe(true);
+      expect(g().copyAndAdd('lib-cue', own.routineId).ok).toBe(true);
+      const guitar = g().copyFromLibrary('lib-learn', 'Learn guitar');
+      const spanish = g().copyFromLibrary('lib-learn', 'Learn Spanish');
+      if (!guitar.ok || !guitar.routineId || !spanish.ok || !spanish.routineId) throw new Error('refused');
+      return { recall: recall.routineId, plan: own.routineId, guitar: guitar.routineId, spanish: spanish.routineId };
+    }
+    const names = (data: import('@/domain/types').Data) => Object.values(data.routines).filter((r) => r.named).map((r) => r.words).sort();
+    const isAsBuilt = (data: import('@/domain/types').Data, ids: Ids) => {
+      expect(names(data)).toEqual(['Check and mend', 'Keep the lesson', 'Learn guitar', 'Learn Spanish', 'Practise at the edge', 'Recall before you look', 'Review after doing', 'Say what done is', 'Set a cue to start', 'Study for the exam'].sort());
+      const items = data.routines[ids.plan].items as Record<string, unknown>[];
+      expect(items[1]).toMatchObject({ words: 'Set a cue to start' });
+      expect(data.routines[items[1].ref as string]).toMatchObject({ words: 'Set a cue to start', named: true });
+      // Nothing of the library is stored: no library id anywhere.
+      expect(JSON.stringify(data)).not.toMatch(/lib-/);
+    };
+
+    it('reload: saved to SQLite as copied, the same after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      isAsBuilt(shown, ids);
+      expect(await onDisk()).toEqual(shown);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), all of it is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const shown = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      isAsBuilt(store.getState().data, ids);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('the localStorage fallback keeps them, and moves them into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      isAsBuilt(JSON.parse(env.ls.get('wanderment')!).state.data, ids);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('undo of a copy that brought what it calls, and of Copy and add: one Undo each, taken back on screen and on disk', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const before = store.getState().data;
+      expect(store.getState().copyFromLibrary('lib-weigh').ok).toBe(true);
+      await tick(30);
+      expect(names(await onDisk())).toEqual(expect.arrayContaining(['Weigh the options', 'Gather options', 'Choose']));
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      expect(store.getState().copyAndAdd('lib-outside', ids.plan, null).ok).toBe(true);
+      await tick(30);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      expect(store.getState().data).toEqual(before);
+    });
+
+    it('export → import: the copies are the person’s data, in the backup as they are; the same file is identical; after an import they are still there', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      isAsBuilt(JSON.parse(json).data, ids);
+      expect(previewImport(json).plan).toMatchObject({ identical: true });
+      expect(store.getState().copyFromLibrary('lib-source').ok).toBe(true);
+      expect(confirmImport(previewImport(json)).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(exported);
+      // A name copied before is still the person's: copying it again is refused, nothing written.
+      expect(store.getState().copyFromLibrary('lib-recall')).toEqual({ ok: false, reason: 'same-name' });
+      expect(store.getState().data).toEqual(exported);
     });
   });
 

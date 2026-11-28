@@ -55,7 +55,11 @@ export interface RoutineChoice {
  * Add's "a routine": the person's routines; a tap adds one as a step. `error`: why the last one was refused. P-108: first,
  * the names given above — a routine row whose routine is that value, `▤ {name}` (`onName`).
  */
-export function RoutinesSheet({ names = [], onName, routines, error, onPick, onClose, fallback }: { names?: string[]; onName?: (name: string) => void; routines: RoutineChoice[]; error?: string; onPick: (routineId: string) => void; onClose: () => void; fallback: { current: unknown } }) {
+/**
+ * P-105 (B-17 journey 4): and, under a "Library" heading after the person's own ("Yours"), the library's methods they
+ * don't have yet — a tap opens its preview, whose filled button is Copy and add (`onLibrary`).
+ */
+export function RoutinesSheet({ names = [], onName, routines, library = [], onLibrary, error, onPick, onClose, fallback }: { names?: string[]; onName?: (name: string) => void; routines: RoutineChoice[]; library?: RoutineChoice[]; onLibrary?: (id: string) => void; error?: string; onPick: (routineId: string) => void; onClose: () => void; fallback: { current: unknown } }) {
   return (
     <Sheet title="Add a routine" onClose={onClose} testID="go-routines-sheet" fallback={fallback}>
       {!!error && (
@@ -66,10 +70,24 @@ export function RoutinesSheet({ names = [], onName, routines, error, onPick, onC
       {names.map((n, i) => (
         <Btn key={`{${n}}`} kind="plain" mark="routine" label={`{${n}}`} spoken={`Add as a step: the routine in {${n}}`} onPress={() => onName?.(n)} testID="go-routines-sheet-name" dataSet={{ name: n, ...(i === 0 && { first: 'true' }) }} />
       ))}
+      {library.length > 0 && (
+        <T bold role="heading" aria-level={3} accessibilityRole="header" testID="go-routines-sheet-heading">
+          Yours
+        </T>
+      )}
       {routines.length === 0 && !names.length && <T dim>No routines yet.</T>}
       {routines.map((r, i) => (
         <Btn key={r.routineId} kind="plain" mark="routine" label={r.line ? `${r.name} · ${r.line}` : r.name} spoken={`Add as a step: ${r.line ? `${r.name} · ${r.line}` : r.name}`} onPress={() => onPick(r.routineId)} testID="go-routines-sheet-row" dataSet={{ routine: r.routineId, ...(i === 0 && !names.length && { first: 'true' }) }} />
       ))}
+      {library.length > 0 && (
+        <T bold role="heading" aria-level={3} accessibilityRole="header" testID="go-routines-sheet-heading">
+          Library
+        </T>
+      )}
+      {library.map((r) => {
+        const label = r.line ? `${r.name} · ${r.line}` : r.name;
+        return <Btn key={r.routineId} kind="plain" mark="routine" label={label} spoken={`${label}, in the library: look before copying`} onPress={() => onLibrary?.(r.routineId)} testID="go-routines-sheet-lib" dataSet={{ lib: r.routineId }} />;
+      })}
       <Btn label="Close" onPress={onClose} />
     </Sheet>
   );

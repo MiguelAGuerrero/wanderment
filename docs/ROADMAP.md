@@ -43,31 +43,6 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-104 The library (B-17 slices 1 and 4) `[feature]` `[ux]` M
-*Status:* in-progress
-*Why:* owner, 2026-11-27: "write a brief for the library and quick composer"; D-24 go after P-98.
-*Done when:* as B-17 slice 1 and slice 4 state — My routines gains a Library view (Yours | Library); a
-method can be found, previewed, copied (Undo), started by itself and called from another routine; a copy
-survives reload, export and import and is unchanged by an app update; a name already in Yours offers
-"Open yours"; the library ships in the export format and passes the import check; a test fails the build
-if a library routine breaks the import check or the house style (verb-first names, one job, plural list /
-singular item, no counts or minutes, no kept list, no wait step); at 390 px and 200 % text nothing is cut.
-
-### P-105 Adding a library method from where you write (B-17 slice 2) `[feature]` `[ux]` M
-*Status:* todo
-*Why:* D-24 ("Only when summoned").
-*Done when:* "@" and Add's "a routine" list Yours and Library under headings; a library row opens the
-sheet with Copy and add; one Undo removes both; typing "@" and part of a method's name offers it; nothing
-is copied by Return; a giving field on the runner lists Yours only; no list appears while the person types
-their own words.
-
-### P-106 Templates (B-17 slice 3) `[feature]` `[data]` M
-*Status:* todo
-*Why:* D-24; after P-99.
-*Done when:* as B-17 slice 3 — Learn ▢, Find out ▢, Make ▢, Make a decision, "Work it out as you go";
-Copy… names the copy and brings what it calls, by name; copied twice gives two routines with separate
-kept lists that call the same methods; a name in use is refused in the sheet and nothing is overwritten.
-
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
 *Why:* B-11 lists Erase in Settings, but it has never existed; split out of P-89 as a new destructive
@@ -351,6 +326,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-28 · P-104, P-105, P-106 — the library (B-17 slices 1–4): My routines gains Yours | Library (opens on Library while Yours is empty; Find shows both); 15 methods and 5 templates ship in the export format and pass the import check; a row shows one line on what it is for and opens a preview with Copy (one write, one Undo, brings what it calls by name, theirs used where the name exists), Open yours, or Copy… for templates (a name in use is refused); "@" and Add's "a routine" list Yours and Library under headings, a library row's Copy and add copies and adds in one Undo, and Return never picks a library row. A test fails the build if any library routine breaks the import check or the house style (docs/product/library.md). evidence: library tests + persistence, go-library and go-templates specs at 390×844 and 195×422, 149 implicated e2e, 1243 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-28 · P-99 — In any order: Plan's Add makes an In any order block of parts (inside it, Add a part); on the runner the parts are listed and the filled button reads Start/Resume <part>; each part keeps its own place and values (put down and handed back, never seen by another part); the pull-up panel and a home tile's ··· show where every part stands at every level (first / at <step> / finished / stopped) and tapping one moves there; the step after the block can't be reached until every part has returned or been stopped; what parts give under one name is collected into one list in order given. Stored as a breakdown with `any: true` plus a parts record (older builds read a breakdown; no migration). Parked by the owner: joins that reopen. Also fixes four See ahead value-loss bugs (typing over gets "Changed {name}" with Undo; an empty draft means unchanged; a refused draft refuses Next and says so; Step out keeps or names drafts). evidence: golden p99-* frozen from 475e70d (with what the old build shows), anyOrder (23) + golden (10) + persistence (6) + p112 tests, go-any-order spec at 390×844 and 195×422, 189 implicated e2e, 1210 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-28 · P-112 — See ahead: a toggle in the runner's bottom bar (off: one step as before); on, the steps in view are one condensed sheet (16 px rows, a giving step's field on one line), a dashed "then: <words>" row pulls the next step in and Fewer takes it back, steps with insides open in place as an outline (P-111's control), spacing tightens with more rows but never below 48 px targets, then scrolls; rows follow the engine's own Next; Next takes everything in view as done in one move with one Undo ("Took N steps as done"); nothing stored. evidence: chunk (16) + store (2) tests, go-chunks spec at 390×844 and 195×422, implicated runner specs, 1166 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-28 · P-100 — Home is one queue: one ordered list with no sections; each running, paused or waiting run is a row with its step (held values), a short path below the first level and its pause note; the filled Resume takes the top row; a new run goes to the bottom; rows reorder by a grip or the ··· menu (Move up / Move down / To the top) with Undo; a finished run leaves. The order is a `queue` number on each run (old data reads oldest first, today's order; nothing converted). evidence: golden p100-* frozen from 0b67fb1, queue (12) + golden (7) + persistence (5) tests, go-queue spec at 390×844 and 195×422, 14 implicated home specs, 1148 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).

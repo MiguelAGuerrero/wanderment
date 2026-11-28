@@ -4,13 +4,19 @@
  * top-left, then the title. Find (part of a name or a tag) and the tags, each a toggle that narrows the list
  * (all chosen must be on a routine). A row's body opens its Plan; its ··· is a small anchored menu — Start (or
  * Resume, for a routine with a run going), Plan, Tags…, a line, Remove (asked first; with no run going). The
- * lowest, filled button is + New routine. Room is left for a second view (a library) beside "Yours" later
- * (B-17): the list is this screen's only view now.
+ * lowest, filled button is + New routine.
+ *
+ * P-104 (B-17 journey 1): two views, a tab list under Find — **Yours** (the list above) and **Library** (the
+ * methods and templates that ship with the app, under their headings). It opens on Yours, every time; with nothing in
+ * Yours yet, on Library. Find, while it has text, shows both under "Yours" and "Library" headings (names only). A
+ * library row opens its preview sheet (Copy / Copy… / Open yours); Copy stays here, with its notice and Undo, so
+ * several can be copied in a row.
  */
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
+import { findLibrary, LibraryRow, libraryRows, librarySections } from '@/domain/library';
 import { allTags, findRows, myRoutines, RoutineRow, routineSections } from '@/domain/routines';
 import { callersOf, routineNamed } from '@/domain/run';
 import { leftOff } from '@/domain/runView';
@@ -20,6 +26,7 @@ import { useStore } from '@/store/useStore';
 import { decorative } from '../a11y';
 import { copyName, CopySheet, removeBody } from './Calls';
 import { NewSheet } from './GoHome';
+import { LibraryRowView, LibrarySheet, TemplateCopySheet } from './Library';
 import { Notice, useRunUndo } from './Notice';
 import { TagsSheet, tagWords } from './Tags';
 import { G, hueOf, SP, TARGET } from './tokens';
@@ -51,6 +58,20 @@ export function MyRoutines() {
   const shown = findRows(rows, find, on);
   const sections = routineSections(shown);
   const toggle = (t: string) => setChosen(on.some((c) => tagKey(c) === tagKey(t)) ? on.filter((c) => tagKey(c) !== tagKey(t)) : [...on, t]);
+
+  // P-104: the two views — Yours (on opening, every time) or, with nothing in Yours yet, Library.
+  const [viewing, setViewing] = useState<'yours' | 'library'>(() => (rows.length ? 'yours' : 'library'));
+  const finding = !!find.trim();
+  const lib = libraryRows(data);
+  // (The library's routines carry no tags: a chosen tag leaves none of them.)
+  const libShown = on.length ? [] : finding ? findLibrary(lib, find) : lib;
+  const libSections = librarySections(libShown);
+  /** P-104: a library row's preview open; P-106: a template's Copy… (its Name). */
+  const [previewing, setPreviewing] = useState<LibraryRow | null>(null);
+  const [namingCopy, setNamingCopy] = useState<LibraryRow | null>(null);
+  /** Each library row (focus comes back to it after Close and after Copy). */
+  const [libBodies] = useState<Record<string, unknown>>(() => ({}));
+  const backToRow = (id: string) => focusSoon({ current: libBodies[id] ?? null });
 
   // One thing runs at a time: while another run is running, Start and Resume here are unavailable.
   const now = leftOff(data);
@@ -96,7 +117,7 @@ export function MyRoutines() {
 
   const can = useRunUndo();
   useKeys(
-    focused && !menu && !tagging && !removing && !naming && !copying,
+    focused && !menu && !tagging && !removing && !naming && !copying && !previewing && !namingCopy,
     {
       'mod+z': () => {
         if (!can) return;
@@ -107,7 +128,44 @@ export function MyRoutines() {
     true,
   );
 
-  const layer = copying ? (
+  const layer = namingCopy ? (
+    // P-106: Copy… on a template — its name first; the copy and what it calls, one Undo.
+    <TemplateCopySheet
+      row={namingCopy}
+      fallback={title}
+      onClose={() => setNamingCopy(null)}
+      onCopy={(words) => {
+        const did = act().copyFromLibrary(namingCopy.id, words);
+        if (did.ok) {
+          const id = namingCopy.id;
+          setNamingCopy(null);
+          backToRow(id);
+        }
+        return did;
+      }}
+    />
+  ) : previewing ? (
+    <LibrarySheet
+      row={previewing}
+      mode="copy"
+      fallback={title}
+      onClose={() => setPreviewing(null)}
+      onOpenYours={() => {
+        const yours = previewing.yours;
+        setPreviewing(null);
+        if (yours) router.push(`/go/routine/${yours}?from=routines`);
+      }}
+      onCopy={() => {
+        if (previewing.template) {
+          setNamingCopy(previewing);
+          setPreviewing(null);
+          return;
+        }
+        // Copy closes the sheet and stays on the library (several can be copied in a row): its notice says it, with Undo.
+        if (act().copyFromLibrary(previewing.id).ok) setPreviewing(null);
+      }}
+    />
+  ) : copying ? (
     <CopySheet
       name={copying.name}
       suggested={copyName(copying.name, (w) => !!routineNamed(data, w))}
@@ -220,10 +278,29 @@ export function MyRoutines() {
         </H1>
       </View>
       <ScrollView style={styles.flex} contentContainerStyle={styles.list} keyboardShouldPersistTaps="handled" testID="go-routines-list">
-        {rows.length > 0 && (
-          <Field ref={(el) => void (findRef.current = el)} value={find} onChangeText={setFind} accessibilityLabel="Find a routine" placeholder="Find a routine" autoCapitalize="none" autoCorrect={false} returnKeyType="search" testID="go-routines-find" />
-        )}
-        {tags.length > 0 && (
+        <Field ref={(el) => void (findRef.current = el)} value={find} onChangeText={setFind} accessibilityLabel="Find a routine" placeholder="Find a routine" autoCapitalize="none" autoCorrect={false} returnKeyType="search" testID="go-routines-find" />
+        {/* P-104: Yours | Library — a tab list; the chosen one underlined. */}
+        <View style={styles.tabs} role="tablist" aria-label="Routines" testID="go-routines-views">
+          {(['yours', 'library'] as const).map((v) => {
+            const on1 = viewing === v;
+            return (
+              <Pressable
+                key={v}
+                role="tab"
+                aria-selected={on1}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on1 }}
+                onPress={() => setViewing(v)}
+                testID={`go-routines-view-${v}`}
+                style={(state) => [styles.tab, on1 && styles.tabOn, (state as { focused?: boolean }).focused && styles.ring]}>
+                <T bold={on1} dim={!on1} size={18}>
+                  {v === 'yours' ? 'Yours' : 'Library'}
+                </T>
+              </Pressable>
+            );
+          })}
+        </View>
+        {tags.length > 0 && (viewing === 'yours' || finding) && (
           <View style={styles.tags} role="group" aria-label="Tags" accessibilityLabel="Tags" testID="go-routines-tags">
             {tags.map((t) => {
               const pressed = on.some((c) => tagKey(c) === tagKey(t));
@@ -232,12 +309,12 @@ export function MyRoutines() {
             })}
           </View>
         )}
-        {rows.length === 0 && (
+        {rows.length === 0 && viewing === 'yours' && !finding && (
           <T dim size={18} style={styles.empty} testID="go-routines-empty">
             No routines yet.
           </T>
         )}
-        {rows.length > 0 && shown.length === 0 && (
+        {(finding ? shown.length === 0 && libShown.length === 0 : viewing === 'yours' && rows.length > 0 && shown.length === 0) && (
           <View style={styles.none}>
             <T dim size={18} style={styles.empty} testID="go-routines-none">
               No routines match.
@@ -254,7 +331,19 @@ export function MyRoutines() {
             />
           </View>
         )}
-        {sections.map((s) => (
+        {finding && (shown.length > 0 || libShown.length > 0) && (
+          <View style={styles.section}>
+            <T bold role="heading" aria-level={2} accessibilityRole="header" size={18} testID="go-routines-view-heading">
+              Yours
+            </T>
+            {shown.length === 0 && (
+              <T dim testID="go-routines-yours-none">
+                None of yours match.
+              </T>
+            )}
+          </View>
+        )}
+        {(finding || viewing === 'yours') && sections.map((s) => (
           <View key={s.letter} style={styles.section}>
             <T bold dim role="heading" aria-level={2} accessibilityRole="header" testID="go-routines-letter">
               {s.letter}
@@ -264,6 +353,22 @@ export function MyRoutines() {
             ))}
           </View>
         ))}
+        {finding && libShown.length > 0 && (
+          <T bold role="heading" aria-level={2} accessibilityRole="header" size={18} testID="go-routines-view-heading">
+            Library
+          </T>
+        )}
+        {(finding || viewing === 'library') &&
+          libSections.map((s) => (
+            <View key={s.heading} style={styles.section} testID="go-lib-section">
+              <T bold dim role="heading" aria-level={finding ? 3 : 2} accessibilityRole="header" testID="go-lib-heading">
+                {s.heading}
+              </T>
+              {s.rows.map((r) => (
+                <LibraryRowView key={r.id} row={r} onPress={() => setPreviewing(r)} bodyRef={(el) => (libBodies[r.id] = el)} />
+              ))}
+            </View>
+          ))}
       </ScrollView>
       <Notice onUndone={() => focusOn(title)} />
       <View style={styles.foot}>
@@ -310,6 +415,9 @@ const styles = StyleSheet.create({
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2 },
   tag: { paddingHorizontal: SP.s3 },
   tagOn: { backgroundColor: G.surf2, borderColor: G.text, borderBottomWidth: 4 },
+  tabs: { flexDirection: 'row', flexWrap: 'wrap', borderBottomWidth: 1, borderBottomColor: G.line },
+  tab: { minHeight: TARGET, minWidth: TARGET, justifyContent: 'center', paddingHorizontal: SP.s3, borderBottomWidth: 4, borderBottomColor: 'transparent' },
+  tabOn: { borderBottomColor: G.text },
   empty: { textAlign: 'center', paddingVertical: SP.s4 },
   none: { alignItems: 'center', gap: SP.s2 },
   section: { gap: SP.s2 },

@@ -337,8 +337,22 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   read “(removed)”." — then "Removed “<name>”" with Undo, here). Tapping a row opens its Plan, whose way out, top-left in
   Home's place, reads **← My routines** and goes back there. **+ New routine** is the one filled button, lowest
   (New's own sheet; its Plan comes back here). With no routines: "No routines yet."; with nothing matching: "No
-  routines match." and Clear. Room is kept for a second view later (B-17's "Yours | Library", P-104): the list is
-  its only view now.
+  routines match." and Clear.
+- **The library** *(built, P-104 / P-105 / P-106; B-17)*: methods and templates that ship with the app
+  (`src/domain/libraryContent.ts`, in the export format, read through the import check; house style and citations:
+  `docs/product/library.md`). Never written into the person's data until they **Copy**. On My routines, a tab list
+  **Yours | Library** under Find (the chosen one underlined); it opens on Yours, or on Library while Yours is empty.
+  Library: rows under headings — the name, then one short line on what it is for beside its signature ("asks
+  {material} · gives {faults}"); spoken "<name>, <line>, <signature>, in the library" (or "yours"; "Learn ▢" is
+  "Learn blank"). Find with text shows both under "Yours" and "Library" headings (names only). A row opens a
+  **preview sheet** (read-only rows; filled **Copy** — **Copy…** for a template, **Open yours** for a name already
+  theirs — then **Close**, both pinned). Copy brings what it calls, by name (theirs where they have that name), in one
+  write: "Copied “X”" / "… and what it calls", one Undo; it stays on the library. A template's **Copy…** asks a name
+  (the field starts "Learn "; a name in use: "! A routine already uses that name", nothing written). In Plan, only
+  when summoned: "@" lists up to three library methods under **Library**, after **Yours**; Add's "a routine" lists
+  them under a Library heading; a library row opens the preview with **Copy and add** (one Plan edit: no notice,
+  one Undo in the routine's menu). Return in the field never picks a library row; the runner's giving fields list
+  Yours only. A copy is an ordinary routine: no badge, no link back; an app update never changes it.
 - **Nothing is created or started without a tap.** Typing starts nothing until a row is chosen
   (Return takes the first row, which is always visible and marked). The app never jumps by itself.
 - **The runner is the step, and as many of the next ones as the person pulls into view** *(built; P-96, P-101;

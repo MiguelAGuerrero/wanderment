@@ -43,6 +43,7 @@ import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWind
 
 import { callersOf, Refusal, routineNamed, RoutineEdit } from '@/domain/run';
 import { atPick, rankRoutines, routineInWords, wordsKept } from '@/domain/atPick';
+import { LibraryRow, libraryMatches, libraryToAdd } from '@/domain/library';
 import { myRoutines } from '@/domain/routines';
 import { insidesOf, namesOffered, PLAN_TOP, planAt, PlanDivider, PlanRow, planView, readersOf, routinesByAge, rowMoves, StepPart } from '@/domain/runView';
 import { placesShown, placesWritable } from '@/domain/places';
@@ -52,6 +53,7 @@ import { useStore } from '@/store/useStore';
 
 import { decorative } from '../a11y';
 import { BindSheet, CallLines, copyName, CopySheet, ForEachSheet, InputsSheet, removeBody, RoutinesSheet } from './Calls';
+import { librarySignature, LibrarySheet } from './Library';
 import { Mark } from './marks';
 import { rowLine } from './MyRoutines';
 import { Notice, useRunUndo } from './Notice';
@@ -183,6 +185,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
    * (that one stays closed); a "}" typed, a space, or the caret moving away does too. `start`: where the "@"/"{" is.
    */
   const [picking, setPicking] = useState<{ start: number; query: string } | null>(null);
+  /** P-105: a library method chosen from "@" or Add's "a routine" — its preview open, Copy and add going to `seq` (after `after`; absent: the end). */
+  const [libAdd, setLibAdd] = useState<{ row: LibraryRow; seq: string; after?: string } | null>(null);
   /** P-103 audit F3: the name the person has chosen in it (↑/↓), -1 for none yet; typing part of a name chooses the first match. */
   const [lit, setLit] = useState(-1);
   /** A name just put in: where the caret goes, set as soon as the field holds the new words (before the next key). */
@@ -592,11 +596,19 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   const routineMatches = atSign ? rankRoutines(picking!.query, myRoutines(data), routinesByAge(data).map((r) => r.routineId)).slice(0, 6) : [];
   // P-108: after "@", the names given above as routine rows too (`▤ {name}`), before the person's routines.
   const slotMatches = atSign && !wordsAt ? matching : [];
-  const picks = matching.length + slotMatches.length + routineMatches.length;
+  // P-105 (B-17 journey 4): after "@", the library's methods too, under their own heading — at most three; never while
+  // changing a step's words (that makes the step a call to one of the person's own).
+  const libMatches = atSign && !wordsAt ? libraryMatches(data, picking!.query) : [];
+  const picks = matching.length + slotMatches.length + routineMatches.length + libMatches.length;
   const picked = !!picking && picks > 0;
-  /** The name (or routine) Return puts in: one the person chose (↑/↓), or — once part of one is typed — the first match. */
-  const chosen = !picked ? -1 : lit >= 0 ? Math.min(lit, picks - 1) : picking!.query ? 0 : -1;
-  const choose = (i: number) => (i < matching.length ? insertName(matching[i]) : i < matching.length + slotMatches.length ? addRoutineHere(slotMatches[i - matching.length], true) : addRoutineHere(routineMatches[i - matching.length - slotMatches.length].routineId));
+  /**
+   * The name (or routine) Return puts in: one the person chose (↑/↓), or — once part of one is typed — the first match.
+   * P-105: never a library row by itself (Return in the field copies nothing): only one the person moved to opens its sheet.
+   */
+  const chosen = !picked ? -1 : lit >= 0 ? Math.min(lit, picks - 1) : picking!.query && picks > libMatches.length ? 0 : -1;
+  const ownPicks = matching.length + slotMatches.length + routineMatches.length;
+  const choose = (i: number) =>
+    i < matching.length ? insertName(matching[i]) : i < matching.length + slotMatches.length ? addRoutineHere(slotMatches[i - matching.length], true) : i < ownPicks ? addRoutineHere(routineMatches[i - matching.length - slotMatches.length].routineId) : addLibraryHere(libMatches[i - ownPicks]);
   /** The words the caret is in: the add field's or the row's being typed (the caret moved: the names may close). */
   // (Read from the field itself: a caret event can come before the words it follows are rendered.)
   const caretMoved = () => readPick(WEB && lastField.current?.isConnected ? lastField.current.value : live.current ? live.current.text : adding);
@@ -674,6 +686,22 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
     const added = siblings[siblings.findIndex((r) => r.itemId === row.itemId) + 1];
     setTyping(added ? { mode: 'after', path: keyOf(added.path), text: rest } : null);
   };
+  /**
+   * P-105: a library method chosen from "@" — the "@…" typed for it taken out of the field, and its preview opened with
+   * Copy and add, which adds it where the words were going (the end, after the row typed after, into a for each).
+   */
+  const addLibraryHere = (row: LibraryRow) => {
+    const now = live.current ? live.current.text : adding;
+    const rest = picking ? (now.slice(0, picking.start) + now.slice(picking.start + 1 + picking.query.length)).replace(/\s+$/, '') : now;
+    setPicking(null);
+    const t = live.current;
+    const at = t && t.mode === 'after' ? rowAt(t.path) : undefined;
+    const into = t && t.mode === 'into' ? rowAt(t.path) : undefined;
+    const where = into?.each && into.ref ? { seq: into.ref } : at ? { seq: at.seq, after: at.itemId } : { seq: ownSeq };
+    if (t) setTyping(rest.trim() ? { ...t, text: rest } : null);
+    else setAdding(rest);
+    setLibAdd({ row, ...where });
+  };
   /** The focus left the bar for somewhere that is not the field it came from: the typing is over, as if the field had been left. */
   const leftBar = () => {
     if (live.current) keep(false);
@@ -691,7 +719,21 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       });
   };
 
-  const layer = menuRow ? (
+  const layer = libAdd ? (
+    // P-105: the library's preview, its filled button Copy and add — both effects named before they happen; no notice
+    // after (Plan's adds give none); one Undo, the routine's menu, takes the call and the copy away together.
+    <LibrarySheet
+      row={libAdd.row}
+      mode="add"
+      fallback={addField}
+      onClose={() => setLibAdd(null)}
+      onCopy={() => {
+        const did = act().copyAndAdd(libAdd.row.id, libAdd.seq, libAdd.after);
+        setLibAdd(null);
+        if (!did.ok && did.reason !== 'reconnecting') act().say(`Couldn’t add “${libAdd.row.name}”`);
+      }}
+    />
+  ) : menuRow ? (
     <Menu anchor={() => mores[keyOf(menuRow.path)]} label={menuRow.words} onClose={close} testID="go-plan-menu" fallback={title}>
       {(menuRow.kind !== 'routine' || menuRow.broken) && !menuRow.each && !menuRow.any && !menuRow.slot && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
       {/* P-110: a step whose words are "@<routine name>" — offered as a call to it (never made one by itself). */}
@@ -853,6 +895,13 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
         if (edit(ownSeq, { kind: 'addSlot', name }).ok) close();
       }}
       routines={myRoutines(data).map((r) => ({ routineId: r.routineId, name: r.name, line: rowLine({ ...r, tags: [], going: undefined }) }))}
+      library={libraryToAdd(data).map((r) => ({ routineId: r.id, name: r.name, line: librarySignature(r) }))}
+      onLibrary={(id) => {
+        const row = libraryToAdd(data).find((r) => r.id === id);
+        setRoutineError(undefined);
+        close();
+        if (row) setLibAdd({ row, seq: ownSeq });
+      }}
       error={routineError}
       fallback={addField}
       onClose={() => {
@@ -1314,7 +1363,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
         </View>
         {floor && foot}
       </ScrollView>
-      {(offered.length > 0 || routineMatches.length > 0) && <NamesBar names={picked ? matching : offered} slots={picked ? slotMatches : []} routines={picked ? routineMatches.map((r) => ({ id: r.routineId, name: r.name })) : []} picking={picked} lit={chosen} onMove={(by) => setLit(chosen < 0 ? (by > 0 ? 0 : picks - 1) : (chosen + by + picks) % picks)} onPick={insertName} onSlot={(n) => addRoutineHere(n, true)} onRoutine={(id) => addRoutineHere(id)} asCall={wordsAt} lastField={lastField} onLeave={leftBar} />}
+      {(offered.length > 0 || routineMatches.length > 0 || libMatches.length > 0) && <NamesBar names={picked ? matching : offered} slots={picked ? slotMatches : []} routines={picked ? routineMatches.map((r) => ({ id: r.routineId, name: r.name })) : []} library={picked ? libMatches.map((r) => ({ id: r.id, name: r.name })) : []} onLibrary={(id) => {
+        const row = libMatches.find((r) => r.id === id);
+        if (row) addLibraryHere(row);
+      }} picking={picked} lit={chosen} onMove={(by) => setLit(chosen < 0 ? (by > 0 ? 0 : picks - 1) : (chosen + by + picks) % picks)} onPick={insertName} onSlot={(n) => addRoutineHere(n, true)} onRoutine={(id) => addRoutineHere(id)} asCall={wordsAt} lastField={lastField} onLeave={leftBar} />}
       {!floor && foot}
     </GoScreen>
   );
@@ -1479,7 +1531,7 @@ function InsertBtn({ lastField, onLeave }: { lastField: { current: HTMLInputElem
  * keyboard (audit F6): Alt+↓ in the field goes to the first name (Tab reaches them too); ←/→ move
  * between them; Return or Space inserts and goes back to the field; Esc goes back without inserting.
  */
-function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove, onPick, onSlot, onRoutine, asCall = false, lastField, onLeave }: { names: string[]; slots?: string[]; routines?: { id: string; name: string }[]; picking?: boolean; lit?: number; onMove?: (by: 1 | -1) => void; onPick: (name: string) => void; onSlot?: (name: string) => void; onRoutine?: (routineId: string) => void; /** P-110: typed while changing a step's words — a routine chosen makes the step a call to it. */ asCall?: boolean; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
+function NamesBar({ names, slots = [], routines = [], library = [], onLibrary, picking, lit = -1, onMove, onPick, onSlot, onRoutine, asCall = false, lastField, onLeave }: { names: string[]; slots?: string[]; routines?: { id: string; name: string }[]; /** P-105: after "@", the library's methods that match (a tap opens the preview, Copy and add). */ library?: { id: string; name: string }[]; onLibrary?: (id: string) => void; picking?: boolean; lit?: number; onMove?: (by: 1 | -1) => void; onPick: (name: string) => void; onSlot?: (name: string) => void; onRoutine?: (routineId: string) => void; /** P-110: typed while changing a step's words — a routine chosen makes the step a call to it. */ asCall?: boolean; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
   const box = useRef<ViewRef>(null);
   const leave = useRef(onLeave);
   const move = useRef<{ picking?: boolean; onMove?: (by: 1 | -1) => void }>({});
@@ -1491,7 +1543,7 @@ function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove,
     const el = box.current as unknown as HTMLElement | null;
     if (!WEB || !el || typeof el.addEventListener !== 'function') return;
     const isField = (t: EventTarget | null): t is HTMLInputElement => !!t && ((t as Element).tagName === 'INPUT' || (t as Element).tagName === 'TEXTAREA');
-    const chips = () => Array.from(el.querySelectorAll<HTMLElement>('[data-testid="go-names-chip"], [data-testid="go-names-routine"]'));
+    const chips = () => Array.from(el.querySelectorAll<HTMLElement>('[data-testid="go-names-chip"], [data-testid="go-names-routine"], [data-testid="go-names-library"]'));
     const keep = (e: Event) => e.preventDefault();
     const into = (e: FocusEvent) => {
       if (isField(e.relatedTarget)) lastField.current = e.relatedTarget;
@@ -1573,6 +1625,12 @@ function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove,
           </T>
         </Pressable>
       ))}
+      {/* P-105 (B-17 journey 4): Yours and Library under their headings — shown when the library has a match. */}
+      {library.length > 0 && (
+        <T dim style={styles.barHead} testID="go-names-heading" {...{ dataSet: { heading: 'yours' } }}>
+          {routines.length ? 'Yours' : 'Yours: none match'}
+        </T>
+      )}
       {/* P-98: after "@", the person's routines that match — a tap adds one as a step. */}
       {routines.map((r, j) => (
         <Pressable key={r.id} onPress={() => onRoutine?.(r.id)} accessibilityRole="button" accessibilityLabel={asCall ? `Make it a call to ${r.name}` : `Add ${r.name} as a step`} style={(state) => [styles.chip, styles.routineChip, picking && names.length + slots.length + j === lit && styles.chipFirst, (state as { focused?: boolean }).focused && RING]} testID="go-names-routine" {...{ dataSet: { lit: picking && names.length + slots.length + j === lit ? 'true' : 'false', routine: r.id } }}>
@@ -1582,6 +1640,22 @@ function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove,
           <T bold>{r.name}</T>
         </Pressable>
       ))}
+      {library.length > 0 && (
+        <T dim style={styles.barHead} testID="go-names-heading" {...{ dataSet: { heading: 'library' } }}>
+          Library
+        </T>
+      )}
+      {library.map((r, j) => {
+        const k = names.length + slots.length + routines.length + j;
+        return (
+          <Pressable key={`lib:${r.id}`} onPress={() => onLibrary?.(r.id)} accessibilityRole="button" accessibilityLabel={`${r.name}, in the library: look before copying`} style={(state) => [styles.chip, styles.routineChip, picking && k === lit && styles.chipFirst, (state as { focused?: boolean }).focused && RING]} testID="go-names-library" {...{ dataSet: { lit: picking && k === lit ? 'true' : 'false', lib: r.id } }}>
+            <View {...decorative}>
+              <Mark name="routine" color={G.dim} />
+            </View>
+            <T bold>{r.name}</T>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -1787,6 +1861,7 @@ const styles = StyleSheet.create({
   bar: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2, paddingHorizontal: SP.s3, paddingVertical: SP.s2, backgroundColor: G.surf, borderTopWidth: 2, borderTopColor: G.line },
   chipFirst: { borderColor: G.text },
   routineChip: { flexDirection: 'row', alignItems: 'center', gap: SP.s1 },
+  barHead: { flexBasis: '100%', paddingTop: SP.s1 },
   chip: { minHeight: TARGET, minWidth: TARGET, justifyContent: 'center', paddingHorizontal: SP.s3, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf2 },
   forward: { minHeight: 56 },
   // As tall as the filled button and the room its shadow keeps.
