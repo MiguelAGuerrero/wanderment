@@ -36,6 +36,14 @@ asked. The library already has one example, "Say what done is". This points at t
 shape (the interview as a routine) and at one capability nothing yet has: a routine whose answers
 produce a routine. Still an investigation; nothing is drafted.
 
+**A rule clarified by the owner (2026-11-28), which changes one verdict below:** "I think I've been misinterpreted on the instructional aspect of things. I didn't want there to be
+a lot of descriptive text on how the app works, but quick and insightful or necessary text to explain
+what's accepted and what are perfectly okay."
+The report treated "may a question be a field's placeholder?" as an open ruling that limited a composer
+to about three questions and made the "Plan leads" shape conditional. Under the clarification a short
+question as a placeholder ("What comes first?", "Then?") is allowed, so that shape fits without a
+ruling. Long explanation is still out.
+
 ## 1. The pain point, restated
 
 Writing a routine today starts with a name field and then a blank Plan. To get from "get better at
