@@ -1,6 +1,6 @@
 # B-19 — Starting something new through a composer
 
-**Status:** proposed (drafted with the owner's answers; UI audit not yet run) · **Decision:** D-26 (to be
+**Status:** agreed with the owner in drafting (2026-11-28); UI audit not yet run · **Decision:** D-26 (to be
 added on main) · **Roadmap:** P-114 (brief first) · **Theme:** Written by running; Reuse ·
 **Date:** 2026-11-28 · **Builds on:** B-17 (the library, built: P-104 to P-106) and the investigation
 [`../discovery/2026-11-27-guided-composer.md`](../discovery/2026-11-27-guided-composer.md)
@@ -66,23 +66,27 @@ planning surface, in Plan's look, and never appears while running.
 New routine
   [ What are you starting?                         ]
   ───────────────────────────────
+  [[Work it out]]   figure it out as you go          ← the marked start is the filled button
   Make it          something to build or finish
   Learn it         something to get better at
   Find out         a question to answer
   Decide           a choice to make
-  Work it out      the first step, then the next
   ───────────────────────────────
-  [[Plan]]                                 (as today: a name, then Plan)
+  Start from scratch
   Close
 ```
 - The person types what is on their mind, in their own words: `a zine about my street`.
 - The five starts are the library's five templates, each with one short line. (Short text that says
   what something is for is welcome: owner, 2026-11-28.)
-- **A little inference:** from the first words typed, one start is marked as the likely one ("learn…",
-  "get better at…" → Learn it; "why…", "how…", "find out…", a question mark → Find out; "decide…",
-  "whether…", "… or …" → Decide; "make…", "build…", "write…", "finish…" → Make it). It is only a mark.
-  Nothing is chosen without a tap, and with nothing recognised nothing is marked.
-- **Skipping it is the default path:** Plan, the filled button, does what New does today.
+- **A little inference:** from the first words typed, one start is marked as the likely one and becomes
+  the filled button ("learn…", "get better at…" → Learn it; "why…", "how…", "find out…", a question
+  mark → Find out; "decide…", "whether…", "… or …" → Decide; "make…", "build…", "write…", "finish…" →
+  Make it). Nothing is chosen without a tap.
+- **When nothing is recognised, "Work it out" is the marked one** (owner, 2026-11-28: "when nothing is
+  recognized, work it out is fine, or figure it out as you go. Something to that effect").
+- **"Start from scratch"** makes an empty routine with that name and opens its Plan, as New does today.
+  (Owner: "Just the name isn't very expressive. It should read something like, I'll define it myself,
+  or from scratch. Something that expresses you're going to start from zero.")
 
 ### Journey 2 — Being asked (the composer)
 Choosing a start opens the composer: one question at a time at the top, and under it the routine as it
@@ -269,8 +273,8 @@ skip it is; the composer's question sitting above a Plan-like list; Then and Ski
    for **Make it** and **Work it out** (no follow-ups needed for the second). Answers written into the
    routine as in Journey 4; ends in Plan with one Undo. *Done when:* typing a sentence and choosing a
    start produces a routine named from the sentence whose lists hold the answers verbatim; Skip at any
-   question leaves a valid routine; Plan (the filled button) still makes an empty routine exactly as
-   today; nothing is marked for words it does not recognise; a second question carries a short first answer and falls back to "it" for a long one or a list, and "my" in what was typed reads "your" in a question while the routine keeps "my"; the composer cannot be reached from the
+   question leaves a valid routine; "Start from scratch" makes an empty routine exactly as New does
+   today; "Work it out" is the filled start when nothing is recognised; nothing is marked for words it does not recognise; a second question carries a short first answer and falls back to "it" for a long one or a list, and "my" in what was typed reads "your" in a question while the routine keeps "my"; the composer cannot be reached from the
    runner; at 390 px and 200 % text nothing is cut and every target is at least 48 px.
 1a. **The phrasing rules and their corpus** `[feature]` S, built first and inside slice 1. The pure
    function, the corpus as a unit test, and one comparison run against `compromise` with the result
@@ -289,8 +293,8 @@ words of the questions and the wording rules of Journey 4 ship with the library 
 ## Data and risk
 - **Stored data:** none new. Light tier for the screens; the routine is made through the existing,
   tested path.
-- **Wizard fatigue.** The one user designed the model and will outgrow being led. Mitigation: Plan
-  stays the default button; Skip at every question; four questions at most.
+- **Wizard fatigue.** The one user designed the model and will outgrow being led. Mitigation: "Start
+  from scratch" is always one tap away; Skip at every question; four questions at most.
 - **Words that are not theirs.** Unasked template steps stay in the library's words. Ending in Plan is
   where they are rewritten; if the owner finds they rewrite most of them, the templates are wrong.
 - **Clumsy joins.** Weaving an answer into the next question will sometimes read oddly. The rule is to
@@ -315,16 +319,13 @@ words of the questions and the wording rules of Journey 4 ship with the library 
 - **The composer as one of the owner's own routines.** No build; still a good probe, and it cannot
   write its answers into a routine.
 
-## Answered, and still to confirm
-- **The wording** of the starts' lines and the questions: accepted by the owner (2026-11-28: "Your
-  words are fine, as long as … it's clear how those questions map to our constructs, and they allow
-  enough inputs to contextualize it that would make it sound natural").
-- **Which button is filled on the New sheet** *(designer's ruling, not yet the owner's)*: the marked
-  start is the filled button, and "Just a name" beneath it makes an empty routine as New does today.
-  The owner called this onboarding, so the composer is the main path and the plain name is the side
-  path. (The first draft had it the other way round; Journey 1's drawing shows that earlier layout.)
-- **What is marked when nothing is recognised** *(designer's ruling, not yet the owner's)*: "Work it
-  out", the most general start.
+## Answered by the owner (2026-11-28)
+- **The wording** of the starts' lines and the questions: accepted ("Your words are fine, as long as …
+  it's clear how those questions map to our constructs, and they allow enough inputs to contextualize
+  it that would make it sound natural").
+- **The New sheet:** the marked start is the filled button; the way to an empty routine reads
+  **"Start from scratch"**, not "Just a name".
+- **Nothing recognised:** "Work it out" is marked, with the line "figure it out as you go".
 
 ## Decision requested
 **D-26:** Build B-19, slice 1? **Go** / **Go, but change …** / **Not now** / **No**.
