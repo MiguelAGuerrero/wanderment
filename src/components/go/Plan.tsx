@@ -76,6 +76,8 @@ const under = (key: string, parent: string) => key === parent || key.startsWith(
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ');
 /** The "Add a step" row's placeholder and spoken name: one string, nothing keyed to its words (a later composer may ask a question here). */
 export const ADD_PLACEHOLDER = 'Add a step';
+/** P-99: the Add row of an In any order block's own view (the mock-up's "+ Add a part"). */
+export const ADD_PART = 'Add a part';
 
 /** P-98: why a routine was not added as a step, in words. */
 export function callRefused(reason: Refusal | 'reconnecting' | undefined, routine: string, into: string): string | undefined {
@@ -349,6 +351,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   const view = pv!;
   /** P-111: where this view's own steps are added — its sequence (the routine's, or the row's insides). */
   const ownSeq = sub?.ref ?? v.routineId;
+  /** P-99: this view is an In any order block's — its rows are its parts, and Add adds a part. */
+  const inAny = !!sub?.any;
+  const anySeqs = new Set(v.rows.filter((r) => r.any && r.ref).map((r) => r.ref!));
+  const addWords = inAny ? ADD_PART : ADD_PLACEHOLDER;
   /** The words this view is headed by (P-110: as shown, with the values held at the run's place). */
   const headWords = sub ? (sub.shown ?? sub.words) : v.name;
   /** P-111: the address of a view of this Plan (`?at=`; the routine's own: PLAN_TOP), keeping where it was opened from. */
@@ -468,7 +474,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   };
   const keepTyped = (t: Typing, stay: boolean) => {
     const words = tidy(t.text);
-    const target = t.mode === 'name' ? undefined : calledBy(words);
+    // (P-99: a part of an In any order block is a step, or a step broken down — "@" words there stay words.)
+    const target = t.mode === 'name' || (t.mode !== 'into' && anySeqs.has(rowAt(t.path)?.seq ?? '')) ? undefined : calledBy(words);
     const leave = (to?: string) => {
       setTyping(null);
       if (stay && to !== undefined) toRow(list, to, title);
@@ -528,7 +535,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
     setPicking(null);
     if (!adding.trim()) return;
     // P-110: a step added as "@<routine name>" is a call to it.
-    const target = calledBy(adding);
+    const target = inAny ? undefined : calledBy(adding);
     // Refused (reconnecting): the words stay in the field.
     // (P-111: in a row's own view, after its last step.)
     if (target ? !refusedCall(edit(ownSeq, { kind: 'addCall', routine: target }), target) : edit(ownSeq, { kind: 'addStep', text: adding }).ok) {
@@ -539,6 +546,14 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   };
 
   const close = () => setMenu(null);
+  /** P-99: Add's "In any order" — the block at the end of this view, its first part typed inside it at once. */
+  const addAnyHere = () => {
+    const had = new Set(v.rows.map((r) => keyOf(r.path)));
+    if (!edit(ownSeq, { kind: 'addAny' }).ok) return;
+    const now = planView(act().data, v.runId ? { runId: v.runId } : { routineId: v.routineId });
+    const made = now?.rows.find((r) => r.any && parentOf(keyOf(r.path)) === view.key && !had.has(keyOf(r.path)));
+    if (made) startTyping({ mode: 'into', path: keyOf(made.path), text: '' });
+  };
   /** P-107: the names a for each added at the end can go through — every name given in the routine, as Add a step offers them. */
   // (P-111: in a row's own view, the names given above its end — its item, and what its steps give, too.)
   const subIndex = sub ? v.rows.indexOf(sub) : -1;
@@ -678,7 +693,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
 
   const layer = menuRow ? (
     <Menu anchor={() => mores[keyOf(menuRow.path)]} label={menuRow.words} onClose={close} testID="go-plan-menu" fallback={title}>
-      {(menuRow.kind !== 'routine' || menuRow.broken) && !menuRow.each && !menuRow.slot && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
+      {(menuRow.kind !== 'routine' || menuRow.broken) && !menuRow.each && !menuRow.any && !menuRow.slot && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
       {/* P-110: a step whose words are "@<routine name>" — offered as a call to it (never made one by itself). */}
       {!!menuRow.asCall && (
         <MenuItem
@@ -697,6 +712,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       )}
       {/* P-107: a for each — its steps are added inside it. */}
       {!!menuRow.each && <MenuItem label="Add a step inside" spoken={`Add a step inside ${menuRow.words}`} testID="go-plan-add-inside" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
+      {/* P-99: an In any order block — its parts are added inside it. */}
+      {!!menuRow.any && <MenuItem label={ADD_PART} spoken={`Add a part to ${menuRow.words}`} testID="go-plan-add-part" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
       {/* P-98: a call — Open (that routine's Plan), Edit inputs. */}
       {!!menuRow.call && !menuRow.call.removed && menuRow.ref && (
         <MenuItem
@@ -921,7 +938,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       {sub ? (
         // P-111: a row's own view — its own words (a step broken down), and Remove; the routine's own items are its Plan's.
         <>
-          {!sub.each && <MenuItem label="Edit" spoken={`Edit ${sub.words}`} onPress={() => startTyping({ mode: 'words', path: view.key, text: sub.words })} />}
+          {!sub.each && !sub.any && <MenuItem label="Edit" spoken={`Edit ${sub.words}`} onPress={() => startTyping({ mode: 'words', path: view.key, text: sub.words })} />}
           <MenuSep />
           <MenuItem
             label="Remove"
@@ -1242,7 +1259,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                 </View>
                 {typing && typingAfter === i && typing.mode !== 'words' && typing.mode !== 'name' && (
                   <View style={typing.mode === 'into' ? { marginLeft: indent(typingRow!.depth + 1) - indent(row.depth) } : { marginLeft: indent(typingRow!.depth) - indent(row.depth) }}>
-                    {typed(typing.mode === 'into' ? (typingRow!.each ? `Add a step inside ${typingRow!.words}` : `A smaller step of ${typingRow!.words}`) : `Add a step after ${typingRow!.words}`, typing.mode === 'into' && !typingRow!.each ? 'A smaller step' : ADD_PLACEHOLDER)}
+                    {typed(
+                      typing.mode === 'into' ? (typingRow!.any ? `Add a part to ${typingRow!.words}` : typingRow!.each ? `Add a step inside ${typingRow!.words}` : `A smaller step of ${typingRow!.words}`) : anySeqs.has(typingRow!.seq) ? `Add a part after ${typingRow!.words}` : `Add a step after ${typingRow!.words}`,
+                      typing.mode === 'into' ? (typingRow!.any ? ADD_PART : typingRow!.each ? ADD_PLACEHOLDER : 'A smaller step') : anySeqs.has(typingRow!.seq) ? ADD_PART : ADD_PLACEHOLDER,
+                    )}
                   </View>
                 )}
               </View>
@@ -1271,8 +1291,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                 if (WEB) lastField.current = e.target as unknown as HTMLInputElement;
               }}
               onBlur={(e) => !toBar(e) && setAddFocused(false)}
-              placeholder={ADD_PLACEHOLDER}
-              accessibilityLabel={ADD_PLACEHOLDER}
+              placeholder={addWords}
+              accessibilityLabel={addWords}
               onSubmit={addIt}
               style={styles.addField}
               testID="go-plan-add"
@@ -1281,9 +1301,11 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                 keyboard up, large text) it gives way to the words — nothing moves under a press — and "@" is there. */}
             {(!floor || (addFocused && !!insertBtn) || !!adding.trim()) && (
               <View style={styles.addTools}>
-                {!floor && <Btn kind="plain" mark="routine" label="A routine" spoken="Add a routine as a step" onPress={() => setMenu({ addRoutine: true })} style={styles.addBtn} testID="go-plan-add-routine" />}
+                {!floor && !inAny && <Btn kind="plain" mark="routine" label="A routine" spoken="Add a routine as a step" onPress={() => setMenu({ addRoutine: true })} style={styles.addBtn} testID="go-plan-add-routine" />}
                 {/* P-107: a loop over a name given above; P-108: or over a list of its own. */}
-                {!floor && <Btn kind="plain" label="For each…" onPress={() => setMenu({ addEach: true })} style={styles.addBtn} testID="go-plan-add-each" />}
+                {!floor && !inAny && <Btn kind="plain" label="For each…" onPress={() => setMenu({ addEach: true })} style={styles.addBtn} testID="go-plan-add-each" />}
+                {/* P-99: a block whose parts are taken up in any order — its first part is typed inside it at once. (A part is a step or a step broken down: none inside one.) */}
+                {!floor && !inAny && <Btn kind="plain" label="In any order" spoken="Add In any order: parts taken in any order" onPress={addAnyHere} style={styles.addBtn} testID="go-plan-add-any" />}
                 {addFocused && insertBtn}
                 {!!adding.trim() && <Btn kind="plain" label="Add" spoken="Add this step" onPress={addIt} style={styles.addBtn} testID="go-plan-add-btn" />}
               </View>

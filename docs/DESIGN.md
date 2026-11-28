@@ -115,6 +115,28 @@ routines in their own words — and runs them with the person, one small step at
   a run chooses is never stored on the routine (owner: "Edit Plan by hand"). (Not built: renaming the item from the
   block's menu; reordering a list's rows; a routine's typed inputs carried with the value; a call row giving a
   routine; a routine calling itself; kept lists shared between parts — B-16, parked.)
+- **In any order** *(built, P-99; B-16 rule 3 and "With P-99"; the owner: "a thread has managed its own state … done once
+  that single thread returns")*: a block whose **parts** are taken up in any order, each a step or a step broken down.
+  Stored as a step broken down (a row `{ id, ref }` to an unnamed sequence "In any order") carrying `any: true`, so **an
+  older build reads it as a step broken down** (its parts one after another); nothing is converted. Made from Add's **In
+  any order** (beside For each…; its first part is typed inside it at once); its row opens as a view of its own (P-111)
+  whose Add reads **Add a part** (no routine, for each or block inside a block); its ··· reads **Add a part · Add a step
+  after** · a line · **Remove**. **Running:** arriving rests on its row, which offers the parts (each with where it
+  stands); a part taken up runs as its own thread — its **own place and values** (a part broken down goes in at its first
+  step; parts never read what another gave) — and the filled button reads **Start <part>** / **Resume <part>** (the part
+  put down last). Next past a part's last step **returns** it ("finished"); Step out of it **stops** it ("stopped"); Back
+  from a part goes to the row, putting it down where it is. **The step after the block is reached only when every part has
+  returned or been stopped** (Next on the row is refused until then); Step out on the row — or on a step part — leaves the
+  block, stopping the rest (parts cannot outlive it), on the first layer too. What the parts give under one name is
+  **collected into one list in the order given** after the block. Each part's place, values and end are kept on the
+  level holding the row (`parts: { row, list }`); one this version cannot read is kept, never written over. **Where every
+  part stands** (the tree view): the pull-up panel lists every part of every block the run is in — "at <step>" with its
+  values in place, "waiting for <words> · since <day>", "first: <step>" (a part broken down not taken up yet),
+  "finished", "stopped"; the part the run is in marked HERE and "you are here" — and a tap takes one up (putting down the
+  one the run is in, said "Took up “<part>”" with Undo); a paused or waiting tile's ··· **In any order…** opens the same
+  view, a tap taking the part up in the runner. A tile reads the part last touched: "<part> · at <step>". No count,
+  percentage or "left". (Parked, the owner: a finished part taken up again when its list grows, and the step after the
+  block waiting again.)
 - **Calls** *(built, P-98; B-16, B-15 journey 5)*: a routine used as a step is a **call row** — stored as the
   routine's id with its name then (`words`) and, per input, what fills it (`with`). Its **inputs** are the names
   its steps read that nothing in it gives (its own calls' unbound inputs too); it **gives** every name it gives.

@@ -209,3 +209,24 @@ write nothing by loading and read as one queue in the order that build showed, f
 | `p100-old-build.json` | that build's `homeShown`, `homeGroups` and `tileLine` | what it SHOWED on home: every run going in order (name, run, state, line, note), and which were under Ongoing and Finishing |
 
 `freeze-p100.ts.txt` is the script that wrote them.
+
+## P-99 (frozen 2026-11-28, before In any order)
+
+Written the same way by the build before P-99 (`475e70d`, P-112), through its own store actions and its Import (for what
+only an import could make there). That build knew nothing of `any` on a routine or `parts` on a run's level. It started
+from `p100-schema4.sqlite` (so everything above is in it). P-99 stores an In any order block as a row `{ id, ref }` to an
+unnamed sequence "In any order" with `any: true` (its items the parts), and, on the level holding the block's row, a
+record of its parts (`parts: { row, list }`: each part's end — `finished` or `stopped` — its place and values when put
+down). No migration: this data must load exactly, write nothing by loading, show as that build showed it there (a step
+broken down), and read as In any order here.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p99-schema4.sqlite` | that build, ordinary saves (and three Imports), over `p100-schema4.sqlite` | everything in `p100-schema4.sqlite`, plus "Get better at hands" (Warm up; the block — Gesture practice broken down, Study, Master copy giving `{copies}`, and "Gesture from memory" added by that build's Plan, which kept `any`; then "Compare {copies} …"), a run of it inside Gesture practice on "Draw 10 feet" with Master copy recorded finished with what it gave, paused "hands are tired"; "Draw a piece" (the block — Thumbnail giving `{thumbnail}`, Pick a palette — then Line art), a run of it that was resting on the block with Thumbnail put down and Pick a palette stopped, then stepped into by that build (into Thumbnail, the record kept as stored), paused "thumbnail first"; and P-96's "Read a chapter" running again |
+| `p99-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p99-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p99-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p99-expected.json` | that build's store | what those four must read as |
+| `p99-old-build.json` | that build's `planView`, `runnerView`, `homeShown` and `tileLine` | what it SHOWED: the block as a step broken down in Plan (hoisting `{copies}`), the runner inside Gesture practice ("In any order" its parent), on the block's row (Step in), and stepped into it (Thumbnail, Step out of "In any order"); the tiles "at Draw 10 feet, 30 s each" and "at In any order" |
+
+`freeze-p99.ts.txt` is the script that wrote them.

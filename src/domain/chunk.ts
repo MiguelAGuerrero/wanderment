@@ -150,7 +150,8 @@ export function chunkView(data: Data, runId: Id, want: number, open: ReadonlySet
     const r = chunkStep(d, runId, step, SIM);
     // (Next would be refused here: the step in view is shown alone and Next is Next; a later one is not added.)
     if (!r.ok) {
-      if (!rows.length) return { rows: [{ ...row, depth: 0 }, ...outlineRows.map((o) => ({ ...o, depth: o.depth - row.depth }))], n: 1, ends: false, moves: [] };
+      // (P-99, repro 3: a value typed here that the engine will not keep — Next tries it, and is refused in words.)
+      if (!rows.length) return { rows: [{ ...row, depth: 0 }, ...outlineRows.map((o) => ({ ...o, depth: o.depth - row.depth }))], n: 1, ends: false, moves: r.refusedValue ? [step] : [] };
       blocked = true;
       break;
     }
@@ -179,6 +180,8 @@ function movesOf(rows: ChunkRow[], drafts: Drafts): ChunkGiven {
       const t = typed(drafts, f.key);
       if (!t) continue;
       if (!f.owed) {
+        // (P-99, repro 2: an empty draft is "unchanged", never "clear".)
+        if (!t.text.trim() && !t.items?.some((x) => x.trim())) continue;
         given.push({ name: f.name, text: t.text, ...(t.items && { items: t.items }), ...(t.refs && { refs: t.refs }) });
         continue;
       }

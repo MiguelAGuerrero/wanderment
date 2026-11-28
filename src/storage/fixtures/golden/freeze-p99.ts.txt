@@ -1,0 +1,269 @@
+/**
+/**
+ * P-99 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE In any order (475e70d, P-112: schema 4, data format 2;
+ * nothing knew `any` or a level's `parts`). Run once, in that commit, with P99_OUT set; never part of the suite. It
+ * starts from `p100-schema4.sqlite` (everything frozen before) and uses that build's own store actions — and its
+ * Import, for what only an import could make there: an In any order block in the shape P-99 writes (a row `{ id, ref }`
+ * to an unnamed sequence "In any order" carrying `any: true`, its items the parts), and a run in P-99's shape (the
+ * level holding the block's row carries `parts`: a part finished with what it gave, the run inside another part).
+ * That build then shows it, adds a part from Plan, and runs it as a step broken down. What that build SHOWED is
+ * written to `p99-old-build.json`: the proof that an older build reads the block as a breakdown.
+ */
+import { copyFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const OUT = process.env.P99_OUT!;
+
+const env = vi.hoisted(() => {
+  const ls = new Map<string, string>();
+  const state = { dbPath: '', openError: undefined as Error | undefined, hangWrites: false };
+  const localStorage = {
+    get length() {
+      return ls.size;
+    },
+    key: (i: number) => [...ls.keys()][i] ?? null,
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => void ls.set(k, String(v)),
+    removeItem: (k: string) => void ls.delete(k),
+  };
+  (globalThis as { localStorage?: unknown }).localStorage = localStorage;
+  return { ls, state, localStorage };
+});
+
+vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => env.localStorage.getItem(k),
+    setItem: async (k: string, v: string) => env.localStorage.setItem(k, v),
+    removeItem: async (k: string) => env.localStorage.removeItem(k),
+  },
+}));
+vi.mock('./expoDb', async () => {
+  const { nodeDb } = await import('./nodeDb');
+  return {
+    openExpoDb: async () => {
+      if (env.state.openError) throw env.state.openError;
+      const db = nodeDb(env.state.dbPath);
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+    },
+  };
+});
+vi.mock('./nativeBackup', () => ({ scheduleBackup: () => {} }));
+
+const settle = () => new Promise((r) => setTimeout(r, 40));
+
+async function load() {
+  vi.resetModules();
+  const { startPersistence } = await import('./persistence');
+  const { useStore } = await import('@/store/useStore');
+  await startPersistence();
+  return useStore;
+}
+type Store = Awaited<ReturnType<typeof load>>;
+
+/** Ids are a counter and the clock is fixed and stepped, so every session makes the same records. */
+let n = 0;
+let clock = 0;
+const T0 = Date.parse('2026-11-28T09:00:00.000Z');
+const tick = (minutes = 3) => vi.setSystemTime(new Date((clock += minutes * 60000)));
+
+beforeEach(() => {
+  env.ls.clear();
+  env.state.openError = undefined;
+  env.state.hangWrites = false;
+  env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-freeze99-')), 'db.sqlite');
+  n = 0;
+  clock = T0;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(T0));
+  vi.stubGlobal('crypto', { randomUUID: () => `p99-${String(++n).padStart(3, '0')}` });
+});
+afterEach(async () => {
+  (await import('./persistence')).stopPersistence();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+/** What that build showed: Plan's rows of the routine, the runner at a place, and the run's line on home. */
+const old: Record<string, unknown> = {};
+async function views(key: string, store: Store, routineId: string, runId?: string) {
+  const { planView, runnerView, homeShown } = await import('@/domain/runView');
+  const { tileLine } = await import('@/domain/goText');
+  const data = store.getState().data;
+  const plan = planView(data, runId ? { runId } : { routineId });
+  const run = runId ? runnerView(data, runId) : undefined;
+  const tile = runId ? homeShown(data).find((t) => t.runId === runId) : undefined;
+  old[key] = JSON.parse(
+    JSON.stringify({
+      rows: plan?.rows.map((r) => ({ depth: r.depth, kind: r.kind, words: r.words, broken: r.broken ?? false, here: r.here, within: r.within, gives: r.gives ?? null, hoisted: r.hoisted ?? [] })),
+      ...(run && { runner: { level: run.level, parent: run.parent ?? null, step: run.step.kind, words: run.step.words, fields: run.fields, values: run.values.map((v) => ({ name: v.name, items: v.items })), moves: run.moves, next: run.next } }),
+      ...(tile && { tile: { line: tileLine(tile).line, path: tile.path ?? [] } }),
+    }),
+  );
+}
+
+const HANDS_AT = '2026-11-28T09:20:00.000Z';
+/** What a person did with the build before In any order, through its own actions (and Import). */
+async function drive(store: Store) {
+  const s = () => store.getState();
+  const ok = (d: { ok: boolean; runId?: string; routineId?: string }) => {
+    expect(d).toMatchObject({ ok: true });
+    s().dismissRunNotice();
+    tick();
+    return (d.runId ?? d.routineId)!;
+  };
+  const items = (routineId: string) => s().data.routines[routineId].items as { id: string; text?: string; wait?: string; ref?: string }[];
+  const make = (name: string, steps: string[]) => {
+    const id = ok(s().createRoutine(name));
+    for (const st of steps) ok(s().editRoutine(id, { kind: 'addStep', text: st }));
+    return id;
+  };
+  const { toBackup } = await import('@/domain/backup');
+  const { previewImport, confirmImport } = await import('@/store/importBackup');
+  /** Exported, changed by hand, imported back (Settings' Import, Replace). */
+  const reimport = (change: (d: import('@/domain/types').Data) => void) => {
+    const file = JSON.parse(toBackup(s().data));
+    change(file.data);
+    const r = confirmImport(previewImport(JSON.stringify(file)));
+    expect(r.ok).toBe(true);
+    tick();
+  };
+  ok(s().pauseRun('p96-050'));
+
+  // The mock-up's routine (PlanAnyOrder): Warm up, the block — Gesture practice (broken down), Study, Master copy
+  // (gives {copies}) — then the step after it, reading {copies}.
+  const hands = make('Get better at hands', ['Warm up', 'Compare {copies} with this week’s gestures and pick one thing to work on']);
+  const piece = make('Draw a piece', ['Line art']);
+  // Only an import could make In any order here: the rows and the records P-99 writes.
+  reimport((d) => {
+    const at = '2026-11-28T09:15:00.000Z';
+    d.routines['p99-gesture-seq'] = { id: 'p99-gesture-seq', words: 'Gesture practice', named: false, createdAt: at, items: [{ id: 'p99-hands', text: 'Draw 10 hands, 30 s each' }, { id: 'p99-feet', text: 'Draw 10 feet, 30 s each' }] };
+    d.routines['p99-any'] = {
+      id: 'p99-any',
+      words: 'In any order',
+      named: false,
+      createdAt: at,
+      any: true,
+      items: [{ id: 'p99-gesture', ref: 'p99-gesture-seq' }, { id: 'p99-study', text: 'Study: hand anatomy, chapter 3' }, { id: 'p99-copy', text: 'Master copy', out: 'copies' }],
+    };
+    (d.routines[hands].items as unknown[]).splice(1, 0, { id: 'p99-any-row', ref: 'p99-any' });
+    d.routines['p99-any2'] = {
+      id: 'p99-any2',
+      words: 'In any order',
+      named: false,
+      createdAt: at,
+      any: true,
+      items: [{ id: 'p99-thumb', text: 'Thumbnail', out: 'thumbnail' }, { id: 'p99-palette', text: 'Pick a palette' }],
+    };
+    (d.routines[piece].items as unknown[]).splice(0, 0, { id: 'p99-any2-row', ref: 'p99-any2' });
+  });
+  await views('plan', store, hands);
+
+  // A run inside Gesture practice (on its second step), Master copy finished with what it gave, Study not taken up.
+  const run = ok(s().startRoutine(hands));
+  ok(s().nextStep(run));
+  ok(s().pauseRun(run, 'hands are tired'));
+  // A run resting on the block (choosing), Thumbnail put down at itself, Pick a palette stopped.
+  const run2 = ok(s().startRoutine(piece));
+  ok(s().pauseRun(run2));
+  reimport((d) => {
+    const r = d.runs[run] as { frames: unknown[] };
+    r.frames = [
+      {
+        seq: hands,
+        at: 'p99-any-row',
+        round: 1,
+        parts: {
+          row: 'p99-any-row',
+          list: [
+            { item: 'p99-copy', ended: 'finished', touchedAt: '2026-11-28T09:18:00.000Z', values: [{ name: 'copies', items: ['two Dürer hands'], level: 1, seq: 'p99-any', item: 'p99-copy', words: 'Master copy', at: '2026-11-28T09:17:00.000Z' }] },
+            { item: 'p99-gesture', touchedAt: HANDS_AT },
+          ],
+        },
+      },
+      { seq: 'p99-any', at: 'p99-gesture', round: 1, from: 'p99-any-row' },
+      { seq: 'p99-gesture-seq', at: 'p99-feet', round: 1, from: 'p99-gesture' },
+    ];
+    const r2 = d.runs[run2] as { frames: unknown[] };
+    r2.frames = [
+      {
+        seq: piece,
+        at: 'p99-any2-row',
+        round: 1,
+        parts: {
+          row: 'p99-any2-row',
+          list: [
+            { item: 'p99-thumb', touchedAt: '2026-11-28T09:30:00.000Z', frames: [{ seq: 'p99-any2', at: 'p99-thumb', round: 1, from: 'p99-any2-row' }] },
+            { item: 'p99-palette', ended: 'stopped', touchedAt: '2026-11-28T09:25:00.000Z' },
+          ],
+        },
+      },
+    ];
+  });
+  await views('inGesture', store, hands, run);
+  await views('choosing', store, piece, run2);
+  // That build's Plan adds a part, as a step inside any step broken down (the field it does not know stays).
+  ok(s().editRoutine('p99-any', { kind: 'addStep', text: 'Gesture from memory' }));
+  expect((s().data.routines['p99-any'] as { any?: unknown }).any).toBe(true);
+  expect(items('p99-any').map((i) => i.id)).toEqual(['p99-gesture', 'p99-study', 'p99-copy', expect.any(String)]);
+  // Running it there: the block is a step broken down — Step in takes its first part, the parts one after another.
+  ok(s().resumeRun(run2));
+  ok(s().stepIn(run2));
+  await views('steppedIn', store, piece, run2);
+  ok(s().pauseRun(run2, 'thumbnail first'));
+  // Last: the run the app is on, running.
+  ok(s().resumeRun('p96-050'));
+  await settle();
+  return { hands, piece, run, run2 };
+}
+const settingsOf = (store: Store) => {
+  const s = store.getState();
+  return { showShading: s.showShading, recentSearches: s.recentSearches, leftAsIs: s.leftAsIs, whyOfferOff: s.whyOfferOff, firstRunDone: s.firstRunDone };
+};
+const snapshot = (store: Store) => JSON.parse(JSON.stringify({ data: store.getState().data, settings: settingsOf(store) }));
+let expected: { data: import('@/domain/types').Data; settings: ReturnType<typeof settingsOf> };
+
+it('1. the database (schema 4), the backup and what the store held', async () => {
+  copyFileSync(join(__dirname, 'fixtures/golden/p100-schema4.sqlite'), env.state.dbPath);
+  let store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+  await drive(store);
+  await settle();
+  expected = snapshot(store);
+  expect(env.ls.has('wanderment:journal')).toBe(false);
+  store = await load();
+  expect(snapshot(store)).toEqual(expected);
+  const { nodeDb } = await import('./nodeDb');
+  const db = nodeDb(env.state.dbPath);
+  expect(await db.all('PRAGMA user_version')).toEqual([{ user_version: 4 }]);
+  await db.exec('VACUUM');
+  db.close();
+  copyFileSync(env.state.dbPath, join(OUT, 'p99-schema4.sqlite'));
+  writeFileSync(join(OUT, 'p99-expected.json'), JSON.stringify(expected, null, 2) + '\n');
+  writeFileSync(join(OUT, 'p99-old-build.json'), JSON.stringify(old, null, 2) + '\n');
+  const { toBackup } = await import('@/domain/backup');
+  writeFileSync(join(OUT, 'p99-backup.json'), toBackup(store.getState().data, new Date('2026-11-28T10:30:00.000Z')));
+});
+
+it('2. the pending journal (eight keys): everything, never committed', async () => {
+  const store = await load();
+  env.state.hangWrites = true;
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  const raw = env.ls.get('wanderment:journal')!;
+  expect(Object.keys(JSON.parse(raw).changes).sort()).toEqual(['deleteActivities', 'deleteRoutines', 'deleteRuns', 'deleteThreads', 'upsertActivities', 'upsertRoutines', 'upsertRuns', 'upsertThreads']);
+  writeFileSync(join(OUT, 'p99-journal.json'), raw);
+});
+
+it('3. the fallback blob (a browser that can’t run SQLite)', async () => {
+  env.state.openError = new Error('no OPFS');
+  const store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  writeFileSync(join(OUT, 'p99-fallback.json'), env.ls.get('wanderment')!);
+});

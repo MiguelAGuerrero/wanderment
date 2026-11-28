@@ -33,6 +33,7 @@ import { OwedSheet } from './Calls';
 import { ChunkSheet, SeeAhead } from './Chunk';
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
+import { PartsList } from './Parts';
 import { OpenRows, PlaceRow } from './Places';
 import { decideWhere } from './session';
 import { face, G, hueOf, SP, TARGET } from './tokens';
@@ -104,7 +105,9 @@ export function Runner({ runId }: { runId: string }) {
   const here = chunkAt(data, runId);
   const [chunkState, setChunk] = useState<{ at: string; n: number; open: string[]; drafts: Drafts }>({ at: '', n: 1, open: [], drafts: {} });
   const chunk = chunkState.at === here ? chunkState : { at: here, ...FRESH };
-  const cv = useMemo(() => (ahead && running && !v?.planning ? chunkView(data, runId, chunk.n, new Set(chunk.open), chunk.drafts) : undefined), [ahead, running, v?.planning, data, runId, chunk.n, chunk.open, chunk.drafts]);
+  // (P-99: not on an In any order block's row — the parts to choose are the runner's there.)
+  const choosing = !!v?.choose;
+  const cv = useMemo(() => (ahead && running && !v?.planning && !choosing ? chunkView(data, runId, chunk.n, new Set(chunk.open), chunk.drafts) : undefined), [ahead, running, v?.planning, choosing, data, runId, chunk.n, chunk.open, chunk.drafts]);
   const setChunkOf = (f: (c: typeof chunk) => Partial<typeof chunk>) => setChunk({ ...chunk, ...f(chunk) });
 
   // The route follows the run. Whatever is open is put away first (it would hold the screen).
@@ -163,8 +166,15 @@ export function Runner({ runId }: { runId: string }) {
       setHeld(false);
     };
   }, [doneKey, focused]);
+  /** P-99: a part of the block taken up (the parts on its row; the filled button there). */
+  const take = (level: number, part: string) => {
+    setPanel(false);
+    act().takeUpPart(runId, level, part);
+    toNote();
+  };
   const next = () => {
     if (!v) return;
+    if (v.next === 'take' && v.choose?.take) return take(v.choose.level, v.choose.take.part);
     // P-112: with See ahead on, Next takes every step in view as done (one move), with what was typed for them.
     if (cv?.moves.length) {
       act().nextStep(runId, undefined, cv.moves);
@@ -187,7 +197,11 @@ export function Runner({ runId }: { runId: string }) {
     setPanel(false);
     // P-98: leaving before what this level owes was given — its fields first.
     if (v?.stepOutOwes.length) return setOwing('out');
-    act().doneLevel(runId);
+    // P-99 (the P-112 investigator's repro 4): with See ahead on, what was typed for the step it is on is given as it
+    // leaves; what was typed for steps further down (passed over) is said, never dropped silently.
+    const given = cv?.moves[0]?.given;
+    const notKept = [...new Set((cv?.moves.slice(1) ?? []).flatMap((m) => [...(m.given ?? []), ...(m.owed ?? [])]).filter((g) => g.text.trim()).map((g) => g.name))];
+    act().doneLevel(runId, undefined, given, notKept);
     toNote();
   };
   // P-101 (ruling 3): ❚❚ opens the Pause sheet; its Pause puts the run down where it is, with the note, and goes home.
@@ -231,6 +245,7 @@ export function Runner({ runId }: { runId: string }) {
   const done = cv ? cv.ends : v.next === 'done';
   // (P-112: over more than one step in view, Next is Next — a wait among them is taken as done with the rest.)
   const happened = v.next === 'itsHappened' && !done && !(cv && cv.n > 1);
+  const taking = v.next === 'take' ? v.choose?.take : undefined;
   const valueSheet = sheet ? <ValueSheet runId={runId} name={sheet} onClose={() => setSheet(null)} fallback={note} /> : null;
   const entrySheet = entry && v.step.itemId ? <EntrySheet key={`${v.step.itemId}:${entry.name}`} runId={runId} itemId={v.step.itemId} field={entry} onClose={() => setEntry(null)} fallback={nextBtn} /> : null;
   const restartSheet =
@@ -394,7 +409,7 @@ export function Runner({ runId }: { runId: string }) {
         onPanel={(open) => (open ? setPanel(true) : closePanel())}
         panel={panel ? panelEl : null}
         notice={<Notice onUndone={toNote} reserve />}
-        fields={v.step.itemId ? <ValueFields fields={v.fields} onOpen={(f) => { setPanel(false); setEntry(f); }} /> : null}
+        fields={v.choose ? <PartsList groups={[{ level: v.choose.level, within: v.level, parts: v.choose.parts }]} onTake={take} testID="go-choose" /> : v.step.itemId ? <ValueFields fields={v.fields} onOpen={(f) => { setPanel(false); setEntry(f); }} /> : null}
         onFull={setFull}
       />
       )}
@@ -406,14 +421,15 @@ export function Runner({ runId }: { runId: string }) {
               <View style={styles.handleGrow}>
                 <Handle ref={handle} open={panel} onToggle={() => (panel ? closePanel() : setPanel(true))} onSwipe={(up) => (up ? setPanel(true) : closePanel())} />
               </View>
-              <SeeAhead
+              {/* (P-99: not on an In any order block's row — what is ahead there is the parts, listed.) */}
+              {!choosing && <SeeAhead
                 on={ahead}
                 onPress={() => {
                   // Off: back to one step (what was typed stays with the place until a move).
                   if (ahead) setChunkOf(() => ({ n: 1, open: [] }));
                   setAhead(!ahead);
                 }}
-              />
+              />}
             </View>
             <View style={[styles.tray, tight && styles.trayTight]}>
               {/* P-101 (ruling 1): the moves — Step in · Step out · the filled Next, lowest; it wraps (large text), Next last and full width. */}
@@ -436,11 +452,12 @@ export function Runner({ runId }: { runId: string }) {
                 <Btn
                   kind="filled"
                   ref={nextBtn}
-                  label={happened ? 'It’s happened' : done ? 'Done' : 'Next'}
-                  spoken={happened ? `It’s happened: ${shown}` : done ? `Done with ${v.name}` : undefined}
+                  // (P-99: on an In any order block's row, the part to take up — "Resume <part>" put down, "Start <part>" not taken up.)
+                  label={taking ? `${taking.resume ? 'Resume' : 'Start'} ${taking.words}` : happened ? 'It’s happened' : done ? 'Done' : 'Next'}
+                  spoken={taking ? undefined : happened ? `It’s happened: ${shown}` : done ? `Done with ${v.name}` : undefined}
                   // P-103 (1): Done has its own mark, the check — never Next's arrow.
-                  mark={done ? 'check' : undefined}
-                  markAfter={happened || done ? undefined : 'forward'}
+                  mark={done && !taking ? 'check' : undefined}
+                  markAfter={happened || (done && !taking) ? undefined : 'forward'}
                   onPress={next}
                   hold={done && held}
                   size={18}
@@ -745,6 +762,22 @@ function Panel({ runId, restart, onRestart, onClose, onUndo, onMoved }: PanelPro
           )}
           {where.length === 0 && !p.wait && <View style={styles.rule} />}
         </View>
+        {/* P-99 (B-16, "where every part stands"): every part of every In any order block the run is in; a tap takes one up. */}
+        {p.parts && (
+          <View style={styles.places} testID="go-panel-parts">
+            <T bold dim role="heading" aria-level={3} accessibilityRole="header">
+              In any order
+            </T>
+            <PartsList
+              groups={p.parts}
+              onTake={(level, part) => {
+                useStore.getState().takeUpPart(runId, level, part);
+                onMoved();
+              }}
+              testID="go-tree"
+            />
+          </View>
+        )}
         {/* P-109 (B-18 journey 3): the routine's places, under what the panel already holds — the run began in, then the one you are in. */}
         {p.places?.map((g) => (
           <View key={`${g.inner ? 'in' : 'root'}:${g.routine}`} style={styles.places} testID="go-panel-places">

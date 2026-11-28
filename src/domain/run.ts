@@ -58,6 +58,32 @@ export interface Seq {
    * are the sentence, "For each <item> in {<list>}". A level of its own for values (see `isScopeSeq`).
    */
   each?: Each;
+  /**
+   * P-99: an In any order block — an unnamed sequence (an older build reads it as a step broken down, "In any order")
+   * whose items are its parts, each taken up as a thread of its own: its own place and values, chosen by the person,
+   * joined before the step after the block. A level of its own for values (see `isScopeSeq`).
+   */
+  any?: true;
+}
+
+/**
+ * P-99: one part of an In any order block, as the level holding the block's row records it. `ended`: it returned
+ * (`finished`: Next past its last step) or was stopped (`stopped`: Step out of it). `frames`: where it was put down
+ * (the block's level and those above it, as they were); `values`: what it gave there (the levels of `frames`), or, once
+ * ended, what it returns at the join. `touchedAt`: when it was last taken up or put down. `since`: put down on a wait.
+ */
+export interface Part {
+  item: Id;
+  ended?: 'finished' | 'stopped';
+  touchedAt?: string;
+  frames?: Frame[];
+  values?: ValueEntry[];
+  since?: string;
+}
+/** P-99: the parts of the block at `row` (the item the level holding it is on, or was on before Back). */
+export interface Parts {
+  row: Id;
+  list: Part[];
 }
 
 /**
@@ -99,6 +125,8 @@ export interface Frame {
   eachText?: string;
   /** P-108: the list as the level last saw it (its place is found in the list as it reads now by comparing the two). */
   eachSeen?: string[];
+  /** P-99: on the level holding an In any order block's row, the record of its parts (see `Parts`). */
+  parts?: Parts;
 }
 
 /**
@@ -248,7 +276,14 @@ export type RoutineEdit =
    * stay — the step keeps them and the call is added right after it (one write). Refused as `addCall` (`gone`,
    * `cannot`, `self`), and `not-a-step` for anything but a plain step that gives no name.
    */
-  | { kind: 'toCall'; item: Id; routine: Id; words?: string };
+  | { kind: 'toCall'; item: Id; routine: Id; words?: string }
+  /**
+   * P-99: Add's "In any order" — a block whose parts are taken up in any order: a row `{ id, ref }` to a new unnamed
+   * sequence "In any order" with `any: true`, its parts `parts` (each a plain step; blank ones dropped; none yet is
+   * fine), after a row or at the end. Inside a block, a part is a step or a step broken down: a wait, a routine, a for
+   * each, another In any order, Repeat from here and a new name for the block are refused there (`cannot`).
+   */
+  | { kind: 'addAny'; after?: Id | null; parts?: string[] };
 
 export type Verb =
   | { kind: 'start'; routineId: Id }
@@ -267,7 +302,7 @@ export type Verb =
    */
   | { kind: 'next'; runId: Id; owed?: Given[]; chunk?: ChunkGiven[] }
   /** P-103: `whole` — the whole run ends where it stands (a paused tile's "End this run"), at any depth; else the level it is in. */
-  | { kind: 'done'; runId: Id; whole?: true; owed?: { name: string; text: string }[] }
+  | { kind: 'done'; runId: Id; whole?: true; owed?: { name: string; text: string }[]; given?: Given[] }
   | { kind: 'stepIn'; runId: Id }
   | { kind: 'back'; runId: Id }
   | { kind: 'jump'; runId: Id; to: JumpTo }
@@ -289,7 +324,14 @@ export type Verb =
    * the top. One write (each row's `queue` renumbered 1…n where it changed), so one Undo. Refused `gone` for a run
    * that is not a row, `cannot` past either end; already there: nothing changes.
    */
-  | { kind: 'queue'; runId: Id; to: number | 'top' };
+  | { kind: 'queue'; runId: Id; to: number | 'top' }
+  /**
+   * P-99: take up a part of the In any order block whose row the level `level` holds (the run is on that row, or inside
+   * the block): the part the run is in is put down at its place, with its values, and `part` taken up at its own (a part
+   * not started: at its first step — a part broken down, inside it). Refused `ended` for a part that returned or was
+   * stopped, `no-such-step` for anything else.
+   */
+  | { kind: 'part'; runId: Id; level: number; part: Id };
 
 /**
  * P-112: a value typed for a step — its name and words; `items`, one per item (a list's rows; what a for each inside a
@@ -335,7 +377,9 @@ export type Refusal =
   | 'no-such-step'
   | 'same-name'
   /** P-98: a routine can't be a step of itself (directly or through another). */
-  | 'self';
+  | 'self'
+  /** P-99: the step after an In any order block waits until every part has returned or been stopped. */
+  | 'parts';
 
 export interface Result {
   ok: boolean;
@@ -353,6 +397,10 @@ export interface Result {
   folded?: string;
   /** P-110: a move cleared these values (their giving steps are no longer above the place): said, with its Undo. */
   cleared?: string[];
+  /** P-99 (the P-112 investigator's repro 1): Next over the steps in view replaced these values, typed over: said ("Changed {name}"), with its Undo. */
+  changed?: string[];
+  /** P-99 (repro 3): Next over the steps in view was refused because the engine would not keep the value typed for this name: said. */
+  refusedValue?: string;
 }
 
 // ───────── reading ─────────
@@ -409,6 +457,8 @@ export function readRoutine(data: Data, id: Id): Seq | undefined {
     seq.each = each;
     seq.words = eachWords(each);
   }
+  // P-99: an In any order block (an unnamed sequence with `any`; an older build reads it as a step broken down).
+  else if (r.named !== true && r.any === true) seq.any = true;
   seqs.set(r, seq);
   return seq;
 }
@@ -463,7 +513,9 @@ export function slotOf(i: Item | undefined): string | undefined {
 /** P-107: a for each block's words — the sentence an older build shows as its step broken down. */
 export const eachWords = (each: { item: string; list: string }): string => `For each ${each.item} in {${each.list}}`;
 /** P-107: a level of its own for values — a named routine, or a for each block (its rounds, its item). */
-export const isScopeSeq = (s: Seq | undefined): boolean => !!s && (s.named || !!s.each);
+export const isScopeSeq = (s: Seq | undefined): boolean => !!s && (s.named || !!s.each || !!s.any);
+/** P-99: the words of an In any order block (its row, Plan's heading, the path). */
+export const ANY_WORDS = 'In any order';
 
 const KINDS = ['reword', 'breakdown', 'add', 'remove', 'move', 'repeat'];
 function isChange(v: unknown): v is Change {
@@ -477,23 +529,21 @@ function isChange(v: unknown): v is Change {
   return v.repeat === undefined || typeof v.repeat === 'number';
 }
 
-const states = new WeakMap<Run, RunState>();
-/** A run as it can be used. Never throws; undefined only when there is no such run. */
-export function readRun(data: Data, id: Id): RunState | undefined {
-  const r = own(data.runs, id);
-  if (!isObject(r)) return undefined;
-  const had = states.get(r);
-  if (had) return had;
+/** A run's levels as stored (P-99: a part's, too) — what can be read, bottom first. */
+function readFrames(raw: unknown, depth = 0): Frame[] {
   const frames: Frame[] = [];
-  for (const f of Array.isArray(r.frames) ? r.frames.slice(0, MAX_DEPTH) : []) {
+  for (const f of Array.isArray(raw) && depth < MAX_DEPTH ? raw.slice(0, MAX_DEPTH) : []) {
     // A level that can't be read ends the stack there: what is above it has nothing to stand on.
     if (!isObject(f) || !text(f.seq)) break;
     // P-98: fields this version does not know stay on the level (a later build's), written back as they were.
-    const { seq: _s, at: _a, round: _r, from: _f, each: _e, eachText: _t, eachSeen: _n, ...rest } = f;
+    const { seq: _s, at: _a, round: _r, from: _f, each: _e, eachText: _t, eachSeen: _n, parts: _p, ...rest } = f;
     const each = typeof f.each === 'number' && Number.isInteger(f.each) && f.each >= 0 ? f.each : undefined;
     // (P-108: a list seen that this version cannot read stays on the level, as stored.)
     const seenOk = each !== undefined && Array.isArray(f.eachSeen) && f.eachSeen.every(text);
     if (f.eachSeen !== undefined && !seenOk) (rest as Record<string, unknown>).eachSeen = f.eachSeen;
+    // (P-99: and so does a record of parts it cannot read in full.)
+    const parts = f.parts === undefined ? undefined : readParts(f.parts, depth);
+    if (f.parts !== undefined && !parts) (rest as Record<string, unknown>).parts = f.parts;
     frames.push({
       ...rest,
       seq: f.seq,
@@ -503,8 +553,48 @@ export function readRun(data: Data, id: Id): RunState | undefined {
       ...(each !== undefined && { each }),
       ...(each !== undefined && text(f.eachText) && { eachText: f.eachText }),
       ...(seenOk && { eachSeen: f.eachSeen as string[] }),
+      ...(parts && { parts }),
     });
   }
+  return frames;
+}
+
+const ENDS = ['finished', 'stopped'];
+/** P-99: the records of parts this version can read (or made): one stored in a shape it cannot read is kept, never used. */
+const readableParts = new WeakSet<Parts>();
+const readable = (p: Parts): Parts => (readableParts.add(p), p);
+/** P-99: a level's record of an In any order block's parts, as stored — whole, or undefined (then it is kept as it is). */
+function readParts(v: unknown, depth: number): Parts | undefined {
+  if (!isObject(v) || !text(v.row) || !Array.isArray(v.list)) return undefined;
+  const list: Part[] = [];
+  for (const p of v.list) {
+    if (!isObject(p) || !text(p.item) || list.some((x) => x.item === p.item)) return undefined;
+    if ((p.ended !== undefined && !ENDS.includes(p.ended as string)) || (p.frames !== undefined && !Array.isArray(p.frames)) || (p.values !== undefined && !Array.isArray(p.values))) return undefined;
+    // (A part's own levels or values that cannot be read in full: the record is kept as stored, never written over.)
+    const frames = p.frames === undefined ? undefined : readFrames(p.frames, depth + 1);
+    if (frames && frames.length !== (p.frames as unknown[]).length) return undefined;
+    const values = p.values === undefined ? undefined : readValues(p.values);
+    if (values && values.length !== (p.values as unknown[]).length) return undefined;
+    list.push({
+      item: p.item,
+      ...(p.ended !== undefined && { ended: p.ended as Part['ended'] }),
+      ...(text(p.touchedAt) && { touchedAt: p.touchedAt }),
+      ...(frames?.length && { frames }),
+      ...(values?.length && { values }),
+      ...(text(p.since) && { since: p.since }),
+    });
+  }
+  return readable({ row: v.row, list });
+}
+
+const states = new WeakMap<Run, RunState>();
+/** A run as it can be used. Never throws; undefined only when there is no such run. */
+export function readRun(data: Data, id: Id): RunState | undefined {
+  const r = own(data.runs, id);
+  if (!isObject(r)) return undefined;
+  const had = states.get(r);
+  if (had) return had;
+  const frames = readFrames(r.frames);
   const ended = text(r.endedAt);
   const run: RunState = {
     id: r.id,
@@ -1140,14 +1230,15 @@ export function passedGives(data: Data, run: RunState, at: Place | undefined = p
   const reads = isRef(at.item) ? [] : namesIn(wordsOf(data, run, at.item)).map((n) => n.key);
   frames.forEach((f, i) => {
     const s = view(data, run, f.seq);
-    if (!s) return;
+    // (P-99: the other parts of an In any order block are not passed — parts never reach into each other.)
+    if (!s || s.any) return;
     const idx = s.items.findIndex((it) => it.id === f.at);
     const scope = scopeLevel(data, run, frames, i);
     for (const item of s.items.slice(0, Math.max(0, idx))) {
       // Each name with the step that gives it (a step broken down: the smaller step that does).
       // (P-107: a for each passed gives what it collected — nothing is owed for an empty list.)
       const inner = isRef(item) && view(data, run, item.ref)?.named === false && !view(data, run, item.ref)?.each ? routineBody(data, run, item.ref).flatMap((b) => b.items) : [];
-      if (isRef(item) && view(data, run, item.ref)?.each) continue;
+      if (isRef(item) && (view(data, run, item.ref)?.each || view(data, run, item.ref)?.any)) continue;
       const givers: [string | undefined, Id][] = [
         [outOf(item), item.id],
         ...inner.map((i): [string | undefined, Id] => [outOf(i), i.id]),
@@ -1434,6 +1525,8 @@ export function owedBy(data: Data, run: RunState, frames: Frame[], item: Item | 
   if (!isRef(item)) return [];
   // P-107: a for each owes nothing: what it gives is what each item gave, collected.
   if (view(data, run, item.ref)?.each) return [];
+  // P-99: nor does an In any order block: what it gives is what its parts gave, joined.
+  if (view(data, run, item.ref)?.any) return [];
   const scope = scopeLevel(data, run, frames, frames.length - 1);
   let names: string[];
   if (isLiveCall(data, item)) names = callIO(data, item.ref).gives;
@@ -1456,6 +1549,8 @@ export function stepOutOwes(data: Data, run: RunState, at: Place | undefined = p
   if (!at || at.frames.length < 2) return [];
   const L = at.frames.length - 1;
   const below = at.frames.slice(0, L);
+  // P-99: a part stopped returns what it gave; it owes nothing.
+  if (view(data, run, below[L - 1].seq)?.any) return [];
   const item = view(data, run, below[L - 1].seq)?.items.find((i) => i.id === at.frames[L].from);
   if (!isRef(item) || item.ref !== at.frames[L].seq) return [];
   if (isLiveCall(data, item)) return callIO(data, item.ref).gives.filter((n) => !visibleValue(data, run, nameKey(n), at.frames));
@@ -1589,21 +1684,46 @@ interface Advance {
   popped: Frame[];
   ended?: true;
   asking?: true;
+  /** P-99: on an In any order block's row with a part not returned or stopped — the step after it waits (nothing moved). */
+  waiting?: true;
 }
 
 /**
  * What Next does to a stack of levels. Also what the panel's "then:" reads and what Done does to
  * the level below: one rule for all three.
  */
-export function advance(data: Data, run: RunState, from: Frame[]): Advance {
+export function advance(data: Data, run: RunState, from: Frame[], opts: { how?: 'stopped'; force?: true } = {}): Advance {
   const frames = from.map((f) => ({ ...f }));
   const popped: Frame[] = [];
+  let { how, force } = opts;
   // Each turn either lands or leaves a level, so it ends within the depth.
   for (let guard = 0; guard <= MAX_DEPTH; guard++) {
     const f = frames[frames.length - 1];
     const s = view(data, run, f.seq);
     if (!s) return { frames, popped };
     const at = f.at === null ? -1 : s.items.findIndex((i) => i.id === f.at);
+    // P-99 (B-16 rule 3): from an In any order block's row only once every part has returned or been stopped (`force`:
+    // Step out of the block, which stops the rest — parts cannot outlive it).
+    if (!force && at >= 0 && anyBlock(data, run, s.items[at]) && !partsJoined(data, run, frames, frames.length - 1)) return { frames: from, popped: [], waiting: true };
+    force = undefined;
+    // P-99: a part returned (Next past its last step; Step out of it: stopped) — back on the block's row, the part's end
+    // recorded there; when every part has, the block is passed, as Next from its row.
+    if (s.any && frames.length > 1) {
+      const child = frames.pop()!;
+      popped.push(child);
+      const below = frames[frames.length - 1];
+      if (below.at !== child.from || below.at === null || child.at === null) return { frames, popped };
+      if (lockedParts(below)) return { frames: from, popped: [], waiting: true };
+      const ended: Part['ended'] = how ?? 'finished';
+      const rec = withPart(partsOf(below) ?? { row: below.at, list: [] }, child.at, (p) => ({ item: p.item, ended, ...(p.touchedAt !== undefined && { touchedAt: p.touchedAt }) }));
+      below.parts = rec;
+      how = undefined;
+      if (!s.items.every((p) => rec.list.some((x) => x.item === p.id && x.ended))) return { frames, popped };
+      continue;
+    }
+    // (A level that moves off the row its record of parts is for drops it: the block was passed or left. One kept for
+    // another row — the run went Back from the block's row — stays, for when the run is on that row again.)
+    if (partsOf(f)) delete f.parts;
     if (at + 1 < s.items.length) {
       f.at = s.items[at + 1].id;
       return { frames, popped };
@@ -1612,6 +1732,7 @@ export function advance(data: Data, run: RunState, from: Frame[]): Advance {
     if (s.repeatFrom !== undefined && !(s.repeat !== undefined && f.round >= s.repeat)) {
       f.at = s.items[s.repeatFrom].id;
       f.round += 1;
+      delete f.parts;
       return { frames, popped };
     }
     // P-107: a for each goes on to its next item — the one after the item it is on, in the list as it reads now
@@ -1624,6 +1745,7 @@ export function advance(data: Data, run: RunState, from: Frame[]): Advance {
         f.eachText = list[to.k];
         f.eachSeen = to.seen;
         f.at = s.items[0].id;
+        delete f.parts;
         f.round = 1;
         return { frames, popped };
       }
@@ -1639,6 +1761,162 @@ export function advance(data: Data, run: RunState, from: Frame[]): Advance {
     if (frames[frames.length - 1].at !== child.from) return { frames, popped };
   }
   return { frames, popped };
+}
+
+// ───────── In any order (P-99) ─────────
+
+/** P-99: the In any order block a row is (its sequence); undefined for any other row. */
+export function anyBlock(data: Data, run: RunState, item: Item | undefined): Seq | undefined {
+  const s = isRef(item) ? view(data, run, item.ref) : undefined;
+  return s?.any ? s : undefined;
+}
+/** P-99: the record of parts a level holds for the row it is on (one kept for another row, after Back, is not this one's). */
+export const partsOf = (f: Frame | undefined): Parts | undefined => (f?.parts && readableParts.has(f.parts) && f.at !== null && f.parts.row === f.at ? f.parts : undefined);
+/** P-99: the level holds a record of parts this version cannot read (a later build's): it is kept as it is — nothing that would write one is done. */
+const lockedParts = (f: Frame | undefined): boolean => !!f && f.parts !== undefined && !readableParts.has(f.parts);
+/** P-99: the part the run is in, of the block whose row `frames[i]` is on; undefined on the row itself (choosing). */
+export function activePart(data: Data, run: RunState, frames: Frame[], i: number): Id | undefined {
+  const into = frames[i + 1];
+  const row = frames[i]?.at;
+  if (!into || !row || into.from !== row || into.at === null) return undefined;
+  return view(data, run, into.seq)?.any ? into.at : undefined;
+}
+/** P-99: every part of the block whose row `frames[i]` is on has returned or been stopped (a block with none, too). */
+export function partsJoined(data: Data, run: RunState, frames: Frame[], i: number): boolean {
+  const f = frames[i];
+  const block = anyBlock(data, run, view(data, run, f?.seq)?.items.find((x) => x.id === f?.at));
+  if (!block) return true;
+  const rec = partsOf(f);
+  const active = activePart(data, run, frames, i);
+  return block.items.every((p) => p.id !== active && !!rec?.list.find((x) => x.item === p.id)?.ended);
+}
+/** P-99: a record of parts with one part's entry changed (added at the end when it has none). */
+function withPart(rec: Parts, item: Id, change: (p: Part) => Part): Parts {
+  const had = rec.list.some((p) => p.item === item);
+  return readable({ row: rec.row, list: had ? rec.list.map((p) => (p.item === item ? change(p) : p)) : [...rec.list, change({ item })] });
+}
+/** P-99: the part Step in takes up from the block's row — the one put down last, else the first not taken up. */
+export function partToTakeUp(data: Data, run: RunState, frames: Frame[], i: number): Id | undefined {
+  const f = frames[i];
+  const block = anyBlock(data, run, view(data, run, f?.seq)?.items.find((x) => x.id === f?.at));
+  if (!block) return undefined;
+  const rec = partsOf(f);
+  const open = block.items.filter((p) => !rec?.list.find((x) => x.item === p.id)?.ended);
+  const down = open.map((p) => rec?.list.find((x) => x.item === p.id)).filter((x): x is Part => !!x?.frames).sort((a, b) => ((a.touchedAt ?? '') < (b.touchedAt ?? '') ? 1 : (a.touchedAt ?? '') > (b.touchedAt ?? '') ? -1 : 0));
+  return down[0]?.item ?? open.find((p) => !rec?.list.some((x) => x.item === p.id))?.id ?? open[0]?.id;
+}
+
+/**
+ * P-99, after a move: each In any order block the run was at (on its row, or inside a part) and still is — the part it
+ * was in and is not now is put down: its place (unless it ended) and the values it gave (the levels above the row's) kept
+ * in the record, and taken out of the run's own. A block the move passed (Next, Step out: not `discard`) is joined: what
+ * every part gave, in the order given, collected below it — one list per name, given by the block's row. A block left by
+ * Jump or Start over takes its record with it.
+ */
+function settleParts(data: Data, runId: Id, before: Frame[], since: string | undefined, env: Env, discard: boolean): Data {
+  const raw = own(data.runs, runId)!;
+  const run = readRun(data, runId)!;
+  const frames = [...run.frames];
+  let values: unknown[] = Array.isArray(raw.values) ? [...raw.values] : [];
+  let changed = false;
+  for (let i = 0; i < before.length; i++) {
+    const rowB = before[i].at;
+    const row = rowB === null ? undefined : view(data, run, before[i].seq)?.items.find((x) => x.id === rowB);
+    if (!row || !anyBlock(data, run, row)) continue;
+    const recB = partsOf(before[i]);
+    const activeB = activePart(data, run, before, i);
+    if ((!recB && !activeB) || lockedParts(before[i]) || lockedParts(frames[i])) continue;
+    const same = i < frames.length && frames[i].seq === before[i].seq && (i === 0 || frames[i].from === before[i].from) && (frames[i].each ?? 0) === (before[i].each ?? 0) && frames[i].round === before[i].round;
+    const mine = (v: unknown) => isEntry(v) && v.level > i;
+    if (same && frames[i].at === rowB) {
+      // Still at the block: the part it was in, if it is not in it now, is put down.
+      const activeA = activePart(data, run, frames, i);
+      if (!activeB || activeB === activeA) continue;
+      const gave = values.filter(mine) as ValueEntry[];
+      values = values.filter((v) => !mine(v));
+      const rec = withPart(partsOf(frames[i]) ?? { row: rowB!, list: [] }, activeB, (p) =>
+        p.ended
+          ? { ...p, ...(gave.length ? { values: gave } : {}) }
+          : { item: p.item, touchedAt: env.now, frames: before.slice(i + 1), ...(gave.length && { values: gave }), ...(since !== undefined && before.length - 1 > i && { since }) },
+      );
+      frames[i] = { ...frames[i], parts: rec };
+      changed = true;
+      continue;
+    }
+    if (!same || discard) continue;
+    // Passed: joined — every part's values, in the order given, one list per name below the block.
+    const all = [...(recB?.list ?? []).flatMap((p) => p.values ?? []), ...(values.filter(mine) as ValueEntry[])].map((e, k) => ({ e, k })).sort((a, b) => (a.e.at < b.e.at ? -1 : a.e.at > b.e.at ? 1 : a.k - b.k)).map((x) => x.e);
+    values = values.filter((v) => !mine(v));
+    const b = scopeLevel(data, run, before, i);
+    const fresh = new Set<string>();
+    for (const e of all) {
+      const key = nameKey(e.name);
+      const at = values.findIndex((v) => isEntry(v) && v.level === b && v.seq === before[b].seq && nameKey(v.name) === key);
+      const had = at >= 0 ? (values[at] as ValueEntry) : undefined;
+      // (The block passed again — Back, then on — gives anew in place of what it gave last time.)
+      const entry: ValueEntry = had && (had.item !== row.id || fresh.has(key)) ? patched(had, { refs: undefined, ...joined(had, e) }) : { name: e.name, ...withRefs([...e.items], refsOf(e)), level: b, seq: before[b].seq, item: row.id, words: ANY_WORDS, at: env.now };
+      fresh.add(key);
+      if (at >= 0) values[at] = entry;
+      else values.push(entry);
+    }
+    changed = true;
+  }
+  return changed ? putRun(data, patched(raw, { frames, values: values.length ? values : undefined })) : data;
+}
+
+/**
+ * P-99: the part `part` taken up (after the move that put the run in it): its record says when, and holds no place or
+ * values any more — what it gave is the run's again, and a wait it was put down on is waited on since then.
+ */
+function tookUp(data: Data, runId: Id, level: number, part: Part | undefined, partId: Id, env: Env): Data {
+  const raw = own(data.runs, runId)!;
+  const run = readRun(data, runId)!;
+  const f = run.frames[level];
+  if (!f || f.at === null) return data;
+  const frames = [...run.frames];
+  frames[level] = { ...f, parts: withPart(partsOf(f) ?? { row: f.at, list: [] }, partId, (p) => ({ item: p.item, touchedAt: env.now })) };
+  let next = putRun(data, patched(raw, { frames }));
+  if (part?.values?.length) next = addValues(next, runId, part.values);
+  const now = place(next, readRun(next, runId)!);
+  if (part?.since && isWait(now?.item)) next = putRun(next, patched(own(next.runs, runId)!, { waitingSince: part.since }));
+  return next;
+}
+
+function takeUp(data: Data, runId: Id, level: number, partId: Id, env: Env): Result {
+  const l = load(data, runId);
+  if (typeof l === 'string') return refuse(data, l);
+  if (inPlan(l)) return refuse(data, 'planning');
+  const frames = l.at.frames;
+  const f = frames[level];
+  const row = f && Number.isInteger(level) ? view(data, l.run, f.seq)?.items.find((x) => x.id === f.at) : undefined;
+  const block = anyBlock(data, l.run, row);
+  const item = block?.items.find((x) => x.id === partId);
+  if (!row || !block || !item) return refuse(data, 'no-such-step');
+  if (lockedParts(f)) return refuse(data, 'cannot');
+  const rec = partsOf(f)?.list.find((x) => x.item === partId);
+  if (rec?.ended) return refuse(data, 'ended');
+  if (activePart(data, l.run, frames, level) === partId) return done(data);
+  if (level + 2 > MAX_DEPTH) return refuse(data, 'too-deep');
+  const saved = rec?.frames && rec.frames[0].seq === block.id && rec.frames[0].at === partId && rec.frames[0].from === row.id && level + 1 + rec.frames.length <= MAX_DEPTH ? rec.frames : undefined;
+  // A part not taken up yet: at itself — a part broken down, inside it, at its first step (it runs as its own thread).
+  const inner = isRef(item) ? view(data, l.run, item.ref) : undefined;
+  const into = inner && !inner.named && !inner.any && !inner.each && inner.items.length && level + 3 <= MAX_DEPTH ? inner : undefined;
+  const fresh: Frame[] = [{ seq: block.id, at: partId, round: 1, from: row.id }, ...(into ? [{ seq: into.id, at: into.items[0].id, round: 1, from: partId }] : [])];
+  const out = moved(data, l, { frames: [...frames.slice(0, level + 1), ...(saved ?? fresh)] }, env);
+  return { ...out, data: tookUp(out.data, runId, level, rec, partId, env) };
+}
+
+/**
+ * P-99: where Back goes from a part — the block's row (choosing), when the run is on a part at the block's level, or on
+ * the first step of a part broken down; undefined anywhere else. Its level and the row.
+ */
+export function backUp(data: Data, run: RunState): { level: number; row: Item } | undefined {
+  const p = place(data, run);
+  if (!p) return undefined;
+  const L = p.frames.length - 1;
+  const k = L > 0 && p.seq.any ? L - 1 : L > 1 && !previous(data, run) && view(data, run, p.frames[L - 1].seq)?.any ? L - 2 : -1;
+  const row = k < 0 ? undefined : view(data, run, p.frames[k].seq)?.items.find((i) => i.id === p.frames[k].at);
+  return row ? { level: k, row } : undefined;
 }
 
 /** Back to <step>: the step before this one in this level, and its round. Undefined when there is none. */
@@ -1727,12 +2005,15 @@ function enterPlan(data: Data, runId: Id, env: Env): { data: Data; folded?: stri
 }
 
 /** The run is somewhere else now: the frames, the reason gone, waiting-since settled, what is said. Nothing to stand on there: it is in Plan. */
-function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; asking?: true }, env: Env, said?: Said): Result {
+function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; asking?: true; discard?: true; fresh?: true }, env: Env, said?: Said): Result {
   const popped = to.popped ?? [];
   let next = putRun(data, patched(l.raw, { frames: to.frames, touchedAt: env.now, reason: undefined, ...(l.raw.status === 'running' && 'mode' in l.raw && { mode: undefined }) }));
   next = settleWait(next, l.run.id, l.at, env);
   // P-98: a call left (by Next past its last step, or Step out) hands back what its row gives.
   if (popped.length) next = handBack(next, l.run.id, l.at.frames, popped, env);
+  // P-99: a part put down keeps its place and values; a block passed joins what its parts gave.
+  // (`fresh`: Start over — the block's parts start afresh, nothing put down.)
+  if (!to.fresh) next = settleParts(next, l.run.id, l.at.frames, isWait(l.at.item) ? l.run.waitingSince : undefined, env, !!to.discard);
   // P-107: a for each gone on to its next item — what the round it leaves gave is collected.
   for (let i = 1; i < Math.min(l.at.frames.length, to.frames.length); i++) {
     const [a, b] = [l.at.frames[i], to.frames[i]];
@@ -1740,14 +2021,18 @@ function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; a
   }
   next = settleValues(next, l.run.id, l.run.frames);
   // (P-107: a for each is named by its item, as on the runner's path: "Left For each photo".)
-  const names = popped.map((f) => {
-    const s = view(data, l.run, f.seq);
-    return s?.each ? `For each ${s.each.item}` : (s?.words ?? '');
-  });
+  // (P-99: a block whose part returned is named only once it is passed: a part's own end is not the block's.)
+  const live = (f: Frame) => to.frames.some((g) => g.at === f.from && partsOf(g));
+  const names = popped
+    .filter((f) => !(view(data, l.run, f.seq)?.any && live(f)))
+    .map((f) => {
+      const s = view(data, l.run, f.seq);
+      return s?.each ? `For each ${s.each.item}` : (s?.words ?? '');
+    });
   let folded: string | undefined;
   // The edge: nothing can run there, so the run is in Plan (and its old this-run changes are folded) in this same write.
   if (!place(next, readRun(next, l.run.id)!)?.item) ({ data: next, folded } = enterPlan(next, l.run.id, env));
-  return done(next, { said: said ?? (popped.length ? { kind: 'finished', names } : to.asking ? { kind: 'edge' } : undefined), ...(folded !== undefined && { folded }) });
+  return done(next, { said: said ?? (names.length ? { kind: 'finished', names } : to.asking ? { kind: 'edge' } : undefined), ...(folded !== undefined && { folded }) });
 }
 
 /** The run ends: by Done at the top, or by itself. Its place stays as it was. */
@@ -1863,8 +2148,11 @@ function restart(data: Data, runId: Id, level: number, env: Env): Result {
   if (!Number.isInteger(level) || level < 0 || level >= was.length) return refuse(data, 'no-such-level');
   const s = view(data, l.run, was[level].seq)!;
   // (P-107: a for each from its first item.)
-  const { each: _e, eachText: _t, eachSeen: _n, ...level_ } = was[level];
-  const moved_ = moved(data, l, { frames: [...was.slice(0, level), { ...level_, at: s.items[0]?.id ?? null, round: 1 }] }, env);
+  const { each: _e, eachText: _t, eachSeen: _n, parts: _p, ...level_ } = was[level];
+  // P-99: an In any order block's level from the start is its row, every part not taken up yet (the record goes).
+  const { parts: _q, ...rowLevel } = was[level - 1] ?? was[level];
+  const frames = s.any && level > 0 ? [...was.slice(0, level - 1), rowLevel] : [...was.slice(0, level), { ...level_, at: s.items[0]?.id ?? null, round: 1 }];
+  const moved_ = moved(data, l, { frames, discard: true, fresh: true }, env);
   // Audit F4: the pause note is the person's own words, not a value given inside the level: it stays.
   const out = l.raw.reason === undefined ? moved_ : { ...moved_, data: putRun(moved_.data, patched(own(moved_.data.runs, runId)!, { reason: l.raw.reason })) };
   const raw = own(out.data.runs, runId)!;
@@ -1890,7 +2178,7 @@ function next(data: Data, runId: Id, env: Env, owed?: Given[]): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
   // P-98: what a row with insides owes, typed in the fields Next showed: given by the row, then Next as ever (one write).
-  if (Array.isArray(owed) && owed.length && isRef(l.at.item) && !l.at.repaired && l.run.mode !== 'plan') {
+  if (Array.isArray(owed) && owed.length && isRef(l.at.item) && !anyBlock(data, l.run, l.at.item) && !l.at.repaired && l.run.mode !== 'plan') {
     const item = l.at.item;
     const owes = owedBy(data, l.run, l.at.frames, item);
     const scope = scopeLevel(data, l.run, l.at.frames, l.at.frames.length - 1);
@@ -1920,6 +2208,8 @@ function next(data: Data, runId: Id, env: Env, owed?: Given[]): Result {
     if (list.length) return moved(data, l, { frames: [...l.at.frames, { ...into, each: 0, eachText: list[0], eachSeen: list }] }, env);
   }
   const a = advance(data, l.run, l.at.frames);
+  // P-99: on an In any order block's row, the step after it waits until every part has returned or been stopped.
+  if (a.waiting) return refuse(data, 'parts');
   // P-96 (ruling 7): finishing ends the run — nothing next, open goal or not, never opens Plan.
   return a.ended || a.asking ? end(data, l, 'finished', env) : moved(data, l, a, env);
 }
@@ -1959,12 +2249,20 @@ function leaveLevel(data: Data, runId: Id, env: Env, whole?: true): Result {
   }
   // Done exists only when running, and at the edge.
   if (l.at.item && l.run.mode === 'plan') return refuse(data, 'planning');
+  // P-99: Step out on an In any order block's row leaves the block — the parts not returned are stopped (they cannot
+  // outlive it) and what every part gave is joined — and the run goes on after it, on the first layer too.
+  if (anyBlock(data, l.run, l.at.item)) {
+    const a = advance(data, l.run, l.at.frames, { force: true });
+    if (a.ended || a.asking) return end(data, l, 'finished', env);
+    return moved(data, l, a, env, { kind: 'finished', names: [ANY_WORDS] });
+  }
   if (l.at.frames.length === 1) return end(data, l, 'done', env);
   // The level is left, for whatever reason; the one below goes on from the item this was entered from.
   const below = l.at.frames.slice(0, -1);
   const child = l.at.frame;
   if (below[below.length - 1].at !== child.from) return moved(data, l, { frames: below, popped: [child] }, env);
-  const a = advance(data, l.run, below);
+  // (P-99: a part left by Step out is stopped; the block left from its own level stops the rest.)
+  const a = advance(data, l.run, below, { how: 'stopped', force: true });
   if (a.ended || a.asking) return end(data, l, 'finished', env);
   return moved(data, l, { ...a, popped: [child, ...a.popped] }, env);
 }
@@ -1974,6 +2272,12 @@ function stepIn(data: Data, runId: Id, env: Env): Result {
   if (typeof l === 'string') return refuse(data, l);
   if (inPlan(l)) return refuse(data, 'planning');
   const item = l.at.item;
+  // P-99: Step in on an In any order block's row takes up a part — the one put down last, else the first not taken up.
+  if (anyBlock(data, l.run, item)) {
+    const level = l.at.frames.length - 1;
+    const part = partToTakeUp(data, l.run, l.at.frames, level);
+    return part ? takeUp(data, runId, level, part, env) : refuse(data, 'empty');
+  }
   // P-108: a routine row whose routine is a value — into the routine it holds, as a call with nothing bound.
   if (slotOf(item)) {
     const held = heldBy(data, l.run, l.at.frames, item);
@@ -2007,6 +2311,11 @@ function back(data: Data, runId: Id, env: Env): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
   if (inPlan(l)) return refuse(data, 'planning');
+  // P-99: Back from a part, at the block's level — to the block's row, the part put down where it is (its place, its values).
+  // (From the first step of a part broken down, too.)
+  const up = backUp(data, l.run);
+  if (up && lockedParts(l.at.frames[up.level])) return refuse(data, 'cannot');
+  if (up) return moved(data, l, { frames: l.at.frames.slice(0, up.level + 1) }, env);
   const p = previous(data, l.run);
   if (!p) return refuse(data, 'nothing-before');
   return moved(data, l, { frames: [...l.at.frames.slice(0, -1), { ...l.at.frame, at: p.at, round: p.round }] }, env);
@@ -2021,7 +2330,10 @@ function jump(data: Data, runId: Id, to: JumpTo, env: Env): Result {
     // The start of a level: its first item, round one; this run's changes stay.
     if (!Number.isInteger(to.level) || to.level < 0 || to.level >= was.length) return refuse(data, 'no-such-level');
     const s = view(data, l.run, was[to.level].seq)!;
-    frames = [...was.slice(0, to.level), { ...was[to.level], at: s.items[0]?.id ?? null, round: 1 }];
+    // P-99: the start of an In any order block's level is its row (choosing); its parts keep their places.
+    const { parts: _p, ...lv } = was[to.level];
+    const first = s.items[0]?.id ?? null;
+    frames = s.any && to.level > 0 ? was.slice(0, to.level) : [...was.slice(0, to.level), { ...(partsOf(was[to.level]) && was[to.level].at !== first ? lv : was[to.level]), at: first, round: 1 }];
   } else {
     if (!Array.isArray(to.path) || !to.path.length || to.path.length > MAX_DEPTH) return refuse(data, 'no-such-step');
     let seqId: Id | undefined = l.run.routineId;
@@ -2033,11 +2345,16 @@ function jump(data: Data, runId: Id, to: JumpTo, env: Env): Result {
       // A level the run is already in keeps its round; one entered by the jump starts at round 1.
       same = same && was[i]?.seq === s.id;
       // (P-107: and a for each level the run is in, its item.)
-      frames.push({ seq: s.id, at: id, round: same ? was[i].round : 1, ...(i > 0 && { from: to.path[i - 1] }), ...(same && was[i].each !== undefined && { each: was[i].each, ...(was[i].eachText !== undefined && { eachText: was[i].eachText }), ...(was[i].eachSeen !== undefined && { eachSeen: was[i].eachSeen }) }) });
+      frames.push({ seq: s.id, at: id, round: same ? was[i].round : 1, ...(i > 0 && { from: to.path[i - 1] }), ...(same && was[i].each !== undefined && { each: was[i].each, ...(was[i].eachText !== undefined && { eachText: was[i].eachText }), ...(was[i].eachSeen !== undefined && { eachSeen: was[i].eachSeen }) }), ...(same && was[i].parts && (partsOf(was[i]) ? was[i].at === id : true) && { parts: was[i].parts }) });
       seqId = isRef(item) ? item.ref : undefined;
     }
   }
-  const out = moved(data, l, { frames }, env, { kind: 'jumped', from: wordsOf(data, l.run, l.at.item) });
+  // P-99: into a part of an In any order block other than the one the run is in — that one is put down (`moved`), and
+  // this one's record gives up its place and its values (the jump's place is its place now; its values settle on it).
+  const into = frames.findIndex((f, i) => i + 1 < frames.length && !!anyBlock(data, l.run, view(data, l.run, f.seq)?.items.find((x) => x.id === f.at)) && activePart(data, l.run, frames, i) !== activePart(data, l.run, was, i) && was[i]?.at === f.at);
+  const target = into >= 0 ? activePart(data, l.run, frames, into) : undefined;
+  let out = moved(data, l, { frames, discard: true }, env, { kind: 'jumped', from: wordsOf(data, l.run, l.at.item) });
+  if (target !== undefined) out = { ...out, data: tookUp(out.data, runId, into, partsOf(frames[into])?.list.find((p) => p.item === target), target, env) };
   // Onto nothing (the start of a routine with no steps): that is the edge, and `moved` left it in Plan.
   if (!place(out.data, readRun(out.data, runId)!)?.item) return out;
   // From the paused screen, and from Plan, too: the runner opens at the new place (a running run has no mode).
@@ -2200,6 +2517,8 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
   const s = readRoutine(data, routineId);
   if (!routine || !s || s.removedAt) return refuse(data, 'gone');
   const has = (id: Id) => s.items.some((i) => i.id === id);
+  // P-99: a block's parts are steps, or steps broken down.
+  if (s.any && ['addWait', 'addCall', 'addEach', 'addSlot', 'addAny', 'toCall', 'toWait', 'divider', 'repeat', 'rename', 'keptList'].includes(edit.kind)) return refuse(data, 'cannot');
   let after: Routine | undefined;
   /** P-103: the named routines this edit leaves nothing using — each gets its tile on home, in the same write. */
   let freed: Routine[] = [];
@@ -2243,6 +2562,14 @@ export function editRoutine(data: Data, routineId: Id, edit: RoutineEdit, env: E
     const header = edit.own === 'kept' ? { ...each, kept: [] } : edit.own === 'asked' ? { ...each, own: true } : each;
     // An unnamed sequence (an older build reads it as a step broken down), its words the sentence, no steps yet.
     const into: Routine = { id: env.id(), words: eachWords(each), named: false, createdAt: env.now, items: [], each: header };
+    const row = editItems(routine, s, { insert: [{ id: env.id(), ref: into.id }, edit.after] });
+    if (!row) return refuse(data, 'cannot');
+    return done(resettle(data, putRoutine(putRoutine(data, into), row), env));
+  } else if (edit.kind === 'addAny') {
+    if (typeof edit.after === 'string' && !has(edit.after)) return refuse(data, 'no-such-step');
+    const parts = (Array.isArray(edit.parts) ? edit.parts : []).map(tidy).filter(Boolean);
+    // An unnamed sequence (an older build reads it as a step broken down, "In any order"), its parts its items.
+    const into: Routine = { id: env.id(), words: ANY_WORDS, named: false, createdAt: env.now, items: parts.map((text) => ({ id: env.id(), text })), any: true };
     const row = editItems(routine, s, { insert: [{ id: env.id(), ref: into.id }, edit.after] });
     if (!row) return refuse(data, 'cannot');
     return done(resettle(data, putRoutine(putRoutine(data, into), row), env));
@@ -2819,14 +3146,34 @@ export function chunkStep(data: Data, runId: Id, row: ChunkGiven | undefined, en
   const run = readRun(data, runId);
   const at = run && !run.endedAt ? place(data, run) : undefined;
   if (!at?.item) return refuse(data, 'cannot');
+  const g = givenAt(data, runId, row?.given, env);
+  if (!g.ok) return g;
+  const owed = typedGiven(row?.owed);
+  const out = runVerb(g.data, { kind: 'next', runId, ...(owed.length && { owed }) }, env);
+  return out.ok && g.changed?.length ? { ...out, changed: g.changed } : out;
+}
+
+const typedGiven = (gs: unknown): Given[] => (Array.isArray(gs) ? gs.filter((g): g is Given => isObject(g) && text(g.name) && text(g.text)) : []);
+/** P-112, P-99: values typed for the step the run is on, given there (each as its own field gives it). */
+function givenAt(data: Data, runId: Id, given: unknown, env: Env): Result {
+  const run = readRun(data, runId);
+  const at = run && !run.endedAt ? place(data, run) : undefined;
+  if (!at?.item) return refuse(data, 'cannot');
   let d = data;
-  const typed = (gs: unknown): Given[] => (Array.isArray(gs) ? gs.filter((g): g is Given => isObject(g) && text(g.name) && text(g.text)) : []);
-  for (const g of typed(row?.given)) {
+  const changed: string[] = [];
+  for (const g of typedGiven(given)) {
+    // P-99 (repro 2): an empty draft is "unchanged", never "clear".
+    if (!g.text.trim() && !(Array.isArray(g.items) && g.items.some((x) => text(x) && x.trim()))) continue;
+    const had = visibleValue(d, readRun(d, runId)!, nameKey(g.name), place(d, readRun(d, runId)!)?.frames);
     const r = runVerb(d, { kind: 'value', runId, name: g.name, text: g.text, item: at.item.id, ...(Array.isArray(g.items) && { items: g.items }), ...(Array.isArray(g.refs) && { refs: g.refs }) }, env);
-    if (r.ok) d = r.data;
+    // P-99 (repro 3): a value the engine will not keep is said, and nothing moves (the words stay where they were typed).
+    if (!r.ok) return refuse(data, r.reason ?? 'cannot', { refusedValue: tidyName(g.name) });
+    // P-99 (repro 1): a value typed over is said, with its Undo — as P-96's field has it.
+    const now = visibleValue(r.data, readRun(r.data, runId)!, nameKey(g.name), place(r.data, readRun(r.data, runId)!)?.frames);
+    if (had && had.items.length && JSON.stringify(had.items) !== JSON.stringify(now?.items ?? [])) changed.push(tidyName(g.name));
+    d = r.data;
   }
-  const owed = typed(row?.owed);
-  return runVerb(d, { kind: 'next', runId, ...(owed.length && { owed }) }, env);
+  return done(d, changed.length ? { changed } : {});
 }
 
 /**
@@ -2840,9 +3187,11 @@ function chunkNext(data: Data, runId: Id, rows: unknown, env: Env): Result {
   let said: Said | undefined;
   let folded: string | undefined;
   const cleared: string[] = [];
+  const changed: string[] = [];
   for (const [i, row] of rows.entries()) {
     const r = chunkStep(d, runId, isObject(row) ? (row as ChunkGiven) : undefined, env);
-    if (!r.ok) return refuse(data, r.reason ?? 'cannot');
+    if (!r.ok) return refuse(data, r.reason ?? 'cannot', r.refusedValue ? { refusedValue: r.refusedValue } : {});
+    for (const c of r.changed ?? []) if (!changed.includes(c)) changed.push(c);
     if (r.said?.kind === 'ended' && i < rows.length - 1) return refuse(data, 'cannot');
     d = r.data;
     // What it says: the run ended, else the last level it finished on the way.
@@ -2850,7 +3199,7 @@ function chunkNext(data: Data, runId: Id, rows: unknown, env: Env): Result {
     if (r.folded !== undefined) folded = r.folded;
     for (const c of r.cleared ?? []) if (!cleared.includes(c)) cleared.push(c);
   }
-  return done(d, { ...(said && { said }), ...(folded !== undefined && { folded }), ...(cleared.length && { cleared }) });
+  return done(d, { ...(said && { said }), ...(folded !== undefined && { folded }), ...(cleared.length && { cleared }), ...(changed.length && { changed }) });
 }
 
 /** The engine: the data after a verb. Pure; never throws on damaged data (it refuses instead). */
@@ -2859,12 +3208,14 @@ export function runVerb(data: Data, verb: Verb, env: Env): Result {
   if (verb.kind === 'next' && verb.chunk !== undefined) return chunkNext(data, verb.runId, verb.chunk, env);
   const r = verbOf(data, verb, env);
   // P-107: every move that can arrive on a for each row.
-  if (verb.kind === 'start' || verb.kind === 'next' || (verb.kind === 'done' && !verb.whole) || verb.kind === 'stepIn' || verb.kind === 'back' || verb.kind === 'jump' || verb.kind === 'restart') {
+  if (verb.kind === 'start' || verb.kind === 'next' || (verb.kind === 'done' && !verb.whole) || verb.kind === 'stepIn' || verb.kind === 'back' || verb.kind === 'jump' || verb.kind === 'restart' || verb.kind === 'part') {
     const landed = landEach(r, verb.kind === 'start' ? r.runId : verb.runId, env);
     // P-110: and a value is held only while the step that gives it is above the place.
     if (verb.kind === 'start' || !landed.ok || landed.data === data) return landed;
     // (P-111, owner: "Back keeps it" — Back clears nothing; what it passes back over is hidden until it is reached again.)
     if (verb.kind === 'back') return landed;
+    // (P-99: nor does taking up a part — it is where it was put down, with what it gave.)
+    if (verb.kind === 'part' || (verb.kind === 'stepIn' && anyBlock(data, readRun(data, verb.runId)!, place(data, readRun(data, verb.runId)!)?.item))) return landed;
     const { data: next, cleared } = settlePlace(data, landed.data, verb.runId, verb.kind === 'jump' || verb.kind === 'restart');
     return cleared.length ? { ...landed, data: next, cleared } : landed;
   }
@@ -2890,6 +3241,13 @@ function verbOf(data: Data, verb: Verb, env: Env): Result {
     case 'next':
       return next(data, verb.runId, env, verb.owed);
     case 'done':
+      // P-99 (the P-112 investigator's repro 4): what was typed in See ahead's fields for the step it is on is given first, as Next gives it.
+      if (Array.isArray(verb.given) && verb.given.length && !verb.whole) {
+        const g = givenAt(data, verb.runId, verb.given, env);
+        if (!g.ok) return g;
+        const r = doneWith(g.data, verb.runId, env, undefined, verb.owed);
+        return r.ok ? { ...r, ...(g.changed?.length && { changed: g.changed }) } : refuse(data, r.reason ?? 'cannot');
+      }
       return doneWith(data, verb.runId, env, verb.whole, verb.owed);
     case 'stepIn':
       return stepIn(data, verb.runId, env);
@@ -2903,6 +3261,8 @@ function verbOf(data: Data, verb: Verb, env: Env): Result {
       return setValue(data, verb.runId, verb.name, verb.text, verb.item, env, verb.items, verb.refs);
     case 'queue':
       return requeue(data, verb.runId, verb.to);
+    case 'part':
+      return takeUp(data, verb.runId, verb.level, verb.part, env);
     default:
       return refuse(data, 'cannot');
   }

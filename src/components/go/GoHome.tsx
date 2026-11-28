@@ -31,7 +31,7 @@ import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View 
 import { tileLine } from '@/domain/goText';
 import { placesShown } from '@/domain/places';
 import { myRoutines } from '@/domain/routines';
-import { homeQueue, leftOff, opensAt, partsText, Tile } from '@/domain/runView';
+import { homeQueue, leftOff, opensAt, partsText, partsTree, Tile } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
 import { Grip } from './Grip';
@@ -40,6 +40,7 @@ import { Notice, useRunUndo } from './Notice';
 import { decideWhere, wentHome, whereDecided } from './session';
 import { G, hueOf, SP, TARGET } from './tokens';
 import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Menu, MenuItem, MenuSep, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
+import { PartsList } from './Parts';
 import { PlacesSheet } from './Places';
 import { KeptSheet, Parts } from './Values';
 
@@ -124,6 +125,8 @@ export function GoHome() {
   const [ending, setEnding] = useState<Tile | null>(null);
   /** P-109: a tile's Places door — its routine's places, to open (read-only here). */
   const [placesOf, setPlacesOf] = useState<Tile | null>(null);
+  /** P-99 (B-16, "the same view opens from the routine's tile"): where every part of a run's In any order blocks stands. */
+  const [partsOf, setPartsOf] = useState<Tile | null>(null);
   /** P-108: + Add on a tile's kept list. */
   const [keptOf, setKeptOf] = useState<{ seq: string; list: string } | null>(null);
   /** P-102 audit F5: each tile's ··· (by routine), what its menu hangs from. */
@@ -158,7 +161,7 @@ export function GoHome() {
     else focusOn(title);
   };
   useKeys(
-    focused && !naming && !tileMenu && !restarting && !ending && !placesOf && !keptOf,
+    focused && !naming && !tileMenu && !restarting && !ending && !placesOf && !keptOf && !partsOf,
     {
       'mod+z': () => {
         if (!can) return;
@@ -180,6 +183,22 @@ export function GoHome() {
           <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newBtn} />
         ) : keptOf ? (
           <KeptSheet seq={keptOf.seq} list={keptOf.list} onClose={() => setKeptOf(null)} fallback={title} />
+        ) : partsOf?.runId ? (
+          <Sheet title={`In any order, in ${partsOf.name}`} onClose={() => setPartsOf(null)} testID="go-parts-sheet" fallback={title}>
+            <PartsList
+              groups={partsTree(data, partsOf.runId)}
+              onTake={(level, part) => {
+                const s = act();
+                const runId = partsOf.runId!;
+                if (!s.takeUpPart(runId, level, part).ok) return;
+                setPartsOf(null);
+                // Taken up, it is resumed there: the runner, at that part's place.
+                if (s.resumeRun(runId).ok) router.push(`/go/run/${runId}`);
+              }}
+              testID="go-tile-tree"
+            />
+            <Btn label="Close" onPress={() => setPartsOf(null)} testID="go-parts-close" />
+          </Sheet>
         ) : placesOf ? (
           <PlacesSheet routineId={placesOf.routineId} name={placesOf.name} onClose={() => setPlacesOf(null)} fallback={title} />
         ) : restarting?.runId ? (
@@ -216,6 +235,18 @@ export function GoHome() {
             {menuAt > 0 && <MenuItem label="Move up" spoken={`Move up: ${tileMenu.name}`} testID="go-tile-up" onPress={() => { move(tileMenu, -1); setTileMenu(null); }} />}
             {menuAt >= 0 && menuAt < tiles.length - 1 && <MenuItem label="Move down" spoken={`Move down: ${tileMenu.name}`} testID="go-tile-down" onPress={() => { move(tileMenu, 1); setTileMenu(null); }} />}
             {menuAt > 1 && <MenuItem label="To the top" spoken={`To the top: ${tileMenu.name}`} testID="go-tile-top" onPress={() => { move(tileMenu, 'top'); setTileMenu(null); }} />}
+            {/* P-99: a run inside an In any order block — where every part stands (a tap takes one up). */}
+            {!!tileMenu.runId && partsTree(data, tileMenu.runId).length > 0 && (
+              <MenuItem
+                label="In any order…"
+                spoken={`In any order: where every part of ${tileMenu.name} stands`}
+                testID="go-tile-parts"
+                onPress={() => {
+                  setPartsOf(tileMenu);
+                  setTileMenu(null);
+                }}
+              />
+            )}
             {tiles.length > 1 && tileMenu.state !== 'running' && <MenuSep />}
             {tileMenu.state !== 'running' && (
             <MenuItem

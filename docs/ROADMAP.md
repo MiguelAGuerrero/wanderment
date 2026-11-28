@@ -43,30 +43,8 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-99 In any order: parts as threads, joined `[feature]` `[data]` `[ux]` L
-*Status:* todo
-*Why:* owner, 2026-11-26: "I choose which activity suits my mood and energy … independent activities, but
-ultimately joined together"; "a thread has managed its own state … done once that single thread returns".
-*Done when:* an In any order block starts one child run per part, each with its own place and values;
-the runner offers the parts to choose; a part returns what it gives; the block finishes when every part
-has returned or been stopped; parts cannot outlive the block. Canvas row 6. From B-16 (D-23): a part whose for each has finished takes up
-again when its list gains an item (it reads as ready again; its block is not finished until it returns); a step after the block that the run could already
-reach waits again while such a part is going (it reads as waiting on that part in the tree view and on the
-tile) — designer's ruling, to confirm in P-99's contract: the run's place is not moved back and work
-already done is never undone;
-what the parts of an In any order block give under one name is collected into one list in the order
-given (owner, 2026-11-27); an In any order block inside a for each keeps each part's place per item; the step after the block cannot be
-reached while any part has not returned or been stopped (stated as a test). The tree view (owner, 2026-11-27: "Scope the tree view
-alongside P-99"; B-16 §"With P-99"): the pull-up panel of a run inside an In any order block lists every
-part of every level the run is in, each with where it stands in existing wordings; tapping a part moves
-the run there and each part keeps its own place and values, across a reload; the same view opens from the
-routine's tile on home when the run is paused (the tile reads the part last touched); a finished part and
-a stopped part are told apart in words, and that record survives export and import; at 390 px and 200 %
-text every line wraps and none is cut, each row ≥ 48 px with a full spoken name; no count, percentage or
-"left" anywhere; no editing from it.
-
 ### P-104 The library (B-17 slices 1 and 4) `[feature]` `[ux]` M
-*Status:* todo
+*Status:* in-progress
 *Why:* owner, 2026-11-27: "write a brief for the library and quick composer"; D-24 go after P-98.
 *Done when:* as B-17 slice 1 and slice 4 state — My routines gains a Library view (Yours | Library); a
 method can be found, previewed, copied (Undo), started by itself and called from another routine; a copy
@@ -373,6 +351,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-28 · P-99 — In any order: Plan's Add makes an In any order block of parts (inside it, Add a part); on the runner the parts are listed and the filled button reads Start/Resume <part>; each part keeps its own place and values (put down and handed back, never seen by another part); the pull-up panel and a home tile's ··· show where every part stands at every level (first / at <step> / finished / stopped) and tapping one moves there; the step after the block can't be reached until every part has returned or been stopped; what parts give under one name is collected into one list in order given. Stored as a breakdown with `any: true` plus a parts record (older builds read a breakdown; no migration). Parked by the owner: joins that reopen. Also fixes four See ahead value-loss bugs (typing over gets "Changed {name}" with Undo; an empty draft means unchanged; a refused draft refuses Next and says so; Step out keeps or names drafts). evidence: golden p99-* frozen from 475e70d (with what the old build shows), anyOrder (23) + golden (10) + persistence (6) + p112 tests, go-any-order spec at 390×844 and 195×422, 189 implicated e2e, 1210 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-28 · P-112 — See ahead: a toggle in the runner's bottom bar (off: one step as before); on, the steps in view are one condensed sheet (16 px rows, a giving step's field on one line), a dashed "then: <words>" row pulls the next step in and Fewer takes it back, steps with insides open in place as an outline (P-111's control), spacing tightens with more rows but never below 48 px targets, then scrolls; rows follow the engine's own Next; Next takes everything in view as done in one move with one Undo ("Took N steps as done"); nothing stored. evidence: chunk (16) + store (2) tests, go-chunks spec at 390×844 and 195×422, implicated runner specs, 1166 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-28 · P-100 — Home is one queue: one ordered list with no sections; each running, paused or waiting run is a row with its step (held values), a short path below the first level and its pause note; the filled Resume takes the top row; a new run goes to the bottom; rows reorder by a grip or the ··· menu (Move up / Move down / To the top) with Undo; a finished run leaves. The order is a `queue` number on each run (old data reads oldest first, today's order; nothing converted). evidence: golden p100-* frozen from 0b67fb1, queue (12) + golden (7) + persistence (5) tests, go-queue spec at 390×844 and 195×422, 14 implicated home specs, 1148 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-111 — a breakdown opens its own view in Plan: a broken-down step or a for each is one shut row; its chevron (or a tap on its words) opens it at `?at=<row>` with a path one up, its words as the heading, its own steps and its own Add a step; the browser's Back returns; Plan opened from a run opens where HERE is; calls stay calls. The shared insides control (`Insides.tsx`) is ready for the runner's chunks. Also, owner rulings on P-110: Back keeps values; a Plan edit never clears a run's values. And "@": an exact name ranks first; an unchanged "@<name>" step stays words. evidence: planAt (14) + backKeeps (7) + persistence tests, go-breakdown-view spec at 390×844 and 195×422, 1124 unit tests, implicated specs, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
