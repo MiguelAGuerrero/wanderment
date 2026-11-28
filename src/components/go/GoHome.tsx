@@ -144,7 +144,8 @@ export function GoHome() {
     if (t.action === 'plan') return toPlan(t.routineId, t.runId);
     // Nothing to start yet (no steps): its Plan is where the first is added.
     if (t.empty) return toPlan(t.routineId);
-    const did = t.action === 'resume' && t.runId ? s.resumeRun(t.runId) : s.startRoutine(t.routineId);
+    // (F-1: a run resting on a call not stepped into is resumed at the call's first step, where its row says it is.)
+    const did = t.action === 'resume' && t.runId ? s.resumeRun(t.runId, false, !!t.into) : s.startRoutine(t.routineId);
     if (!did.ok && did.reason === 'empty') return toPlan(t.routineId);
     if (!did.ok || !did.runId) return;
     router.push(`/go/run/${did.runId}`);
@@ -308,6 +309,20 @@ export function GoHome() {
               <View
                 key={t.routineId}
                 role="listitem"
+                // (F-2, audit F13: as Plan's rows — Alt+↑ / Alt+↓ while the focus is in a row moves it one place, never past an end.)
+                {...(WEB && tiles.length > 1 && t.runId && ({ onKeyDown: (e: { key: string; altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; preventDefault: () => void }) => {
+                  if (!e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+                  const by = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+                  if (!by) return;
+                  e.preventDefault();
+                  if (i + by < 0 || i + by >= tiles.length) return;
+                  const had = document.activeElement as HTMLElement | null;
+                  move(t, by);
+                  // (The row is moved in the page: the focus stays where it was.)
+                  requestAnimationFrame(() => {
+                    if (had?.isConnected && document.activeElement !== had) had.focus();
+                  });
+                } } as object))}
                 onLayout={(e) => {
                   if (t.runId) boxes.current[t.runId] = { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height };
                 }}>
@@ -320,6 +335,7 @@ export function GoHome() {
                       <Grip
                         ink
                         words={t.name}
+                        keys="Alt+ArrowUp Alt+ArrowDown"
                         testID="go-tile-grip"
                         style={styles.grip}
                         onStart={() => {
@@ -359,7 +375,19 @@ export function GoHome() {
       {/* P-100: the one filled button — the top row's way back in. */}
       {top && (
         <View style={styles.resume}>
-          <Btn kind="filled" size={18} label={resumeLabel(top)} disabled={busy(top)} onPress={() => choose(top)} testID="go-resume" />
+          {/* (F-2, audit F8: off while another run is running — said in one line, next to it.) */}
+          {busy(top) && (
+            <T dim nativeID="go-resume-why" testID="go-resume-why">
+              {offWhy(tiles.find((t) => t.runId === runningId)?.name)}
+            </T>
+          )}
+          {/* (F-2, audit F7: the routine it resumes, said after its name — never shown: the row above says it.) */}
+          {!!resumeFor(top) && (
+            <T nativeID="go-resume-for" style={styles.unseen} testID="go-resume-for">
+              {resumeFor(top)}
+            </T>
+          )}
+          <Btn kind="filled" size={18} label={resumeLabel(top)} describedBy={[resumeFor(top) && 'go-resume-for', busy(top) && 'go-resume-why'].filter(Boolean).join(' ') || undefined} disabled={busy(top)} onPress={() => choose(top)} testID="go-resume" />
         </View>
       )}
       </View>
@@ -389,6 +417,17 @@ export function resumeLabel(t: Tile): string {
   if (t.state === 'waiting') return `Resume ${t.name}`;
   const step = t.atParts ? partsText(t.atParts) : (t.at ?? '');
   return step ? `Resume ${step}` : `Resume ${t.name}`;
+}
+
+/** F-2 (audit F7): what the filled Resume resumes, said after its name when its words are a step's ("In Make tea"); '' when they name it already. */
+export function resumeFor(t: Tile): string {
+  const label = resumeLabel(t);
+  return label === `Resume ${t.name}` || label === `Plan ${t.name}` ? '' : `In ${t.name}`;
+}
+
+/** F-2 (audit F8): why the filled Resume is off — another run is running (named, when it is on home). */
+export function offWhy(running: string | undefined): string {
+  return running ? `“${running}” is running. Pause it first.` : 'Another routine is running. Pause it first.';
 }
 
 /** P-100: where a row's run sits — its levels, its routine first; past three, the first and the last two. */
@@ -535,7 +574,9 @@ const styles = StyleSheet.create({
   tileDragging: { borderWidth: 2, borderStyle: 'dashed', borderColor: G.ink },
   grip: { marginLeft: -(SP.s3 - 4), marginTop: -(SP.s3 - 4), alignSelf: 'flex-start' },
   dropLine: { position: 'absolute', left: 0, right: 0, height: 4, backgroundColor: G.text },
-  resume: { paddingHorizontal: SP.s3, paddingBottom: SP.s3 },
+  resume: { paddingHorizontal: SP.s3, paddingBottom: SP.s3, gap: SP.s1 },
+  // (A description's words: read by a screen reader through `aria-describedby`, never laid out.)
+  unseen: { display: 'none' },
   tileHead: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.s1 },
   last: { borderWidth: 2, borderColor: G.ink, paddingHorizontal: SP.s1, lineHeight: 22 },
   tileBody: { flex: 1, minWidth: 0, gap: SP.s1, minHeight: TARGET },

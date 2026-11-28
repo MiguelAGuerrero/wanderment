@@ -81,6 +81,13 @@ export function PlaceRow({ place, more, moreRef, first }: { place: PlaceShown; m
   );
 }
 
+/** F-2 (owner 2026-11-28, short text): what Where accepts. */
+export const WHERE_HINT = 'A web address, or where it is in words';
+/** F-2 (audit F6): why a routine's places offer no edits. */
+export const READONLY_HINT = 'Saved by a newer version of the app: read only here';
+/** F-2 (owner 2026-11-28, short text): the tile's door opens places; they change in Plan. */
+export const OPEN_ONLY_HINT = 'Change these in Plan';
+
 /** Name and Where, typed in place (adding, or changing a row); the filled button keeps them. */
 function PlaceForm({ name: had = '', where: was = '', keep, onKeep, onCancel }: { name?: string; where?: string; keep: string; onKeep: (name: string, where: string) => boolean; onCancel: () => void }) {
   const [name, setName] = useState(had);
@@ -93,7 +100,11 @@ function PlaceForm({ name: had = '', where: was = '', keep, onKeep, onCancel }: 
   return (
     <View style={styles.form} testID="go-place-form">
       <Field value={name} onChangeText={setName} accessibilityLabel="Name" placeholder="Name" returnKeyType="next" submitBehavior="submit" onSubmitEditing={() => whereField.current?.focus()} testID="go-place-name" autoFocus {...{ dataSet: { first: 'true' } }} />
-      <Field ref={whereField} value={where} onChangeText={setWhere} accessibilityLabel="Where" placeholder="Where" autoCapitalize="none" autoCorrect={false} returnKeyType="done" submitBehavior="submit" onSubmitEditing={submit} testID="go-place-where" />
+      <Field ref={whereField} value={where} onChangeText={setWhere} accessibilityLabel="Where" placeholder="Where" autoCapitalize="none" autoCorrect={false} returnKeyType="done" submitBehavior="submit" onSubmitEditing={submit} testID="go-place-where" aria-describedby="go-place-where-hint" />
+      {/* (F-2: the owner's 2026-11-28 rule — one short line saying what the field accepts.) */}
+      <T dim nativeID="go-place-where-hint" testID="go-place-where-hint">
+        {WHERE_HINT}
+      </T>
       <View style={styles.pair}>
         <Btn kind="filled" label={keep} spoken={name.trim() ? `${keep} ${name.trim()}` : keep} disabled={!ready} onPress={submit} style={styles.grow} size={18} testID="go-place-keep" />
         <Btn label="Cancel" onPress={onCancel} style={styles.grow} testID="go-place-cancel" />
@@ -123,6 +134,12 @@ export function PlacesSheet({ routineId, name, edit, at, onClose, fallback }: { 
     <>
       <Sheet title={`Places for ${name}`} onClose={onClose} testID="go-places-sheet" fallback={fallback} inert={!!menuPlace}>
         <Notice />
+        {/* (F-2, audit F6: read only — places stored in a newer version's shape, or the tile's door — said in one line.) */}
+        {!editable && (places.length > 0 || !!edit) && (
+          <T dim testID="go-places-readonly">
+            {edit || !placesWritable(raw) ? READONLY_HINT : OPEN_ONLY_HINT}
+          </T>
+        )}
         {places.length > 0 && (
           <View style={styles.list} role="list" aria-label="Places" testID="go-places-list">
             {places.map((p) =>

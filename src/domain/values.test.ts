@@ -649,14 +649,17 @@ describe('Plan: Gives…, rename, remove (rows 11, 12, 14, 20; ruling 5)', () =>
     expect(undone(before, okEdit(before, 'R', { kind: 'remove', item: 'a' }))).toEqual(json(before));
   });
 
-  it('removing a step the run is inside (a routine entered from it) takes that level’s values with it', () => {
+  // (F-3, rewritten: owner ruling 2026-11-27: "A Plan edit never clears a run's values" — this test used to pin that the
+  // removed call's level took its values with it; the call now hands them back, as Step out does.)
+  it('removing a step the run is inside (a routine entered from it) hands that level’s values back', () => {
     const d0 = world(seq('P', 'P', [ref('call', 'S'), step('b')]), seq('S', 'S', [step('s1', 'Find >ref'), step('s2')]));
     let { d, id } = start(d0, 'P');
     d = walk(d, id, 'stepIn');
     d = typed(d, id, 'ref', 'one');
     d = okEdit(d, 'P', { kind: 'remove', item: 'call' });
     expect(here(d, id)).toBe('b');
-    expect(entries(d, id)).toEqual([]);
+    expect(entries(d, id).map((e) => e.replace(/@.*$/, ''))).toEqual(['0:ref=one']);
+    expect(seen(d, id, 'ref')).toBe('one');
   });
 
   it('row 14: Plan opened on a run with this-run changes from the build before folds them and leaves its values exactly as they were', () => {

@@ -18,6 +18,17 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-28 — Plan changes need a confirm: Edit, then Save or Cancel
+"So I noticed that all changes to a routine are final, and there's no confirmation or save step to ensure
+that you don't accidentally change something, like drag a step out of place."
+Answered in chat: "Edit, then Save/Cancel" — Plan opens read-only; Edit makes changes into a draft; Save
+keeps them, Cancel throws the draft away; Undo works inside the draft; a run never sees a half-made
+change. Unsaved changes on leaving or reload: "Kept as a draft" — the draft is stored and Plan reopens in
+Edit. Order: "Next, after F-3/F-2", before self-calls and the composer.
+Interpretation (ours): this replaces DESIGN.md's "Undo and no confirm" for Plan edits (Undo stays for
+everything else); the composer (B-19) should end in this draft.
+Led to: P-115.
+
 ## 2026-11-28 — B-19, starting with a composer (drafted with the second session)
 Relayed from the second session; the owner's choices and words while drafting B-19:
 - For whom: "Me, starting anything new."

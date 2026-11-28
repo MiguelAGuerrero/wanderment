@@ -114,6 +114,8 @@ export function LibrarySheet({ row, mode, onCopy, onOpenYours, onClose, fallback
   return (
     <Sheet
       title={row.name}
+      spoken={row.spoken}
+      bodyLabel="Steps"
       onClose={onClose}
       testID="go-lib-sheet"
       fallback={fallback}
@@ -154,6 +156,8 @@ export function TemplateCopySheet({ row, onCopy, onClose, fallback }: { row: Lib
   return (
     <Sheet
       title={row.name}
+      spoken={row.spoken}
+      bodyLabel="Your copy"
       onClose={onClose}
       testID="go-lib-name-sheet"
       fallback={fallback}

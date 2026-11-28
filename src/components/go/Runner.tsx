@@ -838,7 +838,7 @@ function PauseSheet({ name, reason, onPause, onClose, fallback }: { name: string
   const [note, setNote] = useState(reason);
   return (
     <Sheet title={`Pausing ${name}`} onClose={onClose} testID="go-pause-sheet" fallback={fallback}>
-      <Field value={note} onChangeText={setNote} multiline accessibilityLabel="Note" placeholder="Note" style={styles.noteField} testID="go-pause-note" {...{ dataSet: { first: 'true' } }} />
+      <Field value={note} onChangeText={setNote} multiline accessibilityLabel="Note" placeholder="Where you left off, what’s next (optional)" style={styles.noteField} testID="go-pause-note" {...{ dataSet: { first: 'true' } }} />
       <Btn kind="filled" label="Pause" spoken={`Pause ${name}`} onPress={() => onPause(note)} size={18} testID="go-pause-confirm" />
       <Btn label="Close" onPress={onClose} testID="go-pause-close" />
     </Sheet>

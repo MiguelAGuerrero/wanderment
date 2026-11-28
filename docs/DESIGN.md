@@ -211,7 +211,9 @@ routines in their own words — and runs them with the person, one small step at
   face. The **Places sheet** (Plan's routine ··· → **Places…**, named routines): "Places for <name>", rows of name
   and host (or words), each row's ··· an anchored menu — **Change** · **Move up** · **Move down** · a line ·
   **Remove** (red); **+ Add a place** opens Name and Where in place with the filled **Add** (Change: **Keep**) and
-  Cancel; **Close** lowest. Every change is one Plan edit, said in the sheet ("Added / Changed / Moved / Removed
+  Cancel; **Close** lowest *(F-2: Where has one line under it, "A web address, or where it is in words"; the tile's
+  door says "Change these in Plan", and places saved in a newer version's shape "Saved by a newer version of the
+  app: read only here")*. Every change is one Plan edit, said in the sheet ("Added / Changed / Moved / Removed
   “<place>”") with its Undo and ×, its Undo also in the routine's menu and Ctrl/⌘+Z. Copy copies places. **Typed
   addresses** *(journey 4)*: each http(s) address in the step's words, a value in play or the pause note gets an
   **"Open <host>"** row in the panel (and, for a value, in the value sheet); the words themselves stay words. The
@@ -317,10 +319,15 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   level the run is in, its values in place, inverted), below its first level **where it sits** (a short path, "Practise
   drawing › Hand studies"; past three levels the first and the last two), and the pause note or what it waits for —
   in **one ordered list, no sections and no headings** *(was P-97: Ongoing and Finishing)*. The **top row** is what the
-  filled **Resume <step>** at the bottom resumes. A run started (+ New's routine started, or Start on My routines)
+  filled **Resume <step>** at the bottom resumes *(F-2: spoken "Resume <step>, in <routine>"; while another run is
+  running it is unavailable, with one line above it, "“<name>” is running. Pause it first.")*. *(F-1/F-3, the owner:
+  "Step into the first step")* A row resting on a call it has not stepped into reads the call's first step, and its
+  Resume lands there, inside the call (the pause note kept). A run started (+ New's routine started, or Start on My routines)
   goes to the **bottom**; a run that finishes leaves the list. Rows move by their **grip** (a drag; none narrower
   than 340 px) and by their **···** (Move up · Move down · To the top — only those it can make), each said ("Moved
-  “<name>” up") with Undo. The order is stored on each run (`queue`, renumbered 1…n by a move); a run with none —
+  “<name>” up") with Undo — *(F-2)* and, on the web, Alt+↑ / Alt+↓ while the focus is in a row (the grip's
+  `aria-keyshortcuts` says so). The order is stored on each run (`queue`, renumbered 1…n by a move; *F-3:* a `queue`
+  this version cannot read is kept, never renumbered, and that row's own move is refused); a run with none —
   every run from before P-100 — stands by when it was started, so old data reads as home always showed it, the
   oldest first. A routine with nothing going is **not** on home: it is on My routines (its stored
   `home` mark is kept and written as before, and no longer read). Order never changes because of a pause
@@ -357,8 +364,13 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   "Learn blank"). Find with text shows both under "Yours" and "Library" headings (names only). A row opens a
   **preview sheet** (read-only rows; filled **Copy** — **Copy…** for a template, **Open yours** for a name already
   theirs — then **Close**, both pinned). Copy brings what it calls, by name (theirs where they have that name), in one
-  write: "Copied “X”" / "… and what it calls", one Undo; it stays on the library. A template's **Copy…** asks a name
-  (the field starts "Learn "; a name in use: "! A routine already uses that name", nothing written). In Plan, only
+  write: "Copied “X”" / "… and what it calls", one Undo; it stays on the library. *(F-2)* When it uses a routine of the
+  person's own by name, the notice says so: "…, which uses your “Check and mend”" — from Plan's Copy and add too (then
+  it is shown, not quiet). A template's **Copy…** asks a name
+  (the field starts "Learn "; a name in use — *F-2:* or the name of a routine the copy brings with it — "! A routine
+  already uses that name", nothing written). *(F-2)* The sheets' titles are spoken "Learn blank"; the preview's
+  scrolling part is "Steps". The tab list moves by ←/→ (one Tab stop, the chosen tab). A for each's own kept list is
+  the routine's, never one of its asks. In Plan, only
   when summoned: "@" lists up to three library methods under **Library**, after **Yours**; Add's "a routine" lists
   them under a Library heading; a library row opens the preview with **Copy and add** (one Plan edit: no notice,
   one Undo in the routine's menu). Return in the field never picks a library row; the runner's giving fields list
@@ -465,7 +477,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   typed stay as the step's, with the call right after it — one edit, one Undo; a refusal (itself) is said in words.
   A step stored as the words "@<routine name>" is **offered, never made**, a call: its ··· has **Make it a call**
   ("Make it a call to <name>") after Edit, one edit with its Undo (not offered for the routine itself, or one that
-  uses it). Its placeholder is one string. **Move up / Move down are not on the step menu** where there is a grip: the grip,
+  uses it). Its placeholder is one string *(F-2: while the empty field has the focus, one line under it, "Type @ for a
+  routine, { for a value")*. **Move up / Move down are not on the step menu** where there is a grip: the grip,
   pressed, opens its own small menu, **Move up · Move down** (each unavailable at its end) — the way to
   reorder without a drag *(P-102 audit: nothing by gesture alone)*; under 340 px, with no grip, they are on
   the step menu, before the line. They are also a row's screen-reader actions (on its ···) and, on the web,
@@ -545,9 +558,9 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
 - **Safeguards.** Everything that loses or reshapes something gets an **Undo and no confirm**: a Plan
   edit (Gives…, renaming a name and "Gives nothing" included), New, Jump to (it can leave levels
   and reset the round), Step out, Start over *(asked first — P-101 amendment, the owner's ruling)*, a value replaced or cleared
-  — from the value sheet, or from a step's own field's entry sheet *(P-101)* — Back to when it clears a value given in the round it leaves
-  ("Cleared {name}") *(P-110: and any move that clears values given at or below where it lands — Back, Jump to,
-  Start over)*, this-run changes folded (by whatever verb folds them). Giving a value for the
+  — from the value sheet, or from a step's own field's entry sheet *(P-101)* — *(F-3, the owner 2026-11-28: "Keeps across
+  rounds" — Back never clears, across a round too; was: Back to across a round said "Cleared {name}")* any move that
+  clears values given at or below where it lands — Jump to, Start over *(P-110)*, this-run changes folded (by whatever verb folds them). Giving a value for the
   first time leaves no notice. An Undo puts values back name by name: it never drops a value typed
   after the action it undoes.
   *(P-102, the owner: "You should not undo a 'Done'")* **Finishing a run** (Done, or the last Next) is the

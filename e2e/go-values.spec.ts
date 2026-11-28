@@ -417,7 +417,9 @@ test.describe('fixes after the audit', () => {
     await expect(r.words).toHaveText('Find three reference photos of figures in motion');
   });
 
-  test('F2: Back to across a round boundary that clears a value says "Cleared {x}", with Undo that brings it back', async ({ page }) => {
+  // (F-3, rewritten: owner ruling 2026-11-28: "Keeps across rounds" — Back never clears; only a new round, going forward,
+  // clears. This test used to pin "Cleared {feature}" with an Undo that brought it back.)
+  test('F2: Back to across a round boundary keeps the value typed in the new round — nothing cleared, nothing said', async ({ page }) => {
     await startGo(page, run1('test'), 'runner', [TESTING]);
     const r = runner(page);
     await give(page, 'device', 'phone');
@@ -427,10 +429,8 @@ test.describe('fixes after the audit', () => {
     await typeValue(page, 'feature', 'login');
     await r.handle.click();
     await r.panel.getByRole('button', { name: /^Back to/ }).click();
-    await expect(r.notice).toContainText('Cleared {feature}');
-    await r.notice.getByRole('button', { name: /^Undo/ }).click();
-    await expect(r.words).toHaveText('Pick a feature');
-    await expect(r.field('feature')).toHaveAccessibleName('feature: login');
+    await expect(r.words).toHaveText('Test login on phone');
+    await expect(r.notice).toHaveCount(0);
   });
 
   test('F5: a last step that is a wait reads Done — it ends the run', async ({ page }) => {

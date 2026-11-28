@@ -188,6 +188,25 @@ export function libraryPreview(id: Id, lib: Library = library()): PreviewRow[] {
 export interface Copied extends Result {
   /** The names of the routines it made, the one asked for first. */
   made?: string[];
+  /** F-2 (audit F3): the person's own routines it calls by name (theirs, used as they are), as they are named. */
+  used?: string[];
+}
+
+/** F-2 (audit F2): the names of the named routines a library routine brings with it (what it calls, all the way down; not itself). */
+function namesBrought(lib: Library, id: Id): string[] {
+  const out: string[] = [];
+  const seen = new Set<Id>([id]);
+  const walk = (x: Id) => {
+    for (const i of readRoutine(lib.data, x)?.items ?? []) {
+      if (!isRef(i) || seen.has(i.ref)) continue;
+      seen.add(i.ref);
+      const s = readRoutine(lib.data, i.ref);
+      if (s?.named) out.push(s.words);
+      walk(i.ref);
+    }
+  };
+  walk(id);
+  return out;
 }
 
 /**
@@ -201,7 +220,10 @@ export function copyFromLibrary(data: Data, id: Id, env: Env, opts: { words?: st
   const words = tidyName(opts.words ?? root.words);
   if (!words) return { ok: false, data, reason: 'empty' };
   if (routineNamed(data, words)) return { ok: false, data, reason: 'same-name' };
+  // (F-2, audit F2: "One version per name" — nor the name of a routine the copy brings with it.)
+  if (namesBrought(lib, id).some((w) => nameKey(w) === nameKey(words))) return { ok: false, data, reason: 'same-name' };
   const made: string[] = [];
+  const used: string[] = [];
   const routines: Record<Id, Routine> = { ...data.routines };
   /** Library id → the person's routine it became (copied here, or theirs by name). */
   const to = new Map<Id, { id: Id; words: string }>();
@@ -215,6 +237,7 @@ export function copyFromLibrary(data: Data, id: Id, env: Env, opts: { words?: st
       if (theirs) {
         const t = { id: theirs.id, words: theirs.words };
         to.set(libId, t);
+        used.push(theirs.words);
         return t;
       }
     }
@@ -233,7 +256,7 @@ export function copyFromLibrary(data: Data, id: Id, env: Env, opts: { words?: st
     return made1;
   };
   const top = copy(id, words);
-  return { ok: true, data: { ...data, routines }, routineId: top.id, made };
+  return { ok: true, data: { ...data, routines }, routineId: top.id, made, ...(used.length > 0 && { used }) };
 }
 
 /**
@@ -245,11 +268,19 @@ export function copyAndAdd(data: Data, id: Id, seq: Id, after: Id | null | undef
   if (!c.ok || !c.routineId) return c;
   const added = editRoutine(c.data, seq, { kind: 'addCall', routine: c.routineId, ...(after !== undefined && { after }) }, env);
   if (!added.ok) return { ok: false, data, reason: added.reason ?? 'cannot' };
-  return { ...added, routineId: c.routineId, made: c.made };
+  return { ...added, routineId: c.routineId, made: c.made, ...(c.used && { used: c.used }) };
 }
 
-/** The notice after a copy: "Copied “X”", or "Copied “X” and what it calls" when it brought more. */
+/** What was copied, for the notice: "Copied “X”", or "Copied “X” and what it calls" when it brought more (the notice adds `usesYour`). */
 export function copiedWords(c: Copied): string {
   const [first, ...more] = c.made ?? [];
   return first === undefined ? '' : `Copied “${first}”${more.length ? ' and what it calls' : ''}`;
+}
+
+/** F-2 (audit F3): ", which uses your “Y”" — the person's own routines a copy calls, said after what was copied; '' for none. */
+export function usesYour(c: Copied): string {
+  const names = (c.used ?? []).map((w) => `“${w}”`);
+  if (!names.length) return '';
+  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  return `, which uses your ${list}`;
 }

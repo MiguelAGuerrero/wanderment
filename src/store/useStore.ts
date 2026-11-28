@@ -5,7 +5,7 @@ import { applyUndo, sameValue, UndoEntry, undoEntry } from '@/domain/diff';
 import { Settings } from '@/domain/migrate';
 import { LogInput, logActivity, newId } from '@/domain/model';
 import { activePart, ChunkGiven, currentRun, holdsLockedParts, place, editRoutine, Given, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
-import { copiedWords, Copied, copyAndAdd, copyFromLibrary } from '@/domain/library';
+import { copiedWords, Copied, copyAndAdd, copyFromLibrary, usesYour } from '@/domain/library';
 import { Acted, noticeFor, runnerView, whatChanged } from '@/domain/runView';
 import { Data, emptyData, Id, Run } from '@/domain/types';
 import { nameKey, tidyName } from '@/domain/values';
@@ -193,8 +193,8 @@ interface State {
   /** "New: <words>", the New tile (P-90): makes the routine only — named, on home, open edge, no steps, NO run — and answers with `routineId` (for a name there is: that routine, nothing written). Undo removes it. */
   createRoutine: (words: string) => Did;
   /** Resume (a tile, the paused screen, a row under it) and Plan's "Resume at <step>": running exactly where it was, out of Plan. Refused `asking` at the edge, `running` while another run is running. No Undo. */
-  /** `keepUndo`: as for `startRoutine`. */
-  resumeRun: (runId: Id, keepUndo?: boolean) => Did;
+  /** `keepUndo`: as for `startRoutine`. `into` (F-1, home's queue): resting on a call not stepped into, Resume lands on its first step. */
+  resumeRun: (runId: Id, keepUndo?: boolean, into?: boolean) => Did;
   /**
    * Plan (the runner's button, the paused screen's, a tile's): the run is in Plan — and paused, in the
    * same write, if it was the one running; planned from a tile it does not become the run the app is on.
@@ -461,12 +461,15 @@ function copied(r: Copied, quiet: boolean): Did {
   if (!r.ok) return { ok: false, reason: r.reason ?? 'cannot' };
   const s = useStore.getState();
   const entry = undoEntry(s.data, r.data);
-  const said = copiedWords(r);
   const name = r.made?.[0] ?? '';
+  // (F-2, audit F3: a copy that calls the person's own routine of a name says so — Copy and add too, then not quiet.)
+  const uses = usesYour(r);
+  const said = quiet ? `Added “${name}” from the library${uses}` : copiedWords(r) + uses;
+  const hush = quiet && !uses;
   useStore.setState({
     data: r.data,
     undo: entry,
-    runNotice: { verb: 'editRoutine', text: quiet ? `Added “${name}” from the library` : said, label: LABEL_COPY, entry, ...(quiet && { quiet: true as const }) },
+    runNotice: { verb: 'editRoutine', text: said, label: LABEL_COPY, entry, ...(hush && { quiet: true as const }) },
     toVerb: undefined,
     toast: undefined,
   });
@@ -624,9 +627,9 @@ export const useStore = create<State>()((set, get) => ({
   createRoutine: gated<State['createRoutine']>(refused, (words) => act({ kind: 'new', words }, 'set')),
   resumeRun: gated<State['resumeRun']>(
     refused,
-    (runId, keepUndo) => {
+    (runId, keepUndo, into) => {
       const run = readRun(get().data, runId);
-      return run && isRunning(get().data, run) ? { ok: true, runId } : (busyWith(runId) ?? act({ kind: 'resume', runId }, keepUndo ? 'keep' : 'clear'));
+      return run && isRunning(get().data, run) ? { ok: true, runId } : (busyWith(runId) ?? act({ kind: 'resume', runId, ...(into && { into: true as const }) }, keepUndo ? 'keep' : 'clear'));
     },
     (runId) => keepPress('resume', runId),
   ),

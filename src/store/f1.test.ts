@@ -3,10 +3,12 @@
  * repros and the owner's rulings, never from running the code):
  * - engine #8: a record of parts this version cannot read refuses taking a part up and going past the block — said.
  * - storage F7: a value typed after a part was taken up never ends up in another part's thread through that Undo.
+ * - owner 2026-11-28: home's Resume of a run resting on a call not stepped into lands on the call's first step.
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { place, readRun, visibleValue } from '@/domain/run';
+import { homeQueue } from '@/domain/runView';
 import { Data, emptyData, Id } from '@/domain/types';
 
 import { PARTS_NEWER, useStore } from './useStore';
@@ -63,5 +65,18 @@ describe('storage F7: Undo of a take-up, after a value typed in the part taken u
     st().undoLast();
     expect(here(id)).toBe('p1');
     expect(visibleValue(st().data, readRun(st().data, id)!, 'notes')?.items).toEqual(['typed in Study']);
+  });
+});
+
+describe('owner 2026-11-28: home’s queue at a call not stepped into', () => {
+  it('the row reads the call’s first step, and its Resume lands there, inside the call', () => {
+    const id = started('M');
+    st().nextStep(id);
+    st().pauseRun(id);
+    expect(here(id)).toBe('c');
+    const row = homeQueue(st().data).find((t) => t.runId === id)!;
+    expect(row).toMatchObject({ at: 'Open the doc', into: true });
+    expect(st().resumeRun(id, false, row.into).ok).toBe(true);
+    expect(here(id)).toBe('c1');
   });
 });

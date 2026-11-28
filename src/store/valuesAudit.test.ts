@@ -78,7 +78,9 @@ describe('F1: Undo never drops a typed value, and brings back what the action cl
 });
 
 describe('F2: Back to across a round boundary', () => {
-  it('a value typed in the new round that Back clears: a notice naming it, with an Undo that brings it back', () => {
+  // (F-3, rewritten: owner ruling 2026-11-28: "Keeps across rounds" — Back never clears; only a new round, going forward,
+  // clears. This test used to pin "Cleared {feature}" with an Undo.)
+  it('a value typed in the new round, then Back into the round before: kept, no notice and no Undo', () => {
     const id = started('R');
     st().typeValue(id, 's', 'base', 'web');
     st().nextStep(id);
@@ -88,10 +90,8 @@ describe('F2: Back to across a round boundary', () => {
     st().typeValue(id, 'pick', 'feature', 'signup');
     st().backTo(id);
     expect([here(id), round(id)]).toEqual(['test', 1]);
-    expect(st().runNotice?.text).toBe('Cleared {feature}');
-    expect(st().undo).toBeDefined();
-    expect(st().undoLast()).toBe(true);
-    expect([here(id), round(id)]).toEqual(['pick', 2]);
+    expect(st().runNotice).toBeUndefined();
+    expect(st().undo).toBeUndefined();
     expect(vals(id)).toEqual(['0:base=web', '0:feature=signup']);
   });
 

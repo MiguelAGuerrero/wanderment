@@ -78,6 +78,8 @@ const under = (key: string, parent: string) => key === parent || key.startsWith(
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ');
 /** The "Add a step" row's placeholder and spoken name: one string, nothing keyed to its words (a later composer may ask a question here). */
 export const ADD_PLACEHOLDER = 'Add a step';
+/** F-2 (owner 2026-11-28, short text): the empty Add row's one line — "@" and "{". */
+export const ADD_HINT = 'Type @ for a routine, { for a value';
 /** P-99: the Add row of an In any order block's own view (the mock-up's "+ Add a part"). */
 export const ADD_PART = 'Add a part';
 
@@ -186,7 +188,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
    */
   const [picking, setPicking] = useState<{ start: number; query: string } | null>(null);
   /** P-105: a library method chosen from "@" or Add's "a routine" — its preview open, Copy and add going to `seq` (after `after`; absent: the end). */
-  const [libAdd, setLibAdd] = useState<{ row: LibraryRow; seq: string; after?: string } | null>(null);
+  // (F-2, audit F9: `typed` — what the field held when "@…" opened the preview — is put back on Close.)
+  const [libAdd, setLibAdd] = useState<{ row: LibraryRow; seq: string; after?: string; typed?: { text: string; was: Typing | null } } | null>(null);
   /** P-103 audit F3: the name the person has chosen in it (↑/↓), -1 for none yet; typing part of a name chooses the first match. */
   const [lit, setLit] = useState(-1);
   /** A name just put in: where the caret goes, set as soon as the field holds the new words (before the next key). */
@@ -700,7 +703,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
     const where = into?.each && into.ref ? { seq: into.ref } : at ? { seq: at.seq, after: at.itemId } : { seq: ownSeq };
     if (t) setTyping(rest.trim() ? { ...t, text: rest } : null);
     else setAdding(rest);
-    setLibAdd({ row, ...where });
+    setLibAdd({ row, ...where, typed: { text: now, was: t ? { ...t } : null } });
   };
   /** The focus left the bar for somewhere that is not the field it came from: the typing is over, as if the field had been left. */
   const leftBar = () => {
@@ -726,7 +729,14 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       row={libAdd.row}
       mode="add"
       fallback={addField}
-      onClose={() => setLibAdd(null)}
+      onClose={() => {
+        // (F-2, audit F9: nothing was copied — the field is as it was, "@…" and all.)
+        const typed = libAdd.typed;
+        setLibAdd(null);
+        if (!typed) return;
+        if (typed.was) setTyping({ ...typed.was, text: typed.text });
+        else setAdding(typed.text);
+      }}
       onCopy={() => {
         const did = act().copyAndAdd(libAdd.row.id, libAdd.seq, libAdd.after);
         setLibAdd(null);
@@ -1360,6 +1370,13 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
               </View>
             )}
           </View>
+          {/* (F-2: the owner's 2026-11-28 rule — how "@" and "{" work, one line under the empty Add row while it has the
+              focus; outside the row, so keeping the field in view never counts it.) */}
+          {addFocused && !adding && !floor && (
+            <T dim style={styles.addHint} testID="go-plan-add-hint">
+              {ADD_HINT}
+            </T>
+          )}
         </View>
         {floor && foot}
       </ScrollView>
@@ -1614,7 +1631,7 @@ function NamesBar({ names, slots = [], routines = [], library = [], onLibrary, p
           <View {...decorative}>
             <Mark name="routine" color={G.dim} />
           </View>
-          <T bold>
+          <T bold style={styles.chipText}>
             <T dim {...decorative}>
               {'{'}
             </T>
@@ -1637,7 +1654,9 @@ function NamesBar({ names, slots = [], routines = [], library = [], onLibrary, p
           <View {...decorative}>
             <Mark name="routine" color={G.dim} />
           </View>
-          <T bold>{r.name}</T>
+          <T bold style={styles.chipText}>
+            {r.name}
+          </T>
         </Pressable>
       ))}
       {library.length > 0 && (
@@ -1652,7 +1671,9 @@ function NamesBar({ names, slots = [], routines = [], library = [], onLibrary, p
             <View {...decorative}>
               <Mark name="routine" color={G.dim} />
             </View>
-            <T bold>{r.name}</T>
+            <T bold style={styles.chipText}>
+              {r.name}
+            </T>
           </Pressable>
         );
       })}
@@ -1690,6 +1711,7 @@ function GivesSheet({ row, edit, onClose, fallback }: { row: PlanRow; edit: (seq
           setTaken(false);
         }}
         accessibilityLabel="Gives"
+        placeholder="e.g. photos"
         maxLength={MAX_NAME}
         autoCapitalize="none"
         autoCorrect={false}
@@ -1699,6 +1721,10 @@ function GivesSheet({ row, edit, onClose, fallback }: { row: PlanRow; edit: (seq
         testID="go-gives-name"
         {...{ dataSet: { first: 'true' } }}
       />
+      {/* (F-2: the owner's 2026-11-28 rule — what the name is for, one line.) */}
+      <T dim testID="go-gives-hint">
+        {good ? `Later steps read it as {${shown}}` : 'A name, for later steps to read'}
+      </T>
       {taken && (
         <T color={G.err} accessibilityRole="alert" testID="go-gives-error">
           ! This routine already uses that name
@@ -1844,6 +1870,7 @@ const styles = StyleSheet.create({
   dividerWords: { flexDirection: 'row', alignItems: 'center', gap: SP.s2, flexGrow: 1, flexShrink: 1, flexBasis: 120, minHeight: TARGET },
   addRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', borderWidth: 2, borderColor: G.line, backgroundColor: G.surf },
   // A line of their own, below the field (`flexBasis` 100 %), at its end.
+  addHint: { paddingHorizontal: SP.s3, paddingTop: SP.s1 },
   addTools: { flexBasis: '100%', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: SP.s1 },
   addMark: { width: 24, marginLeft: SP.s3 - 4, alignItems: 'center' },
   // Too narrow for the words and Add on one line (large text): Add goes beneath, at the end.
@@ -1862,7 +1889,9 @@ const styles = StyleSheet.create({
   chipFirst: { borderColor: G.text },
   routineChip: { flexDirection: 'row', alignItems: 'center', gap: SP.s1 },
   barHead: { flexBasis: '100%', paddingTop: SP.s1 },
-  chip: { minHeight: TARGET, minWidth: TARGET, justifyContent: 'center', paddingHorizontal: SP.s3, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf2 },
+  // (F-2, audit F5: never wider than the bar — a long name wraps, at 200 % text too.)
+  chip: { minHeight: TARGET, minWidth: TARGET, maxWidth: '100%', justifyContent: 'center', paddingHorizontal: SP.s3, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf2 },
+  chipText: { flexShrink: 1 },
   forward: { minHeight: 56 },
   // As tall as the filled button and the room its shadow keeps.
   emptySlot: { minHeight: 60 },

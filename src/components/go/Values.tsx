@@ -215,7 +215,7 @@ function TextSheet({ runId, itemId, field, onClose, fallback }: { runId: string;
             <Mark name="routine" color={G.dim} />
           </View>
         )}
-        <GrowField ref={fieldRef as never} value={row.text} onChangeText={(t) => setRow((r) => rowAfter(r, t))} accessibilityLabel={label} maxLength={MAX_VALUE} onSubmit={keep} style={styles.listField} testID="go-entry-field" {...{ dataSet: { first: 'true', name: field.name } }} />
+        <GrowField ref={fieldRef as never} value={row.text} onChangeText={(t) => setRow((r) => rowAfter(r, t))} accessibilityLabel={label} placeholder="Any words, or a routine’s name" maxLength={MAX_VALUE} onSubmit={keep} style={styles.listField} testID="go-entry-field" {...{ dataSet: { first: 'true', name: field.name } }} />
       </View>
       {!row.ref && (
         <RoutineOffers
@@ -398,6 +398,7 @@ function ListEditor({ title, testID, rows: start, offerAll, runId, focusLast, on
                   onSubmit={() => addAfter(i)}
                   onFocus={() => setActive(i)}
                   accessibilityLabel={spoken}
+                  placeholder="One item per row"
                   maxLength={MAX_VALUE}
                   style={styles.listField}
                   testID="go-list-field"
@@ -484,7 +485,7 @@ export function ValueSheet({ runId, name, onClose, fallback }: { runId: string; 
               <ValueText shown={d.shown} />
             </T>
           )}
-          <GrowField value={text} onChangeText={setText} accessibilityLabel={d.name} maxLength={MAX_VALUE} onSubmit={() => focusOn(keepBtn)} testID="go-value-sheet-field" {...{ dataSet: { first: 'true' } }} />
+          <GrowField value={text} onChangeText={setText} accessibilityLabel={d.name} placeholder="Any words; empty clears it" maxLength={MAX_VALUE} onSubmit={() => focusOn(keepBtn)} testID="go-value-sheet-field" {...{ dataSet: { first: 'true' } }} />
         </>
       )}
       <T dim testID="go-value-from">

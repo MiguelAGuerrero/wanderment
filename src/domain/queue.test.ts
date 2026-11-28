@@ -157,7 +157,9 @@ describe('reordering', () => {
 });
 
 describe('the stored order, read', () => {
-  it('a run without `queue` stands by when it was started; one with it, by its number; a `queue` this version cannot read is ignored (left as stored until a move renumbers the queue)', () => {
+  // (F-3, rewritten: owner ruling 2026-11-28 (F-3 authorised; the repo's rule for unknown data, DESIGN.md): "kept, never
+  // written over" — this test used to pin that a move renumbered an unreadable `queue` ('first' became 4).)
+  it('a run without `queue` stands by when it was started; one with it, by its number; a `queue` this version cannot read is ignored, and kept as stored when another row moves', () => {
     const { d, ids } = four();
     const odd = { ...d, runs: { ...d.runs, [ids.D]: { ...d.runs[ids.D], queue: 'first' } } };
     expect(readRun(odd, ids.D)!.queue).toBeUndefined();
@@ -167,7 +169,7 @@ describe('the stored order, read', () => {
     expect(odd.runs[ids.D].queue).toBe('first');
     const moved = ok(odd, { kind: 'queue', runId: ids.A, to: 1 });
     expect(names(moved)).toEqual(['Better drawer', 'Apply to Acme', 'Plan my day', 'Read a chapter']);
-    expect(moved.runs[ids.D].queue).toBe(4);
+    expect(moved.runs[ids.D].queue).toBe('first');
   });
 
   it('two open runs of one routine (only an import makes them): one row, the one touched last', () => {

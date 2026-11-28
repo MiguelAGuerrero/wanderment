@@ -193,6 +193,21 @@ test.describe('running a call', () => {
   });
 });
 
+// F-1 (owner 2026-11-28, home's queue at a call not stepped into: "Step into the first step" — the row shows the call's
+// first step and Resume lands there).
+test.describe('home’s queue, a run resting on a call it has not stepped into', () => {
+  test('its row reads the call’s first step, and Resume lands there, inside the call', async ({ page }) => {
+    await startGo(page, [{ id: 'v1', routine: 'improve', at: 1, status: 'paused', values: [{ name: 'concerns', items: ['form'], level: 0, seq: 'improve', item: 'improve-0', at: new Date().toISOString() }] }], 'home', [CALLED, RESEARCH]);
+    const screen = settled(page, 'home');
+    const resume = screen.getByTestId('go-resume');
+    await expect(resume).toContainText('Look into form');
+    await resume.click();
+    const r = runner(page);
+    await expect(r.words).toHaveText('Look into form');
+    await expect(r.context).toContainText('Research');
+  });
+});
+
 test.describe('Copy, and removing a routine that is called', () => {
   test('My routines’ ···: Copy… — the name suggested, a name in use refused in words, Copy with Undo', async ({ page }) => {
     await seedGo(page, [CALLED, RESEARCH]);

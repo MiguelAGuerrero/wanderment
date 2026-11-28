@@ -14,7 +14,7 @@
  */
 import { router, useIsFocused } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { findLibrary, LibraryRow, libraryRows, librarySections } from '@/domain/library';
 import { allTags, findRows, myRoutines, RoutineRow, routineSections } from '@/domain/routines';
@@ -33,6 +33,8 @@ import { G, hueOf, SP, TARGET } from './tokens';
 import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, H1, Menu, MenuItem, MenuSep, T, TextRef, useKeys, ViewRef } from './ui';
 
 /** A row's second line: its tags, what it gives, what it asks. */
+const WEB = Platform.OS === 'web';
+
 export function rowLine(r: Pick<RoutineRow, 'tags' | 'gives' | 'asks' | 'going'>): string {
   const names = (ns: string[]) => ns.map((n) => `{${n}}`).join(', ');
   // (P-97 audit F5: its run going first, in words — never ❚❚, which is the runner's Pause alone.)
@@ -61,6 +63,7 @@ export function MyRoutines() {
 
   // P-104: the two views — Yours (on opening, every time) or, with nothing in Yours yet, Library.
   const [viewing, setViewing] = useState<'yours' | 'library'>(() => (rows.length ? 'yours' : 'library'));
+  const tabRefs = useRef<Record<'yours' | 'library', unknown>>({ yours: null, library: null });
   const finding = !!find.trim();
   const lib = libraryRows(data);
   // (The library's routines carry no tags: a chosen tag leaves none of them.)
@@ -286,11 +289,20 @@ export function MyRoutines() {
             return (
               <Pressable
                 key={v}
+                ref={(el) => void (tabRefs.current[v] = el)}
                 role="tab"
                 aria-selected={on1}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on1 }}
                 onPress={() => setViewing(v)}
+                // (F-2, audit F11: the tab list's keys — one Tab stop, the chosen tab; ←/→, Home/End choose and move to the other.)
+                {...(WEB && ({ tabIndex: on1 ? 0 : -1, onKeyDown: (e: { key: string; preventDefault: () => void }) => {
+                  const to = e.key === 'ArrowLeft' || e.key === 'Home' ? 'yours' : e.key === 'ArrowRight' || e.key === 'End' ? 'library' : undefined;
+                  if (!to) return;
+                  e.preventDefault();
+                  setViewing(to);
+                  (tabRefs.current[to] as { focus?: () => void } | null)?.focus?.();
+                } } as object))}
                 testID={`go-routines-view-${v}`}
                 style={(state) => [styles.tab, on1 && styles.tabOn, (state as { focused?: boolean }).focused && styles.ring]}>
                 <T bold={on1} dim={!on1} size={18}>

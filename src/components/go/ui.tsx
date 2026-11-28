@@ -307,6 +307,8 @@ export interface BtnProps {
   label?: string;
   /** The spoken name, when it says more than the label (it must contain the label). */
   spoken?: string;
+  /** F-2: the ids of what describes it (`aria-describedby`): said after its name. */
+  describedBy?: string;
   /** filled: THE one per screen or layer. outline: every other. plain: a row in a sheet or the panel. */
   kind?: 'filled' | 'outline' | 'plain';
   mark?: MarkName;
@@ -337,7 +339,7 @@ export interface BtnProps {
   onAction?: (name: string) => void;
 }
 
-export function Btn({ label, spoken, kind = 'outline', mark, markAfter, disabled, hold, ink, danger, onPress, style, testID, ref, pressed, expanded, selected, size, dataSet, keys, actions, onAction }: BtnProps) {
+export function Btn({ label, spoken, describedBy, kind = 'outline', mark, markAfter, disabled, hold, ink, danger, onPress, style, testID, ref, pressed, expanded, selected, size, dataSet, keys, actions, onAction }: BtnProps) {
   const filled = kind === 'filled' && !disabled;
   // Unavailable is lighter (and dashed, and disabled): on a routine's colour, lighter ink.
   const color = filled ? G.ink : disabled ? (ink ? 'rgba(17,18,22,0.6)' : G.dim) : danger ? G.err : ink ? G.ink : G.text;
@@ -356,6 +358,7 @@ export function Btn({ label, spoken, kind = 'outline', mark, markAfter, disabled
       } } as object))}
       accessibilityRole="button"
       accessibilityLabel={spoken ?? label}
+      {...(describedBy && { 'aria-describedby': describedBy })}
       accessibilityState={{ disabled: !!disabled || !!hold, ...(selected !== undefined && { selected }) }}
       {...(pressed !== undefined && { 'aria-pressed': pressed })}
       {...(expanded !== undefined && { 'aria-expanded': expanded })}
@@ -534,6 +537,10 @@ interface SheetProps {
   inert?: boolean;
   /** P-104: controls pinned under what scrolls (the library sheet's Copy, then Close). */
   foot?: ReactNode;
+  /** F-2 (audit F7): how the title is spoken when its words hold a mark (a template's ▢ is "blank"); absent: the title. */
+  spoken?: string;
+  /** F-2 (audit F7): with a `foot`, the name of what scrolls ("Steps") — never the sheet's title again. */
+  bodyLabel?: string;
 }
 
 /**
@@ -542,7 +549,7 @@ interface SheetProps {
  * Esc, Back and the scrim close it. It slides up in under 200 ms; under Reduce Motion it is just there.
  * `data-moving` says whether it is still arriving.
  */
-export function Sheet({ title, onClose, children, confirm, testID, fallback, inert, foot }: SheetProps) {
+export function Sheet({ title, onClose, children, confirm, testID, fallback, inert, foot, spoken, bodyLabel }: SheetProps) {
   const reduce = useReduce();
   const [arrived, setArrived] = useState(false);
   const moving = !reduce && !arrived;
@@ -612,7 +619,7 @@ export function Sheet({ title, onClose, children, confirm, testID, fallback, ine
         testID={testID}
         role={confirm ? 'alertdialog' : 'dialog'}
         aria-modal
-        aria-label={title}
+        aria-label={spoken ?? title}
         accessibilityViewIsModal
         {...{ dataSet: { moving: moving ? 'true' : 'false' } }}
         style={[confirm ? styles.confirm : styles.sheet, { opacity: slide, transform: [{ translateY: slide.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }] }]}>
@@ -621,11 +628,11 @@ export function Sheet({ title, onClose, children, confirm, testID, fallback, ine
             <View style={styles.handle} />
           </Pressable>
         )}
-        <T ref={heading} role="heading" aria-level={2} accessibilityRole="header" bold size={20} style={[styles.sheetTitle, NO_RING]} {...(WEB && ({ tabIndex: -1 } as object))}>
+        <T ref={heading} role="heading" aria-level={2} accessibilityRole="header" bold size={20} style={[styles.sheetTitle, NO_RING]} {...(spoken !== undefined && spoken !== title && { 'aria-label': spoken, accessibilityLabel: spoken })} {...(WEB && ({ tabIndex: -1 } as object))}>
           {title}
         </T>
         {/* (P-104: with its controls pinned below, what scrolls may hold only words — it can be reached by the keyboard to scroll.) */}
-        <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled" {...(WEB && !!foot && ({ tabIndex: 0, 'aria-label': title, role: 'region' } as object))}>
+        <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled" {...(WEB && !!foot && ({ tabIndex: 0, 'aria-label': bodyLabel ?? spoken ?? title, role: 'region' } as object))}>
           {children}
         </ScrollView>
         {!!foot && <View style={styles.sheetFoot}>{foot}</View>}

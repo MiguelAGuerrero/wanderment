@@ -449,9 +449,12 @@ export const home = (page: Page) => {
     doors: screen.getByTestId('go-side-doors'),
     /** P-97: My routines, the left side door (once there is a routine). */
     routinesBtn: screen.getByTestId('go-my-routines'),
-    /** P-97: Ongoing and Finishing, each with its heading and its tiles. */
-    group: (which: 'ongoing' | 'finishing') => screen.locator(`[data-testid="go-home-group"][data-group="${which}"]`),
-    headings: screen.getByTestId('go-home-heading'),
+    /**
+     * Every heading but the screen's own (its level-1 "Home", for a screen reader). (F-2, rewritten: was
+     * getByTestId('go-home-heading') — and a `group` by 'go-home-group' — which nothing renders since P-100, so
+     * `toHaveCount(0)` on it could never fail.)
+     */
+    headings: screen.locator('[role="heading"]:not([aria-level="1"]), h2, h3, h4, h5, h6'),
     /** P-97: routines, but nothing going. */
     idle: screen.getByTestId('go-home-idle'),
   };

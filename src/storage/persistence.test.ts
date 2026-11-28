@@ -5678,6 +5678,147 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(await onDisk()).toEqual(store.getState().data);
     });
   });
+
+  // ───────── F-3: the four owner-ruled fixes held by older tests ─────────
+  describe('F-3: Back across a round, a call removed in Plan while inside it, a `queue` this version cannot read, and Resume into a call survive reload and export → import', () => {
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    const itemsOf = (data: { routines: Record<string, Record<string, unknown>> }, id: string) => data.routines[id].items as { id: string; ref?: string }[];
+    const valuesOf = (data: { runs: Record<string, Record<string, unknown>> }, runId: string) =>
+      (data.runs[runId].values as { name: string; items: string[]; level: number }[]).map((v) => `${v.level}:${v.name}=${v.items.join('|')}`).sort();
+    const made = (store: Store, name: string) => {
+      const r = store.getState().createRoutine(name);
+      if (!r.ok || !r.routineId) throw new Error('New: was refused');
+      return r.routineId;
+    };
+    const begun = (store: Store, routineId: string) => {
+      const r = store.getState().startRoutine(routineId);
+      if (!r.ok || !r.runId) throw new Error('Start was refused');
+      return r.runId;
+    };
+
+    it('Back across a "Repeat from here" round (owner: "Keeps across rounds"): the new round’s value is saved and the same after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const g = () => store.getState();
+      const loop = made(store, 'Feature loop');
+      const all = [g().editRoutine(loop, { kind: 'addStep', text: 'Set up' }), g().editRoutine(loop, { kind: 'addStep', text: 'Pick a feature' }), g().editRoutine(loop, { kind: 'addStep', text: 'Test {feature}' })];
+      const pick = itemsOf(g().data, loop)[1].id;
+      all.push(g().editRoutine(loop, { kind: 'gives', item: pick, name: 'feature' }), g().editRoutine(loop, { kind: 'divider', from: 1 }));
+      const runId = begun(store, loop);
+      all.push(g().nextStep(runId), g().typeValue(runId, pick, 'feature', 'login'), g().nextStep(runId), g().nextStep(runId));
+      all.push(g().typeValue(runId, pick, 'feature', 'signup'), g().backTo(runId));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      expect(g().undo).toBeUndefined();
+      await tick(30);
+      const data = g().data;
+      expect((data.runs[runId].frames as { round: number }[])[0].round).toBe(1);
+      expect(valuesOf(data as never, runId)).toEqual(['0:feature=signup']);
+      expect(await onDisk()).toEqual(data);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+    });
+
+    it('a call removed in Plan while the run is inside it (owner: "A Plan edit never clears a run’s values"): its value is handed back, saved, and the same after a reload and export → import', async () => {
+      fakeLocks();
+      let store = await load();
+      const g = () => store.getState();
+      const callee = made(store, 'Find a reference');
+      const main = made(store, 'Draw from life');
+      const all = [g().editRoutine(callee, { kind: 'addStep', text: 'Find one' }), g().editRoutine(callee, { kind: 'addStep', text: 'Save it' })];
+      const find = itemsOf(g().data, callee)[0].id;
+      all.push(g().editRoutine(callee, { kind: 'gives', item: find, name: 'ref' }), g().editRoutine(main, { kind: 'addCall', routine: callee }), g().editRoutine(main, { kind: 'addStep', text: 'Draw {ref}' }));
+      const row = itemsOf(g().data, main)[0].id;
+      const runId = begun(store, main);
+      all.push(g().stepIn(runId), g().typeValue(runId, find, 'ref', 'the dancer'), g().editRoutine(main, { kind: 'remove', item: row }));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      await tick(30);
+      const data = g().data;
+      expect(valuesOf(data as never, runId)).toEqual(['0:ref=the dancer']);
+      expect(await onDisk()).toEqual(data);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      const { runnerView } = await import('@/domain/runView');
+      expect(runnerView(store.getState().data, runId)!.step.parts.map((p) => ('text' in p ? p.text : `{${p.name}}`)).join('')).toBe('Draw the dancer');
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const file = toBackup(store.getState().data);
+      expect(store.getState().replaceData((await import('@/domain/types')).emptyData())).toBe(true);
+      expect(confirmImport(previewImport(file)).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+    });
+
+    it('a `queue` this version cannot read is kept on disk when another row moves, its own move is refused with nothing written, and it goes out and comes back through export → import', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids: string[] = [];
+      for (const name of ['A', 'B', 'C']) {
+        const routine = made(store, `Routine ${name}`);
+        expect(store.getState().editRoutine(routine, { kind: 'addStep', text: `${name} first` }).ok).toBe(true);
+        const runId = begun(store, routine);
+        expect(store.getState().pauseRun(runId).ok).toBe(true);
+        ids.push(runId);
+        await tick(5);
+      }
+      await tick(30);
+      // A newer build stored A's place in the queue in a shape this one cannot read.
+      const odd = JSON.parse(JSON.stringify(store.getState().data));
+      odd.runs[ids[0]].queue = { lane: 'work', n: 2 };
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRuns: [odd.runs[ids[0]]] } as never);
+      db.close();
+      store = await reload();
+      expect(store.getState().data).toEqual(odd);
+      expect(store.getState().moveInQueue(ids[2], 'top').ok).toBe(true);
+      await tick(30);
+      expect((await onDisk()).runs[ids[0]].queue).toEqual({ lane: 'work', n: 2 });
+      const before = await onDisk();
+      expect(store.getState().moveInQueue(ids[0], 1).ok).toBe(false);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      store = await reload();
+      expect(store.getState().data.runs[ids[0]].queue).toEqual({ lane: 'work', n: 2 });
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const file = toBackup(store.getState().data);
+      expect(JSON.parse(file).data.runs[ids[0]].queue).toEqual({ lane: 'work', n: 2 });
+      expect(store.getState().replaceData((await import('@/domain/types')).emptyData())).toBe(true);
+      expect(confirmImport(previewImport(file)).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data.runs[ids[0]].queue).toEqual({ lane: 'work', n: 2 });
+    });
+
+    it('home’s Resume at a call not stepped into (owner: "Step into the first step"): inside the call, the pause note kept, saved and the same after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const g = () => store.getState();
+      const callee = made(store, 'Vibe check');
+      const main = made(store, 'MyStack');
+      const all = [g().editRoutine(callee, { kind: 'addStep', text: 'Feel it out' }), g().editRoutine(main, { kind: 'addStep', text: 'Warm up' }), g().editRoutine(main, { kind: 'addCall', routine: callee })];
+      const runId = begun(store, main);
+      all.push(g().nextStep(runId), g().pauseRun(runId, 'Left off here'), g().resumeRun(runId, false, true));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      await tick(30);
+      const data = g().data;
+      const frames = data.runs[runId].frames as { seq: string; at: string }[];
+      expect([frames.length, frames[1].seq, frames[1].at]).toEqual([2, callee, itemsOf(data as never, callee)[0].id]);
+      expect(data.runs[runId].reason).toBe('Left off here');
+      expect(await onDisk()).toEqual(data);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+    });
+  });
 });
 
 // P-89: the control is gone with the old app; the saved setting is still a person's data, kept as it is.

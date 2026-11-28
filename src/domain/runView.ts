@@ -5,7 +5,7 @@
  * undefined, and the screen goes home.
  */
 import { routineInWords } from './atPick';
-import { activePart, anyBlock, backUp, lockedParts, Part, partsJoined, partsOf, partToTakeUp, advance, canCall, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, queueRuns, givenAhead, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
+import { activePart, anyBlock, backUp, intoCall, lockedParts, Part, partsJoined, partsOf, partToTakeUp, advance, canCall, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, queueRuns, givenAhead, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
 import { hash } from './hash';
 import { addressesIn, PlaceShown, placesOf, placesShown, tidyPlaceText } from './places';
 import { Data, Id } from './types';
@@ -369,6 +369,8 @@ export interface Tile {
    * path: "For each photo"). Absent when idle.
    */
   path?: string[];
+  /** F-1 (owner 2026-11-28): its run rests on a call not stepped into — `at` is the call's first step, and Resume goes in (`resumeRun(runId, false, true)`). */
+  into?: true;
   /**
    * P-99 (B-16, "The tile"): inside an In any order block, the part last touched — the one the run is in, or, while it
    * is choosing, the one put down last (`at` then reads where that part was put down). Its line reads "<part> · at <step>".
@@ -376,6 +378,7 @@ export interface Tile {
   part?: string;
 }
 
+const INSIDE_ENV = { now: '1970-01-01T00:00:00.000Z', id: () => 'f1-inside' };
 
 /** A routine and its smaller steps, as stored (each once). */
 function bodyOf_(data: Data, id: Id): Seq[] {
@@ -564,7 +567,29 @@ export function homeShown(data: Data, tiles: Tile[] = homeTiles(data)): Tile[] {
 
 /** P-100: home — one queue, no sections: each run going is a row, top first (the top row is what the filled Resume resumes). */
 export function homeQueue(data: Data): Tile[] {
-  return homeShown(data).filter((t) => t.runId !== undefined && t.state !== 'idle');
+  return homeShown(data)
+    .filter((t) => t.runId !== undefined && t.state !== 'idle')
+    .map((t) => intoRow(data, t));
+}
+
+/**
+ * F-1 (owner 2026-11-28, home's queue at a call not stepped into: "Step into the first step"): the row of a run resting on
+ * a call it has not stepped into reads the call's first step — where its Resume lands (`into`), as Step in would leave
+ * it (simulated: nothing of it is kept). Its path goes into the call too.
+ */
+function intoRow(data: Data, t: Tile): Tile {
+  if (!t.runId || t.action !== 'resume' || t.part !== undefined || !intoCall(data, t.runId)) return t;
+  const r = runVerb(data, { kind: 'resume', runId: t.runId, into: true }, INSIDE_ENV);
+  const run = r.ok ? readRun(r.data, t.runId) : undefined;
+  const at = run && place(r.data, run);
+  if (!run || !at?.item || at.frames.length <= (place(data, readRun(data, t.runId)!)?.frames.length ?? 0)) return t;
+  return {
+    ...t,
+    into: true,
+    at: wordsOf(r.data, run, at.item),
+    atParts: partsFor(r.data, run, wordsOf(r.data, run, at.item), at.frames),
+    path: at.frames.map((f) => view(r.data, run, f.seq)).map((x) => (x?.each ? `For each ${x.each.item}` : (x?.words ?? ''))),
+  };
 }
 
 /**
@@ -784,6 +809,17 @@ export interface PanelView {
   parts?: PartsLevel[];
 }
 
+/**
+ * F-3 (F-1's nit): the words of the step Back lands on — Back onto a for each row goes in, to its last item's last step
+ * (F-1, engine #1) — read by going Back on a copy (nothing of it is kept).
+ */
+function backLands(data: Data, run: RunState): string | undefined {
+  const r = runVerb(data, { kind: 'back', runId: run.id }, INSIDE_ENV);
+  const landed = r.ok ? readRun(r.data, run.id) : undefined;
+  const item = landed && place(r.data, landed)?.item;
+  return item ? wordsOf(r.data, landed, item) : undefined;
+}
+
 export function panelView(data: Data, runId: Id): PanelView | undefined {
   const run = readRun(data, runId);
   const at = run && place(data, run);
@@ -803,7 +839,7 @@ export function panelView(data: Data, runId: Id): PanelView | undefined {
     ...(looping && { round: { n: frame.round, ...(seq.repeat !== undefined && frame.round <= seq.repeat && { of: seq.repeat }) } }),
     lastOfRound: lastOfRound(at),
     ...(to?.item && { then: wordsOf(data, run, to.item) }),
-    ...(back ? { backTo: wordsOf(data, run, seq.items.find((i) => i.id === back.at)) } : up && { backTo: wordsOf(data, run, up.row) }),
+    ...(back ? { backTo: backLands(data, run) ?? wordsOf(data, run, seq.items.find((i) => i.id === back.at)) } : up && { backTo: wordsOf(data, run, up.row) }),
     ...(wait && { wait }),
     ...(tidy(run.reason) && { reason: tidy(run.reason) }),
     ...(places.length > 0 && { places }),

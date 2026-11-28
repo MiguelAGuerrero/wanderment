@@ -193,7 +193,9 @@ export const LIBRARY_DEFS: LibraryDef[] = [
       'Name the kind of thing {project} is >kind',
       'List past cases of this kind, with how each really went: {kind} >cases',
       'State what usually happens across {cases} >usual',
-      'Set the forecast beside {guess}: start from {usual}, move only for what is truly different >forecast',
+      // (F-2, audit F16: one job a step — the forecast, then set beside the guess.)
+      'Start from {usual}, and move only for what is truly different >forecast',
+      'Set {forecast} beside {guess}',
     ],
   },
   {
@@ -246,7 +248,9 @@ export const LIBRARY_DEFS: LibraryDef[] = [
     template: { stem: 'Find out ' },
     steps: [
       'State what you think the answer to {question} is, and what would change your mind',
-      'Find what bears on {question}, and list the sources worth keeping >sources',
+      // (F-2, audit F16: one job a step.)
+      'Find what bears on {question}',
+      'List the sources worth keeping >sources',
       { each: 'source', list: 'sources', steps: [{ call: 'lib-source', with: { source: '{source}' } }, 'Mark it with how far to trust it: {trust} >sources'] },
       'List the questions this raises >leads',
       // It calls itself, once per question raised (its copy calls the copy).
@@ -265,7 +269,7 @@ export const LIBRARY_DEFS: LibraryDef[] = [
       'State who it is for and what it should do for them >brief',
       { call: 'lib-done-is', with: { work: '{brief}' } },
       { call: 'lib-gather', with: { problem: '{brief}' } },
-      { each: 'option', list: 'options', steps: ['Make the cheapest version of this that can be tried: {option}', 'Try it on someone, or on yourself, and mark the option with what it showed >options'] },
+      { each: 'option', list: 'options', steps: ['Make the cheapest version of this that can be tried: {option}', 'Try it on someone, or on yourself', 'Mark the option with what it showed >options'] },
       { call: 'lib-choose', with: { options: '{options}', tests: '{standard}' } },
       { call: 'lib-fails', with: { plan: '{choice}' } },
       'Build the first whole version of: {revised}',
@@ -290,7 +294,9 @@ export const LIBRARY_DEFS: LibraryDef[] = [
           { part: 'Compare it with past cases', steps: [{ call: 'lib-outside', with: { project: '{choice}' } }] },
         ],
       },
-      'State the choice again, and what you would have to see to reopen it, from what each check gave >choice',
+      // (F-2, audit F16: one job a step.)
+      'State the choice again, from what each check gave >choice',
+      'Name what you would have to see to reopen it',
     ],
   },
   {

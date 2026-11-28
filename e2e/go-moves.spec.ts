@@ -122,7 +122,7 @@ for (const size of SIZES) {
       await sheet.getByTestId('go-pause-confirm').click();
       // Home: the note under the "at …" line.
       const t = tile(page, 'MyStack');
-      await expect(t.getByTestId('go-tile-line')).toHaveText('at Vibe check');
+      await expect(t.getByTestId('go-tile-line')).toHaveText('at Feel it out'); // (F-3, rewritten: owner ruling 2026-11-28: "Step into the first step" — home's row at a call not stepped into shows the call's first step, and Resume lands there; was 'at Vibe check'.)
       await expect(t.getByTestId('go-tile-reason')).toHaveText('Left off in the Notion page\nbudget tab');
       expect((await box(t.getByTestId('go-tile-reason'))).y).toBeGreaterThan((await box(t.getByTestId('go-tile-line'))).y);
       // Back in: the runner shows it with the values area; Pause again: it is prefilled.
@@ -157,7 +157,7 @@ for (const size of SIZES) {
       await expect(tile(page, 'Practise drawing').getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
       await expect(tile(page, 'MyStack').getByTestId('go-tile-last')).toHaveCount(0);
       // The body is a button: "Resume <name>", with what it shows. Its Plan stays.
-      await expect(tileBody(page, 'MyStack')).toHaveAccessibleName(/^Resume MyStack, at Vibe check/);
+      await expect(tileBody(page, 'MyStack')).toHaveAccessibleName(/^Resume MyStack, at Feel it out/); // (F-3, rewritten: owner ruling 2026-11-28: "Step into the first step" — home's row at a call not stepped into shows the call's first step, and Resume lands there; was /^Resume MyStack, at Vibe check/.)
       await expect(tile(page, 'MyStack').getByRole('button', { name: 'Plan MyStack', exact: true })).toBeVisible();
       const b = await box(tileBody(page, 'MyStack'));
       expect(b.height).toBeGreaterThanOrEqual(48);
@@ -165,18 +165,18 @@ for (const size of SIZES) {
       await tileBody(page, 'MyStack').focus();
       await page.keyboard.press('Enter');
       const r = runner(page);
-      await expect(r.words).toHaveText('Vibe check');
+      await expect(r.words).toHaveText('Feel it out'); // (F-3, rewritten: owner ruling 2026-11-28: "Step into the first step" — home's row at a call not stepped into shows the call's first step, and Resume lands there; was 'Vibe check'.)
       // Plan from the runner, then home: paused, never "planning"; same order; it is "last" now.
       // (P-103 (3; was: Plan's Home): Plan opened from the runner goes back to it — then Pause goes home.)
       await r.plan.click();
-      await expect(plan(page).line).toHaveText('at Vibe check');
+      await expect(plan(page).line).toHaveText('at Feel it out'); // (F-3, rewritten: owner ruling 2026-11-28: "Step into the first step" — Resume landed inside the call, on its first step; was 'at Vibe check'.)
       await plan(page).back.click();
       await pauseRun(page);
       await expect(home(page).screen).not.toContainText('planning');
       expect(await names()).toEqual(order);
       await expect(tile(page, 'MyStack').getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
       await expect(tile(page, 'Practise drawing').getByTestId('go-tile-last')).toHaveCount(0);
-      await expect(tile(page, 'MyStack').getByTestId('go-tile-line')).toHaveText('at Vibe check');
+      await expect(tile(page, 'MyStack').getByTestId('go-tile-line')).toHaveText('at Feel it out'); // (F-3, rewritten: owner ruling 2026-11-28: "Step into the first step" — Resume landed inside the call, on its first step; was 'at Vibe check'.)
       expect((await exported(page)).runs.s.mode).toBeUndefined();
     });
 

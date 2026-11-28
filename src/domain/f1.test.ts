@@ -7,11 +7,12 @@
  * - Values are held at or above the place: what was given above a Jump's new place stays.
  * - One name given more than once is one list (B-16); a row that gives again replaces its own share, never adds twice.
  * - What this version cannot read is kept, never written over (DESIGN.md).
+ * - Home's queue at a call not stepped into: "Step into the first step".
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { editRoutine, Env, Item, place, readRun, Result, RoutineEdit, runVerb, Verb } from './run';
-import { runnerView } from './runView';
+import { homeQueue, panelView, runnerView } from './runView';
 import { Data, emptyData, Id, Routine } from './types';
 
 const T0 = Date.UTC(2026, 10, 28, 1, 0, 0);
@@ -85,6 +86,13 @@ describe('engine #1 (data-loss): Back after a for each keeps every item’s valu
     expect(words(next(b, id), id)).toBe('Show A and B');
     // Step out from there too.
     expect(words(ok(b, { kind: 'done', runId: id }), id)).toBe('Show A and B');
+  });
+
+  it('(F-3) the panel’s “Back to …” names where Back lands: the last item’s last step, not the for each row', () => {
+    const { d, id } = throughLoop();
+    expect(words(ok(d, { kind: 'back', runId: id }), id)).toBe('Look at B');
+    // (The panel's words are filled with the run's values by the runner, as its "then" is.)
+    expect(panelView(d, id)!.backTo).toBe('Look at {drawing}');
   });
 
   it('Back, then Back to the first item and fixing it: the other item’s value stays (the auditor’s repro)', () => {
@@ -192,14 +200,39 @@ describe('engine #3: a row passed again after Back gives anew in place of its ow
   });
 });
 
+describe('engine #4 (rule): Back across a "Repeat from here" round keeps what was given', () => {
+  it('score typed in round 2, then Back into round 1: nothing is cleared', () => {
+    const d0 = world(seq('R', 'R', [step('pre', 'Pre >goal'), step('r1', 'Rep one >score'), step('r2', 'Read {score} {goal}')], { repeatFrom: 1 }));
+    const s = start(d0, 'R');
+    let d = next(give(s.d, s.id, 'goal', 'G'), s.id);
+    d = next(give(d, s.id, 'score', 'S1'), s.id, 2);
+    expect(run(d, s.id).frames[0].round).toBe(2);
+    d = give(d, s.id, 'score', 'S2');
+    const r = go(d, { kind: 'back', runId: s.id });
+    expect(r.ok).toBe(true);
+    expect(run(r.data, s.id).frames[0].round).toBe(1);
+    expect(r.cleared).toBeUndefined();
+    expect(stored(r.data, s.id, 'score')).toEqual(['0: S2']);
+    expect(stored(r.data, s.id, 'goal')).toEqual(['0: G']);
+  });
+});
+
 describe('engine #5 (rule): a Plan Remove of the row the run is inside hands its values back', () => {
-  // (Left: a call row removed while inside it still takes its level's values — values.test.ts "removing a step the run is
-  // inside" pins that; see build.md.)
   it('an In any order block, removed while in a part: what the parts gave is joined', () => {
     const { d, id } = inStudy();
     const e = okEdit(d, 'A', { kind: 'remove', item: 'blk' });
     expect(here(e, id)).toBe('after');
     expect(words(e, id)).toBe('Show X');
+  });
+
+  it('the call row: x given inside is handed back, not deleted', () => {
+    const d0 = world(seq('A', 'Main', [ref('c', 'C'), step('use', 'Use {x}')]), seq('C', 'Callee', [step('g', 'Give >x'), step('g2', 'More')]));
+    const s = start(d0, 'A');
+    let d = ok(s.d, { kind: 'stepIn', runId: s.id });
+    d = next(give(d, s.id, 'x', 'typed'), s.id);
+    d = okEdit(d, 'A', { kind: 'remove', item: 'c' });
+    expect(here(d, s.id)).toBe('use');
+    expect(words(d, s.id)).toBe('Use typed');
   });
 
   it('a for each block during its second item: both items’ values are collected', () => {
@@ -333,6 +366,33 @@ describe('engine #10, storage F3/F4: a kept list edited keeps what it cannot rea
   });
 });
 
+describe('storage F5: home’s queue over a `queue` this version cannot read', () => {
+  const three = () => {
+    let d = world(seq('A', 'Alpha', [step('a1'), step('a2')]), seq('B', 'Beta', [step('b1')]), seq('C', 'Gamma', [step('c1')]));
+    const ids: string[] = [];
+    for (const r of ['A', 'B', 'C']) {
+      const s = go(d, { kind: 'start', routineId: r });
+      d = s.data;
+      ids.push(s.runId!);
+      d = ok(d, { kind: 'pause', runId: s.runId! });
+    }
+    return { d, ids };
+  };
+  it('moving another row keeps it as stored', () => {
+    const { d: d0, ids } = three();
+    const d1 = { ...d0, runs: { ...d0.runs, [ids[0]]: { ...d0.runs[ids[0]], queue: { lane: 'work', n: 2 } } as never } };
+    const d = ok(d1, { kind: 'queue', runId: ids[2], to: 'top' });
+    expect((d.runs[ids[0]] as unknown as { queue: unknown }).queue).toEqual({ lane: 'work', n: 2 });
+  });
+  it('moving that row itself is refused, and nothing is written', () => {
+    const { d: d0, ids } = three();
+    const d1 = { ...d0, runs: { ...d0.runs, [ids[0]]: { ...d0.runs[ids[0]], queue: { lane: 'work', n: 2 } } as never } };
+    const r = go(d1, { kind: 'queue', runId: ids[0], to: 1 });
+    expect(r.ok).toBe(false);
+    expect(r.data).toBe(d1);
+  });
+});
+
 describe('storage F6: a Jump by path keeps fields this version does not know on the levels it stays in', () => {
   it('on the bottom level, and on an inner level the Jump stays in', () => {
     const d0 = world(seq('H', 'Hands', [step('s1', 'one'), step('s2', 'two'), ref('b', 'B'), step('s3', 'three')]), sub('B', 'Sub', [step('b1', 'b one'), step('b2', 'b two')]));
@@ -383,5 +443,35 @@ describe('storage F11: Start over keeps a record of parts this version cannot re
     const x = go(d, { kind: 'restart', runId: s.id, level: 0 });
     if (x.ok) expect((x.data.runs[s.id] as unknown as { frames: { parts?: unknown }[] }).frames.map((f) => f.parts).filter(Boolean)).toEqual([{ row: 'blk', list: 'v9-shape' }]);
     else expect(x.data).toBe(d);
+  });
+});
+
+describe('owner 2026-11-28: home’s queue at a call not stepped into steps into its first step', () => {
+  const calls = () => world(seq('A', 'Main', [step('w', 'Warm'), ref('c', 'C'), step('after', 'After')], { home: true }), seq('C', 'Callee', [step('c1', 'Open the doc'), step('c2', 'Read it')]));
+  it('its row shows the call’s first step, and Resume lands there, inside the call', () => {
+    const s = start(calls(), 'A');
+    let d = next(s.d, s.id);
+    d = ok(d, { kind: 'pause', runId: s.id });
+    expect(here(d, s.id)).toBe('c');
+    const tile = homeQueue(d).find((x) => x.runId === s.id)!;
+    expect(tile.at).toBe('Open the doc');
+    d = ok(d, { kind: 'resume', runId: s.id, into: true });
+    expect(here(d, s.id)).toBe('c1');
+    expect(place(d, run(d, s.id))!.frames).toHaveLength(2);
+  });
+  it('(F-3) the pause note stays when Resume steps into the call', () => {
+    const s = start(calls(), 'A');
+    let d = next(s.d, s.id);
+    d = ok(d, { kind: 'pause', runId: s.id, reason: 'Left off on page 3' });
+    d = ok(d, { kind: 'resume', runId: s.id, into: true });
+    expect(here(d, s.id)).toBe('c1');
+    expect(run(d, s.id).reason).toBe('Left off on page 3');
+  });
+  it('a plain Resume (the runner taken up again from its Plan) stays on the row', () => {
+    const s = start(calls(), 'A');
+    let d = next(s.d, s.id);
+    d = ok(d, { kind: 'pause', runId: s.id });
+    d = ok(d, { kind: 'resume', runId: s.id });
+    expect(here(d, s.id)).toBe('c');
   });
 });

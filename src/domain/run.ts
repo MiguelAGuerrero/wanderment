@@ -289,8 +289,12 @@ export type Verb =
   | { kind: 'start'; routineId: Id }
   /** "New: <words>": makes the routine only (P-90): no run until Start. */
   | { kind: 'new'; words: string }
-  /** Resume, and Plan's "Resume at <step>": running, the mode gone, exactly where it was. */
-  | { kind: 'resume'; runId: Id }
+  /**
+   * Resume, and Plan's "Resume at <step>": running, the mode gone, exactly where it was. `into` (F-1; owner 2026-11-28:
+   * home's queue at a call not stepped into, "Step into the first step"): resting on a call it has not stepped into, it
+   * steps into the call's first step in the same write (`intoCall`).
+   */
+  | { kind: 'resume'; runId: Id; into?: true }
   /** Plan: the run is in Plan (and paused, if it was the one running), in one write; this-run changes from the build before are folded into the routine in it. */
   | { kind: 'plan'; runId: Id }
   | { kind: 'pause'; runId: Id; reason?: string }
@@ -929,12 +933,19 @@ function requeue(data: Data, runId: Id, to: number | 'top'): Result {
   const j = to === 'top' ? 0 : Number.isInteger(to) ? i + to : -1;
   if (j < 0 || j >= rows.length) return refuse(data, 'cannot');
   if (j === i) return done(data);
+  // (F-1, storage F5: a `queue` this version cannot read is never written over — the row holding one is not moved, and
+  // stays where it reads.)
+  const unread = (r: RunState) => {
+    const q = own(data.runs, r.id)!.queue as unknown;
+    return q !== undefined && !(typeof q === 'number' && Number.isFinite(q));
+  };
+  if (unread(rows[i])) return refuse(data, 'cannot');
   const order = rows.filter((r) => r.id !== runId);
   order.splice(j, 0, rows[i]);
   let next = data;
   order.forEach((r, k) => {
     const raw = own(next.runs, r.id)!;
-    if (raw.queue !== k + 1) next = putRun(next, patched(raw, { queue: k + 1 }));
+    if (raw.queue !== k + 1 && !unread(r)) next = putRun(next, patched(raw, { queue: k + 1 }));
   });
   return done(next);
 }
@@ -1495,7 +1506,8 @@ function sameTime(a: Frame[], b: Frame[]): number {
   while (same < a.length && same < b.length && a[same].seq === b[same].seq && (same === 0 || (a[same].from === b[same].from && (a[same].each ?? 0) === (b[same].each ?? 0)))) same++;
   return same;
 }
-function settleValues(data: Data, runId: Id, before: Frame[]): Data {
+/** `keepRounds` (F-1, engine #4; owner 2026-11-28: "Keeps across rounds"): Back into an earlier round clears nothing of the round it leaves. */
+function settleValues(data: Data, runId: Id, before: Frame[], keepRounds = false): Data {
   const raw = own(data.runs, runId)!;
   if (!Array.isArray(raw.values) || !raw.values.length) return data;
   const run = readRun(data, runId)!;
@@ -1512,7 +1524,7 @@ function settleValues(data: Data, runId: Id, before: Frame[]): Data {
     let gone: boolean | undefined;
     const isGone = () => (gone ??= !routineBody(data, run, after[v.level].seq).some((b) => b.items.some((i) => i.id === v.item)));
     for (let i = v.level; i < same && (i === v.level || !isScope(data, run, after, i)); i++) {
-      if (after[i].round === before[i].round) continue;
+      if (after[i].round === before[i].round || keepRounds) continue;
       const s = view(data, run, after[i].seq);
       if (s?.repeatFrom !== undefined && (topIndexOf(data, run, s, v.item) >= s.repeatFrom || isGone())) return false;
     }
@@ -1621,7 +1633,8 @@ function ioOf(data: Data, seqId: Id, stack: Id[], memo: Map<Id, CallIO>): { io: 
     for (const i of s?.items ?? []) {
       const sub = isRef(i) ? readRoutine(data, i.ref) : undefined;
       if (sub?.named === false) {
-        if (sub.each) read(sub.each.list);
+        // (F-2, audit F4: a for each's own kept list is the routine's — + Add in Plan — never an input it asks for.)
+        if (sub.each && sub.each.kept === undefined) read(sub.each.list);
         walk(sub.id, sub.each ? new Set([...local, nameKey(sub.each.item)]) : local);
         continue;
       }
@@ -2236,7 +2249,7 @@ function enterPlan(data: Data, runId: Id, env: Env): { data: Data; folded?: stri
 }
 
 /** The run is somewhere else now: the frames, the reason gone, waiting-since settled, what is said. Nothing to stand on there: it is in Plan. */
-function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; asking?: true; discard?: true; fresh?: true }, env: Env, said?: Said): Result {
+function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; asking?: true; discard?: true; fresh?: true; back?: true }, env: Env, said?: Said): Result {
   const popped = to.popped ?? [];
   let next = putRun(data, patched(l.raw, { frames: to.frames, touchedAt: env.now, reason: undefined, ...(l.raw.status === 'running' && 'mode' in l.raw && { mode: undefined }) }));
   next = settleWait(next, l.run.id, l.at, env);
@@ -2257,7 +2270,7 @@ function moved(data: Data, l: Loaded, to: { frames: Frame[]; popped?: Frame[]; a
     const [a, b] = [l.at.frames[i], to.frames[i]];
     if (a.seq === b.seq && a.from === b.from && (a.each ?? 0) !== (b.each ?? 0)) next = collectRound(next, l.run.id, l.at.frames, i, env);
   }
-  next = settleValues(next, l.run.id, l.run.frames);
+  next = settleValues(next, l.run.id, l.run.frames, !!to.back);
   // (P-107: a for each is named by its item, as on the runner's path: "Left For each photo".)
   // (P-99: a block whose part returned is named only once it is passed: a part's own end is not the block's.)
   const live = (f: Frame) => to.frames.some((g) => g.at === f.from && partsOf(g));
@@ -2339,6 +2352,17 @@ function create(data: Data, typed: string, env: Env): Result {
   if (same) return done(data, { routineId: same.id });
   const routine: Routine = { id: env.id(), words, named: true, createdAt: env.now, items: [], open: true, home: true };
   return done(putRoutine(data, routine), { routineId: routine.id });
+}
+
+/**
+ * F-1 (owner 2026-11-28, home's queue): the run rests on a call it has not stepped into — a routine that is there, with
+ * steps, that Step in goes into. Home's row then reads the call's first step, and its Resume lands there (`into`).
+ */
+export function intoCall(data: Data, runId: Id): boolean {
+  const run = readRun(data, runId);
+  const at = run && !run.endedAt ? place(data, run) : undefined;
+  if (!at?.item || run!.mode === 'plan' || !isLiveCall(data, at.item) || at.frames.length >= MAX_DEPTH) return false;
+  return !!view(data, run!, (at.item as RefItem).ref)?.items.length;
 }
 
 /** Resume, and Plan's "Resume at <step>": running where it was, the mode gone. At the edge there is nothing to resume at. */
@@ -2568,7 +2592,7 @@ function back(data: Data, runId: Id, env: Env): Result {
   const p = previous(data, l.run);
   if (!p) return refuse(data, 'nothing-before');
   const frames = intoLast(data, l.run, [...l.at.frames.slice(0, -1), { ...l.at.frame, at: p.at, round: p.round, ...(p.each !== undefined && { each: p.each, eachText: p.eachText }) }]);
-  const out = moved(data, l, { frames }, env);
+  const out = moved(data, l, { frames, back: true }, env);
   // (F-1, engine #3: onto an In any order block's row from the step after it — each part is put down with what it gave.)
   return { ...out, data: restoreParts(out.data, runId, frames.length - 1, env) };
 }
@@ -2773,13 +2797,12 @@ function resettle(before: Data, after: Data, env: Env): Data {
     }
     if (frames) data = putRun(data, patched(own(data.runs, id)!, { frames }));
     // F-1 (engine #5; owner: "A Plan edit never clears a run's values"): the levels the edit took the run out of — a for
-    // each or an In any order block it was inside, removed — collect and join what was given in them, as Step out does,
-    // read through the routines as they were. Given by the row removed, they are held (its step is gone, not below).
-    // (A call removed still takes its level's values with it: values.test.ts row "removing a step the run is inside"
-    // pins that, against the owner's ruling — left for the owner, see .polish/current/F-1/build.md.)
+    // each, an In any order block or a call it was inside, removed — collect, join and hand back what was given in them,
+    // as Step out does, read through the routines as they were. Given by the row removed, they are held (its step is
+    // gone, not below). (F-3: the call, too.)
     if (frames && was && frames.length < was.frames.length) {
       let then: Data = { ...before, runs: { ...before.runs, [id]: own(data.runs, id)! } };
-      for (let level = was.frames.length - 1; level >= frames.length; level--) if (view(then, readRun(then, id)!, was.frames[level].seq)?.each) then = collectRound(then, id, was.frames, level, env);
+      then = handBack(then, id, was.frames, was.frames.slice(frames.length).reverse(), env);
       then = settleParts(then, id, was.frames, undefined, env, false);
       const r = own(then.runs, id)!;
       data = putRun(data, patched(own(data.runs, id)!, { values: r.values, frames: r.frames }));
@@ -3539,8 +3562,16 @@ function verbOf(data: Data, verb: Verb, env: Env): Result {
       return start(data, verb.routineId, env);
     case 'new':
       return create(data, verb.words, env);
-    case 'resume':
-      return resume(data, verb.runId, env);
+    case 'resume': {
+      const r = resume(data, verb.runId, env);
+      if (!r.ok || !verb.into || !intoCall(r.data, verb.runId)) return r;
+      // (Step in refused — too deep, say: it is resumed where it was.)
+      const s = landEach(stepIn(r.data, verb.runId, env), verb.runId, env);
+      if (!s.ok) return r;
+      // (F-3: the pause note is the person's own words, not a move's: Resume keeps it, inside the call too, as Start over does.)
+      const why = own(r.data.runs, verb.runId)!.reason;
+      return why === undefined ? s : { ...s, data: putRun(s.data, patched(own(s.data.runs, verb.runId)!, { reason: why })) };
+    }
     case 'plan':
       return plan(data, verb.runId, env);
     case 'pause':
