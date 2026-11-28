@@ -113,6 +113,35 @@ the kind of answer.
 | Decide | What is the choice between? · What matters in it? | The options · the tests |
 | Work it out | What is the first small step? · And after that, if you know? | The first steps |
 
+### Journey 2a — Each question uses what was just said
+The owner (2026-11-28): "Ensure that this composer uses natural language and framing based on the
+user's decisions, so it reads naturally and sharpens its language over time based on user input." Asked
+which mechanism was meant, the owner chose one: **"It uses what I just said"** — later questions weave
+in the earlier answers and the start that was chosen, within one sitting. Nothing is stored for it, and
+the composer does not learn across sittings, take wording from other routines, or rewrite itself.
+
+So the questions sharpen as the person answers:
+
+| Start, and what was typed | First question | Next question, after the answer |
+|---|---|---|
+| Learn it · "drawing hands" | What do you want to be able to do with drawing hands? | What parts of drawing hands could you practise by themselves? |
+| Make it · "a zine about my street" | Who is the zine about your street for, and what should it do for them? | What must be true for it to be done, for neighbours? |
+| Find out · "why my mixes sound thin" | What do you think the answer is? | Where would you look first? |
+| Decide · "contract job or stay" | What matters in choosing between the contract job and staying? | (none) |
+
+- **The start sets the frame.** Learn it speaks of being able to do and of practising; Make it of who
+  it is for and of done; Find out of the answer and where to look; Decide of what matters.
+- **An answer is woven in only where it reads as a sentence.** A short answer (a few words, one line)
+  is placed in the next question. A long one, a list, or one with its own punctuation is referred to as
+  "it" or "them", so a question never becomes a paragraph.
+- **The joins are small and fixed:** "a/an/the/my" at the front is kept as typed; "my" becomes "your"
+  when the app is the one speaking ("a zine about my street" → "the zine about your street"); the
+  start's own verb or a leading "to" is dropped. No other rewriting. The person's words in the routine
+  itself are never changed by these joins.
+- **When a join cannot be made cleanly, the plain form is used** ("What must be true for it to be
+  done?"). A plain question is always correct; a woven one is a nicety.
+- **Nothing here is remembered.** Closing the composer forgets it. The routine holds the answers.
+
 ### Journey 3 — The plain follow-up
 Where an answer cannot settle the structure, one more plain question does. Each is asked only when the
 answer makes it relevant.
@@ -193,7 +222,7 @@ skip it is; the composer's question sitting above a Plan-like list; Then and Ski
    routine as in Journey 4; ends in Plan with one Undo. *Done when:* typing a sentence and choosing a
    start produces a routine named from the sentence whose lists hold the answers verbatim; Skip at any
    question leaves a valid routine; Plan (the filled button) still makes an empty routine exactly as
-   today; nothing is marked for words it does not recognise; the composer cannot be reached from the
+   today; nothing is marked for words it does not recognise; a second question carries a short first answer and falls back to "it" for a long one or a list, and "my" in what was typed reads "your" in a question while the routine keeps "my"; the composer cannot be reached from the
    runner; at 390 px and 200 % text nothing is cut and every target is at least 48 px.
 2. **The other three starts, with the plain follow-ups** `[feature]` `[ux]` M. Learn it, Find out,
    Decide; the follow-ups of Journey 3; an empty answer leaving a part out. *Done when:* "Learn it" with
@@ -212,6 +241,9 @@ words of the questions and the wording rules of Journey 4 ship with the library 
   stays the default button; Skip at every question; four questions at most.
 - **Words that are not theirs.** Unasked template steps stay in the library's words. Ending in Plan is
   where they are rewritten; if the owner finds they rewrite most of them, the templates are wrong.
+- **Clumsy joins.** Weaving an answer into the next question will sometimes read oddly. The rule is to
+  fall back to the plain question whenever the answer is not short and simple, and the joins are a
+  fixed, tested list, in English only.
 - **Wrong marks.** The inference is a short word list in English; it will miss and occasionally
   mislead. It never chooses.
 - **Meta-work.** This is another surface to tune. It should be judged on one thing: whether new
