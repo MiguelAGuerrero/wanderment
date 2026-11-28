@@ -230,3 +230,23 @@ broken down), and read as In any order here.
 | `p99-old-build.json` | that build's `planView`, `runnerView`, `homeShown` and `tileLine` | what it SHOWED: the block as a step broken down in Plan (hoisting `{copies}`), the runner inside Gesture practice ("In any order" its parent), on the block's row (Step in), and stepped into it (Thumbnail, Step out of "In any order"); the tiles "at Draw 10 feet, 30 s each" and "at In any order" |
 
 `freeze-p99.ts.txt` is the script that wrote them.
+
+## P-115 (frozen 2026-11-28, before Edit, then Save or Cancel)
+
+Written the same way by the build before P-115 (`3790d66`, F-3/F-2), through its own store actions and its Import (for
+what only an import could make there). That build knew nothing of a routine's `draft`: every Plan change was final.
+It started from `p99-schema4.sqlite` (so everything above is in it). P-115 keeps a draft on the routine's own record,
+one more field of its body (`draft: { v: 1, of, startedAt, base, log }`: the edits in order, each with the ids it
+made, and each routine the draft changed as it was saved then). No migration: this data must load exactly, write
+nothing by loading, show the SAVED routine everywhere (runs and home too), and read the drafts as P-115 does.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p115-schema4.sqlite` | that build, ordinary saves (and one Import), over `p99-schema4.sqlite` | everything in `p99-schema4.sqlite`, plus "Morning pages" (Brew coffee, Write three pages, Read them back) with a draft that moves "Read them back" up and adds "Underline one line", and a run of it paused on "Write three pages" ("kettle on"); "Sunday reset" with a draft that rewords "Clear the inbox", then edited directly by that build's Plan ("Plan the week" added: the draft is changed elsewhere, and the field was kept); "Pack for a trip" with a draft in a later shape (`v: 2`); "Evening pages", that build's Copy of Morning pages, carrying Morning pages' draft (`of` is not its own); and P-96's "Read a chapter" running again |
+| `p115-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p115-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p115-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p115-expected.json` | that build's store | what those four must read as |
+| `p115-old-build.json` | that build's `planView`, `runnerView`, `homeShown` and `tileLine` | what it SHOWED: each routine's saved steps (never the draft's), the runner of Morning pages on "Write three pages", Sunday reset with "Plan the week" after its own edit, and the copy's steps |
+
+`freeze-p115.ts.txt` is the script that wrote them.

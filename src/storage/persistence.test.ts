@@ -1533,6 +1533,14 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
      * Every action that changes the data, with arguments that do change something. (P-89: the old app's
      * actions are gone; what is left is Undo, import's replace, taking the data back, and the runner's.)
      */
+    /** P-115: g1 with a draft in P-115's shape (`edited`: one edit in it), put there directly (as a load would). */
+    const drafting = (edited = false) => (store: Store) => {
+      going()(store);
+      const g1 = store.getState().data.routines.g1;
+      if (!g1) return;
+      const log = edited ? [{ seq: 'g1', edit: { kind: 'addStep', text: 'Into the draft' }, ids: ['d1'], now: at, said: 'Added “Into the draft”' }] : [];
+      store.setState((st) => ({ data: { ...st.data, routines: { ...st.data.routines, g1: { ...g1, draft: { v: 1, of: 'g1', startedAt: at, base: edited ? { g1 } : {}, log } } } } }));
+    };
     const MUTATING: Record<string, { args: unknown[]; setup?: (store: Store) => void }> = {
       undoLast: { args: [], setup: (store) => person(store).removeActivity('a3') },
       replaceData: { args: [other()] },
@@ -1608,6 +1616,13 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
           if (g1) store.setState((st) => ({ data: { ...st.data, routines: { ...st.data.routines, g1: { ...g1, items: (g1.items as { id: string }[]).map((i) => (i.id === 'a' ? { ...i, out: 'topic' } : i)) } } } }));
         },
       },
+      // P-115: Edit (a draft begun), an edit into the draft, Copy and add into it, Save, Cancel, and B-19's entry point.
+      beginEdit: { args: ['g1'], setup: going() },
+      editDraft: { args: ['g1', 'g1', { kind: 'addStep', text: 'Into the draft' }], setup: drafting() },
+      copyAndAddDraft: { args: ['g1', 'lib-cue', 'g1'], setup: drafting() },
+      saveDraft: { args: ['g1'], setup: drafting(true) },
+      cancelDraft: { args: ['g1'], setup: drafting(true) },
+      openInEdit: { args: ['g1', [{ seq: 'g1', edit: { kind: 'addStep', text: 'From the composer' } }]], setup: going() },
     };
     /** What's only on screen this session: these never change the data. */
     const NOT_DATA: Record<string, unknown[]> = {
@@ -5817,6 +5832,231 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(await onDisk()).toEqual(data);
       store = await reload();
       expect(store.getState().data).toEqual(data);
+    });
+  });
+
+  // ───────── P-115: Edit, then Save or Cancel ─────────
+  describe('P-115: a draft (Edit) survives reload, journal replay, the fallback, hand-over, undo, export and import — the saved routine, its run and home are untouched until Save, which is one write', () => {
+    type Ids = { routineId: string; runId: string; read: string; write: string };
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    const words = (data: { routines: Record<string, Record<string, unknown>> }, id: string) => (data.routines[id].items as { text?: string }[]).map((i) => i.text);
+    /**
+     * As a person would: + New "Morning pages" (it opens in Edit), three steps, Save; Start, Next (on "Write three pages"),
+     * Pause; then Edit again — "Read them back" moved up (the owner's accidental drag) and "Underline one line" added.
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const made = g().createRoutine('Morning pages');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      const id = made.routineId;
+      const all = [g().editDraft(id, id, { kind: 'addStep', text: 'Brew coffee' }), g().editDraft(id, id, { kind: 'addStep', text: 'Write three pages' }), g().editDraft(id, id, { kind: 'addStep', text: 'Read them back' }), g().saveDraft(id)];
+      const started = g().startRoutine(id);
+      if (!started.ok || !started.runId) throw new Error('Start: was refused');
+      all.push(g().nextStep(started.runId), g().pauseRun(started.runId, 'kettle on'), g().beginEdit(id));
+      const items = g().data.routines[id].items as { id: string; text: string }[];
+      all.push(g().editDraft(id, id, { kind: 'move', item: items[2].id, by: -1 }), g().editDraft(id, id, { kind: 'addStep', text: 'Underline one line' }));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { routineId: id, runId: started.runId, read: items[2].id, write: items[1].id };
+    }
+    const isAsBuilt = async (data: Parameters<typeof words>[0] & { runs: Record<string, Record<string, unknown>> }, ids: Ids) => {
+      const { draftData, readDraft } = await import('@/domain/draft');
+      const { runnerView } = await import('@/domain/runView');
+      // Saved: as it was before Edit — the run reads it, on "Write three pages".
+      expect(words(data, ids.routineId)).toEqual(['Brew coffee', 'Write three pages', 'Read them back']);
+      expect(runnerView(data as never, ids.runId)!.step.words).toBe('Write three pages');
+      // The draft: kept, and Plan in Edit reads it.
+      expect(readDraft(data as never, ids.routineId).kind).toBe('draft');
+      expect(words(draftData(data as never, ids.routineId), ids.routineId)).toEqual(['Brew coffee', 'Read them back', 'Write three pages', 'Underline one line']);
+    };
+
+    it('reload: the draft is saved to SQLite on the routine, the same after a reload — Plan reopens in Edit with it; the saved steps and the run are as they were', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      await isAsBuilt(shown, ids);
+      expect(await onDisk()).toEqual(shown);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      await isAsBuilt(store.getState().data, ids);
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), the draft is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const shown = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      await isAsBuilt(store.getState().data, ids);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('the localStorage fallback keeps it, and moves it into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      expect(JSON.parse(env.ls.get('wanderment')!).state.data.routines[ids.routineId].draft.log).toHaveLength(2);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(shown);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('Save: one write — the draft’s steps saved, the field gone, the run still on its step; one Undo brings the saved routine and the draft back, on screen and on disk; Cancel then throws it away and its Undo brings it back', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const withDraft = store.getState().data;
+      const { runnerView } = await import('@/domain/runView');
+      expect(store.getState().saveDraft(ids.routineId).ok).toBe(true);
+      await tick(30);
+      const disk = await onDisk();
+      expect(words(disk, ids.routineId)).toEqual(['Brew coffee', 'Read them back', 'Write three pages', 'Underline one line']);
+      expect('draft' in disk.routines[ids.routineId]).toBe(false);
+      expect(runnerView(disk, ids.runId)!.step.words).toBe('Write three pages');
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(withDraft);
+      expect(store.getState().cancelDraft(ids.routineId).ok).toBe(true);
+      await tick(30);
+      expect('draft' in (await onDisk()).routines[ids.routineId]).toBe(false);
+      expect(words(await onDisk(), ids.routineId)).toEqual(['Brew coffee', 'Write three pages', 'Read them back']);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(withDraft);
+      store = await reload();
+      await isAsBuilt(store.getState().data, ids);
+    });
+
+    it('hand-over with a take-back: an edit into the draft, still only in the journal when hidden, stays on top of another page’s change to another routine; that one is taken too', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      const other = store.getState().createRoutine('Evening pages');
+      await tick(30);
+      writeGate = deferred();
+      expect(store.getState().editDraft(ids.routineId, ids.routineId, { kind: 'reword', item: ids.write, text: 'Write three pages' + ' fast' }).ok).toBe(true);
+      await tick(0);
+      expect(store.getState().editDraft(ids.routineId, ids.routineId, { kind: 'reword', item: ids.write, text: 'Write three pages by hand' }).ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRoutines.map((r: { id: string }) => r.id)).toEqual([ids.routineId]);
+      const mine = store.getState().data.routines[ids.routineId];
+
+      const { editRoutine } = await import('@/domain/run');
+      const theirs = editRoutine(await onDisk(), other.ok ? other.routineId! : '', { kind: 'tags', tags: ['daily'] }, { now: '2026-11-28T12:00:00.000Z', id: () => 'other-page' });
+      expect(theirs.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [theirs.data.routines[other.ok ? other.routineId! : '']] } as never);
+      db.close();
+
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.routines[ids.routineId]).toEqual(mine);
+      expect(store.getState().data.routines[other.ok ? other.routineId! : ''].tags).toEqual(['daily']);
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('hand-over: another page changed the saved routine while this one held a draft of it — taken; the draft is kept, and Save says it was changed elsewhere', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const draft = store.getState().data.routines[ids.routineId].draft;
+      page.hide();
+      await tick(30);
+      const { editRoutine } = await import('@/domain/run');
+      const disk = await onDisk();
+      const theirs = editRoutine(disk, ids.routineId, { kind: 'addStep', text: 'Close the notebook' }, { now: '2026-11-28T12:00:00.000Z', id: () => 'other-page' });
+      expect(theirs.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [theirs.data.routines[ids.routineId]] } as never);
+      db.close();
+      page.show();
+      await tick(100);
+      expect(words(store.getState().data, ids.routineId)).toEqual(['Brew coffee', 'Write three pages', 'Read them back', 'Close the notebook']);
+      expect(store.getState().data.routines[ids.routineId].draft).toEqual(draft);
+      expect(store.getState().saveDraft(ids.routineId)).toEqual({ ok: false, reason: 'changed', names: ['Morning pages'] });
+      expect(store.getState().saveDraft(ids.routineId, true).ok).toBe(true);
+      expect(words(store.getState().data, ids.routineId)).toEqual(['Brew coffee', 'Read them back', 'Write three pages', 'Close the notebook', 'Underline one line']);
+    });
+
+    it('a kept-list write (the tile’s + Add) while a draft holds that list’s block: Save says so and writes nothing; Save anyway keeps both', async () => {
+      fakeLocks();
+      const store = await load();
+      const g = () => store.getState();
+      const made = g().createRoutine('Draw each');
+      const id = made.ok ? made.routineId! : '';
+      expect(g().editDraft(id, id, { kind: 'addEach', item: 'subject', list: 'subjects', own: 'kept' }).ok).toBe(true);
+      expect(g().saveDraft(id).ok).toBe(true);
+      const block = (g().data.routines[id].items as { ref: string }[])[0].ref;
+      expect(g().beginEdit(id).ok).toBe(true);
+      expect(g().editDraft(id, block, { kind: 'keptList', items: ['arms'] }).ok).toBe(true);
+      // Elsewhere (the tile's + Add): straight to the saved routine.
+      expect(g().editRoutine(block, { kind: 'keptList', items: ['legs'] }).ok).toBe(true);
+      const before = g().data;
+      expect(g().saveDraft(id)).toEqual({ ok: false, reason: 'changed', names: ['Draw each'] });
+      expect(g().data).toBe(before);
+      expect(g().saveDraft(id, true).ok).toBe(true);
+      expect((g().data.routines[block].each as { kept: string[] }).kept).toEqual(['arms']);
+      await tick(30);
+      expect(await onDisk()).toEqual(g().data);
+    });
+
+    it('export → import: the draft is in the backup; the same file is identical; imported, Plan reopens in Edit with it, through a reload and another export', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      expect(JSON.parse(json).data.routines[ids.routineId].draft).toMatchObject({ v: 1, of: ids.routineId });
+      expect(previewImport(json).plan).toMatchObject({ identical: true });
+      // A fresh browser: the same file imported there.
+      (await import('./persistence')).stopPersistence();
+      env.ls.clear();
+      env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-')), 'db.sqlite');
+      store = await reload();
+      const fresh = await import('@/store/importBackup');
+      expect(fresh.confirmImport(fresh.previewImport(json)).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(exported);
+      await isAsBuilt(store.getState().data, ids);
+      expect(JSON.parse(toBackup(store.getState().data)).data).toEqual(exported);
+      expect(confirmImport).toBeDefined();
     });
   });
 });

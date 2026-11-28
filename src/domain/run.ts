@@ -3107,7 +3107,7 @@ function copyRoutine(data: Data, routine: Routine, s: Seq, typed: string, env: E
       if (isRef(i) && inner && !inner.named) {
         const copyId = env.id();
         made.set(i.ref, copyId);
-        const c = dup(own(data.routines, i.ref)!, inner, { createdAt: env.now, ownerRunId: undefined, removedAt: undefined }, copyId);
+        const c = dup(own(data.routines, i.ref)!, inner, { createdAt: env.now, ownerRunId: undefined, removedAt: undefined, draft: undefined }, copyId);
         next = putRoutine(next, c);
         return { ...i, id: env.id(), ref: c.id };
       }
@@ -3115,7 +3115,8 @@ function copyRoutine(data: Data, routine: Routine, s: Seq, typed: string, env: E
     });
     return patched({ ...r, id, items }, patch);
   };
-  const copy = dup(routine, s, { words, createdAt: env.now, removedAt: undefined, ownerRunId: undefined, home: true });
+  // (P-115: a draft is its routine's own — never copied.)
+  const copy = dup(routine, s, { words, createdAt: env.now, removedAt: undefined, ownerRunId: undefined, home: true, draft: undefined });
   return done(putRoutine(next, copy), { routineId: copy.id });
 }
 

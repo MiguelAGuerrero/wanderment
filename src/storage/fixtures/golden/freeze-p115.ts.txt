@@ -1,0 +1,235 @@
+/**
+ * P-115 step 0 — FREEZES GOLDEN FIXTURES from the build BEFORE Edit, then Save or Cancel (3790d66, F-3/F-2: schema 4,
+ * data format 2; every Plan change was final and nothing knew a routine's `draft`). Run once, in that commit, with
+ * P115_OUT set; never part of the suite. It starts from `p99-schema4.sqlite` (everything frozen before) and uses that
+ * build's own store actions — and its Import, for what only an import could make there: routines carrying a draft in
+ * the shape P-115 writes (`draft: { v: 1, of, startedAt, base, log }` in the routine's body) — one never touched by
+ * that build afterwards ("Morning pages", with a run paused on its second step), one that build then edits directly
+ * ("Sunday reset": the draft is changed elsewhere), and one in a later shape ("Pack for a trip", `v: 2`). That build
+ * shows them, runs one, edits one and Copies one (its Copy carries the field to the copy). What that build SHOWED is
+ * written to `p115-old-build.json`: the proof that an older build reads the saved routine and keeps the draft.
+ */
+import { copyFileSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+
+const OUT = process.env.P115_OUT!;
+
+const env = vi.hoisted(() => {
+  const ls = new Map<string, string>();
+  const state = { dbPath: '', openError: undefined as Error | undefined, hangWrites: false };
+  const localStorage = {
+    get length() {
+      return ls.size;
+    },
+    key: (i: number) => [...ls.keys()][i] ?? null,
+    getItem: (k: string) => (ls.has(k) ? ls.get(k)! : null),
+    setItem: (k: string, v: string) => void ls.set(k, String(v)),
+    removeItem: (k: string) => void ls.delete(k),
+  };
+  (globalThis as { localStorage?: unknown }).localStorage = localStorage;
+  return { ls, state, localStorage };
+});
+
+vi.mock('react-native', () => ({ Platform: { OS: 'web' } }));
+vi.mock('@react-native-async-storage/async-storage', () => ({
+  default: {
+    getItem: async (k: string) => env.localStorage.getItem(k),
+    setItem: async (k: string, v: string) => env.localStorage.setItem(k, v),
+    removeItem: async (k: string) => env.localStorage.removeItem(k),
+  },
+}));
+vi.mock('./expoDb', async () => {
+  const { nodeDb } = await import('./nodeDb');
+  return {
+    openExpoDb: async () => {
+      if (env.state.openError) throw env.state.openError;
+      const db = nodeDb(env.state.dbPath);
+      return { ...db, transaction: (task: () => Promise<void>) => (env.state.hangWrites ? new Promise<void>(() => {}) : db.transaction(task)) };
+    },
+  };
+});
+vi.mock('./nativeBackup', () => ({ scheduleBackup: () => {} }));
+
+const settle = () => new Promise((r) => setTimeout(r, 40));
+
+async function load() {
+  vi.resetModules();
+  const { startPersistence } = await import('./persistence');
+  const { useStore } = await import('@/store/useStore');
+  await startPersistence();
+  return useStore;
+}
+type Store = Awaited<ReturnType<typeof load>>;
+
+/** Ids are a counter and the clock is fixed and stepped, so every session makes the same records. */
+let n = 0;
+let clock = 0;
+const T0 = Date.parse('2026-11-28T09:00:00.000Z');
+const tick = (minutes = 3) => vi.setSystemTime(new Date((clock += minutes * 60000)));
+
+beforeEach(() => {
+  env.ls.clear();
+  env.state.openError = undefined;
+  env.state.hangWrites = false;
+  env.state.dbPath = join(mkdtempSync(join(tmpdir(), 'wanderment-freeze115-')), 'db.sqlite');
+  n = 0;
+  clock = T0;
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(T0));
+  vi.stubGlobal('crypto', { randomUUID: () => `p115-${String(++n).padStart(3, '0')}` });
+});
+afterEach(async () => {
+  (await import('./persistence')).stopPersistence();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+
+/** What that build showed: Plan's rows of the routine, the runner at a place, and the run's line on home. */
+const old: Record<string, unknown> = {};
+async function views(key: string, store: Store, routineId: string, runId?: string) {
+  const { planView, runnerView, homeShown } = await import('@/domain/runView');
+  const { tileLine } = await import('@/domain/goText');
+  const data = store.getState().data;
+  const plan = planView(data, runId ? { runId } : { routineId });
+  const run = runId ? runnerView(data, runId) : undefined;
+  const tile = runId ? homeShown(data).find((t) => t.runId === runId) : undefined;
+  old[key] = JSON.parse(
+    JSON.stringify({
+      rows: plan?.rows.map((r) => ({ depth: r.depth, kind: r.kind, words: r.words, broken: r.broken ?? false, here: r.here, within: r.within, gives: r.gives ?? null, hoisted: r.hoisted ?? [] })),
+      ...(run && { runner: { level: run.level, parent: run.parent ?? null, step: run.step.kind, words: run.step.words, fields: run.fields, values: run.values.map((v) => ({ name: v.name, items: v.items })), moves: run.moves, next: run.next } }),
+      ...(tile && { tile: { line: tileLine(tile).line, path: tile.path ?? [] } }),
+    }),
+  );
+}
+
+const AT = '2026-11-28T11:00:00.000Z';
+/** What a person did with the build before P-115, through its own actions (and Import). */
+async function drive(store: Store) {
+  const s = () => store.getState();
+  const ok = (d: { ok: boolean; runId?: string; routineId?: string }) => {
+    expect(d).toMatchObject({ ok: true });
+    s().dismissRunNotice();
+    tick();
+    return (d.runId ?? d.routineId)!;
+  };
+  const items = (routineId: string) => s().data.routines[routineId].items as { id: string; text?: string; wait?: string; ref?: string }[];
+  const item = (routineId: string, words: string) => items(routineId).find((i) => (i.text ?? i.wait) === words)!.id;
+  const make = (name: string, steps: string[]) => {
+    const id = ok(s().createRoutine(name));
+    for (const st of steps) ok(s().editRoutine(id, { kind: 'addStep', text: st }));
+    return id;
+  };
+  const { toBackup } = await import('@/domain/backup');
+  const { previewImport, confirmImport } = await import('@/store/importBackup');
+  /** Exported, changed by hand, imported back (Settings' Import, Replace). */
+  const reimport = (change: (d: import('@/domain/types').Data) => void) => {
+    const file = JSON.parse(toBackup(s().data));
+    change(file.data);
+    const r = confirmImport(previewImport(JSON.stringify(file)));
+    expect(r.ok).toBe(true);
+    tick();
+  };
+  ok(s().pauseRun('p96-050'));
+
+  const morning = make('Morning pages', ['Brew coffee', 'Write three pages', 'Read them back']);
+  const weekly = make('Sunday reset', ['Clear the inbox', 'Look at the calendar', 'Pick three priorities']);
+  const pack = make('Pack for a trip', ['Check the weather', 'Lay out the clothes']);
+  // A run of Morning pages, paused on its second step.
+  const run = ok(s().startRoutine(morning));
+  ok(s().nextStep(run));
+  ok(s().pauseRun(run, 'kettle on'));
+  // Only an import could make a draft here: the field P-115 writes, on the routine's own record.
+  reimport((d) => {
+    const m = d.routines[morning];
+    const w = d.routines[weekly];
+    m.draft = {
+      v: 1,
+      of: morning,
+      startedAt: AT,
+      base: { [morning]: JSON.parse(JSON.stringify(m)) },
+      log: [
+        { seq: morning, edit: { kind: 'move', item: item(morning, 'Read them back'), by: -1 }, ids: [], now: AT, said: 'Moved “Read them back”' },
+        { seq: morning, edit: { kind: 'addStep', text: 'Underline one line' }, ids: ['p115-draft-1'], now: AT, said: 'Added “Underline one line”' },
+      ],
+    };
+    w.draft = {
+      v: 1,
+      of: weekly,
+      startedAt: AT,
+      base: { [weekly]: JSON.parse(JSON.stringify(w)) },
+      log: [{ seq: weekly, edit: { kind: 'reword', item: item(weekly, 'Clear the inbox'), text: 'Clear the inbox to zero' }, ids: [], now: AT, said: 'Changed “Clear the inbox”' }],
+    };
+    d.routines[pack].draft = { v: 2, of: pack, startedAt: AT, later: { steps: ['a shape this version does not know'] } };
+  });
+  await views('planMorning', store, morning);
+  await views('planMorningRun', store, morning, run);
+  await views('planWeekly', store, weekly);
+  await views('planPack', store, pack);
+  // That build's Plan edits Sunday reset directly (final, as every change there was): the field it does not know stays.
+  ok(s().editRoutine(weekly, { kind: 'addStep', text: 'Plan the week' }));
+  expect((s().data.routines[weekly] as { draft?: unknown }).draft).toMatchObject({ v: 1, of: weekly });
+  await views('planWeeklyEdited', store, weekly);
+  // Its Copy… of Morning pages: the copy carries the field (it copies the record whole).
+  const copy = ok(s().editRoutine(morning, { kind: 'copy', words: 'Evening pages' }));
+  expect(copy).toBeTruthy();
+  await views('planEvening', store, Object.values(s().data.routines).find((r) => r.words === 'Evening pages')!.id);
+  // Morning pages resumed: the runner reads the saved routine (the draft is not read), then paused again.
+  ok(s().resumeRun(run));
+  await views('runnerMorning', store, morning, run);
+  ok(s().pauseRun(run, 'kettle on'));
+  // Last: the run the app is on, running.
+  ok(s().resumeRun('p96-050'));
+  await settle();
+  return { morning, weekly, pack, run };
+}
+const settingsOf = (store: Store) => {
+  const s = store.getState();
+  return { showShading: s.showShading, recentSearches: s.recentSearches, leftAsIs: s.leftAsIs, whyOfferOff: s.whyOfferOff, firstRunDone: s.firstRunDone };
+};
+const snapshot = (store: Store) => JSON.parse(JSON.stringify({ data: store.getState().data, settings: settingsOf(store) }));
+let expected: { data: import('@/domain/types').Data; settings: ReturnType<typeof settingsOf> };
+
+it('1. the database (schema 4), the backup and what the store held', async () => {
+  copyFileSync(join(__dirname, 'fixtures/golden/p99-schema4.sqlite'), env.state.dbPath);
+  let store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'sqlite' });
+  await drive(store);
+  await settle();
+  expected = snapshot(store);
+  expect(env.ls.has('wanderment:journal')).toBe(false);
+  store = await load();
+  expect(snapshot(store)).toEqual(expected);
+  const { nodeDb } = await import('./nodeDb');
+  const db = nodeDb(env.state.dbPath);
+  expect(await db.all('PRAGMA user_version')).toEqual([{ user_version: 4 }]);
+  await db.exec('VACUUM');
+  db.close();
+  copyFileSync(env.state.dbPath, join(OUT, 'p115-schema4.sqlite'));
+  writeFileSync(join(OUT, 'p115-expected.json'), JSON.stringify(expected, null, 2) + '\n');
+  writeFileSync(join(OUT, 'p115-old-build.json'), JSON.stringify(old, null, 2) + '\n');
+  const { toBackup } = await import('@/domain/backup');
+  writeFileSync(join(OUT, 'p115-backup.json'), toBackup(store.getState().data, new Date('2026-11-28T12:30:00.000Z')));
+});
+
+it('2. the pending journal (eight keys): everything, never committed', async () => {
+  const store = await load();
+  env.state.hangWrites = true;
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  const raw = env.ls.get('wanderment:journal')!;
+  expect(Object.keys(JSON.parse(raw).changes).sort()).toEqual(['deleteActivities', 'deleteRoutines', 'deleteRuns', 'deleteThreads', 'upsertActivities', 'upsertRoutines', 'upsertRuns', 'upsertThreads']);
+  writeFileSync(join(OUT, 'p115-journal.json'), raw);
+});
+
+it('3. the fallback blob (a browser that can’t run SQLite)', async () => {
+  env.state.openError = new Error('no OPFS');
+  const store = await load();
+  expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+  expect(store.getState().replaceData(JSON.parse(JSON.stringify(expected.data)))).toBe(true);
+  await settle();
+  expect(snapshot(store).data).toEqual(expected.data);
+  writeFileSync(join(OUT, 'p115-fallback.json'), env.ls.get('wanderment')!);
+});

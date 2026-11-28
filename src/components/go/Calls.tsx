@@ -32,13 +32,20 @@ export function inputWords(i: CallInput): string {
 }
 
 /** Under a call row's name: its inputs (each opens what fills it) and what it gives. */
-export function CallLines({ name, call, onInput }: { name: string; call: PlanCall; onInput: (input: string) => void }) {
+/** P-115: without `onInput` (Plan read-only), each input line is words, not a target. */
+export function CallLines({ name, call, onInput }: { name: string; call: PlanCall; onInput?: (input: string) => void }) {
   if (call.removed || (!call.inputs.length && !call.gives.length)) return null;
   return (
     <View style={styles.lines} testID="go-plan-call">
-      {call.inputs.map((i) => (
-        <Btn key={i.input} kind="plain" label={inputWords(i)} spoken={`${name} ${inputWords(i)}: change`} onPress={() => onInput(i.input)} style={styles.line} testID="go-plan-input" dataSet={{ input: i.input, mode: i.mode }} />
-      ))}
+      {call.inputs.map((i) =>
+        onInput ? (
+          <Btn key={i.input} kind="plain" label={inputWords(i)} spoken={`${name} ${inputWords(i)}: change`} onPress={() => onInput(i.input)} style={styles.line} testID="go-plan-input" dataSet={{ input: i.input, mode: i.mode }} />
+        ) : (
+          <T key={i.input} dim testID="go-plan-input" {...{ dataSet: { input: i.input, mode: i.mode } }}>
+            {inputWords(i)}
+          </T>
+        ),
+      )}
       {call.gives.length > 0 && <Gives names={call.gives} testID="go-plan-call-gives" />}
     </View>
   );

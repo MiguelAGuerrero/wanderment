@@ -12,7 +12,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, closeMenu, expectEdit, expectSteps, menuItems, plan, planFromRoutines, routines, RoutineSpec, startGo, tile, undoEdit } from './goFixture';
+import { arrived, closeMenu, expectEdit, expectSteps, menuItems, plan, planFromRoutines, routines, RoutineSpec, startGo, tile, undoEdit, editPlan } from './goFixture';
 
 const FIVE = ['One', 'Two', 'Three', 'Four', 'Five'];
 const DRAG: RoutineSpec = { id: 'drag', name: 'Five steps', steps: FIVE, repeatFrom: 3 };
@@ -24,12 +24,15 @@ const gripOf = (page: Page, words: string) => plan(page).screen.getByRole('butto
 async function planFromHome(page: Page) {
   await startGo(page, [], 'home', [DRAG]);
   await planFromRoutines(page, 'Five steps');
+  // (P-115, rewritten: Plan opens read-only — these specs edit it, so its opener enters Edit.)
+  await editPlan(page);
 }
 
 test('(1) ≥ 340 px: the grip pressed opens Move up · Move down (unavailable at the ends) — one place, one Undo each; the step’s ··· menu stays trimmed', async ({ page }) => {
   await planFromHome(page);
   const p = plan(page);
   // The ··· menu: no moves (the owner's trimmed menu).
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await p.more('Three').click();
   const trimmed = await arrived(page, 'go-plan-menu');
   await expect(menuItems(trimmed)).toHaveText(['Edit', 'Add a step after', 'Break it down', 'Gives…', 'Remove']);
@@ -70,6 +73,7 @@ test('(1) under 340 px (no grip): the step’s ··· menu has Move up · Move d
   await page.setViewportSize({ width: 320, height: 640 });
   await planFromHome(page);
   const p = plan(page);
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await expect(p.screen.getByTestId('go-plan-grip')).toHaveCount(0);
   await p.more('Two').click();
   let menu = await arrived(page, 'go-plan-menu');
@@ -137,6 +141,7 @@ test('(3) browser Back with a menu or a sheet open closes only it — Plan stays
     await expect(page).toHaveURL(url);
   }
   // A sheet (Gives…) too.
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await p.more('Three').click();
   await (await arrived(page, 'go-plan-menu')).getByRole('menuitem', { name: 'Gives…', exact: true }).click();
   await arrived(page, 'go-gives-sheet');
@@ -153,6 +158,7 @@ test('(3) Plan opened at its own address (the first screen: nothing beneath it i
   await startGo(page, [{ id: 'r1', routine: 'drag', at: 0, status: 'paused' as const, mode: 'plan' as const }], 'plan', [DRAG]);
   const p = plan(page);
   const url = page.url();
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   for (const [open, id] of [
     [() => p.more('Three').click(), 'go-plan-menu'],
     [() => p.dividerMore.click(), 'go-plan-repeat'],
@@ -170,6 +176,7 @@ test('(4) at 200 % text (195×422) a top row’s menu reaches Remove: it scrolls
   await page.setViewportSize({ width: 195, height: 422 });
   await planFromHome(page);
   const p = plan(page);
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await p.more('One').scrollIntoViewIfNeeded();
   await p.more('One').click();
   const menu = await arrived(page, 'go-plan-menu');

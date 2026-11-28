@@ -13,7 +13,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { goBackup, importBackup, openGo, plan, RoutineSpec, RunSpec, runner, settled } from './goFixture';
+import { goBackup, importBackup, openGo, plan, RoutineSpec, RunSpec, runner, settled, editPlan } from './goFixture';
 
 const SHOTS = '.polish/current/P-99/shots';
 const PAPER = 'rgb(244, 241, 232)';
@@ -97,6 +97,7 @@ for (const [label, size] of [
       await page.goto('./go/routine/hands');
       const p = plan(page);
       await expect(settled(page, 'plan')).toBeVisible();
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.screen.getByTestId('go-plan-add-any').click();
       await expect(p.words).toHaveText(['Warm up', 'In any order']);
       await expect(p.typed).toBeFocused();

@@ -16,7 +16,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, chooseBackup, exported, goBackup, home, IMPORTED, menuItems, openGo, openRoutines, openSettings, pauseRun, plan, routines, RoutineSpec, runner, RunSpec, saved, startGo, tile } from './goFixture';
+import { arrived, chooseBackup, exported, goBackup, home, IMPORTED, menuItems, openGo, openRoutines, openSettings, pauseRun, plan, routines, RoutineSpec, runner, RunSpec, saved, startGo, tile, editPlan, savePlan } from './goFixture';
 
 const PAPER = 'rgb(244, 241, 232)';
 const box = async (l: Locator) => (await l.boundingBox())!;
@@ -212,6 +212,7 @@ for (const size of [
       await page.goto('./go/routine/apple');
       const p = plan(page);
       await expect(p.tags).toHaveText('#baking');
+      await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
       await p.screen.getByTestId('go-plan-more').click();
       await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Tags for apple pie', exact: true }).click();
       const sheet = await arrived(page, 'go-tags-sheet');
@@ -239,10 +240,12 @@ for (const size of [
       await sheet.getByTestId('go-tags-keep').click();
       await expect(page.getByTestId('go-tags-sheet')).toHaveCount(0);
       await expect(p.tags).toHaveText('#baking #Dessert #autumn');
+      await savePlan(page); // (P-115, rewritten: the tags, kept in the draft, are saved — what is stored is read.)
       await saved(page);
       expect((await exported(page)).routines.apple.tags).toEqual(['baking', 'Dessert', 'autumn']);
       // Close changes nothing; and the routine's menu holds the Undo.
       await page.goto('./go/routine/apple');
+      await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
       await plan(page).screen.getByTestId('go-plan-more').click();
       await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Tags for apple pie', exact: true }).click();
       await page.getByTestId('go-tags-sheet').getByRole('button', { name: 'Remove #baking', exact: true }).click();
@@ -376,11 +379,13 @@ test.describe('tags survive every storage path (the page’s own: a reload, Expo
   test('kept, reloaded, exported; a backup with other tags (and a field this version does not know) imports and shows them', async ({ page }) => {
     await startGo(page, [], 'home', SHELF);
     await page.goto('./go/routine/zine');
+    await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
     await plan(page).screen.getByTestId('go-plan-more').click();
     await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Tags for zine issue', exact: true }).click();
     await arrived(page, 'go-tags-sheet');
     await tagsField(page).fill('print, Monthly');
     await page.getByTestId('go-tags-keep').click();
+    await savePlan(page); // (P-115, rewritten: the tags, kept in the draft, are saved — what is stored is read.)
     await saved(page);
     await page.reload();
     await expect(plan(page).tags).toHaveText('#writing #print #Monthly');

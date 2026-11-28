@@ -8,7 +8,7 @@
  * Gives… on another step turns them back; one Undo restores the step and its gives.
  */
 import { expect, test } from './fixtures';
-import { arrived, expectEdit, expectRemoved, home, phoneKeyboard, plan, planMenu, RoutineSpec, runner, saved, exported, setVisibility, startGo, tile, undoEdit, planFromRoutines } from './goFixture';
+import { arrived, expectEdit, expectRemoved, home, phoneKeyboard, plan, planMenu, RoutineSpec, runner, saved, exported, setVisibility, startGo, tile, undoEdit, planFromRoutines, editPlan, savePlan } from './goFixture';
 
 const DRAWING: RoutineSpec = { id: 'draw', name: 'Drawing practice', steps: ['Select the subject matter', 'Warm up', 'Find photos of {subject}', { routine: 'sketch' }, 'Rank your drawings'] };
 const SKETCH: RoutineSpec = { id: 'sketch', name: 'Sketch', home: false, steps: [{ text: 'Pick a pencil', gives: 'pencil' }, 'Draw with the {pencil}'] };
@@ -35,6 +35,7 @@ for (const size of [
       const gives = await arrived(page, 'go-gives-sheet');
       await gives.getByTestId('go-gives-name').fill('subject');
       await gives.getByTestId('go-gives-apply').click();
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       await plan(page).forward.click();
       const r = runner(page);
       await expect(r.words).toHaveText('Warm up');
@@ -159,6 +160,7 @@ for (const size of [
       await page.getByTestId('go-plan-remove').click();
       await expect(dashed).toHaveCount(2);
       // The fallback on the runner: the reader asks.
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       await p.forward.click();
       const r = runner(page);
       await r.next.click();
@@ -209,8 +211,10 @@ test.describe('after the audit', () => {
     await startGo(page, [{ id: 'r', routine: 'draw', at: 1, status: 'paused' }], 'home', ROUTINES);
     await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.add.fill('Sign it');
     await p.add.press('Enter');
+    // (P-115, rewritten: left in Edit — the draft is kept, and Plan reopens in Edit with it and its Undo.)
     await p.home.click();
     await tile(page, 'Drawing practice').getByRole('button', { name: 'Plan Drawing practice', exact: true }).click();
     await expectEdit(page, 'Added “Sign it”');

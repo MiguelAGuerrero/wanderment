@@ -11,7 +11,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, expectSteps, focused, home, pauseRun, place, plan, planFromRoutines, planMenu, planMove, planType, RoutineSpec, runner, startGo, startThing, tile, tileBody, undoEdit } from './goFixture';
+import { arrived, expectSteps, focused, home, pauseRun, place, plan, planFromRoutines, planMenu, planMove, planType, RoutineSpec, runner, startGo, startThing, tile, tileBody, undoEdit, editPlan, savePlan } from './goFixture';
 
 /** Focus is somewhere: never on nothing. */
 const somewhere = async (page: Page) => expect.poll(() => page.evaluate(() => document.activeElement !== null && document.activeElement !== document.body)).toBe(true);
@@ -21,6 +21,12 @@ test.describe('B1: at the edge of a goal Plan’s open row has the focus, howeve
 
   async function typesThere(page: Page) {
     const p = plan(page);
+    // (P-115, rewritten: read-only at the edge, Edit has the focus — Return on it enters Edit, and then the open row has it.)
+    await expect(p.edit.or(p.add)).toBeVisible();
+    if (await p.edit.isVisible()) {
+      await expect(p.edit).toBeFocused();
+      await page.keyboard.press('Enter');
+    }
     await expect(p.add).toBeFocused();
     // Every letter that used to be a shortcut is in there: p paused, D ended the run, n and m moved it.
     await page.keyboard.type(SENTENCE);
@@ -37,6 +43,7 @@ test.describe('B1: at the edge of a goal Plan’s open row has the focus, howeve
     await page.keyboard.press('Enter');
     await expectSteps(page, [SENTENCE]);
     // Nothing started, nothing ended: a routine with one step, and Start.
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(plan(page).forward).toHaveText('Start');
     await plan(page).home.click();
     await expect(tile(page, 'Plan dinner')).toHaveCount(0); // P-97 (was: its tile, idle): nothing going, it is not on home — it is on My routines
@@ -48,6 +55,7 @@ test.describe('B1: at the edge of a goal Plan’s open row has the focus, howeve
     await page.reload();
     const p = plan(page);
     // The words come back, and so does the focus.
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(p.add).toHaveValue(SENTENCE);
     await expect(p.add).toBeFocused();
     await page.keyboard.type(' D');
@@ -59,13 +67,16 @@ test.describe('B1: at the edge of a goal Plan’s open row has the focus, howeve
     // The old paused address lands on /go, which opens where it was left: its Plan.
     await page.goto('./go/run/r4/paused');
     await typesThere(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await plan(page).add.fill('');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await plan(page).home.click();
     // (P-101, ruling 5: at the edge there is nothing to resume at — the tile's body is its Plan.)
     await tileBody(page, 'Feel at home in Spanish').click();
     await typesThere(page);
     await page.keyboard.press('Enter');
     await expectSteps(page, [SENTENCE]);
+    await savePlan(page); // (P-115, rewritten: saved first — Resume is read-only Plan's, and the run reads the saved routine.)
     await plan(page).forward.click();
     await expect(runner(page).words).toHaveText(SENTENCE);
     // P-96 (ruling 7; was: Next reached the edge, Plan): with nothing next, Next reads Done and ends the run.
@@ -157,6 +168,7 @@ for (const size of [
     await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'plan');
     await page.setViewportSize(size);
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(p.add).toBeFocused();
     await page.keyboard.type('Order a coffee');
     await expect(p.add).toHaveValue('Order a coffee');
@@ -171,6 +183,7 @@ for (const size of [
     await page.keyboard.press('Enter');
     await expectSteps(page, ['Order a coffee']);
     // The filled button can be brought into view, and works.
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.forward.scrollIntoViewIfNeeded();
     await expect(p.forward).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -235,6 +248,7 @@ test.describe('A2: focus never falls to nothing', () => {
   test('Plan: a field opened from a step’s menu takes the focus as it appears; Esc gives it back to the row it came from', async ({ page }) => {
     await startGo(page, [{ id: 'r1', routine: 'apply', at: 1, status: 'paused', mode: 'plan' }], 'plan');
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     const more = p.more('Write the cover letter');
     // (P-102: Edit — was Change the words.)
     for (const action of ['Add a step after', 'Edit', 'Break it down']) {

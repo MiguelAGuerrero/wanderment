@@ -10,7 +10,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, goBackup, home, importBackup, menuItems, plan, RoutineSpec, runner, settled, tile, typeValue } from './goFixture';
+import { arrived, goBackup, home, importBackup, menuItems, plan, RoutineSpec, runner, settled, tile, typeValue, editPlan } from './goFixture';
 
 const SHOTS = '.polish/current/P-110/shots';
 const PAPER = 'rgb(244, 241, 232)';
@@ -57,6 +57,8 @@ async function rules(page: Page, scope: Locator) {
 const planOf = async (page: Page, id: string) => {
   await page.goto(`./go/routine/${id}`);
   await expect(settled(page, 'plan')).toBeVisible();
+  // (P-115, rewritten: Plan opens read-only — these specs edit it, so its opener enters Edit.)
+  await editPlan(page);
   return plan(page);
 };
 /** The runner's panel: Jump to… a step by its row's name. */
@@ -150,6 +152,7 @@ for (const [label, size] of [
       const p = await planOf(page, 'iterate');
       // The owner's row, as words: offered as a call in its ···, never made one by itself.
       await expect(p.row('@Document Iteration')).toHaveCount(1);
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.more('@Document Iteration').click();
       const menu = await arrived(page, 'go-plan-menu');
       await expect(menuItems(menu).first()).toHaveText('Edit');

@@ -11,7 +11,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { exported, openGo, openRoutines, plan, planMove, RoutineSpec, runner, seedGo, settled, startGo, typeValue } from './goFixture';
+import { exported, openGo, openRoutines, plan, planMove, RoutineSpec, runner, seedGo, settled, startGo, typeValue, editPlan, savePlan } from './goFixture';
 
 const SHOTS = '.polish/current/P-98/shots';
 const PAPER = 'rgb(244, 241, 232)';
@@ -29,6 +29,8 @@ async function sheet(page: Page, testId: string): Promise<Locator> {
 const planOf = async (page: Page, id: string) => {
   await page.goto(`./go/routine/${id}`);
   await expect(settled(page, 'plan')).toBeVisible();
+  // (P-115, rewritten: Plan opens read-only — these specs edit it, so its opener enters Edit.)
+  await editPlan(page);
   return plan(page);
 };
 const callRow = (page: Page, name: string) => plan(page).rows.filter({ has: page.getByRole('button', { name: `More for ${name}`, exact: true }) });
@@ -69,6 +71,7 @@ test.describe('Plan: a routine as a step', () => {
   test('the owner’s case: Add’s “a routine” adds Research after the doubts; its row says with {concerns} and gives {findings}; the input is chosen in its sheet', async ({ page }) => {
     await seedGo(page, [IMPROVE, RESEARCH]);
     const p = await planOf(page, 'improve');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.screen.getByTestId('go-plan-add-routine').click();
     const pick = await sheet(page, 'go-routines-sheet');
     await expect(pick.getByTestId('go-routines-sheet-row')).toHaveText(['Improve my workout routine · gives {concerns} · asks {findings}', 'Research · gives {findings} · asks {concerns}']);
@@ -98,6 +101,7 @@ test.describe('Plan: a routine as a step', () => {
     // Kept: after a reload, and in the export.
     await page.reload();
     await expect(callRow(page, 'Research').getByTestId('go-plan-input')).toHaveText(['with my knees as concerns']);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     const data = await exported(page);
     expect(data.routines.improve.items![1]).toMatchObject({ ref: 'research', words: 'Research', with: [{ input: 'concerns', typed: 'my knees' }] });
   });
@@ -105,6 +109,7 @@ test.describe('Plan: a routine as a step', () => {
   test('“@” at a word’s start lists routines (and names); typed words alone list none; Return adds the call where the words were going', async ({ page }) => {
     await seedGo(page, [IMPROVE, RESEARCH]);
     const p = await planOf(page, 'improve');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.add.click();
     await p.add.fill('Research my knees');
     await expect(p.screen.getByTestId('go-names-routine')).toHaveCount(0);
@@ -120,6 +125,7 @@ test.describe('Plan: a routine as a step', () => {
   test('a routine as a step of itself is refused, in words — directly, and through another', async ({ page }) => {
     await seedGo(page, [CALLED, RESEARCH]);
     const p = await planOf(page, 'research');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.screen.getByTestId('go-plan-add-routine').click();
     const pick = await sheet(page, 'go-routines-sheet');
     await pick.getByRole('button', { name: /^Add as a step: Improve my workout routine/ }).click();
@@ -132,6 +138,7 @@ test.describe('Plan: a routine as a step', () => {
   test('a call row’s ···: Open (its Plan), Edit inputs, Remove', async ({ page }) => {
     await seedGo(page, [CALLED, RESEARCH]);
     const p = await planOf(page, 'improve');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.more('Research').click();
     const menu = await sheet(page, 'go-plan-menu');
     await expect(menu.locator('[role="menuitem"]:not([data-sr-close])')).toHaveText(['Open', 'Edit inputs', 'Add a step after', 'Remove']);
@@ -232,6 +239,7 @@ test.describe('Copy, and removing a routine that is called', () => {
   test('Plan’s routine ···: Copy… makes the copy, with the same steps', async ({ page }) => {
     await seedGo(page, [CALLED, RESEARCH]);
     const p = await planOf(page, 'improve');
+    await savePlan(page); // (P-115, rewritten: Copy… is read-only Plan's — out of Edit first.)
     await p.screen.getByTestId('go-plan-more').click();
     await (await sheet(page, 'go-plan-routine')).getByTestId('go-plan-copy-item').click();
     const copy = await sheet(page, 'go-copy-sheet');
@@ -253,7 +261,9 @@ test.describe('Copy, and removing a routine that is called', () => {
     await confirm.getByRole('button', { name: 'Remove', exact: true }).click();
     const p = await planOf(page, 'improve');
     await expect(p.words).toHaveText(['List out my doubts', 'Research (removed)', 'Decide using asks {findings}']);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(callRow(page, 'Research (removed)').getByTestId('go-plan-input')).toHaveCount(0);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.forward.click();
     const r = runner(page);
     await expect(r.words).toHaveText('List out my doubts');
@@ -275,6 +285,7 @@ for (const [label, size] of [
     const p = await planOf(page, 'improve');
     await noSerious(page);
     await rules(page, p.screen);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await callRow(page, 'Research').getByTestId('go-plan-input').click();
     const bind = await sheet(page, 'go-bind-sheet');
     await noSerious(page);
@@ -285,6 +296,7 @@ for (const [label, size] of [
     const pick = await sheet(page, 'go-routines-sheet');
     await rules(page, pick);
     await page.keyboard.press('Escape');
+    await savePlan(page); // (P-115, rewritten: Copy… is read-only Plan's — out of Edit first.)
     await p.screen.getByTestId('go-plan-more').click();
     await (await sheet(page, 'go-plan-routine')).getByTestId('go-plan-copy-item').click();
     const copy = await sheet(page, 'go-copy-sheet');

@@ -6,7 +6,7 @@
  * Jump from Paused and of the toggle are rewritten below.)
  */
 import { expect, test } from './fixtures';
-import { arrived, home, menuItems, plan, RoutineSpec, runner, settled, startGo, tileBody } from './goFixture';
+import { arrived, home, menuItems, plan, RoutineSpec, runner, settled, startGo, tileBody, editPlan, savePlan } from './goFixture';
 
 const IN_LOOP = [{ id: 'r3', routine: 'drawing', at: 1, inner: [{ routine: 'hands', at: 2, round: 2 }], status: 'running' as const }];
 
@@ -138,6 +138,7 @@ test('J37-a, J37-b: the number of a counted repeat is set in Plan; set below the
   const p = plan(page);
   // The nested routine's own divider (the run is inside it, so its row is open).
   await expect(p.divider).toHaveText('Repeat from here · 3 times');
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await p.dividerMore.click();
   const sheet = await arrived(page, 'go-plan-repeat');
   // (P-102: anchored to its ···, named — was a sheet with a heading.)
@@ -151,6 +152,7 @@ test('J37-a, J37-b: the number of a counted repeat is set in Plan; set below the
   await page.keyboard.press('Escape');
   await expect(p.divider).toHaveText('Repeat from here · 1 time');
   // The run was not ended or moved by that: it is where it was, and its round reads without a total.
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await expect(p.forward).toHaveText('Resume at Check your proportions');
   await p.forward.click();
   await expect(r.words).toHaveText('Check your proportions');
@@ -172,6 +174,7 @@ test('P-96 (ruling 7; was: "Ends here" set in Plan makes the last Next finish): 
   await startGo(page, [{ id: 'r3', routine: 'drawing', at: 2, status: 'running' }], 'runner');
   await runner(page).plan.click();
   const p = plan(page);
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await p.more('Practise drawing').click();
   const sheet = await arrived(page, 'go-plan-routine');
   // (P-102: the routine's menu holds menu items — was buttons in a sheet.)
@@ -179,6 +182,7 @@ test('P-96 (ruling 7; was: "Ends here" set in Plan makes the last Next finish): 
   await expect(sheet.getByRole('menuitem', { name: /^Remove/ })).toHaveCount(0);
   await expect(sheet.getByRole('menuitem', { name: /Ends here/ })).toHaveCount(0);
   await page.keyboard.press('Escape');
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await p.forward.click();
   await expect(runner(page).words).toHaveText('Gesture drawing');
   await expect(runner(page).next).toHaveText('Done');

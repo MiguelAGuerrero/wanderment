@@ -16,7 +16,7 @@
 import { Locator } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { exported, expectApart, expectFinal, home, MAYA, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, saved, seedGo, startGo, tile, tileBody, typeValue, planFromRoutines } from './goFixture';
+import { exported, expectApart, expectFinal, home, MAYA, openGo, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, saved, seedGo, startGo, tile, tileBody, typeValue, planFromRoutines, editPlan, savePlan } from './goFixture';
 
 const DRAWING: RoutineSpec = {
   id: 'draw',
@@ -238,13 +238,17 @@ test.describe('notices have their own row: never over a row, a tile, the note or
       // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
       await planFromRoutines(page, 'Test out the app');
       const p = plan(page);
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.add.fill('Write down concerns');
       await p.add.press('Enter');
       await expect(p.notice).toHaveCount(0);
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       await expect(() => expectApart(page, { list: p.list, home: p.home, forward: p.forward })).toPass({ timeout: 5000 });
       await phoneKeyboard(page);
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.add.click();
       await p.add.fill('One more');
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       await expect(() => expectApart(page, { add: p.add, home: p.home, forward: p.forward })).toPass({ timeout: 5000 });
     });
   }

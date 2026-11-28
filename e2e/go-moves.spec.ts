@@ -12,7 +12,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, expectApart, expectFinal, expectInside, exported, home, openGo, pastOwed, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody, planFromRoutines } from './goFixture';
+import { arrived, expectApart, expectFinal, expectInside, exported, home, openGo, pastOwed, pauseRun, phoneKeyboard, plan, RoutineSpec, runner, startGo, tile, tileBody, planFromRoutines, editPlan, savePlan } from './goFixture';
 
 /** The owner's MyStack: a call (Vibe check) that gives {mood}, a step that reads it. */
 const STACK: RoutineSpec = { id: 'stack', name: 'MyStack', steps: [{ routine: 'vibe' }, 'Pick a task for {mood}', 'Do it'] };
@@ -211,6 +211,7 @@ for (const size of SIZES) {
       // The keyboard up: a long step typed wraps — all of it shows — and nothing is said when it is added.
       await phoneKeyboard(page);
       const long = 'Look through the sketchbook from last month and pick the three pages I like least';
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.add.click();
       await p.add.fill(long);
       const grown = await p.add.evaluate((e) => ({ h: e.getBoundingClientRect().height, scroll: e.scrollHeight, client: e.clientHeight }));
@@ -228,6 +229,7 @@ for (const size of SIZES) {
       await menu.getByTestId('go-plan-undo').click();
       await expect(p.rows.filter({ hasText: long })).toHaveCount(0);
       // Home changes nothing.
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       await p.home.click();
       await expect(tile(page, 'Practise drawing').getByTestId('go-tile-line')).toHaveText('at Warm-up lines');
     });
@@ -306,6 +308,7 @@ for (const size of SIZES) {
       await planFromRoutines(page, 'Practise drawing');
       const p = plan(page);
       // Break "Warm-up lines" down into a step that gives {lines}.
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.more('Warm-up lines').click();
       let menu = await arrived(page, 'go-plan-menu');
       await menu.getByRole('menuitem', { name: 'Break it down', exact: true }).click();
@@ -355,6 +358,7 @@ for (const size of SIZES) {
       // wait for that before pressing, so the press is never made on where Start was.)
       await expect(p.typed).toHaveCount(0);
       await expect.poll(() => page.evaluate(() => Math.round(window.visualViewport?.height ?? innerHeight) === innerHeight)).toBe(true);
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       await expect(p.forward).toBeInViewport();
       await p.forward.click();
       await expect(runner(page).screen.getByTestId('go-context-gives')).toHaveText('gives {lines}');

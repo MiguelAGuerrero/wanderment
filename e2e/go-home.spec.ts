@@ -17,7 +17,7 @@
  * as a tile, or reached an idle routine's Start or Plan from its tile, are rewritten to that; each says so.
  */
 import { expect, test } from './fixtures';
-import { addStep, arrived, expectInside, home, MAYA, openGo, openRoutines, pauseRun, plan, planFromRoutines, routines, RoutineSpec, runner, RunSpec, settled, startGo, startThing, tile, tileBody, sinceDate } from './goFixture';
+import { addStep, arrived, expectInside, home, MAYA, openGo, openRoutines, pauseRun, plan, planFromRoutines, routines, RoutineSpec, runner, RunSpec, settled, startGo, startThing, tile, tileBody, sinceDate, editPlan, savePlan } from './goFixture';
 
 const THREE = [
   { id: 'r1', routine: 'apply', at: 1, reason: 'need the job ad open', touchedMinutesAgo: 30 },
@@ -46,8 +46,10 @@ test('J01-b, J01-c, J01-d (P-96; was: through the prompt and the New tile): + Ne
   const p = plan(page);
   await expect(p.add).toHaveAttribute('placeholder', 'Add a step');
   // Nothing to start until a step is typed: no button at all (never a dimmed one).
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await expect(p.forward).toHaveCount(0);
   await addStep(page, 'Warm-up lines');
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await expect(p.forward).toHaveText('Start');
   await p.forward.click();
   const r = runner(page);
@@ -65,6 +67,7 @@ test('J01-b, P-95 (3): a start leaves no Undo and no notice (it is not something
   await startGo(page, [], 'home', []);
   await startThing(page, 'Bake bread');
   await addStep(page, 'Weigh the flour');
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await plan(page).forward.click();
   const r = runner(page);
   await expect(r.words).toHaveText('Weigh the flour');
@@ -181,6 +184,7 @@ test('one thing at a time: a start while something is running is unavailable (P-
   await expect(h.newBtn).toBeEnabled();
   // New starts nothing, so it is not refused: Plan opens on the new routine — and the run goes on running.
   await startThing(page, 'bake bread');
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await expect(plan(page).forward).toHaveCount(0);
   await plan(page).home.click();
   // P-97 (was: 5 tiles): only the run going.
@@ -216,7 +220,9 @@ test('P-95 (2): New asks for the name in a sheet of its own; Plan there makes th
   expect(await go.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe('rgb(244, 241, 232)');
   await go.click();
   await expect(plan(page).title).toHaveText('Learn the ukulele');
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await expect(plan(page).add).toBeFocused();
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await plan(page).home.click();
   await h.screen.getByTestId('go-new').click();
   sheet = await arrived(page, 'go-new-sheet');

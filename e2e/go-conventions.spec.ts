@@ -6,7 +6,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, exported, home, openGo, openRoutines, openSettings, chooseBackup, pauseRun, plan, planFromRoutines, planMenu, routines, RoutineSpec, runner, saved, settled, startFromRoutines, startGo, tile, tileBody } from './goFixture';
+import { arrived, exported, home, openGo, openRoutines, openSettings, chooseBackup, pauseRun, plan, planFromRoutines, planMenu, routines, RoutineSpec, runner, saved, settled, startFromRoutines, startGo, tile, tileBody, editPlan, savePlan } from './goFixture';
 
 const TEA: RoutineSpec = { id: 'tea', name: 'Make tea', steps: ['Boil the water', 'Pour it over the leaves'] };
 const OUTER: RoutineSpec = { id: 'apply', name: 'Apply to Initech', steps: ['Read the job ad twice', { routine: 'proof' }, 'Send the application'] };
@@ -106,6 +106,7 @@ test.describe('(11, audit F3/F4) the names picker opens only at a word start and
     // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
     await planFromRoutines(page, 'Improve my workout routine');
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.add.click();
     await p.add.pressSequentially('Write to me@co');
     await expect(p.namesBar).toHaveAttribute('data-picking', 'false');
@@ -239,6 +240,7 @@ test.describe('(5) removing says so', () => {
     // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
     await planFromRoutines(page, 'Make tea');
     const ask = async () => {
+      await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
       await plan(page).screen.getByTestId('go-plan-more').click();
       const menu = await arrived(page, 'go-plan-routine');
       await menu.getByRole('menuitem', { name: 'Remove Make tea', exact: true }).click();
@@ -323,6 +325,7 @@ test.describe('(7) removing a nested routine’s row never strands that routine'
     await routines(page).row('Apply to Initech').getByTestId('go-routine-body').click();
     await planMenu(page, 'Proofread out loud', 'Remove');
     await expect(plan(page).row('Proofread out loud')).toHaveCount(0);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await plan(page).toRoutines.click();
     await expect(routines(page).row('Proofread out loud')).toHaveCount(1);
     await saved(page);
@@ -336,6 +339,7 @@ test.describe('(7, after build) removing a whole routine never strands a routine
   test('the routine it used stays on My routines (P-97; was: gets its tile on home); Undo takes the removal back; it stays across a reload', async ({ page }) => {
     await startGo(page, [], 'home', [OUTER, PROOF, TEA]);
     await planFromRoutines(page, 'Apply to Initech');
+    await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
     await plan(page).screen.getByTestId('go-plan-more').click();
     await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Remove Apply to Initech', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Remove', exact: true }).click();
@@ -349,6 +353,7 @@ test.describe('(7, after build) removing a whole routine never strands a routine
     // Removed again: across a reload, still reachable.
     await openGo(page);
     await planFromRoutines(page, 'Apply to Initech');
+    await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
     await plan(page).screen.getByTestId('go-plan-more').click();
     await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Remove Apply to Initech', exact: true }).click();
     await page.getByRole('alertdialog').getByRole('button', { name: 'Remove', exact: true }).click();
@@ -406,6 +411,7 @@ test.describe('(8) every destructive confirm is one dialog', () => {
     await planMenu(page, 'List out my doubts', 'Remove');
     await expectConfirm(page, 'Remove');
     await expect(plan(page).row('List out my doubts')).toHaveCount(1);
+    await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
     await plan(page).screen.getByTestId('go-plan-more').click();
     await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Remove Improve my workout routine', exact: true }).click();
     await expectConfirm(page, 'Remove');
@@ -483,6 +489,7 @@ for (const size of [
       // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
     await planFromRoutines(page, 'Improve my workout routine');
       const p = plan(page);
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.add.click();
       await p.add.pressSequentially('For each concern, @');
       await expect(p.namesBar).toHaveAttribute('data-picking', 'true');
@@ -521,6 +528,7 @@ test.describe('(12) the update banner, Jump, Settings errors', () => {
     await page.goto('./go/routine/tea');
     await expect(plan(page).home).toBeVisible();
     await page.waitForFunction(async () => !!(await navigator.serviceWorker.ready).active && !!navigator.serviceWorker.controller);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await plan(page).add.fill('mid-sentence');
     await request.post('/__e2e/bump-sw');
     await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());

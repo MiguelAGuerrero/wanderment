@@ -30,6 +30,7 @@ import { ListRef, readRoutine } from '@/domain/run';
 import { myRoutines } from '@/domain/routines';
 import { MAX_ITEMS, MAX_VALUE } from '@/domain/values';
 import { partsText, ShownItem, StepPart, valueDetail, ValueField, valueFrom, ValueShown, valueTrace, wordsShown } from '@/domain/runView';
+import { draftData } from '@/domain/draft';
 import { useStore } from '@/store/useStore';
 
 import { decorative } from '../a11y';
@@ -295,8 +296,9 @@ export function DraftListSheet({ title, items, refs, runId, routines, onKeep, on
  * P-108: + Add on a kept list (in Plan, under its block; on the routine's tile) — its items as rows, a new one at the end
  * with the focus; the filled Keep keeps the list in the routine (one change, said, with its Undo). No count anywhere.
  */
-export function KeptSheet({ seq, list, onClose, fallback }: { seq: string; list: string; onClose: () => void; fallback: { current: unknown } }) {
-  const data = useStore((s) => s.data);
+/** P-115: `draft` — from Plan in Edit: it reads and changes that routine's draft (the tile's + Add writes the routine). */
+export function KeptSheet({ seq, list, draft, onClose, fallback }: { seq: string; list: string; draft?: string; onClose: () => void; fallback: { current: unknown } }) {
+  const data = useStore((s) => (draft ? draftData(s.data, draft) : s.data));
   const each = readRoutine(data, seq)?.each;
   const kept = each?.kept ?? [];
   const refs = each?.refs ?? kept.map(() => null);
@@ -310,7 +312,7 @@ export function KeptSheet({ seq, list, onClose, fallback }: { seq: string; list:
       onClose={onClose}
       onKeep={(items, r) => {
         if (JSON.stringify(items) === JSON.stringify(kept) && JSON.stringify(r) === JSON.stringify(refs)) return true;
-        return useStore.getState().editRoutine(seq, { kind: 'keptList', items, refs: r }).ok;
+        return (draft ? useStore.getState().editDraft(draft, seq, { kind: 'keptList', items, refs: r }) : useStore.getState().editRoutine(seq, { kind: 'keptList', items, refs: r })).ok;
       }}
     />
   );

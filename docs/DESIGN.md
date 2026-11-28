@@ -179,7 +179,8 @@ routines in their own words — and runs them with the person, one small step at
 - **Run** *(built)*: a routine being carried out — where the person is at every level (including the
   round), running or paused *(P-101: a `mode: 'plan'` stored by an earlier build is kept and read as paused; nothing writes it)*, a pause reason (the Pause note), and a definite
   end. **A change made in Plan changes the routine** (owner, B-12): nothing is "for this run only",
-  and there is no Keep. (Runs stored before P-90 may still carry this-run changes. They are read as
+  and there is no Keep — *(P-115)* once saved: until Save it is the routine's draft, and a run (and home) read the
+  routine as saved. (Runs stored before P-90 may still carry this-run changes. They are read as
   before; the first time Plan is opened on such a run they are kept in its routine, in one write,
   with a notice saying so and an Undo. Never at load.)
 - **A breakdown** *(built)*: Break it down, on a step's menu in Plan, turns that step into a sequence
@@ -296,7 +297,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   line: ❚❚ Pause, the path, Plan at its right; Settings' and Jump's ←; ⚙ on home, at the right). The BOTTOM, lowest, is the forward choice: the filled "Resume at <step>" or Start on Plan; on
   the runner the moves and Next (see *The verbs*). On home, the filled **Resume <step>** of the queue's top row,
   beneath the side doors *(P-100; was P-101 ruling 5: no filled button)*. Side
-  doors: on home **My routines** (left, once there is a routine) and + New (right) *(P-97)*; Done at Plan's edge only (right). Rows and tiles carry only actions about
+  doors: on home **My routines** (left, once there is a routine) and + New (right) *(P-97)*; on Plan **Edit** (left — **Cancel** in
+  Edit, *P-115*) and Done at Plan's edge only (right). Rows and tiles carry only actions about
   themselves. Sheets: a title, the choices, the filled button keeps or applies, Close (lowest) leaves
   things as they were.
 - **Notices** *(P-102, the owner: "the button should be an x to dismiss")*: every notice has a **×** at its
@@ -434,6 +436,27 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   Finish <level> now is gone — Step out.)*
 - **Jump to…** *(built)* sets the run to where the person really is: the start of any level they are
   in (round one), or a particular step (the round is kept). The app never suggests you are behind.
+- **Edit, then Save or Cancel** *(built, P-115; the owner 2026-11-28: "Edit, then Save/Cancel", "Kept as a draft")*:
+  **Plan opens read-only** — the routine as saved: no grips, no Add row, no step ···, no Repeat from here moves, a call's
+  inputs as words; disclosure, a row's own view (`?at=`), its places (open) and the routine's ··· (Places…, Copy…, Start
+  over) work. **Edit**, the left side door (where Plan's other way of being is reached, as My routines is on home; the
+  band stays the way out and the word), starts a **draft** of the routine; the focus goes to the heading (the open row,
+  with nothing to stand on) and "Editing <name>" is said. In Edit every Plan change
+  goes into the draft (Plan shows it; a routine used as a step changed inside it, and a breakdown made, are the draft's
+  too) with Plan's usual Undo, which goes back through the draft step by step. The filled button is **Save** (in Resume /
+  Start's place: nothing runs from a half-made change); **Cancel** takes Edit's place, red once the draft holds a
+  change. Save writes the draft as one change — "Saved “<name>”", one Undo (which brings the draft back); Cancel with
+  changes says "Discarded changes to “<name>”" with an Undo; with none, either just ends Edit. The focus goes back to
+  Edit. **+ New opens straight into Edit.** Leaving keeps the draft: it is **stored on the routine** (`draft`: the edits
+  in order with the ids they made, and each routine it changed as saved then), so a reload, the journal, export, import
+  and hand-over keep it, and Plan reopens in Edit with it. **A run and home read the saved routine** until Save (values,
+  P-110's rules and running runs too). A routine the draft changed that was **changed elsewhere** since (another tab, a
+  run's kept list, My routines' Tags…) makes Save ask — "“<name>” was changed elsewhere" · "Saving puts your changes over
+  it as it is now." · Cancel (filled) · **Save anyway** (red), which replays the draft's edits over what is saved now (the
+  other change stays wherever the draft did not change the same thing; one Undo); an edit that can no longer be made
+  there refuses the Save, in words. Removing the routine is not a draft's (asked, then at once). Old data has no draft;
+  a draft in a later version's shape is kept, never written over, and Plan says so with no Edit. An older build reads the
+  saved routine and keeps the field. (B-19's composer ends here: it opens the routine in Edit with its draft.)
 - **Plan is the sequence, and looks nothing like the runner** *(built; B-12 frames v1, v2, v4, v5,
   v8; P-90; P-96; P-101)*: a light band pinned at the top with the word PLAN and **⌂ Home** at its right
   edge — one fixed place on every Plan screen *(P-101, ruling 2; P-103: the band's left edge, before PLAN)*; the routine's name as the heading
@@ -514,7 +537,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   in red; was a sheet with Remove filled)*; afterwards their chips
   are dashed "asks {name}" until Gives… on another step gives it again; one Undo restores the step and
   its gives; no reader's words change. A routine used as a step is a row that opens; what is changed
-  inside it changes that routine. **Every change changes the routine** — with no notice *(P-101, ruling
+  inside it changes that routine. **Every change changes the routine** *(P-115: at Save — made in Edit, into its
+  draft)* — with no notice *(P-101, ruling
   6)*, its Undo in the routine's menu until the next action — and repairs any run it touches: removing
   the HERE step puts HERE on the next step, else the one before, else at the edge — a run is never ended
   by an edit. *(P-110)* **Plan of a run shows the values held at its place** in the steps' words, in place of
@@ -555,8 +579,11 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
 - **Borrow established conventions** from adjacent productivity apps for layout, spacing, icon and
   settings placement and component choice, so the app meets expectations before it asks anyone to
   learn.
-- **Safeguards.** Everything that loses or reshapes something gets an **Undo and no confirm**: a Plan
-  edit (Gives…, renaming a name and "Gives nothing" included), New, Jump to (it can leave levels
+- **Safeguards.** *(P-115, the owner 2026-11-28: "there's no confirmation or save step … like drag a step out of
+  place" — "Edit, then Save/Cancel")* **Plan edits are made in Edit and kept only by Save**: Plan opens read-only; every
+  edit in Edit goes into a draft, each with its Undo inside the draft (step by step); **Save** makes the draft the
+  routine's in one change, with one Undo; **Cancel** throws the draft away — with changes in it, at once, in red, with an
+  Undo (no confirm). Everything else that loses or reshapes something gets an **Undo and no confirm**: New, Jump to (it can leave levels
   and reset the round), Step out, Start over *(asked first — P-101 amendment, the owner's ruling)*, a value replaced or cleared
   — from the value sheet, or from a step's own field's entry sheet *(P-101)* — *(F-3, the owner 2026-11-28: "Keeps across
   rounds" — Back never clears, across a round too; was: Back to across a round said "Cleared {name}")* any move that

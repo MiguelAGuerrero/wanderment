@@ -12,7 +12,7 @@
  * J36-a/b/c and J36-f are rewritten below (each says what it was).
  */
 import { expect, test } from './fixtures';
-import { addStep, arrived, closeMenu, expectEdit, expectRemoved, expectSteps, home, menuItems, pauseRun, place, plan, planMenu, planMove, planType, runner, startGo, tile, tileBody, sinceDate, undoEdit, planFromRoutines } from './goFixture';
+import { addStep, arrived, closeMenu, expectEdit, expectRemoved, expectSteps, home, menuItems, pauseRun, place, plan, planMenu, planMove, planType, runner, startGo, tile, tileBody, sinceDate, undoEdit, planFromRoutines, savePlan } from './goFixture';
 
 /** A wait seeded nine days ago reads its date (within the last week it would be a day's name). */
 const SINCE = sinceDate(9);
@@ -58,6 +58,7 @@ test('J34-b: the panel on a wait says what it is waiting for and since when, in 
   await planMenu(page, 'a reply from Acme', 'Edit');
   await expect(plan(page).typed).toHaveAccessibleName('Wait for: a reply from Acme');
   await planType(page, 'a reply from Acme HR');
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await plan(page).forward.click();
   await expect(r.note).toHaveAccessibleName('Wait for: a reply from Acme HR');
 });
@@ -185,6 +186,7 @@ test('J36-f (P-102): a wait made a step in Plan in the middle of a run is the ro
   await expect(p.row('a reply from Acme')).toHaveAttribute('data-kind', 'step');
   // Nothing says "this run only": it is the routine's.
   await expect(p.screen.getByText(/this run only/i)).toHaveCount(0);
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await expect(p.forward).toHaveText('Resume at Send the application');
   await p.forward.click();
   await r.next.click();

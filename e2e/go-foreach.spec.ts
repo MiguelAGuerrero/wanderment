@@ -12,7 +12,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { exported, goBackup, importBackup, openGo, plan, planMove, RoutineSpec, RunSpec, runner, settled, typeValue } from './goFixture';
+import { exported, goBackup, importBackup, openGo, plan, planMove, RoutineSpec, RunSpec, runner, settled, typeValue, editPlan, savePlan } from './goFixture';
 
 const SHOTS = '.polish/current/P-107/shots';
 const PAPER = 'rgb(244, 241, 232)';
@@ -46,6 +46,8 @@ async function sheet(page: Page, testId: string): Promise<Locator> {
 const planOf = async (page: Page, id: string) => {
   await page.goto(`./go/routine/${id}`);
   await expect(settled(page, 'plan')).toBeVisible();
+  // (P-115, rewritten: Plan opens read-only — these specs edit it, so its opener enters Edit.)
+  await editPlan(page);
   return plan(page);
 };
 
@@ -102,6 +104,7 @@ for (const [label, size] of [
     test('Plan: Add’s “For each…” lists “concern in {concerns}”; a tap makes the block, its first step typed inside — “@” picks Research; Undo takes the block back', async ({ page }) => {
       await importBackup(page, goBackup([IMPROVE, RESEARCH]));
       const p = await planOf(page, 'improve');
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.screen.getByTestId('go-plan-add-each').click();
       const pick = await sheet(page, 'go-each-sheet');
       await expect(pick.getByRole('heading', { level: 2 })).toHaveText('For each…');
@@ -153,6 +156,7 @@ for (const [label, size] of [
       await plan(page).screen.getByRole('button', { name: 'Open For each concern in {concerns}', exact: true }).click();
       await expect(plan(page).title).toHaveText('For each concern in {concerns}');
       await expect(plan(page).words).toHaveText(['Research', 'Note one thing to try']);
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       const data = await exported(page);
       const row = data.routines.improve.items![1] as { id: string; ref: string };
       expect(Object.keys(row).sort()).toEqual(['id', 'ref']);
@@ -160,6 +164,7 @@ for (const [label, size] of [
 
       // Undo: a block just made goes with the routine menu's Undo.
       const q = await planOf(page, 'improve');
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await q.screen.getByTestId('go-plan-add-each').click();
       await (await sheet(page, 'go-each-sheet')).getByRole('button', { name: 'For each concern in {concerns}', exact: true }).click();
       // (P-111, rewritten: was 6 — the first block's two steps are in its own view.)

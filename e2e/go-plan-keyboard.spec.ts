@@ -12,7 +12,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, MAYA, plan, RoutineSpec, startGo, undoEdit } from './goFixture';
+import { arrived, MAYA, plan, RoutineSpec, startGo, undoEdit, editPlan } from './goFixture';
 
 const TEST: RoutineSpec = { id: 'test', name: 'Test out the app', steps: ['Select a feature to test', 'Vibe check', 'Write down concerns'], repeatFrom: 1 };
 /** Left in Plan on "Vibe check": Plan has its notice slot and its filled button (Resume at Vibe check). */
@@ -106,6 +106,7 @@ for (const [label, size] of [
     await startGo(page, PLANNING, 'plan', [TEST, ...MAYA]);
     await phoneKeyboard(page);
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.add.click();
     await expect(p.add).toBeFocused();
     await expect.poll(() => page.evaluate(() => window.visualViewport!.height)).toBe(Math.round(size.height * (1 - KEYBOARD)));
@@ -131,6 +132,7 @@ for (const [label, size] of [
     await phoneKeyboard(page);
     const p = plan(page);
     // Change the words, mid-list.
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.more('Car wash').click();
     await (await arrived(page, 'go-plan-menu')).getByRole('menuitem', { name: 'Edit', exact: true }).click();
     await expect(p.typed).toBeFocused();
@@ -157,6 +159,7 @@ test('the add row reads as "add": a leading +, the placeholder "Add a step"; its
   await startGo(page, PLANNING, 'plan', [TEST, ...MAYA]);
   const p = plan(page);
   const row = addRow(page);
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await expect(p.add).toHaveAttribute('placeholder', 'Add a step');
   await expect(p.add).toHaveAccessibleName('Add a step');
   // A leading + (the add mark), decorative: the row is the target.

@@ -12,7 +12,7 @@
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, exported, goBackup, home, importBackup, openRoutines, plan, planMenu, RoutineSpec, runner, seedGo, settled, startGo, tile } from './goFixture';
+import { arrived, exported, goBackup, home, importBackup, openRoutines, plan, planMenu, RoutineSpec, runner, seedGo, settled, startGo, tile, editPlan } from './goFixture';
 
 const STUDY: RoutineSpec = { id: 'study', name: 'Study for the exam', steps: ['Read chapter one', 'Sleep'] };
 const MEND: RoutineSpec = { id: 'mend', name: 'Check and mend', steps: ['Wash the car'] };
@@ -29,6 +29,8 @@ async function sheet(page: Page, testId: string): Promise<Locator> {
 const planOf = async (page: Page, id: string) => {
   await page.goto(`./go/routine/${id}`);
   await expect(settled(page, 'plan')).toBeVisible();
+  // (P-115, rewritten: Plan opens read-only — these specs edit it, so its opener enters Edit.)
+  await editPlan(page);
   return plan(page);
 };
 /** Nothing cut and nothing past the window, in `scope`: controls inside the window, no text box narrower than its words. */

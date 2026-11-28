@@ -5,7 +5,7 @@
  * leave; the three buttons stay where they are and keep working.
  */
 import { expect, test } from './fixtures';
-import { drag, home, place, plan, runner, settled, startGo } from './goFixture';
+import { drag, home, place, plan, runner, settled, startGo, editPlan } from './goFixture';
 
 const IN_LOOP = [{ id: 'r3', routine: 'drawing', at: 1, inner: [{ routine: 'hands', at: 2, round: 2 }], status: 'running' as const }];
 
@@ -192,6 +192,7 @@ test('keys: Return on the note is Next, Ctrl/⌘+Z is Undo (P-95: of what has on
   // While typing (in Plan: the runner has no field), the letters are letters; Esc leaves the field and nothing else.
   await r.plan.click();
   const p = plan(page);
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await p.more('Read the job ad twice').click();
   await page.getByTestId('go-plan-menu').getByRole('menuitem', { name: 'Edit', exact: true }).click();
   await p.typed.fill('');

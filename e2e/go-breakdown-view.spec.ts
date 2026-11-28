@@ -12,7 +12,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, closeMenu, exported, goBackup, importBackup, menuItems, plan, planMenu, planType, RoutineSpec, runner, settled, typeValue, undoEdit } from './goFixture';
+import { arrived, closeMenu, exported, goBackup, importBackup, menuItems, plan, planMenu, planType, RoutineSpec, runner, settled, typeValue, undoEdit, editPlan, savePlan } from './goFixture';
 
 const SHOTS = '.polish/current/P-111/shots';
 const PAPER = 'rgb(244, 241, 232)';
@@ -102,6 +102,7 @@ for (const [label, size] of [
       await expect(steps(page)).toHaveText(['Open {feature}', 'Poke at it']);
       await expect(p.rows.first()).toHaveAttribute('data-depth', '0');
       // Its own Add a step: after its last step, no ··· needed.
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.add.fill('Write it up');
       await p.add.press('Enter');
       await expect(steps(page)).toHaveText(['Open {feature}', 'Poke at it', 'Write it up']);
@@ -121,6 +122,7 @@ for (const [label, size] of [
       await expect(menuItems(await arrived(page, 'go-plan-menu'))).toHaveText(size.width > 300 ? ['Edit', 'Add a step after', 'Break it down', 'Gives…', 'Remove'] : ['Edit', 'Add a step after', 'Break it down', 'Gives…', 'Move up', 'Move down', 'Remove']);
       await closeMenu(page, 'go-plan-menu');
       // Its own ··· (the heading's): Edit its words, Remove.
+      await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
       await p.screen.getByTestId('go-plan-more').click();
       await expect(menuItems(await arrived(page, 'go-plan-routine'))).toHaveText(['Edit', 'Remove']);
       await closeMenu(page, 'go-plan-routine');
@@ -144,6 +146,7 @@ for (const [label, size] of [
       await p.screen.getByTestId('go-plan-into').filter({ hasText: 'For each concern in' }).click();
       await expect(p.title).toHaveText('For each concern in {concerns}');
       await expect(steps(page)).toHaveText(['Write down {concern}']);
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.add.click();
       await p.add.pressSequentially('Rate {concern');
       await expect(p.namesBar).toHaveAttribute('data-picking', 'true');
@@ -151,6 +154,7 @@ for (const [label, size] of [
       await expect(p.add).toHaveValue('Rate {concern} ');
       await p.add.press('Enter');
       await expect(steps(page)).toHaveText(['Write down {concern}', 'Rate {concern}']);
+      await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
       await p.screen.getByTestId('go-plan-more').click();
       // (No Edit: its words are the sentence. The step just added is the last action: its Undo is here.)
       await expect(menuItems(await arrived(page, 'go-plan-routine'))).toHaveText([/^Undo added/, 'Remove']);
@@ -169,6 +173,7 @@ for (const [label, size] of [
       await expect(page).toHaveURL(/\/go\/routine\/test$/);
       await expect(p.screen.getByRole('button', { name: 'Close Take notes', exact: true })).toHaveAttribute('aria-expanded', 'true');
 
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       const stored = await exported(page);
       expect(stored.routines.vibe.items!.map((i) => i.text)).toEqual(['Open {feature}', 'Poke at it']);
       expect(stored.routines.loop.items!.map((i) => i.text)).toEqual(['Write down {concern}', 'Rate {concern}']);
@@ -200,6 +205,7 @@ for (const [label, size] of [
       await page.reload();
       await expect(plan(page).title).toHaveText('Vibe check');
       // Its own words changed from its own ···.
+      await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
       await p.screen.getByTestId('go-plan-more').click();
       await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Edit Vibe check', exact: true }).click();
       await planType(page, 'Vibe check it');
@@ -209,6 +215,8 @@ for (const [label, size] of [
       await expect(p.title).toHaveText('Test the app');
       await expect(p.row('Vibe check it')).toHaveAccessibleName('You are in this, Vibe check it');
       await expect(into(page, 'Vibe check it')).toBeFocused();
+      // (P-115, rewritten: Resume is read-only Plan's — saved first; the run is where it was.)
+      await savePlan(page);
       await expect(p.forward).toHaveText('Resume at Poke at it');
       // Back to the run, where it was.
       await p.back.click();
@@ -222,6 +230,7 @@ for (const [label, size] of [
       const p = plan(page);
       await into(page, 'Vibe check').click();
       await expect(p.title).toHaveText('Vibe check');
+      await editPlan(page); // (P-115, rewritten: the routine's ··· edits are Edit's — Edit first.)
       await p.screen.getByTestId('go-plan-more').click();
       await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Remove Vibe check', exact: true }).click();
       await expect(p.title).toHaveText('Test the app');
@@ -236,6 +245,7 @@ for (const [label, size] of [
       const p = plan(page);
       await into(page, 'Vibe check').click();
       await expect(p.title).toHaveText('Vibe check');
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.add.click();
       await p.add.pressSequentially('@Doc');
       await expect(p.namesBar).toHaveAttribute('data-picking', 'true');
@@ -243,6 +253,7 @@ for (const [label, size] of [
       await expect(steps(page)).toHaveText(['Open {feature}', 'Poke at it', 'Doc']);
       await expect(p.row('Doc')).toHaveAttribute('data-kind', 'routine');
 
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       await page.goto('./go/routine/at');
       await expect(p.title).toHaveText('With a call in words');
       await planMenu(page, '@Doc', 'Edit');
@@ -255,6 +266,7 @@ for (const [label, size] of [
       await p.more('@Doc').click();
       await expect(menuItems(await arrived(page, 'go-plan-menu'))).toContainText(['Make it a call']);
       await closeMenu(page, 'go-plan-menu');
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       const stored = await exported(page);
       expect(stored.routines.at.items![0]).toMatchObject({ text: '@Doc' });
       expect(stored.routines.vibe.items![2]).toMatchObject({ ref: 'doc' });

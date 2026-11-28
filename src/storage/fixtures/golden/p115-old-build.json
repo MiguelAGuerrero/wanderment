@@ -1,0 +1,276 @@
+{
+  "planMorning": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Brew coffee",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Write three pages",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Read them back",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ]
+  },
+  "planMorningRun": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Brew coffee",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Write three pages",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Read them back",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "Morning pages",
+      "parent": null,
+      "step": "step",
+      "words": "Write three pages",
+      "fields": [],
+      "values": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    },
+    "tile": {
+      "line": "at Write three pages",
+      "path": [
+        "Morning pages"
+      ]
+    }
+  },
+  "planWeekly": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Clear the inbox",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Look at the calendar",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick three priorities",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ]
+  },
+  "planPack": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Check the weather",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Lay out the clothes",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ]
+  },
+  "planWeeklyEdited": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Clear the inbox",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Look at the calendar",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Pick three priorities",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Plan the week",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ]
+  },
+  "planEvening": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Brew coffee",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Write three pages",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Read them back",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ]
+  },
+  "runnerMorning": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Brew coffee",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Write three pages",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Read them back",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "Morning pages",
+      "parent": null,
+      "step": "step",
+      "words": "Write three pages",
+      "fields": [],
+      "values": [],
+      "moves": {
+        "stepIn": false
+      },
+      "next": "next"
+    },
+    "tile": {
+      "line": "at Write three pages",
+      "path": [
+        "Morning pages"
+      ]
+    }
+  }
+}

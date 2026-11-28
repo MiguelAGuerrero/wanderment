@@ -6,6 +6,7 @@ import { Settings } from '@/domain/migrate';
 import { LogInput, logActivity, newId } from '@/domain/model';
 import { activePart, ChunkGiven, currentRun, holdsLockedParts, place, editRoutine, Given, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
 import { copiedWords, Copied, copyAndAdd, copyFromLibrary, usesYour } from '@/domain/library';
+import { beginDraft, cancelDraft, draftEdit, draftOf, DraftResult, hasChanges, saveDraft as saveTheDraft, undoDraftStep } from '@/domain/draft';
 import { Acted, noticeFor, runnerView, whatChanged } from '@/domain/runView';
 import { Data, emptyData, Id, Run } from '@/domain/types';
 import { nameKey, tidyName } from '@/domain/values';
@@ -87,7 +88,13 @@ export interface ToLog {
 export type Did =
   /** `home` (P-96, ruling 7): the screen goes home — the press ended the run (finishing never opens Plan), or paused it. */
   | { ok: true; runId?: Id; routineId?: Id; home?: true }
-  | { ok: false; reason: Refusal | 'reconnecting'; running?: { runId: Id; name: string } };
+  | { ok: false; reason: Refusal | 'reconnecting' | DraftRefusal; running?: { runId: Id; name: string }; names?: string[] };
+
+/**
+ * P-115: why a draft action was refused — `changed`: a routine the draft changed was changed elsewhere since (`names`);
+ * `locked`: the draft is in a shape this version cannot read (kept, never written over); `no-draft`: there is none.
+ */
+export type DraftRefusal = 'changed' | 'locked' | 'no-draft';
 
 /**
  * The notice after a run action (one at a time, until the next action). `text` may be '' (the step
@@ -114,6 +121,11 @@ export interface RunNotice {
    * the panel's row, Ctrl/⌘+Z and Plan's menu until the next change replaces or clears the slot.
    */
   hidden?: true;
+  /**
+   * P-115: a change to the draft of this routine (an edit into it, Save, Cancel) — once its Undo is taken, the draft's
+   * edit before it is the next Undo (Undo goes back through the draft step by step).
+   */
+  draft?: Id;
 }
 
 /** A press on the runner or in Plan while reconnecting (P-86, P-90): applied once the data is back, if the run is as it was. */
@@ -293,6 +305,35 @@ interface State {
    * at the end), in one write. A Plan edit: no notice; its Undo (the routine's menu, Ctrl/⌘+Z) removes both.
    */
   copyAndAdd: (libId: Id, seq: Id, after?: Id | null) => Did;
+  /**
+   * P-115 (the owner: "Edit, then Save/Cancel"; "Kept as a draft"): Edit — a draft of the routine (stored on it, so a
+   * reload, the journal, export and import keep it, and Plan reopens in Edit). Already one: nothing changes. No Undo
+   * (the Undo slot is emptied: nothing before it can be taken back into the draft). Refused `locked` for a draft this
+   * version cannot read.
+   */
+  beginEdit: (routineId: Id) => Did;
+  /**
+   * P-115: a Plan edit made in Edit — into the draft of `rootId` (the routine whose Plan it is), never the routine: a run
+   * and home keep reading the saved one. Refused as the edit would be. Its notice and Undo as a Plan edit's (quiet, but
+   * a removed step's, said); Undo takes back the draft's last edit, then the one before (step by step).
+   */
+  editDraft: (rootId: Id, seq: Id, edit: RoutineEdit) => Did;
+  /** P-115: Copy and add (P-105) made in Edit — into the draft, as `editDraft`. */
+  copyAndAddDraft: (rootId: Id, libId: Id, seq: Id, after?: Id | null) => Did;
+  /**
+   * P-115: Save — the draft made the routine's in ONE write, said ("Saved “X”") with one Undo, which brings the routine
+   * (and the runs it repaired) back and the draft with it. Nothing in the draft: Edit ends, nothing to say. Refused
+   * `changed` (naming them) when a routine it changed was changed elsewhere since — `anyway` saves over what is saved
+   * now (asked first by the screen); `cannot` when the edits can no longer be made there.
+   */
+  saveDraft: (rootId: Id, anyway?: boolean) => Did;
+  /** P-115: Cancel — the draft thrown away; with changes in it, said ("Discarded changes to “X”") with an Undo that brings it back. */
+  cancelDraft: (rootId: Id) => Did;
+  /**
+   * P-115 (B-19: the composer ends in Plan, to look it over): the routine opened in Edit with these edits in its draft
+   * already (each one of the draft's steps; one write). Refused whole if any is. The screen then opens its Plan.
+   */
+  openInEdit: (routineId: Id, edits: { seq: Id; edit: RoutineEdit }[]) => Did;
   /** P-98: a refusal said in words, in the notice's row (nothing changed, nothing to undo): Plan's "a routine as a step of itself". */
   say: (text: string) => void;
   /** The notice was put away. Session only. */
@@ -475,6 +516,35 @@ function copied(r: Copied, quiet: boolean): Did {
   });
   return { ok: true, ...(r.routineId !== undefined && { routineId: r.routineId }) };
 }
+/** P-115: what a Plan edit's Undo is labelled (as `act` labels it). */
+const EDIT_LABEL = noticeFor('editRoutine', undefined).label;
+
+/**
+ * P-115: a change to a routine's draft kept — the data, and (with `notice`) its Undo and notice, marked as the draft's so
+ * that Undo, once taken, goes on to the draft's edit before it. Without `notice` the Undo slot is left as it is.
+ */
+function drafted(rootId: Id, r: DraftResult, notice?: { text: string; label: string; quiet: boolean }): Did {
+  if (!r.ok) return { ok: false, reason: r.reason ?? 'cannot', ...(r.names && { names: r.names }) };
+  const s = useStore.getState();
+  const did: Did = { ok: true, routineId: r.routineId ?? rootId };
+  if (r.data === s.data) return did;
+  // (Nothing to say — Edit begun by the composer, Save or Cancel of a draft with nothing in it: only the field changed, and
+  // the Undo there is, if any, still takes back what it did.)
+  if (!notice) {
+    useStore.setState({ data: r.data, toVerb: undefined, toast: undefined });
+    return did;
+  }
+  const entry = undoEntry(s.data, r.data);
+  useStore.setState({
+    data: r.data,
+    undo: entry,
+    runNotice: { verb: 'editRoutine', text: notice.text, label: notice.label, entry, draft: rootId, ...(notice.quiet && { quiet: true as const }) },
+    toVerb: undefined,
+    toast: undefined,
+  });
+  return did;
+}
+
 /** What a copy's Undo takes back ("Undo Copy"). */
 const LABEL_COPY = 'Copy';
 
@@ -601,8 +671,19 @@ export const useStore = create<State>()((set, get) => ({
   },
 
   undoLast: gated<State['undoLast']>(false, () => {
-    const { undo, data } = get();
-    if (undo) set({ data: applyUndo(data, undo), undo: undefined, toast: undefined, runNotice: undefined });
+    const { undo, data, runNotice } = get();
+    if (!undo) return true;
+    const back = applyUndo(data, undo);
+    // P-115: inside a draft, Undo goes back step by step — the draft's edit before this one is the next Undo.
+    const root = runNotice?.entry === undo ? runNotice.draft : undefined;
+    const d = root !== undefined ? draftOf(back, root) : undefined;
+    if (root !== undefined && d && d.log.length) {
+      // (An Undo puts back its `before`: here, the draft one edit shorter.)
+      const entry = undoEntry(undoDraftStep(back, root).data, back);
+      set({ data: back, undo: entry, toast: undefined, runNotice: { verb: 'editRoutine', text: d.log[d.log.length - 1].said, label: EDIT_LABEL, entry, quiet: true, draft: root } });
+      return true;
+    }
+    set({ data: back, undo: undefined, toast: undefined, runNotice: undefined });
     return true;
   }),
 
@@ -624,7 +705,16 @@ export const useStore = create<State>()((set, get) => ({
     const had = Object.keys(get().data.runs).map((id) => readRun(get().data, id)).find((r) => r && !r.endedAt && r.routineId === routineId);
     return (had && busyWith(had.id)) ?? act({ kind: 'start', routineId }, keepUndo ? 'keep' : 'clear');
   }),
-  createRoutine: gated<State['createRoutine']>(refused, (words) => act({ kind: 'new', words }, 'set')),
+  createRoutine: gated<State['createRoutine']>(refused, (words) => {
+    const had = get().data.routines;
+    const did = act({ kind: 'new', words }, 'set');
+    // P-115: a new routine opens straight into Edit — its draft begun in the same change (its Undo still takes it away whole).
+    if (did.ok && did.routineId && !Object.prototype.hasOwnProperty.call(had, did.routineId)) {
+      const b = beginDraft(get().data, did.routineId, envNow());
+      if (b.ok) set({ data: b.data });
+    }
+    return did;
+  }),
   resumeRun: gated<State['resumeRun']>(
     refused,
     (runId, keepUndo, into) => {
@@ -685,6 +775,41 @@ export const useStore = create<State>()((set, get) => ({
   }),
   copyFromLibrary: gated<State['copyFromLibrary']>(refused, (libId, words) => copied(copyFromLibrary(get().data, libId, envNow(), words === undefined ? {} : { words }), false)),
   copyAndAdd: gated<State['copyAndAdd']>(refused, (libId, seq, after) => copied(copyAndAdd(get().data, libId, seq, after, envNow()), true)),
+  beginEdit: gated<State['beginEdit']>(refused, (routineId) => {
+    const r = beginDraft(get().data, routineId, envNow());
+    if (!r.ok) return { ok: false, reason: r.reason ?? 'cannot' };
+    if (r.data !== get().data) set({ data: r.data, undo: undefined, runNotice: undefined, toVerb: undefined, toast: undefined });
+    return { ok: true, routineId };
+  }),
+  editDraft: gated<State['editDraft']>(refused, (rootId, seq, edit) => {
+    const r = draftEdit(get().data, rootId, { seq, edit }, envNow());
+    // As Plan's edits on the routine: quiet, but a removed step (and Copy, and the Places sheet's) is said.
+    const loud = edit.kind === 'remove' || edit.kind === 'copy' || PLACE_EDITS.has(edit.kind);
+    return drafted(rootId, r, r.ok ? { text: r.said ?? '', label: edit.kind === 'copy' ? LABEL_COPY : EDIT_LABEL, quiet: !loud } : undefined);
+  }),
+  copyAndAddDraft: gated<State['copyAndAddDraft']>(refused, (rootId, libId, seq, after) => {
+    const r = draftEdit(get().data, rootId, { seq, lib: libId, ...(after !== undefined && { after }) }, envNow());
+    const uses = r.ok ? usesYour({ ok: true, data: r.data, ...(r.used && { used: r.used }) }) : '';
+    return drafted(rootId, r, r.ok ? { text: `${r.said ?? ''}${uses}`, label: LABEL_COPY, quiet: !uses } : undefined);
+  }),
+  saveDraft: gated<State['saveDraft']>(refused, (rootId, anyway) => {
+    const had = draftOf(get().data, rootId);
+    const r = saveTheDraft(get().data, rootId, envNow(), !!anyway);
+    if (!r.ok || hasChanges(had)) return drafted(rootId, r, { text: `Saved “${r.data.routines[rootId]?.words ?? ''}”`, label: 'Save', quiet: false });
+    // Nothing in it: Edit ends, and there is nothing to take back.
+    return drafted(rootId, r);
+  }),
+  cancelDraft: gated<State['cancelDraft']>(refused, (rootId) => {
+    const had = draftOf(get().data, rootId);
+    const r = cancelDraft(get().data, rootId);
+    return hasChanges(had) ? drafted(rootId, r, { text: `Discarded changes to “${get().data.routines[rootId]?.words ?? ''}”`, label: 'Cancel', quiet: false }) : drafted(rootId, r);
+  }),
+  openInEdit: gated<State['openInEdit']>(refused, (routineId, edits) => {
+    let r: DraftResult = beginDraft(get().data, routineId, envNow());
+    for (const e of edits) if (r.ok) r = draftEdit(r.data, routineId, e, envNow());
+    if (!r.ok) return { ok: false, reason: r.reason ?? 'cannot' };
+    return drafted(routineId, { ...r, routineId });
+  }),
   say: (text) => set({ runNotice: { verb: 'editRoutine', text, label: '' } }),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
   hideNotice: () => set((s) => ({ ...(s.runNotice && !s.runNotice.hidden && { runNotice: { ...s.runNotice, hidden: true as const } }), ...(s.toast?.notice && { toast: undefined }) })),

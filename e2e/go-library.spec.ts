@@ -15,7 +15,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, exported, importBackup, openRoutines, plan, routines, RoutineSpec, runner, seedGo, settled, startGo } from './goFixture';
+import { arrived, exported, importBackup, openRoutines, plan, routines, RoutineSpec, runner, seedGo, settled, startGo, editPlan, savePlan } from './goFixture';
 
 const SHOTS = '.polish/current/P-104/shots';
 const PAPER = 'rgb(244, 241, 232)';
@@ -95,6 +95,8 @@ const lib = (page: Page) => {
 const planOf = async (page: Page, id: string) => {
   await page.goto(`./go/routine/${id}`);
   await expect(settled(page, 'plan')).toBeVisible();
+  // (P-115, rewritten: Plan opens read-only — these specs edit it, so its opener enters Edit.)
+  await editPlan(page);
   return plan(page);
 };
 
@@ -242,11 +244,13 @@ for (const size of [
       await expect(runner(page).words).toHaveText('Put {material} out of sight');
       // Called from another routine: Add's "a routine" lists it under Yours.
       const p = await planOf(page, 'study');
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.screen.getByTestId('go-plan-add-routine').click();
       const pick = await sheet(page, 'go-routines-sheet');
       await pick.getByRole('button', { name: /^Add as a step: Recall before you look/ }).click();
       await expect(p.words).toHaveText(['Read chapter one', 'Sleep', 'Recall before you look']);
       // Export: the copies are ordinary routines, nothing of the library in them; imported back, they are there.
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       const data = await exported(page);
       const json = JSON.stringify({ app: 'wanderment', exportedAt: new Date().toISOString(), data });
       expect(json).not.toMatch(/lib-/);
@@ -261,6 +265,7 @@ for (const size of [
     test('P-105: "@" and part of a method’s name offers it under Library, apart from Yours; Return copies nothing; the chip opens the sheet with Copy and add; the routine’s menu Undo removes both', async ({ page }) => {
       await seedGo(page, [STUDY]);
       const p = await planOf(page, 'study');
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.add.click();
       // The person's own words: no list.
       await p.add.fill('recall before you look');
@@ -277,6 +282,7 @@ for (const size of [
       // Return copies nothing (the words are a step, as an "@" that names none of yours always was).
       await p.add.press('Enter');
       await expect(p.words).toHaveText(['Read chapter one', 'Sleep', '@recall']);
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       let data = await exported(page);
       expect(Object.values(data.routines).map((x) => x.words)).toEqual(['Study for the exam']);
       // The chip: the preview, its filled button Copy and add.
@@ -305,6 +311,7 @@ for (const size of [
     test('P-105: Add’s "a routine" lists Yours and Library under headings; a library row opens the sheet with Copy and add', async ({ page }) => {
       await seedGo(page, [STUDY, GUIDE]);
       const p = await planOf(page, 'study');
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.screen.getByTestId('go-plan-add-routine').click();
       const pick = await sheet(page, 'go-routines-sheet');
       await expect(pick.getByTestId('go-routines-sheet-heading')).toHaveText(['Yours', 'Library']);
@@ -319,6 +326,7 @@ for (const size of [
       const s = await sheet(page, 'go-lib-sheet');
       await s.getByTestId('go-lib-copy').click();
       await expect(p.words).toHaveText(['Read chapter one', 'Sleep', 'Set a cue to start']);
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       const data = await exported(page);
       expect(Object.values(data.routines).map((x) => x.words).sort()).toEqual(['Draw with guidelines', 'Set a cue to start', 'Study for the exam']);
     });

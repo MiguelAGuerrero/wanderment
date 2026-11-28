@@ -241,6 +241,8 @@ export async function openAndStart(page: Page, words: string) {
 export async function startRun(page: Page, words: string, step = 'A first small step') {
   await startThing(page, words);
   await addStep(page, step);
+  // (P-115, rewritten: + New opens in Edit — the step is saved before Start, which Edit's Save replaces.)
+  await savePlan(page);
   await plan(page).forward.click();
   await expect(runner(page).words).toHaveText(step);
 }
@@ -325,7 +327,8 @@ export const plan = (page: Page) => {
     line: screen.getByTestId('go-plan-line'),
     list: screen.getByTestId('go-plan-list'),
     rows,
-    row: (words: string) => rows.filter({ has: page.getByRole('button', { name: `More for ${words}`, exact: true }) }),
+    // (P-115, rewritten: read-only rows have no ···; a row is also found by its words, as stored — `data-words`.)
+    row: (words: string) => rows.filter({ has: page.getByRole('button', { name: `More for ${words}`, exact: true }) }).or(screen.locator(`[data-testid="go-plan-row"][data-words="${words.replace(/["\\]/g, '\\$&')}"]`)),
     here: screen.locator('[data-testid="go-plan-row"][data-here="true"]'),
     words: screen.getByTestId('go-plan-words'),
     divider: screen.getByTestId('go-plan-divider'),
@@ -335,6 +338,10 @@ export const plan = (page: Page) => {
     add: screen.getByTestId('go-plan-add'),
     typed: screen.getByTestId('go-plan-typed'),
     forward: screen.getByTestId('go-plan-forward'),
+    /** P-115: Edit (the band's right, read-only Plan); in Edit, Save (the filled button) and Cancel (the left side door). */
+    edit: screen.getByTestId('go-plan-edit'),
+    save: screen.getByTestId('go-plan-save'),
+    cancel: screen.getByTestId('go-plan-cancel'),
     /** P-96: the side doors' row (⌂ Home · Done at the edge). */
     doors: screen.getByTestId('go-side-doors'),
     /** P-96: the bar above the keyboard, and its names. */
@@ -346,6 +353,30 @@ export const plan = (page: Page) => {
     said: screen.getByTestId('go-said'),
   };
 };
+
+/**
+ * P-115 (the owner: "Edit, then Save/Cancel"): Plan opens read-only; its edits are made in Edit. Enters Edit (Edit, the left side door —
+ * not the band) unless Plan is in it already, and waits for it (Save is the filled button). The edit helpers here call it first,
+ * so a spec that edits Plan needs nothing more; one that then runs or reads what was saved calls `savePlan`.
+ */
+export async function editPlan(page: Page) {
+  const p = plan(page);
+  await expect(p.edit.or(p.save)).toBeVisible();
+  // (Pressed while the page takes the data back, it is refused with the quiet note: pressed again once it holds it.)
+  await expect(async () => {
+    if (await p.edit.isVisible()) await p.edit.click();
+    await expect(p.save).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+}
+
+/** P-115: Save in Plan (the filled button in Edit) — the draft is the routine's; Plan is read-only again. */
+export async function savePlan(page: Page) {
+  const p = plan(page);
+  await expect(async () => {
+    if (await p.save.isVisible()) await p.save.click();
+    await expect(p.edit).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+}
 
 /** In Plan: the steps as they read, top to bottom ("Wait for <words>" for a wait) — waited for, so it can follow an edit or a load. */
 export const expectSteps = (page: Page, steps: string[]) => expect(plan(page).words).toHaveText(steps);
@@ -375,6 +406,8 @@ export async function expectFinal(page: Page, name: string) {
 
 /** In Plan: opens a step's menu and takes one of its actions (in words). P-102: an anchored menu of menu items (was: a sheet of buttons). */
 export async function planMenu(page: Page, words: string, action: string) {
+  // (P-115, rewritten: a step's ··· is Edit's — Edit first.)
+  await editPlan(page);
   await plan(page).more(words).click();
   const menu = await arrived(page, 'go-plan-menu');
   await menu.getByRole('menuitem', { name: action, exact: true }).click();
@@ -394,6 +427,8 @@ export async function closeMenu(page: Page, testId: 'go-plan-menu' | 'go-plan-re
  * here); one press, one place.
  */
 export async function planMove(page: Page, words: string, dir: 'up' | 'down') {
+  // (P-115, rewritten: moving is Edit's — Edit first.)
+  await editPlan(page);
   const more = plan(page).more(words);
   await more.focus();
   await expect(more).toBeFocused();
@@ -551,6 +586,8 @@ export const saved = (page: Page) => expect.poll(() => page.evaluate(() => local
 
 /** In Plan: types a step into "Add a step" and Return. It is added at the end (at the edge of a goal, the run then stands on it). */
 export async function addStep(page: Page, text: string) {
+  // (P-115, rewritten: the Add row is Edit's — Edit first.)
+  await editPlan(page);
   const p = plan(page);
   await p.add.fill(text);
   await p.add.press('Enter');

@@ -15,7 +15,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, chooseBackup, exported, goBackup, home, IMPORTED, menuItems, openSettings, pauseRun, plan, planFromRoutines, RoutineSpec, runner, RunSpec, startGo, tile } from './goFixture';
+import { arrived, chooseBackup, exported, goBackup, home, IMPORTED, menuItems, openSettings, pauseRun, plan, planFromRoutines, RoutineSpec, runner, RunSpec, startGo, tile, editPlan, savePlan } from './goFixture';
 
 const PAPER = 'rgb(244, 241, 232)';
 const NOTION = 'https://www.notion.so/team/Product-design-1a2b3c';
@@ -92,6 +92,8 @@ async function expectRules(scope: Locator, filled: string[]) {
 
 /** Plan's routine ··· → Places…: the sheet, arrived. */
 async function openPlaces(page: Page, name: string) {
+  // (P-115, rewritten: the Places sheet's changes are Edit's — Edit first.)
+  await editPlan(page);
   await plan(page).more(name).click();
   await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: `Places for ${name}`, exact: true }).click();
   return arrived(page, 'go-places-sheet');
@@ -198,6 +200,7 @@ for (const size of [
       await sheet.getByTestId('go-places-close').click();
       await expect(page.getByTestId('go-places-sheet')).toHaveCount(0);
       // The last change's Undo is in the routine's menu too, as every Plan edit's.
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.more('Product design').click();
       await expect((await arrived(page, 'go-plan-routine')).getByTestId('go-plan-undo')).toHaveText('Undo removed “The brief”');
       await page.keyboard.press('Escape');
@@ -223,6 +226,7 @@ for (const size of [
       await page.reload();
       await expect(plan(page).title).toHaveText('Product design');
       await expect(page.getByTestId('go-plan-place')).toHaveText(['Sketchbook', 'Design doc']);
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       const data = await exported(page);
       expect((data.routines.design.places as { name: string; where: string }[]).map((x) => [x.name, x.where])).toEqual([
         ['Sketchbook', 'left shelf, the grey one'],

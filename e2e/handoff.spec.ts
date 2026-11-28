@@ -2,7 +2,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { addStep, anotherTab, arrived, exported, home, plan, RoutineSpec, runner, saved, setVisibility, settled, startGo, turn, typeValue, planFromRoutines, openRoutines } from './goFixture';
+import { addStep, anotherTab, arrived, editPlan, exported, home, plan, RoutineSpec, runner, saved, savePlan, setVisibility, settled, startGo, turn, typeValue, planFromRoutines, openRoutines } from './goFixture';
 
 /**
  * P-29 part B: a page holds the data only while it's visible. Headless Chromium keeps every page
@@ -55,6 +55,7 @@ const spanishSteps = async (page: Page) => ((await exported(page)).routines['spa
 async function nameOf(page: Page, name: string) {
   // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
   await planFromRoutines(page, name);
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await plan(page).more(name).click();
   await (await arrived(page, 'go-plan-routine')).getByRole('menuitem', { name: 'Change the name', exact: true }).click();
   const field = plan(page).typed;
@@ -73,6 +74,7 @@ test('a hidden page lets a waiting one open by itself; shown again, it takes the
   await b.evaluate(() => ((window as unknown as { stillHere: boolean }).stillHere = true));
 
   // Words typed in A, not entered, come through the hand-off.
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await plan(page).add.fill('half-typed in A');
   await turn(page, 'hidden');
   // B opens by itself, where A left off: the run, in Plan.
@@ -88,6 +90,7 @@ test('a hidden page lets a waiting one open by itself; shown again, it takes the
   const name = await nameOf(b, 'Practise drawing');
   await name.fill('Practise drawing daily');
   await name.press('Enter');
+  await savePlan(b); // (P-115, rewritten: the rename is saved — A then reads it.)
   await saved(b);
 
   // Hand-back: B goes to the background, A comes forward.
@@ -108,6 +111,7 @@ test('a hidden page lets a waiting one open by itself; shown again, it takes the
   await addStep(page, 'and one more');
   await saved(page);
   // And A shows what B changed.
+  await savePlan(page); // (P-115, rewritten: the steps are saved before leaving — what is stored is read last.)
   await page.goBack();
   // P-97 (was: its tile on home): a routine with nothing going is on My routines.
   await expect(home(page).screen).toBeVisible();
@@ -177,6 +181,7 @@ test('update reloads with another page in the background never lock the page out
   expect(await page.evaluate(() => sessionStorage.getItem('sawWaiting'))).toBeNull();
   // Each update reload let go of the data first (and waited for it), rather than racing its own files.
   expect(await second.evaluate(() => (window as unknown as { releases?: number }).releases)).toBe(3);
+  await savePlan(page); // (P-115, rewritten: the steps are saved — what is stored is read.)
   expect(await spanishSteps(page)).toEqual(['before update 1', 'before update 2', 'before update 3']);
 });
 
@@ -193,6 +198,7 @@ async function handTo(page: Page, b: Page, lands: 'home' | 'runner' | 'plan') {
 test('the audit’s F1 with two real pages: the page that doesn’t hold the data refuses changes, so nothing is lost when the other writes and it reloads (P-29)', async ({ page, context }) => {
   await startGo(page, AT_EDGE, 'plan');
   const b = await context.newPage();
+  await editPlan(page); // (P-115, rewritten: A is in Edit before it hands the data over.)
   await handTo(page, b, 'plan');
 
   // A doesn't hold the data now (as while it is "reconnecting" after coming back, which only lasts a
@@ -213,6 +219,7 @@ test('the audit’s F1 with two real pages: the page that doesn’t hold the dat
   await expect(anotherTab(page)).toBeVisible({ timeout: 20_000 });
   await turn(b, 'hidden');
   await expect(plan(page).row('beta')).toHaveCount(1, { timeout: 15_000 });
+  await savePlan(page); // (P-115, rewritten: B's step, in the draft, is saved — what is stored is read.)
   expect(await spanishSteps(page)).toEqual(['beta']);
 });
 
@@ -253,6 +260,7 @@ test('a save that keeps failing, then a tab switch and back: nothing vanishes, a
   await expect(page.getByText(/couldn’t be (saved|restored)/)).toHaveCount(0);
   await page.reload();
   await expect(plan(page).add).toBeVisible({ timeout: 15_000 });
+  await savePlan(page); // (P-115, rewritten: the steps are saved — what is stored is read.)
   expect(await spanishSteps(page)).toEqual(['alpha', 'unsaved', 'saved again']);
 });
 
@@ -326,6 +334,7 @@ test('a name emptied in one page doesn’t put back its old text over another pa
   await setVisibility(page, 'hidden');
   await turn(b, 'visible');
   await expect(plan(b).title).toHaveText('Practise drawing, edited in B');
+  await savePlan(b); // (P-115, rewritten: B's rename is saved — what is stored is read.)
   expect(Object.values((await exported(b)).routines).map((r) => r.words)).toContain('Practise drawing, edited in B');
 });
 
@@ -396,6 +405,7 @@ test.describe('without the service worker (the wasm comes from the network)', ()
   test('a transient failure taking the data back (the wasm out of reach for a try) recovers by itself, with the data shown and typed words kept (P-29)', async ({ page }) => {
     await startGo(page, AT_EDGE, 'plan');
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.add.fill('a draft');
     await setVisibility(page, 'hidden');
     // The worker shut down, so taking the data back loads the wasm again: make that fail for now.
@@ -450,6 +460,7 @@ test('an update reload while a second window is visible and waiting hands the da
   await second.goto('./go');
   await expect(anotherTab(second)).toBeVisible({ timeout: 20_000 });
 
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await plan(page).add.fill('typed before the update');
   await request.post('/__e2e/bump-sw');
   await page.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.update());

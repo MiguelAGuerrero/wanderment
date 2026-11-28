@@ -11,7 +11,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { exported, goBackup, importBackup, plan, RoutineSpec, runner, settled } from './goFixture';
+import { exported, goBackup, importBackup, plan, RoutineSpec, runner, settled, editPlan, savePlan } from './goFixture';
 
 const SHOTS = '.polish/current/P-108/shots';
 const PAPER = 'rgb(244, 241, 232)';
@@ -25,9 +25,11 @@ async function sheet(page: Page, testId: string): Promise<Locator> {
   await expect(s).toHaveAttribute('data-moving', 'false');
   return s;
 }
-const planOf = async (page: Page, id: string) => {
+const planOf = async (page: Page, id: string, edit = true) => {
   await page.goto(`./go/routine/${id}`);
   await expect(settled(page, 'plan')).toBeVisible();
+  // (P-115, rewritten: Plan opens read-only — these specs edit it, so its opener enters Edit; `edit` false: to Start.)
+  if (edit) await editPlan(page);
   return plan(page);
 };
 
@@ -83,6 +85,7 @@ for (const [label, size] of [
       await importBackup(page, goBackup([BETTER, GUIDE]));
       const p = await planOf(page, 'better');
       // For each… is there with no name given above: a list of its own.
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.screen.getByTestId('go-plan-add-each').click();
       const pick = await sheet(page, 'go-each-sheet');
       await expect(pick.getByTestId('go-each-sheet-row')).toHaveCount(0);
@@ -126,6 +129,7 @@ for (const [label, size] of [
       await expect(plan(page).row('For each subject in {subjects}').getByTestId('go-plan-kept-item')).toHaveText(['arms', 'legs']);
 
       // Running: into the block at its first item — "subject: arms", no count.
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       await plan(page).forward.click();
       const r = runner(page);
       await expect(r.words).toHaveText('Warm up');
@@ -178,7 +182,7 @@ for (const [label, size] of [
       await r.next.click();
       await expect(settled(page, 'home')).toBeVisible();
       await expect(page.getByTestId('go-notice')).toContainText('Done with Become a better drawer');
-      await (await planOf(page, 'better')).forward.click();
+      await (await planOf(page, 'better', false)).forward.click(); // (P-115, rewritten: read-only — Start is its filled button.)
       await r.next.click();
       await expect(r.values).toHaveText(['subject: arms']);
       await r.next.click();
@@ -191,6 +195,7 @@ for (const [label, size] of [
       await importBackup(page, goBackup([TRY, GUIDE]));
       const p = await planOf(page, 'try');
       // "@" lists the names given above first — as words, and as routine rows — then the routines.
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.add.click();
       await p.add.pressSequentially('@');
       await expect(p.namesBar).toHaveAttribute('data-picking', 'true');
@@ -223,11 +228,12 @@ for (const [label, size] of [
       await rules(page, p.screen);
       if (size.width > 300) await page.screenshot({ path: `${SHOTS}/plan-slot.png` });
       else await page.screenshot({ path: `${SHOTS}/plan-slot-200.png` });
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       const data = await exported(page);
       expect(data.routines.try.items![2]).toMatchObject({ text: '{way}', slot: true });
 
       // Running: the way given as a routine, offered as it is typed.
-      await (await planOf(page, 'try')).forward.click();
+      await (await planOf(page, 'try', false)).forward.click(); // (P-115, rewritten: read-only — Start is its filled button.)
       const r = runner(page);
       await expect(r.words).toHaveText('Pick a subject');
       await r.field('subject').click();

@@ -31,6 +31,13 @@
  * the row (web), the grip's own menu when pressed, and — under 340 px, with no grip — back on the step menu
  * (audit F1: nothing by gesture alone). One edit — one Undo — each.
  *
+ * P-115 (the owner: "Edit, then Save/Cancel"; "Kept as a draft"): Plan opens READ-ONLY — no grips, no Add row, no step
+ * ···; disclosure, a row's own view and the routine's places, Copy… and Start over still work. Edit (the left side door)
+ * starts a draft of the routine (`domain/draft.ts`), and while it has one Plan is in Edit: it reads the draft and every
+ * edit goes into it (`act()` below), with Plan's usual Undo going back through it step by step. Save (the filled
+ * button) makes it the routine's in one change; Cancel (in Edit's place) throws it away. A run and home read the saved
+ * routine. B-19's composer opens a routine here in Edit with its draft (`openInEdit` in the store).
+ *
  * The route follows the data and writes nothing — but for one case: a run the build before left at
  * the edge with this-run changes is folded into its routine on arriving (`planView().unfolded`), once,
  * with its notice and Undo. That Undo, at the edge, leaves the run in Plan by the data (nothing can run
@@ -41,7 +48,8 @@ import { router, useIsFocused, useNavigation } from 'expo-router';
 import { ComponentRef, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 
-import { callersOf, Refusal, routineNamed, RoutineEdit } from '@/domain/run';
+import { callersOf, routineNamed, RoutineEdit } from '@/domain/run';
+import { draftData, draftOf, hasChanges, readDraft as draftRead } from '@/domain/draft';
 import { atPick, rankRoutines, routineInWords, wordsKept } from '@/domain/atPick';
 import { LibraryRow, libraryMatches, libraryToAdd } from '@/domain/library';
 import { myRoutines } from '@/domain/routines';
@@ -84,7 +92,7 @@ export const ADD_HINT = 'Type @ for a routine, { for a value';
 export const ADD_PART = 'Add a part';
 
 /** P-98: why a routine was not added as a step, in words. */
-export function callRefused(reason: Refusal | 'reconnecting' | undefined, routine: string, into: string): string | undefined {
+export function callRefused(reason: string | undefined, routine: string, into: string): string | undefined {
   if (reason === 'self') return routine === into ? `“${routine}” can’t be a step of itself` : `“${routine}” uses “${into}”, so it can’t be a step of it`;
   if (reason === 'gone') return `“${routine}” was removed`;
   return undefined;
@@ -121,14 +129,41 @@ const setBackTo = (to: { view: string; key: string } | null) => {
 };
 const viewOf = (id: string, inSeq: string | undefined, key: string) => `${id}|${inSeq ?? ''}|${key}`;
 
-type Open = { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true } | { addRoutine: true } | { addEach: true } | { kept: string } | { bind: string; input: string } | { inputs: string } | { copy: true } | { places: true; at?: string };
+/** P-115: Edit, Save and Cancel, and what Plan says while it edits. */
+export const EDITING = 'Editing';
+/** P-115: a draft stored by a later version of the app (kept, never written over: no Edit here). */
+export const LOCKED_DRAFT = 'Unsaved changes from a newer version of the app are kept';
+/** P-115: read-only Plan's Places sheet opens them; they change in Edit. */
+export const PLACES_IN_EDIT = 'Change these in Edit';
+
+type Open = { conflict: string[] } | { row: string } | { reorder: string } | { divider: string } | { routine: true } | { gives: string } | { removing: string } | { restart: true } | { removeRoutine: true } | { tags: true } | { addRoutine: true } | { addEach: true } | { kept: string } | { bind: string; input: string } | { inputs: string } | { copy: true } | { places: true; at?: string };
 
 export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId?: string; routineId?: string; inSeq?: string; fromRun?: boolean; fromList?: boolean; at?: string }) {
-  const data = useStore((s) => s.data);
-  const act = useStore.getState;
+  const saved = useStore((s) => s.data);
   const focused = useIsFocused();
   const navigation = useNavigation();
-  const v = planView(data, runId ? { runId, ...(inSeq && { in: inSeq }) } : { routineId: routineId ?? '' });
+  const of = runId ? { runId, ...(inSeq && { in: inSeq }) } : { routineId: routineId ?? '' };
+  const v0 = planView(saved, of);
+  /**
+   * P-115 (the owner: "Edit, then Save/Cancel"; "Kept as a draft"): Plan opens read-only; with a draft of this routine it
+   * is in Edit — it reads the draft (as the person made it) and every edit goes into it. Nothing else reads the draft.
+   */
+  const root = v0?.routineId ?? '';
+  const drafted = v0 ? draftRead(saved, root) : undefined;
+  const editing = drafted?.kind === 'draft';
+  const data = editing ? draftData(saved, root) : saved;
+  const v = editing ? planView(data, of) : v0;
+  /** The store — in Edit, with the draft as its data and Plan's edits going into the draft (Remove of the routine aside: it goes at once). */
+  const act = () => {
+    const st = useStore.getState();
+    if (draftRead(st.data, root).kind !== 'draft') return st;
+    return {
+      ...st,
+      data: draftData(st.data, root),
+      editRoutine: (seq: string, e: RoutineEdit) => (e.kind === 'removeRoutine' ? st.editRoutine(seq, e) : st.editDraft(root, seq, e)),
+      copyAndAdd: (lib: string, seq: string, after?: string | null) => st.copyAndAddDraft(root, lib, seq, after),
+    };
+  };
   /**
    * P-111: with no `?at=`, where the run is — chosen once, on arriving (an edit that moves HERE into a step broken down
    * never moves this screen into it).
@@ -237,6 +272,9 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   const dragFrom = useRef<{ key: string; spans: (Span & { key?: string })[] } | undefined>(undefined);
 
   const title = useRef<TextRef>(null);
+  /** P-115: Edit, in the band — where the focus goes back to when Edit ends (Save, Cancel). */
+  const editBtn = useRef<ViewRef>(null);
+  const leaving = useRef(false);
   const addBox = useRef<ViewRef>(null);
   const addField = useRef<InputRef>(null);
   const list = useRef<ViewRef>(null);
@@ -275,14 +313,23 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   const openFirst = !!v && !sub && (v.edge || (!v.runId && v.rows.length === 0));
   useEffect(() => {
     if (!focused || !here) return;
+    // (P-115: leaving Edit is not arriving — the focus goes back to Edit, below.)
+    if (!editing && leaving.current) return;
     // P-111: back from a row's own view (its path, the browser's Back) — the focus is on that row again.
     const back = backTo && backTo.view === viewId ? backTo.key : undefined;
     if (back !== undefined) {
       setBackTo(null);
       toInsides(list, back, title);
-    } else if (openFirst) focusSoon(addBox);
+    } else if (openFirst) focusSoon(editing ? addBox : editBtn);
     else arrive(title, hereRow);
-  }, [focused, here, openFirst, viewId]);
+    // (P-115: entering Edit is arriving again — the heading, or with nothing to stand on the open row, where the first
+    // step is typed; read-only with nothing to stand on, Edit.)
+  }, [focused, here, openFirst, viewId, editing]);
+  // P-115: leaving Edit (Save, Cancel), the focus goes back to Edit.
+  useEffect(() => {
+    if (!editing && leaving.current) focusSoon(editBtn);
+    leaving.current = false;
+  }, [editing]);
   // Native: HERE is in view once it has been laid out (the arrival effect runs before that), once.
   const hereShown = useRef(false);
   const hereLaid = (y: number) => {
@@ -473,7 +520,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   // (P-111: same-named routines resolve as Plan's rows and Return in the "@" list do — the oldest first.)
   const calledBy = (words: string) => routineInWords(words, routinesByAge(act().data));
   /** P-110: a call refused (itself, gone): said in words; the words stay where they were typed. */
-  const refusedCall = (did: { ok: boolean; reason?: Refusal | 'reconnecting' }, target: string) => {
+  const refusedCall = (did: { ok: boolean; reason?: string }, target: string) => {
     if (did.ok) return false;
     const words = callRefused(did.reason, myRoutines(act().data).find((r) => r.routineId === target)?.name ?? '', v.name);
     if (words) act().say(words);
@@ -553,6 +600,31 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   };
 
   const close = () => setMenu(null);
+  /** P-115: Edit — a draft of this routine (Plan reopens in Edit with it until Save or Cancel). */
+  const startEdit = () => act().beginEdit(v.routineId);
+  /**
+   * P-115: Save — the draft made the routine's, in one change ("Saved “X”", one Undo). Words still open are kept into the
+   * draft first. Changed elsewhere since: asked (`conflict`), never written over silently.
+   */
+  const save = (anyway = false) => {
+    if (live.current) keep(false);
+    if (live.current) return;
+    leaving.current = true;
+    const did = act().saveDraft(v.routineId, anyway);
+    if (did.ok) return;
+    leaving.current = false;
+    if (did.reason === 'changed') setMenu({ conflict: did.names?.length ? did.names : [v.name] });
+    else if (did.reason === 'cannot') act().say(`Couldn’t save: “${v.name}” was changed elsewhere`);
+  };
+  /** P-115: Cancel — the draft thrown away (with changes in it: said, with an Undo). Words still open go with it. */
+  const cancelEdit = () => {
+    if (live.current) setTyping(null);
+    setAdding('');
+    setPicking(null);
+    leaving.current = true;
+    if (!act().cancelDraft(v.routineId).ok) leaving.current = false;
+  };
+  const changes = editing && hasChanges(draftOf(saved, root));
   /** P-99: Add's "In any order" — the block at the end of this view, its first part typed inside it at once. */
   const addAnyHere = () => {
     const had = new Set(v.rows.map((r) => keyOf(r.path)));
@@ -713,7 +785,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
 
   /** P-102: a row moved one place (Alt+↑ / Alt+↓, a screen reader's action) — one edit, one Undo; the focus stays where it was. */
   const moveRow = (row: PlanRow, by: -1 | 1) => {
-    if (by < 0 ? !row.canUp : !row.canDown) return;
+    // (P-115: read-only, nothing moves — not by a key either.)
+    if (!editing || (by < 0 ? !row.canUp : !row.canDown)) return;
     const had = WEB && typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null;
     if (!edit(row.seq, { kind: 'move', item: row.itemId, by }).ok) return;
     if (had)
@@ -722,7 +795,22 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       });
   };
 
-  const layer = libAdd ? (
+  const layer = menu && 'conflict' in menu ? (
+    // P-115: Save of a draft whose routine was changed elsewhere since (another tab, a run's kept list) — asked, never
+    // written over silently; Save anyway puts the draft's changes over it as it is now (one Undo takes that back).
+    <Confirm
+      title={`“${menu.conflict[0]}” was changed elsewhere`}
+      body="Saving puts your changes over it as it is now."
+      action="Save anyway"
+      testID="go-plan-conflict"
+      actionTestID="go-plan-save-anyway"
+      onCancel={close}
+      onAct={() => {
+        close();
+        save(true);
+      }}
+    />
+  ) : libAdd ? (
     // P-105: the library's preview, its filled button Copy and add — both effects named before they happen; no notice
     // after (Plan's adds give none); one Undo, the routine's menu, takes the call and the copy away together.
     <LibrarySheet
@@ -949,7 +1037,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
     />
   ) : keptRow?.each?.kept && keptRow.ref ? (
     // P-108: + Add on a kept list — its items, a new row at the end to type in.
-    <KeptSheet seq={keptRow.ref} list={keptRow.each.list} fallback={title} onClose={close} />
+    <KeptSheet seq={keptRow.ref} list={keptRow.each.list} draft={editing ? root : undefined} fallback={title} onClose={close} />
   ) : menu && 'copy' in menu ? (
     <CopySheet
       name={v.name}
@@ -966,7 +1054,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
     <GivesSheet row={givesRow} edit={edit} onClose={close} fallback={title} />
   ) : menu && 'places' in menu ? (
     // P-109: the routine's places — each change one Plan edit, said in the sheet with its Undo.
-    <PlacesSheet routineId={v.routineId} name={v.name} edit at={menu.at} onClose={close} fallback={title} />
+    <PlacesSheet routineId={v.routineId} name={v.name} edit={editing} draft={editing ? root : undefined} hint={PLACES_IN_EDIT} at={menu.at} onClose={close} fallback={title} />
   ) : menu && 'tags' in menu ? (
     // P-97: the routine's tags (a comma or Return makes a chip); Keep is one Plan edit, its Undo in this menu.
     <TagsSheet
@@ -994,7 +1082,14 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
           }}
         />
       )}
-      {sub ? (
+      {!editing ? (
+        // P-115: read-only — what changes nothing here: the places (to open), Copy… (a new routine, at once), Start over (the run).
+        <>
+          {!sub && v.named && places.length > 0 && <MenuItem label="Places…" spoken={`Places for ${v.name}`} testID="go-plan-places-item" onPress={() => setMenu({ places: true })} />}
+          {!sub && v.named && <MenuItem label="Copy…" spoken={`Copy ${v.name}`} testID="go-plan-copy-item" onPress={() => setMenu({ copy: true })} />}
+          {!sub && !!v.runId && <MenuItem label="Start over" spoken={`Start over: ${v.name}`} onPress={() => setMenu({ restart: true })} testID="go-plan-restart" />}
+        </>
+      ) : sub ? (
         // P-111: a row's own view — its own words (a step broken down), and Remove; the routine's own items are its Plan's.
         <>
           {!sub.each && !sub.any && <MenuItem label="Edit" spoken={`Edit ${sub.words}`} onPress={() => startTyping({ mode: 'words', path: view.key, text: sub.words })} />}
@@ -1018,10 +1113,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       {v.named && tagsWritable(v ? data.routines[v.routineId]?.tags : undefined) && <MenuItem label="Tags…" spoken={`Tags for ${v.name}`} testID="go-plan-tags-item" onPress={() => setMenu({ tags: true })} />}
       {/* P-109: where its work lives (B-18). */}
       {v.named && placesWritable(data.routines[v.routineId]?.places) && <MenuItem label="Places…" spoken={`Places for ${v.name}`} testID="go-plan-places-item" onPress={() => setMenu({ places: true })} />}
-      {/* P-98: Copy — the same routine under a new name (to vary, copy). */}
-      {v.named && <MenuItem label="Copy…" spoken={`Copy ${v.name}`} testID="go-plan-copy-item" onPress={() => setMenu({ copy: true })} />}
-      {/* P-101 amendment (ruling 9): its run, from this routine's first step (asked first; Undo). */}
-      {!!v.runId && <MenuItem label="Start over" spoken={`Start over: ${v.name}`} onPress={() => setMenu({ restart: true })} testID="go-plan-restart" />}
+      {/* P-98: Copy… and (P-101 amendment, ruling 9) Start over are read-only Plan's (P-115): they change nothing in the draft. */}
       {!v.divider && v.rows.length > 0 && (
         <MenuItem
           label="Add Repeat from here"
@@ -1059,7 +1151,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
             </View>
           ))}
         </View>
-        <Btn kind="plain" mark="add" label="Add" spoken={`Add to ${row.each.list}`} onPress={() => setMenu({ kept: keyOf(row.path) })} testID="go-plan-kept-add" />
+        {editing && <Btn kind="plain" mark="add" label="Add" spoken={`Add to ${row.each.list}`} onPress={() => setMenu({ kept: keyOf(row.path) })} testID="go-plan-kept-add" />}
       </View>
     );
 
@@ -1115,8 +1207,24 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
     <>
       {/* P-109: the Places sheet says its own changes (its notice is in it). */}
       {menu && 'places' in menu ? <View style={!floor && styles.noticeRoom} /> : <Notice onUndone={() => focusOn(title)} reserve={!floor} />}
+      {/* P-115: Edit is the left side door (the app's place for a door to another way of being on a screen: My routines on
+          home; the band stays the way out and the word); in Edit, Cancel takes its place — red once the draft holds a
+          change (it discards it, with an Undo) — and the filled button is Save, so a run is never resumed or started from
+          a half-made change. Done, at the edge only, stays the right side door. */}
+      {(editing || drafted?.kind === 'none') && (
+        <View style={styles.doors} testID="go-side-doors">
+          <View style={styles.door}>
+            {editing ? (
+              <Btn label="Cancel" spoken={`Cancel editing ${v.name}`} danger={changes} onPress={cancelEdit} testID="go-plan-cancel" />
+            ) : (
+              <Btn ref={editBtn} label="Edit" spoken={`Edit ${v.name}`} onPress={startEdit} testID="go-plan-edit" />
+            )}
+          </View>
+          <View style={styles.door}>{v.canDone && <Btn label="Done" spoken={`Done with ${v.name}`} onPress={() => v.runId && act().doneLevel(v.runId)} testID="go-plan-done" />}</View>
+        </View>
+      )}
       {/* P-101 (ruling 2; was P-96: Home the bottom-left side door): Home is in the band. Done, at the edge only, is the right side door. */}
-      {v.canDone && (
+      {!editing && drafted?.kind !== 'none' && v.canDone && (
         <View style={styles.doors} testID="go-side-doors">
           <View style={styles.door} />
           <View style={styles.door}>
@@ -1126,7 +1234,9 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       )}
       {/* The filled button's slot is kept when there is nothing forward (P-96): the side doors never move. */}
       <View style={styles.foot}>
-        {forward ? (
+        {editing ? (
+          <Btn kind="filled" label="Save" spoken={`Save ${v.name}`} size={18} style={styles.forward} testID="go-plan-save" onPress={() => save()} />
+        ) : forward ? (
           <Btn
             kind="filled"
             label={forward.label}
@@ -1159,6 +1269,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
           PLAN
         </T>
       </View>
+      {editing && <Said text={`${EDITING} ${v.name}`} testID="go-plan-said-editing" />}
       {/* Web: the heading ("Plan: <name>") takes the focus and is read, unless the open row has it. Native: focus is not moved, so it is always said. */}
       {(openFirst || !WEB) && <Said text={`Plan: ${v.name}`} />}
       <ScrollView ref={scroller} style={styles.flex} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled" testID="go-plan-list">
@@ -1176,7 +1287,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
               <H1 own ref={title} spoken={`Plan: ${headWords}`} style={styles.name}>
                 <Chips words={sub.words} asks={sub.asks} parts={sub.parts} />
               </H1>
-              <Btn ref={moreRef('')} kind="plain" mark="more" spoken={`More for ${sub.words}`} onPress={() => setMenu({ routine: true })} dataSet={{ more: '' }} testID="go-plan-more" />
+              {/* P-115: its ··· holds only edits (its words, Remove): Edit's. */}
+              {editing && <Btn ref={moreRef('')} kind="plain" mark="more" spoken={`More for ${sub.words}`} onPress={() => setMenu({ routine: true })} dataSet={{ more: '' }} testID="go-plan-more" />}
             </View>
           ) : typing?.mode === 'name' ? (
             <View style={styles.gap}>
@@ -1192,8 +1304,14 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
               <H1 own ref={title} spoken={`Plan: ${v.name}`} style={styles.name}>
                 {v.name}
               </H1>
-              <Btn ref={moreRef('')} kind="plain" mark="more" spoken={`More for ${v.name}`} onPress={() => setMenu({ routine: true })} dataSet={{ more: '' }} testID="go-plan-more" />
+              {/* P-115: read-only, its ··· holds what is not an edit — its places to open, Copy…, Start over (and an Undo). */}
+              {(editing || v.named || !!v.runId || !!(can && quietEdit)) && <Btn ref={moreRef('')} kind="plain" mark="more" spoken={`More for ${v.name}`} onPress={() => setMenu({ routine: true })} dataSet={{ more: '' }} testID="go-plan-more" />}
             </View>
+          )}
+          {drafted?.kind === 'locked' && (
+            <T dim style={styles.line} testID="go-plan-locked">
+              {LOCKED_DRAFT}
+            </T>
           )}
           {!!v.line && (
             <T dim style={styles.line} testID="go-plan-line">
@@ -1231,7 +1349,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                   laid(key, 'y')(e);
                   if (row.here) hereLaid(e.nativeEvent.layout.y);
                 }}>
-                {row.divider && <DividerRow divider={row.divider} onMenu={() => setMenu({ divider: parent })} edit={edit} menuKey={`divider:${parent}`} moreRef={moreRef(`divider:${parent}`)} onLayout={laid(key, 'div')} viewRef={(el) => { dividers.current[key] = el; }} />}
+                {row.divider && <DividerRow editing={editing} divider={row.divider} onMenu={() => setMenu({ divider: parent })} edit={edit} menuKey={`divider:${parent}`} moreRef={moreRef(`divider:${parent}`)} onLayout={laid(key, 'div')} viewRef={(el) => { dividers.current[key] = el; }} />}
                 <View ref={(el) => { rails.current[key] = el; }} style={rail && styles.rail} onLayout={laid(key, 'row')}>
                   {typing?.mode === 'words' && typing.path === key ? (
                     typed(row.kind === 'wait' ? `Wait for: ${row.words}` : `Step: ${row.words}`)
@@ -1251,9 +1369,9 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                         e.preventDefault();
                         moveRow(row, by);
                       } }) as object)}
-                      {...{ dataSet: { here: row.here ? 'true' : 'false', within: row.within ? 'true' : 'false', kind: row.kind, depth: String(row.depth - view.base), repeats: rail ? 'true' : 'false', dragging: drag?.key === key ? 'true' : 'false' } }}>
+                      {...{ dataSet: { words: row.words, here: row.here ? 'true' : 'false', within: row.within ? 'true' : 'false', kind: row.kind, depth: String(row.depth - view.base), repeats: rail ? 'true' : 'false', dragging: drag?.key === key ? 'true' : 'false' } }}>
                       {/* Too narrow (large text): no grip — the words keep their room (P-102: the moves are on the step's menu there). */}
-                      {!narrow && (row.canUp || row.canDown) && <Grip words={row.words} keys={MOVE_KEYS} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ reorder: key })} gripRef={moreRef(`grip:${key}`)} />}
+                      {editing && !narrow && (row.canUp || row.canDown) && <Grip words={row.words} keys={MOVE_KEYS} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ reorder: key })} gripRef={moreRef(`grip:${key}`)} />}
                       {/* P-103 (10; was ▤, the routine's mark, as a button): the disclosure chevron — › shut, ⌄ open. P-111: a
                           step broken down or a for each goes into its own view (›); a routine used as a step opens in place. */}
                       {insides === 'view' && <InsidesBtn words={shownWords} onPress={() => openView(row)} testID="go-plan-insides" dataSet={{ insides: key }} />}
@@ -1285,7 +1403,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                               <Chips words={row.words} asks={row.asks} parts={row.parts} />
                             </T>
                           </Pressable>
-                          {!!row.call && <CallLines name={row.words} call={row.call} onInput={(input) => setMenu({ bind: key, input })} />}
+                          {!!row.call && <CallLines name={row.words} call={row.call} onInput={editing ? (input) => setMenu({ bind: key, input }) : undefined} />}
                           {!!row.gives && (
                             <T dim testID="go-plan-gives">
                               {'gives '}
@@ -1298,21 +1416,24 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                           {!!row.each?.kept && keptRows(row)}
                         </View>
                       </View>
-                      <Btn
-                        ref={moreRef(key)}
-                        kind="plain"
-                        mark="more"
-                        spoken={`More for ${row.words}`}
-                        onPress={() => setMenu({ row: key })}
-                        dataSet={{ more: key }}
-                        style={styles.sq}
-                        {...(moves.length > 0 && { keys: MOVE_KEYS })}
-                        actions={moves}
-                        onAction={(name) => {
-                          const m = moves.find((x) => x.name === name);
-                          if (m) moveRow(row, m.by);
-                        }}
-                      />
+                      {/* P-115: read-only, a row has no ··· (its menu is all edits). */}
+                      {editing && (
+                        <Btn
+                          ref={moreRef(key)}
+                          kind="plain"
+                          mark="more"
+                          spoken={`More for ${row.words}`}
+                          onPress={() => setMenu({ row: key })}
+                          dataSet={{ more: key }}
+                          style={styles.sq}
+                          {...(moves.length > 0 && { keys: MOVE_KEYS })}
+                          actions={moves}
+                          onAction={(name) => {
+                            const m = moves.find((x) => x.name === name);
+                            if (m) moveRow(row, m.by);
+                          }}
+                        />
+                      )}
                     </View>
                   )}
                 </View>
@@ -1330,6 +1451,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
 
           {drag?.line !== undefined && <View style={[styles.dropLine, { top: drag.line - 2 }]} testID="go-plan-drop" pointerEvents="none" />}
 
+          {/* P-115: the Add row is Edit's (read-only, nothing is added). */}
+          {editing && (
           <View ref={addBox} style={[styles.addRow, addFocused && RING]} {...{ dataSet: { typing: '' } }}>
             {/* P-103 (11): the field has the row's whole width and grows with its words; Insert and Add sit below it. */}
             <View style={styles.addMark}>
@@ -1370,9 +1493,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
               </View>
             )}
           </View>
+          )}
           {/* (F-2: the owner's 2026-11-28 rule — how "@" and "{" work, one line under the empty Add row while it has the
               focus; outside the row, so keeping the field in view never counts it.) */}
-          {addFocused && !adding && !floor && (
+          {editing && addFocused && !adding && !floor && (
             <T dim style={styles.addHint} testID="go-plan-add-hint">
               {ADD_HINT}
             </T>
@@ -1390,7 +1514,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
 }
 
 /** "Repeat from here": a row of its own, with visible Move up / Move down and its menu (until I'm done or a number; take it out). */
-function DividerRow({ divider, onMenu, edit, menuKey, moreRef, onLayout, viewRef }: { divider: PlanDivider; onMenu: () => void; edit: (seq: string, e: RoutineEdit) => { ok: boolean }; menuKey: string; moreRef?: (el: ViewRef | null) => void; onLayout?: (e: LayoutChangeEvent) => void; viewRef?: (el: ViewRef | null) => void }) {
+function DividerRow({ editing, divider, onMenu, edit, menuKey, moreRef, onLayout, viewRef }: { editing: boolean; divider: PlanDivider; onMenu: () => void; edit: (seq: string, e: RoutineEdit) => { ok: boolean }; menuKey: string; moreRef?: (el: ViewRef | null) => void; onLayout?: (e: LayoutChangeEvent) => void; viewRef?: (el: ViewRef | null) => void }) {
   const times = divider.repeat;
   return (
     <View ref={viewRef} onLayout={onLayout} style={styles.divider} role="group" aria-label="Repeat from here" accessibilityLabel="Repeat from here" testID="go-plan-divider" {...{ dataSet: { from: String(divider.from) } }}>
@@ -1401,9 +1525,14 @@ function DividerRow({ divider, onMenu, edit, menuKey, moreRef, onLayout, viewRef
           {times !== undefined && <T dim testID="go-plan-times">{` · ${times} ${times === 1 ? 'time' : 'times'}`}</T>}
         </T>
       </View>
-      <Btn mark="up" spoken="Move Repeat from here up" disabled={!divider.canUp} onPress={() => edit(divider.seq, { kind: 'divider', from: divider.from - 1 })} />
-      <Btn mark="down" spoken="Move Repeat from here down" disabled={!divider.canDown} onPress={() => edit(divider.seq, { kind: 'divider', from: divider.from + 1 })} />
-      <Btn ref={moreRef} kind="plain" mark="more" spoken="More for Repeat from here" onPress={onMenu} dataSet={{ more: menuKey }} style={styles.sq} />
+      {/* P-115: read-only, it only says where the repeating part starts (and how many times). */}
+      {editing && (
+        <>
+          <Btn mark="up" spoken="Move Repeat from here up" disabled={!divider.canUp} onPress={() => edit(divider.seq, { kind: 'divider', from: divider.from - 1 })} />
+          <Btn mark="down" spoken="Move Repeat from here down" disabled={!divider.canDown} onPress={() => edit(divider.seq, { kind: 'divider', from: divider.from + 1 })} />
+          <Btn ref={moreRef} kind="plain" mark="more" spoken="More for Repeat from here" onPress={onMenu} dataSet={{ more: menuKey }} style={styles.sq} />
+        </>
+      )}
     </View>
   );
 }

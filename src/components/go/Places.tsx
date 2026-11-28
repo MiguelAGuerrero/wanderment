@@ -18,6 +18,7 @@ import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import { decorative } from '@/components/a11y';
 
 import { openable, placesShown, PlaceShown, placeSpoken, placesWritable } from '@/domain/places';
+import { draftData } from '@/domain/draft';
 import { useStore } from '@/store/useStore';
 
 import { Mark } from './marks';
@@ -118,15 +119,16 @@ function PlaceForm({ name: had = '', where: was = '', keep, onKeep, onCancel }: 
  * its Undo); otherwise (the tile's door) it only opens. `at`: the row to start on (a name tapped under Plan's
  * heading). A routine whose stored places are in a shape this version cannot keep offers no edits.
  */
-export function PlacesSheet({ routineId, name, edit, at, onClose, fallback }: { routineId: string; name: string; edit?: boolean; at?: string; onClose: () => void; fallback: { current: unknown } }) {
-  const raw = useStore((s) => s.data.routines[routineId]?.places);
+/** P-115: `draft` — Plan in Edit: it reads and changes that routine's draft. `hint`: what the open-only line says. */
+export function PlacesSheet({ routineId, name, edit, draft, hint, at, onClose, fallback }: { routineId: string; name: string; edit?: boolean; draft?: string; hint?: string; at?: string; onClose: () => void; fallback: { current: unknown } }) {
+  const raw = useStore((s) => (draft ? draftData(s.data, draft) : s.data).routines[routineId]?.places);
   const places = placesShown(raw);
   const editable = !!edit && placesWritable(raw);
   const [form, setForm] = useState<{ add: true } | { change: string } | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [mores] = useState<Record<string, unknown>>(() => ({}));
   const addBtn = useRef<ViewRef>(null);
-  const did = (e: Parameters<ReturnType<typeof useStore.getState>['editRoutine']>[1]) => useStore.getState().editRoutine(routineId, e).ok;
+  const did = (e: Parameters<ReturnType<typeof useStore.getState>['editRoutine']>[1]) => (draft ? useStore.getState().editDraft(draft, routineId, e) : useStore.getState().editRoutine(routineId, e)).ok;
   const menuPlace = menuFor ? places.find((p) => p.id === menuFor) : undefined;
   const index = menuPlace ? places.indexOf(menuPlace) : -1;
   const closeMenu = () => setMenuFor(null);
@@ -137,7 +139,7 @@ export function PlacesSheet({ routineId, name, edit, at, onClose, fallback }: { 
         {/* (F-2, audit F6: read only — places stored in a newer version's shape, or the tile's door — said in one line.) */}
         {!editable && (places.length > 0 || !!edit) && (
           <T dim testID="go-places-readonly">
-            {edit || !placesWritable(raw) ? READONLY_HINT : OPEN_ONLY_HINT}
+            {edit || !placesWritable(raw) ? READONLY_HINT : (hint ?? OPEN_ONLY_HINT)}
           </T>
         )}
         {places.length > 0 && (

@@ -13,7 +13,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { addStep, arrived, drag, exported, home, importBackup, MAYA, pauseRun, plan, RoutineSpec, runner, RunSpec, saved, startGo, tile } from './goFixture';
+import { addStep, arrived, drag, exported, home, importBackup, MAYA, pauseRun, plan, RoutineSpec, runner, RunSpec, saved, startGo, tile, savePlan } from './goFixture';
 
 const PAPER = 'rgb(244, 241, 232)';
 
@@ -161,6 +161,7 @@ for (const size of [
       await sheet.getByTestId('go-new-plan').click();
       await expect(plan(page).title).toHaveText('Water the plants');
       await addStep(page, 'Fill the can');
+      await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
       await plan(page).forward.click();
       await expect(runner(page).words).toHaveText('Fill the can');
       await pauseRun(page);

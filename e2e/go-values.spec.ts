@@ -13,7 +13,7 @@
 import { Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { arrived, exported, home, openGo, pauseRun, plan, planMenu, RoutineSpec, runner, saved, seedGo, setVisibility, startGo, tile, tileBody, turn, typeValue, anotherTab, planFromRoutines } from './goFixture';
+import { arrived, exported, home, openGo, pauseRun, plan, planMenu, RoutineSpec, runner, saved, seedGo, setVisibility, startGo, tile, tileBody, turn, typeValue, anotherTab, planFromRoutines, editPlan, savePlan } from './goFixture';
 
 const DRAWING: RoutineSpec = {
   id: 'draw',
@@ -346,6 +346,7 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     await p.screen.getByTestId('go-plan-more').click();
     await expect((await arrived(page, 'go-plan-routine')).getByTestId('go-plan-undo')).toHaveText('Undo renamed {subject} to {topic}');
     await page.keyboard.press('Escape');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.forward.click();
     const r = runner(page);
     await expect(r.words).toHaveText('Find three reference photos of hands');
@@ -358,6 +359,7 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     // P-97 (was: its idle tile's Plan): a routine with nothing going is on My routines — its row opens its Plan.
     await planFromRoutines(page, 'Drawing practice');
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.more('Select the subject matter').click();
     const menu = await arrived(page, 'go-plan-menu');
     // (P-102: menu items — was a sheet's buttons.)
@@ -369,6 +371,7 @@ test.describe('Plan (journeys 1–2, ruling 5)', () => {
     await page.getByTestId('go-plan-remove').click();
     await expect(p.row('Find three reference photos of {subject}')).toHaveCount(1);
     await expect(p.row('Find three reference photos of {subject}').getByTestId('go-name-chip')).toHaveText('asks {subject}');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.forward.click();
     const r = runner(page);
     await expect(r.words).toHaveText('Find three reference photos of {subject}');

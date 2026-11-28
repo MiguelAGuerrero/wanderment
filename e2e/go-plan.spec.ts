@@ -38,7 +38,8 @@ import {
   startThing,
   tile,
   turn,
-  expectEdit, expectRemoved,
+  expectEdit,
+  expectRemoved,
   expectNoEdit,
   undoEdit,
   tileBody,
@@ -49,6 +50,8 @@ import {
   openRoutines,
   planFromRoutines,
   routines,
+  editPlan,
+  savePlan,
 } from './goFixture';
 
 /** The mockup's routine (B-12 v2): one step, then two that repeat. */
@@ -281,6 +284,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
   test('Add a step (the open row): added at the end, the field keeps the focus; Undo takes it back', async ({ page }) => {
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.add.fill('Write it up');
     await p.add.press('Enter');
     await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write down concerns', 'Write it up']);
@@ -288,6 +292,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expect(p.add).toHaveValue('');
     await expectEdit(page, 'Added “Write it up”');
     // HERE and Resume have not moved.
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveText('Resume at Vibe check');
     await saved(page);
     expect((await stepsOf(page)).steps).toEqual(['Select a feature to test', 'Vibe check', 'Write down concerns', 'Write it up']);
@@ -298,6 +303,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write down concerns', 'Write it up']);
     await expect(p.title).toBeFocused();
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     expect((await stepsOf(page)).steps).toEqual(['Select a feature to test', 'Vibe check', 'Write down concerns', 'Write it up']);
   });
 
@@ -309,6 +315,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await runner(page).plan.click();
     const p = plan(page);
     await expect(p.title).toBeFocused();
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     const more = p.more('Vibe check');
     await more.click();
     const menu = await arrived(page, 'go-plan-menu');
@@ -371,6 +378,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await page.setViewportSize({ width: 390, height: 520 });
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     const more = p.more('Write down concerns');
     // The row low in the window: the list scrolled so it sits at the list's bottom edge.
     await more.evaluate((e) => e.scrollIntoView({ block: 'end' }));
@@ -418,12 +426,17 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expectSteps(page, ['Select a feature to test', 'Check the vibe', 'Write down concerns']);
     await expect(p.here).toHaveAccessibleName('Here, Check the vibe');
     await expect(p.line).toHaveText('at Check the vibe');
-    await expect(p.forward).toHaveText('Resume at Check the vibe');
     await expect(p.more('Check the vibe')).toBeFocused();
     await expectEdit(page, 'Changed “Vibe check”');
+    // (P-115, rewritten: Resume is read-only Plan's — it names the new words once saved; Save's Undo brings the draft back.)
+    await savePlan(page);
+    await expect(p.forward).toHaveText('Resume at Check the vibe');
+    await p.undo.click();
+    await expect(p.save).toBeVisible();
     await saved(page);
     await undoEdit(page);
     await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write down concerns']);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveText('Resume at Vibe check');
     await saved(page);
     expect((await stepsOf(page)).steps).toEqual(['Select a feature to test', 'Vibe check', 'Write down concerns']);
@@ -448,6 +461,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     // Leaving the field (here: pressing Resume) keeps the words first, then resumes on them.
     await planMenu(page, 'Vibe check', 'Edit');
     await p.typed.fill('Vibe check, properly');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.forward.click();
     await expect(runner(page).words).toHaveText('Vibe check, properly');
   });
@@ -468,6 +482,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await undoEdit(page);
     await expectSteps(page, ['Select a feature to test', 'Open it', 'Vibe check', 'Write down concerns']);
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     expect(await stepsOf(page)).toMatchObject({ steps: ['Select a feature to test', 'Open it', 'Vibe check', 'Write down concerns'], from: 2 });
   });
 
@@ -479,6 +494,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     const p = plan(page);
     // A step's menu: nothing makes a wait.
     for (const words of ['Select a feature to test', 'Write down concerns']) {
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       await p.more(words).click();
       const menu = await arrived(page, 'go-plan-menu');
       await expect(menuItems(menu)).toHaveText(['Edit', 'Add a step after', 'Break it down', 'Gives…', 'Remove']);
@@ -502,6 +518,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await undoEdit(page);
     await expect(p.row('Vibe check')).toHaveAttribute('data-kind', 'wait');
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     expect((await stepsOf(page)).steps).toEqual(['Select a feature to test', 'wait:Vibe check', 'Write down concerns']);
     await openGo(page, 'plan', './go/run/r1/plan');
     // Resume on a wait: the runner's wait note.
@@ -515,6 +532,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
     // Spoken: the row's ··· and grip name the keys (aria-keyshortcuts).
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(p.more('Vibe check')).toHaveAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown');
     await expect(gripOf(page, 'Vibe check')).toHaveAttribute('aria-keyshortcuts', 'Alt+ArrowUp Alt+ArrowDown');
     // Vibe check is the first repeating step: up, it passes the divider (it now runs once), in the same place.
@@ -524,11 +542,13 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expect(p.row('Write down concerns')).toHaveAttribute('data-repeats', 'true');
     await expect(p.more('Vibe check')).toBeFocused();
     await expectEdit(page, 'Moved “Vibe check”');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveText('Resume at Vibe check');
     await saved(page);
     expect(await stepsOf(page)).toMatchObject({ steps: ['Select a feature to test', 'Vibe check', 'Write down concerns'], from: 2 });
     await openGo(page, 'plan', './go/run/r1/plan');
     // Up again (from the grip this time): now it swaps with the step above; the focus stays on it.
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await gripOf(page, 'Vibe check').focus();
     await page.keyboard.press('Alt+ArrowUp');
     await expectSteps(page, ['Vibe check', 'Select a feature to test', 'Write down concerns']);
@@ -548,6 +568,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expect(p.row('Vibe check')).toHaveAttribute('data-repeats', 'true');
     await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Write down concerns']);
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     expect(await stepsOf(page)).toMatchObject({ steps: ['Select a feature to test', 'Vibe check', 'Write down concerns'], from: 1 });
     await openGo(page, 'plan', './go/run/r1/plan');
     // Never while typing: Alt+↑ in a field moves nothing.
@@ -562,6 +583,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
   test('P-95 (4): every step row has a visible grip at its left edge, "Reorder <words>", at least 48 px; pressed (or Return on it) it opens its own menu, Move up · Move down — the way without a drag; Alt+↑ / Alt+↓ move it too', async ({ page }) => {
     await startGo(page, DRAGGING, 'plan', [DRAG]);
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(p.screen.getByTestId('go-plan-grip')).toHaveCount(5);
     for (const words of FIVE) {
       const grip = gripOf(page, words);
@@ -598,6 +620,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await startGo(page, DRAGGING, 'plan', [DRAG]);
     const p = plan(page);
     // Five (below the divider) up onto the top half of Two: past Four, the divider, Three and Two.
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     const from = await centre(gripOf(page, 'Five'));
     const two = (await p.row('Two').boundingBox())!;
     await page.mouse.move(from.x, from.y);
@@ -626,6 +649,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await page.mouse.up();
     await expectSteps(page, ['One', 'Five', 'Two', 'Three', 'Four']);
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     expect(await stepsOf(page, 'drag')).toMatchObject({ steps: ['One', 'Five', 'Two', 'Three', 'Four'], from: 4 });
   });
 
@@ -635,6 +659,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     const cdp = await page.context().newCDPSession(page);
     const touch = async (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) => cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
     const touchDrag = async (words: string, toY: number) => {
+      await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
       const at = await centre(gripOf(page, words));
       await touch('touchStart', at.x, at.y);
       for (let i = 1; i <= 10; i++) await touch('touchMove', at.x, at.y + ((toY - at.y) * i) / 10);
@@ -659,6 +684,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expectSteps(page, ['Two', 'One', 'Three', 'Four', 'Five']);
     await expectEdit(page, 'Moved “One”');
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     expect(await stepsOf(page, 'drag')).toMatchObject({ steps: ['Two', 'One', 'Three', 'Four', 'Five'], from: 2 });
   });
 
@@ -681,6 +707,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
       await touch('touchEnd', x, y + dy);
     };
     // On the grip of Step number 3, up past two rows: it moves; the list stays where it was.
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     const g = await centre(gripOf(page, 'Step number 3'));
     const one = (await p.row('Step number 1').boundingBox())!;
     const was = await top();
@@ -702,6 +729,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     const p = plan(page);
     await expectSteps(page, ['Alpha', 'Inner part', 'Inner one', 'Inner two', 'Inner three', 'Gamma', 'Delta']);
     await expect(p.here).toHaveAccessibleName('Here, Inner one');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     const from = await centre(gripOf(page, 'Alpha'));
     const alphaBox = (await p.row('Alpha').boundingBox())!;
     const hereBox = (await p.here.boundingBox())!;
@@ -734,6 +762,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await startGo(page, DRAGGING, 'plan', [DRAG]);
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     const from = await centre(gripOf(page, 'One'));
     const three = (await p.row('Three').boundingBox())!;
     await page.mouse.move(from.x, from.y);
@@ -755,7 +784,8 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expectSteps(page, ['Vibe check', 'Write down concerns']);
     // P-103 (5; was expectEdit — no notice): removing a step says so, with Undo (and its Undo stays in the menu).
     await expectRemoved(page, 'Removed “Select a feature to test”');
-    await expect(p.forward).toHaveText('Resume at Vibe check');
+    // (P-115, rewritten: Resume is read-only Plan's — in Edit, the line says where the run is.)
+    await expect(p.line).toHaveText('at Vibe check');
     // Focus is never lost to nothing.
     expect(await focused(page)).not.toBe('BODY');
     // The Undo stays until the next action: nothing times it out.
@@ -769,7 +799,8 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expectEdit(page, 'Added “Sleep on it”');
     await undoEdit(page);
     await expectSteps(page, ['Vibe check', 'Write down concerns']);
-    await expectNoEdit(page);
+    // (P-115, rewritten: was expectNoEdit — inside a draft Undo goes back step by step: the Remove before it is next.)
+    await expectEdit(page, 'Removed “Select a feature to test”');
   });
 
   test('removing the HERE step: HERE and Resume go to the next step; with none after, the one before; with none at all, the edge — the run is never ended', async ({ page }) => {
@@ -778,7 +809,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await planMenu(page, 'Vibe check', 'Remove');
     await expect(p.here).toHaveAccessibleName('Here, Write down concerns');
     await expect(p.line).toHaveText('at Write down concerns');
-    await expect(p.forward).toHaveText('Resume at Write down concerns');
+    // (P-115, rewritten: Resume is read-only Plan's — in Edit the line says where the run is, as above.)
     // Undo: HERE is back where it was.
     await undoEdit(page);
     await expect(p.here).toHaveAccessibleName('Here, Vibe check');
@@ -789,7 +820,8 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expectRemoved(page, 'Removed “Write down concerns” — Repeat from here went with it');
     await expect(p.divider).toHaveCount(0);
     await expect(p.here).toHaveAccessibleName('Here, Select a feature to test');
-    await expect(p.forward).toHaveText('Resume at Select a feature to test');
+    // (P-115, rewritten: Resume is read-only Plan's — in Edit the line says where the run is.)
+    await expect(p.line).toHaveText('at Select a feature to test');
     // Every step: nothing next. No filled button; Done has its slot; the open row has the focus.
     await planMenu(page, 'Select a feature to test', 'Remove');
     await expect(p.rows).toHaveCount(0);
@@ -798,6 +830,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await expect(p.done).toBeVisible();
     await expect(p.add).toBeFocused();
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     const stored = await run(page);
     expect(stored.endedAt).toBeUndefined();
     expect(stored).toMatchObject({ frames: [{ seq: 'test', at: null, round: 2 }] });
@@ -806,6 +839,7 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
   test('the routine’s own menu: Change the name (in place; a taken name is refused, in words) and — with no run — Remove (P-96: no "Ends here")', async ({ page }) => {
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     const own = p.more('Test out the app');
     await own.click();
     let sheet = await arrived(page, 'go-plan-routine');
@@ -820,7 +854,8 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     // (P-97: and Tags…, after the name.)
     // (P-98, rewritten: and Copy…, after Tags….)
     // (P-109, rewritten: and Places…, after Tags….)
-    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Places…', 'Copy…', 'Start over']);
+    // (P-115, rewritten: in Edit — Copy… and Start over are read-only Plan's, which changes nothing in the draft.)
+    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Places…']);
     await sheet.getByRole('menuitem', { name: 'Change the name', exact: true }).click();
     await expect(p.typed).toHaveValue('Test out the app');
     await p.typed.fill('Apply to Acme');
@@ -833,13 +868,16 @@ test.describe('Plan edits change the routine, each with an Undo that stays until
     await undoEdit(page);
     await expect(p.title).toHaveText('Test out the app');
 
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await page.goto('./go/routine/apply');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.more('Apply to Initech').click();
     sheet = await arrived(page, 'go-plan-routine');
     // P-102: Remove last, after a line, in red.
     // (P-98, rewritten: and Copy…, after Tags….)
     // (P-109, rewritten: and Places…, after Tags….)
-    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Places…', 'Copy…', 'Add Repeat from here', 'Remove Apply to Initech']);
+    // (P-115, rewritten: in Edit — Copy… is read-only Plan's.)
+    await expect(menuItems(sheet)).toHaveText(['Change the name', 'Tags…', 'Places…', 'Add Repeat from here', 'Remove Apply to Initech']);
     await expect(sheet.getByRole('separator')).toHaveCount(1);
     await expect(menuItems(sheet).last()).toHaveAttribute('data-danger', 'true');
     await sheet.getByRole('menuitem', { name: 'Remove Apply to Initech', exact: true }).click();
@@ -865,6 +903,7 @@ test.describe('Repeat from here', () => {
     await expect(p.divider).toHaveAccessibleName('Repeat from here');
     const order = () => p.screen.evaluate((root) => [...root.querySelectorAll('[data-testid="go-plan-divider"], [data-testid="go-plan-words"]')].map((e) => ((e as HTMLElement).dataset.testid === 'go-plan-divider' ? '|' : e.textContent)));
     expect(await order()).toEqual(['Select a feature to test', '|', 'Vibe check', 'Write down concerns']);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.dividerDown.click();
     expect(await order()).toEqual(['Select a feature to test', 'Vibe check', '|', 'Write down concerns']);
     await expectEdit(page, 'Repeat from here moved above “Write down concerns”');
@@ -879,6 +918,7 @@ test.describe('Repeat from here', () => {
     expect(await order()).toEqual(['|', 'Select a feature to test', 'Vibe check', 'Write down concerns']);
     await expect(p.dividerUp).toBeDisabled();
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     expect(await stepsOf(page)).toMatchObject({ steps: ['Select a feature to test', 'Vibe check', 'Write down concerns'], from: 0 });
     expect(await run(page)).toMatchObject({ frames: [{ seq: 'test', at: 'test-1', round: 2 }] });
   });
@@ -887,6 +927,7 @@ test.describe('Repeat from here', () => {
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
     await expect(p.divider).toHaveText('Repeat from here');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.dividerMore.click();
     const sheet = await arrived(page, 'go-plan-repeat');
     // P-102 (was: a sheet): anchored to its ··· the same way — a small dialog (it holds a choice and a stepper).
@@ -909,9 +950,11 @@ test.describe('Repeat from here', () => {
     await expect(p.dividerMore).toBeFocused();
     await expect(p.divider).toHaveText('Repeat from here · 4 times');
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     expect(await stepsOf(page)).toMatchObject({ from: 1, repeat: 4 });
     await openGo(page, 'plan', './go/run/r1/plan');
 
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.dividerMore.click();
     await (await arrived(page, 'go-plan-repeat')).getByRole('radio', { name: 'Until I’m done', exact: true }).click();
     await page.keyboard.press('Escape');
@@ -954,6 +997,7 @@ test.describe('Break it down', () => {
     await expect(p.row('Open the feature')).toHaveAttribute('data-depth', '0');
     await expect(p.here).toHaveAccessibleName('Here, Open the feature');
     await expect(p.line).toHaveText('at Open the feature');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveText('Resume at Open the feature');
     await page.keyboard.press('Escape');
     await p.forward.click();
@@ -980,6 +1024,7 @@ test.describe('Break it down', () => {
     await planType(page, 'Open the doc');
     await page.keyboard.press('Escape');
     await expect(p.here).toHaveAccessibleName('Here, Vibe check');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveText('Resume at Vibe check');
     // (P-111, rewritten: was "Its row opens and closes" — Close / Open by its chevron, in place. A step broken down opens
     // as a view of its own: its smaller steps there, the path back to the routine.)
@@ -1045,8 +1090,10 @@ test.describe('the edge of a goal', () => {
     await expect(page).toHaveURL(/\/go\/run\/r3\/plan$/);
     await expect(p.title).toHaveText('Practise drawing');
     await expect(p.line).toHaveText('nothing next yet');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(p.add).toBeFocused();
     await expect(p.here).toHaveCount(0);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveCount(0);
     await expect(p.screen.getByRole('button', { name: /^(Next|Resume|Start)/ })).toHaveCount(0);
     await expect(p.done).toHaveText('Done');
@@ -1061,6 +1108,7 @@ test.describe('the edge of a goal', () => {
     await addStep(page, 'Shade the forms');
     await expect(p.here).toHaveAccessibleName('Here, Shade the forms');
     await expect(p.line).toHaveText('at Shade the forms');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveText('Resume at Shade the forms');
     // Off the edge there is no Done; Home has not moved.
     await expect(p.done).toHaveCount(0);
@@ -1091,7 +1139,9 @@ test.describe('the edge of a goal', () => {
     const p = plan(page);
     await expect(p.title).toHaveText('Feel at home in Spanish');
     await expect(p.line).toHaveText('nothing next yet');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(p.add).toBeFocused();
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.home.click();
     await expect(home(page).screen).toBeVisible();
     const t = tile(page, 'Feel at home in Spanish');
@@ -1154,6 +1204,7 @@ test.describe('the edge of a goal', () => {
     await plan(page).home.click();
     await startThing(page, 'Call the bank');
     await addStep(page, 'Find the number');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await plan(page).forward.click();
     await expect(runner(page).words).toHaveText('Find the number');
     await expect(page.getByText('Gym is running')).toHaveCount(0);
@@ -1190,6 +1241,7 @@ test.describe('creating', () => {
     await addStep(page, 'Find a simple recipe');
     await addStep(page, 'Buy flour and yeast');
     await expect(p.add).toBeFocused();
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveText('Start');
     await p.forward.click();
     const r = runner(page);
@@ -1204,6 +1256,7 @@ test.describe('creating', () => {
   test('Undo New takes the routine back (the screen goes home); a routine with no steps (P-97: on My routines; was: a tile) has Plan and no Start', async ({ page }) => {
     await startGo(page, []);
     await startThing(page, 'Learn to bake bread');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await plan(page).home.click();
     // P-97 (was: a tile with Plan and no Start): nothing going, so not on home; its row's menu has Plan and no Start.
     await expect(tile(page, 'Learn to bake bread')).toHaveCount(0);
@@ -1246,7 +1299,9 @@ test.describe('creating', () => {
     await sheet.getByTestId('go-new-plan').click();
     const p = plan(page);
     await expect(p.title).toHaveText('Learn to bake bread');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(p.add).toBeFocused();
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.home.click();
     // P-97 (was: its tile): New makes the routine only — home says nothing is going, with My routines (left) and + New (right).
     await expect(h.tiles).toHaveCount(0);
@@ -1273,6 +1328,7 @@ test.describe('must handle', () => {
     // The band does not scroll away.
     await p.list.evaluate((e) => e.scrollTo(0, 99999));
     expect((await p.band.boundingBox())!.y).toBe(0);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(p.add).toBeInViewport();
   });
 
@@ -1301,6 +1357,7 @@ test.describe('must handle', () => {
     // It has its own Repeat from here (3 times), and it is not this routine's.
     await expect(p.divider).toHaveText('Repeat from here · 3 times');
     // Its menu: a routine is not reworded or broken down from here.
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.more('Hand studies of my left hand').click();
     // (P-102: Add a step after · a line · Remove — was: … Move up · Move down · Remove this step · Close.)
     // (P-98, rewritten: a call's menu opens its routine's Plan — Open — first.)
@@ -1309,6 +1366,7 @@ test.describe('must handle', () => {
     await planMenu(page, 'Add the shadows', 'Edit');
     await planType(page, 'Add the darkest shadows');
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     const stored = await exported(page);
     expect(stored.routines.hands.items!.map((i) => i.text)).toEqual(['Find a reference photo', 'Block in the big shapes', 'Check your proportions', 'Add the darkest shadows']);
     expect(stored.routines.drawing.items!.map((i) => i.text ?? i.ref)).toEqual(['Warm-up lines', 'hands', 'Gesture drawing']);
@@ -1340,8 +1398,11 @@ test.describe('must handle', () => {
     await page.goto('./go/routine/spanish-es');
     const p = plan(page);
     await expect(p.title).toHaveText('Feel at home in Spanish');
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await expect(p.add).toBeFocused();
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveCount(0);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.add.fill('Order a coffee in Span');
     await page.reload();
     await expect(p.add).toHaveValue('Order a coffee in Span');
@@ -1349,6 +1410,7 @@ test.describe('must handle', () => {
     await p.add.pressSequentially('ish');
     await p.add.press('Enter');
     await expectSteps(page, ['Order a coffee in Spanish']);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toHaveText('Start');
 
     await planMenu(page, 'Order a coffee in Spanish', 'Edit');
@@ -1371,6 +1433,7 @@ test.describe('must handle', () => {
     await planMove(page, 'Added offline', 'up');
     await expectSteps(page, ['Select a feature to test', 'Vibe check', 'Added offline', 'Write down concerns']);
     await saved(page);
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.forward.click();
     await expect(runner(page).words).toHaveText('Vibe check');
     await context.setOffline(false);
@@ -1381,6 +1444,7 @@ test.describe('must handle', () => {
   test('an edit refused because the page doesn’t hold the data changes nothing and keeps the typed words', async ({ page }) => {
     await startGo(page, PLANNING, 'plan', ROUTINES);
     const p = plan(page);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.add.fill('typed while away');
     await setVisibility(page, 'hidden');
     await p.add.press('Enter');
@@ -1509,6 +1573,7 @@ test.describe('data written by the build before', () => {
     await expectSteps(page, ['A planned', 'b']);
     await expectEdit(page, 'Changed “A for this run”');
     // The next visit does not write the old words back over the edit.
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.home.click();
     await expect(h.screen).toBeVisible();
     await openGo(page, 'plan');
@@ -1533,6 +1598,7 @@ test.describe('words still being typed when Plan is left by its filled button', 
     await planMenu(page, 'Write down concerns', 'Edit');
     await expect(p.typed).toBeFocused();
     await p.typed.fill('Write down worries');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.forward.click();
     const r = runner(page);
     await expect(r.words).toHaveText('Vibe check');
@@ -1549,6 +1615,7 @@ test.describe('words still being typed when Plan is left by its filled button', 
     const p = plan(page);
     await planMenu(page, 'Vibe check', 'Add a step after');
     await p.typed.fill('Breathe');
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await p.forward.click();
     const r = runner(page);
     await expect(r.words).toHaveText('Select a feature to test');

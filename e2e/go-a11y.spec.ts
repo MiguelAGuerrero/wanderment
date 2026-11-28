@@ -14,7 +14,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { Locator, Page } from '@playwright/test';
 
 import { expect, test } from './fixtures';
-import { addStep, arrived, expectEdit, home, plan, planMenu, RoutineSpec, runner, setVisibility, settled, startGo, tileBody } from './goFixture';
+import { addStep, arrived, expectEdit, home, plan, planMenu, RoutineSpec, runner, setVisibility, settled, startGo, tileBody, editPlan, savePlan } from './goFixture';
 
 const PAPER = 'rgb(244, 241, 232)';
 const RUNS = [
@@ -149,6 +149,7 @@ test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, w
   // Spoken names: the heading says Plan and the routine; HERE is in words; every row's menu names its step.
   await expect(p.title).toHaveAccessibleName('Plan: Test out the app');
   await expect(p.here).toHaveAccessibleName('Here, Vibe check');
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await expect(p.more('Vibe check')).toHaveText('');
   await expect(p.dividerUp).toHaveText('');
   await expect(p.divider).toHaveAccessibleName('Repeat from here');
@@ -159,12 +160,15 @@ test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, w
   expect(outlines.filter((c) => c === 'rgb(244, 241, 232)')).toHaveLength(1);
   // Reading order: the band (the word, Home — P-101, ruling 2), the heading, where you are, the rows, the open row, the notice, the filled button.
   const order = await p.screen.evaluate((root) =>
-    [...root.querySelectorAll('[data-testid="go-plan-word"], [data-testid="go-plan-home"], [data-testid="go-plan-back"], [role="heading"], [data-testid="go-plan-line"], [data-testid="go-plan-row"], [data-testid="go-plan-add"], [data-testid="go-notice-slot"], [data-testid="go-plan-forward"]')].map(
+    [...root.querySelectorAll('[data-testid="go-plan-word"], [data-testid="go-plan-home"], [data-testid="go-plan-back"], [role="heading"], [data-testid="go-plan-line"], [data-testid="go-plan-row"], [data-testid="go-plan-add"], [data-testid="go-notice-slot"], [data-testid="go-plan-forward"], [data-testid="go-plan-cancel"], [data-testid="go-plan-save"]')].map(
       (e) => (e as HTMLElement).dataset.testid ?? 'heading',
     ),
   );
   // P-103 (2, 3; was: the word, then Home): the way out first, top-left — opened from the runner, "Back to the run".
-  expect(order).toEqual(['go-plan-back', 'go-plan-word', 'heading', 'go-plan-line', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-add', 'go-notice-slot', 'go-plan-forward']);
+  // (P-115, rewritten: in Edit — Cancel, the left side door, and the filled Save in Resume's place; one filled button.)
+  expect(order).toEqual(['go-plan-back', 'go-plan-word', 'heading', 'go-plan-line', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-row', 'go-plan-add', 'go-notice-slot', 'go-plan-cancel', 'go-plan-save']);
+  await expectNoSeriousViolations(page);
+  await expectRules(page, p.screen, 1, 1);
 
   // A step's menu — P-102 (was: a dialog with its step as the heading): a menu named by its step; no filled button.
   await p.more('Vibe check').click();
@@ -207,11 +211,18 @@ test('Plan: axe and the rules mid-run, with a notice, on its menus and sheets, w
 
   // The edge: no filled button at all; Done has its slot.
   await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'plan');
-  await expect(p.add).toBeFocused();
+  // (P-115, rewritten: read-only, with nothing to stand on, Edit has the focus; in Edit the open row has it, and Save is
+  // the one filled button.)
+  await expect(p.edit).toBeFocused();
   await expect(p.done).toHaveAccessibleName('Done with Feel at home in Spanish');
   await expectNoSeriousViolations(page);
   await expectRules(page, p.screen, 1, 0);
+  await editPlan(page);
+  await expect(p.add).toBeFocused();
+  await expectNoSeriousViolations(page);
+  await expectRules(page, p.screen, 1, 1);
   // No run, with steps: Start is the one filled button.
+  await savePlan(page); // (P-115, rewritten: out of Edit — Start is read-only Plan's.)
   await page.goto('./go/routine/drawing');
   await expect(p.forward).toHaveText('Start');
   await expectNoSeriousViolations(page);
@@ -241,6 +252,7 @@ test('Plan against Run without colour: arriving in Plan says "Plan" and the rout
   await r.next.click();
   await expect(r.words).toHaveText('Write down concerns');
   await startGo(page, [{ id: 'r3', routine: 'drawing', at: null, status: 'paused', mode: 'plan' }], 'plan');
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await expect(p.add).toBeFocused();
   await expect(p.said).toHaveText('Plan: Practise drawing');
   await expect(p.said).toHaveAttribute('aria-live', 'polite');
@@ -310,6 +322,8 @@ test('focus has its own ring; sheets take focus and give it back; focus is never
   await p.back.focus();
   await page.keyboard.press('Tab');
   await expect(p.more('Hand studies of my left hand')).toBeFocused();
+  // (P-115, rewritten: a step's menu is Edit's — Edit first.)
+  await editPlan(page);
   // A menu (P-102; was: a sheet, focus on its heading): focus in, on its first item, and back to what opened it.
   const more = p.more('Add the shadows');
   await more.click();
@@ -368,6 +382,7 @@ test('Reduce Motion: sheets, the confirm, the panel and the change between Plan 
   const p = plan(page);
   await expect(p.here).toBeInViewport();
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
+  await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
   await p.more('Add the shadows').click();
   // No waiting for it to arrive: it never moves.
   await expect(page.getByTestId('go-plan-menu')).toHaveAttribute('data-moving', 'false');
@@ -375,6 +390,7 @@ test('Reduce Motion: sheets, the confirm, the panel and the change between Plan 
   expect(await page.getByTestId('go-plan-menu').evaluate((e) => ({ opacity: getComputedStyle(e).opacity, transform: getComputedStyle(e).transform }))).toEqual({ opacity: '1', transform: 'none' });
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
   await page.keyboard.press('Escape');
+  await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
   await p.forward.click();
   expect(await page.evaluate(() => document.getAnimations().length)).toBe(0);
   await r.handle.click();
@@ -399,12 +415,14 @@ test('without Reduce Motion nothing takes long and nothing moves a control: a sh
   await startGo(page, RUNS, 'runner');
   await runner(page).plan.click();
   const p = plan(page);
-  const forward = await p.forward.boundingBox();
+  // (P-115, rewritten: a step's menu is Edit's — in Edit, the filled button is Save.)
+  await editPlan(page);
+  const forward = await p.save.boundingBox();
   // P-103 (3): opened from the runner, the band's way out is "Back to the run".
   const home = await p.back.boundingBox();
   await p.more('Add the shadows').click();
   await arrived(page, 'go-plan-menu');
-  expect(await p.forward.boundingBox()).toEqual(forward);
+  expect(await p.save.boundingBox()).toEqual(forward);
   expect(await p.back.boundingBox()).toEqual(home);
 });
 
@@ -495,6 +513,7 @@ for (const [label, size] of [
     await p.list.evaluate((e) => e.scrollTo(0, 99999));
     await pinned();
     expect(await p.forward.boundingBox()).toEqual(forward);
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.add.scrollIntoViewIfNeeded();
     await expect(p.add).toBeInViewport();
     // Typing in the open row (the keyboard is up): still pinned; the step added is in the list.
@@ -504,8 +523,10 @@ for (const [label, size] of [
     // P-101 (ruling 6; was: the notice "Added …"): no notice.
     await expect(p.notice).toHaveCount(0);
     await pinned();
+    await savePlan(page); // (P-115, rewritten: saved first — a run, home and the backup read the saved routine.)
     await expect(p.forward).toBeInViewport({ ratio: 1 });
     // A step's menu and Repeat from here's sheet: every control can be reached.
+    await editPlan(page); // (P-115, rewritten: Plan opens read-only — Edit first.)
     await p.more('Add the shadows').scrollIntoViewIfNeeded();
     await p.more('Add the shadows').click();
     const menu = await arrived(page, 'go-plan-menu');
@@ -529,9 +550,15 @@ for (const [label, size] of [
     await startGo(page, [{ id: 'r4', routine: 'spanish-es', at: null, status: 'running' }], 'plan');
     await pinned();
     await expect(p.done).toBeInViewport({ ratio: 1 });
+    // (P-115, rewritten: read-only, with nothing to stand on, Edit has the focus; in Edit the open row, in view.)
+    await expect(p.edit).toBeFocused();
+    await expect(p.edit).toBeInViewport({ ratio: 1 });
+    await expectRules(page, p.screen, 1, 0);
+    await editPlan(page);
+    await pinned();
     await expect(p.add).toBeFocused();
     await expect(p.add).toBeInViewport();
-    await expectRules(page, p.screen, 1, 0);
+    await expectRules(page, p.screen, 1, 1);
   });
 
   test(`${label}: home after Pause (P-96; was: Paused, then home) and New's sheet reflow — every control in reach`, async ({ page }) => {
