@@ -290,11 +290,12 @@ test('focus has its own ring; sheets take focus and give it back; focus is never
   // Tab order on the runner — P-101 (rulings 1–2; was: the note, the handle, Pause, the middle, Next): ❚❚ and Plan (the top line; the path is words, not a control), the note, the handle, Step out, Next.
   await r.pause.focus();
   const seen: string[] = ['go-pause'];
-  for (let i = 0; i < 5; i++) {
+  // (P-112, rewritten: See ahead, at the right of the handle, is reached after it — was 5 Tabs, without 'go-see-ahead'.)
+  for (let i = 0; i < 6; i++) {
     await page.keyboard.press('Tab');
     seen.push(await page.evaluate(() => (document.activeElement as HTMLElement).dataset.testid ?? ''));
   }
-  expect(seen).toEqual(['go-pause', 'go-plan-door', 'go-note', 'go-handle', 'go-step-out', 'go-next']);
+  expect(seen).toEqual(['go-pause', 'go-plan-door', 'go-note', 'go-handle', 'go-see-ahead', 'go-step-out', 'go-next']);
   // Plan: the ring is focus's own (HERE's outline is white, and is not it). (P-101: inside a call, the innermost routine's Plan.)
   await r.plan.click();
   const p = plan(page);

@@ -319,7 +319,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   its only view now.
 - **Nothing is created or started without a tap.** Typing starts nothing until a row is chosen
   (Return takes the first row, which is always visible and marked). The app never jumps by itself.
-- **The runner is the step and nothing else** *(built; P-96, P-101)*: the top line is the path (the
+- **The runner is the step, and as many of the next ones as the person pulls into view** *(built; P-96, P-101;
+  reworded by P-112 — was "the step and nothing else")*: the top line is the path (the
   level after its parent, "Drawing practice › Sketch", in words, wrapping — not a control), with the
   doors at its right — ❚❚ and Plan ("Plan <routine>" inside a call), each at least 48 px; with too little
   room (200 % text) they go beneath it, at the right. When the step (or the level) is a step broken
@@ -344,6 +345,23 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   run). Nothing is planned here. Nothing about repeating is on the surface except one small mark on
   **the last step of a round**. A repeating part comes round again silently; a counted loop ends by
   itself. There is no "one more round".
+- **See ahead** *(built; P-112, B-16 "A chunk is chosen while running")*: off by default — the runner is one step,
+  with nothing added to it. One toggle, **See ahead** (pressed while on), in the bottom bar's top row at the right of
+  the handle, turns it on; it stays on after Next until it is turned off. On, the step and those pulled into view are
+  **one condensed sheet** in the note's colour (no big note): a row per step, 16 px words at weight 500, thin rules
+  between; a giving step's field on one line, its label then the input (a short placeholder, "optional"; a list opens
+  the list editor); a step with insides (a call, a step broken down, a routine held by a value) has P-111's Open /
+  Close, and open, its smaller steps are laid out under it, indented — an outline, read and passed over, never edited
+  — with fields for what it owes on the smaller step that gives it (a for each inside whose list is given: one per
+  item); closed, those fields are on the step. Under the sheet the dashed **then: <next step>** adds the step Next
+  would go to, again and again (a turn's end runs into the next turn), and **Fewer** takes the last off. The spacing
+  tightens in steps as rows are added (≤ 5 roomy, 6–9 closer, ≥ 10 closest); the text stays 16 px and no target goes
+  under 48 px — past that the column scrolls. **Next takes everything in view as done**: one move, with what was typed,
+  to the step after the last one shown; over more than one step it is said ("Took 3 steps as done") with one Undo (it
+  is a skip); the chunk then resets to one step. Step in still steps into the first step in view. What a passed chunk
+  gave stays (the place is below it). Nothing is stored: what is typed is held by the screen until Next; a move leaves one
+  step in view (Undo of a Next brings back the steps in view as they were, with what was typed), and leaving the
+  runner (or a reload) turns the view off. A screen reader hears how many steps are in view as it changes.
 - **The note always fits**, keyboard up included: the type steps down first, then the note shrinks
   to the space. Words too long for it scroll inside it and Plan carries a quiet mark (breaking a
   step down is planning).

@@ -161,6 +161,19 @@ the person writes their own words. The library is **summoned**: "@" (the owner's
   descriptions, ratings or examples in prose; a mark on what has been copied; a community gallery;
   conditional logic in templates; library rows appearing while the person types their own words.
 
+## The owner's clarification of "no explanatory text" (2026-11-28)
+"I think I've been misinterpreted on the instructional aspect of things. I didn't want there to be
+a lot of descriptive text on how the app works, but quick and insightful or necessary text to explain
+what's accepted and what are perfectly okay."
+This brief read the rule more strictly than the owner meant. What changes here, each still to be
+confirmed by the owner before it is built:
+- A library row may carry **one short line saying what the method is for** ("Fixing material in
+  memory"), under its name and beside its signature. The catalogue already has that line for every
+  method.
+- A field may carry a **placeholder that says what it accepts** (the Name field of "Learn ▢"; a list
+  field's "separate with commas").
+- Still out: paragraphs, how-the-app-works text, evidence and citations on screen.
+
 ## UI audit of the design
 One fresh auditor, 2026-11-27, on the first draft's written screens against platform conventions and
 DESIGN.md (`.polish/product/ui-audit-B-17.md`, local). Three findings blocked and ten should be fixed;

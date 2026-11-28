@@ -265,7 +265,7 @@ export type Verb =
    * P-98: `owed` — Next pressed on a call or a step broken down without stepping in, and the fields it then showed
    * for what it owes: each typed one is given by that row (where its values belong) in the same write.
    */
-  | { kind: 'next'; runId: Id; owed?: { name: string; text: string }[] }
+  | { kind: 'next'; runId: Id; owed?: Given[]; chunk?: ChunkGiven[] }
   /** P-103: `whole` — the whole run ends where it stands (a paused tile's "End this run"), at any depth; else the level it is in. */
   | { kind: 'done'; runId: Id; whole?: true; owed?: { name: string; text: string }[] }
   | { kind: 'stepIn'; runId: Id }
@@ -290,6 +290,28 @@ export type Verb =
    * that is not a row, `cannot` past either end; already there: nothing changes.
    */
   | { kind: 'queue'; runId: Id; to: number | 'top' };
+
+/**
+ * P-112: a value typed for a step — its name and words; `items`, one per item (a list's rows; what a for each inside a
+ * row gives, item by item); `refs`, the routines those items hold.
+ */
+export interface Given {
+  name: string;
+  text: string;
+  items?: string[];
+  refs?: (ListRef | null)[];
+}
+/**
+ * P-112 (B-16, "A chunk is chosen while running"): one step of the chunk in view, as Next takes it as done — `given`, what
+ * was typed in its own fields (the name it gives, a name it asks for); `owed`, what was typed for what its insides give
+ * (a call or a step broken down passed without stepping in, as P-98's `owed`).
+ */
+export interface ChunkGiven {
+  given?: Given[];
+  owed?: Given[];
+}
+/** P-112: no chunk is longer than this. */
+export const MAX_CHUNK = 256;
 
 /** What a verb has to say. `finished`: the levels left by themselves or by Done, innermost first. */
 export type Said = { kind: 'finished'; names: string[] } | { kind: 'ended'; name: string } | { kind: 'edge' } | { kind: 'jumped'; from: string };
@@ -1864,7 +1886,7 @@ function home(data: Data, runId: Id): Result {
   return own(data.runs, runId) ? done(setStatus(data, undefined)) : refuse(data, 'gone');
 }
 
-function next(data: Data, runId: Id, env: Env, owed?: { name: string; text: string }[]): Result {
+function next(data: Data, runId: Id, env: Env, owed?: Given[]): Result {
   const l = load(data, runId);
   if (typeof l === 'string') return refuse(data, l);
   // P-98: what a row with insides owes, typed in the fields Next showed: given by the row, then Next as ever (one write).
@@ -1876,7 +1898,9 @@ function next(data: Data, runId: Id, env: Env, owed?: { name: string; text: stri
     for (const o of owed) {
       const name = owes.find((n) => isName(o?.name) && nameKey(n) === nameKey(o.name));
       if (!name || !text(o.text) || !o.text.trim() || add.some((a) => nameKey(a.name) === nameKey(name)) || visibleValue(data, l.run, nameKey(name), l.at.frames)) continue;
-      add.push({ name, items: [capValue(o.text)], level: scope, seq: l.at.frames[scope].seq, item: item.id, words: wordsOf(data, l.run, item), at: env.now });
+      // P-112: what a for each inside it gives, item by item — one list, in the order of its items.
+      const each = Array.isArray(o.items) ? o.items.filter((x): x is string => text(x) && !!x.trim()).slice(0, MAX_ITEMS).map(capValue) : [];
+      add.push({ name, items: each.length ? each : [capValue(o.text)], level: scope, seq: l.at.frames[scope].seq, item: item.id, words: wordsOf(data, l.run, item), at: env.now });
     }
     if (add.length) {
       const given = addValues(data, runId, add);
@@ -2786,8 +2810,53 @@ function landEach(r: Result, runId: Id | undefined, env: Env): Result {
   return out;
 }
 
+/**
+ * P-112: one step of a chunk taken as done — what was typed in its fields given at the place (as its own field gives it;
+ * one the engine refuses is left out, and the step that reads it asks, as ever), then Next with what its insides owe.
+ * Refused when the run has no step to stand on.
+ */
+export function chunkStep(data: Data, runId: Id, row: ChunkGiven | undefined, env: Env): Result {
+  const run = readRun(data, runId);
+  const at = run && !run.endedAt ? place(data, run) : undefined;
+  if (!at?.item) return refuse(data, 'cannot');
+  let d = data;
+  const typed = (gs: unknown): Given[] => (Array.isArray(gs) ? gs.filter((g): g is Given => isObject(g) && text(g.name) && text(g.text)) : []);
+  for (const g of typed(row?.given)) {
+    const r = runVerb(d, { kind: 'value', runId, name: g.name, text: g.text, item: at.item.id, ...(Array.isArray(g.items) && { items: g.items }), ...(Array.isArray(g.refs) && { refs: g.refs }) }, env);
+    if (r.ok) d = r.data;
+  }
+  const owed = typed(row?.owed);
+  return runVerb(d, { kind: 'next', runId, ...(owed.length && { owed }) }, env);
+}
+
+/**
+ * P-112: Next over the chunk in view — each step in it taken as done, in order (`chunkStep`), in one write: so one Undo.
+ * It goes to the step after the last one shown. Refused as a whole (nothing changes) when any step is, or when the run
+ * would end before its last step.
+ */
+function chunkNext(data: Data, runId: Id, rows: unknown, env: Env): Result {
+  if (!Array.isArray(rows) || !rows.length || rows.length > MAX_CHUNK) return refuse(data, 'cannot');
+  let d = data;
+  let said: Said | undefined;
+  let folded: string | undefined;
+  const cleared: string[] = [];
+  for (const [i, row] of rows.entries()) {
+    const r = chunkStep(d, runId, isObject(row) ? (row as ChunkGiven) : undefined, env);
+    if (!r.ok) return refuse(data, r.reason ?? 'cannot');
+    if (r.said?.kind === 'ended' && i < rows.length - 1) return refuse(data, 'cannot');
+    d = r.data;
+    // What it says: the run ended, else the last level it finished on the way.
+    if (r.said?.kind === 'ended' || r.said?.kind === 'finished' || (r.said && !said)) said = r.said;
+    if (r.folded !== undefined) folded = r.folded;
+    for (const c of r.cleared ?? []) if (!cleared.includes(c)) cleared.push(c);
+  }
+  return done(d, { ...(said && { said }), ...(folded !== undefined && { folded }), ...(cleared.length && { cleared }) });
+}
+
 /** The engine: the data after a verb. Pure; never throws on damaged data (it refuses instead). */
 export function runVerb(data: Data, verb: Verb, env: Env): Result {
+  // P-112: Next over a chunk is Next, step by step — each with its own arrival and settling.
+  if (verb.kind === 'next' && verb.chunk !== undefined) return chunkNext(data, verb.runId, verb.chunk, env);
   const r = verbOf(data, verb, env);
   // P-107: every move that can arrive on a for each row.
   if (verb.kind === 'start' || verb.kind === 'next' || (verb.kind === 'done' && !verb.whole) || verb.kind === 'stepIn' || verb.kind === 'back' || verb.kind === 'jump' || verb.kind === 'restart') {

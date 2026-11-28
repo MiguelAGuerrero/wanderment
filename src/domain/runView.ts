@@ -1411,6 +1411,8 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     return f ? `Started ${view(data, r!, f.seq)?.words ?? ''} over` : '';
   }
   if (verb.kind === 'value') return `${verb.text.trim() ? 'Changed' : 'Cleared'} {${tidyName(verb.name)}}`;
+  // P-112: Next over the steps in view.
+  if (verb.kind === 'next' && Array.isArray(verb.chunk) && verb.chunk.length > 1) return `Took ${verb.chunk.length} steps as done`;
   // P-100: a row of home's queue moved — named by its routine.
   if (verb.kind === 'queue') {
     const r = readRun(data, verb.runId);

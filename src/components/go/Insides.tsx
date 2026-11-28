@@ -12,10 +12,11 @@ import { Btn } from './ui';
 /** The words for going into a step's insides, or opening / closing them in place. */
 export const insidesSpoken = (words: string, open?: boolean): string => `${open ? 'Close' : 'Open'} ${words}`;
 
-export function InsidesBtn({ words, open, onPress, testID, dataSet }: { words: string; open?: boolean; onPress: () => void; testID?: string; dataSet?: Record<string, string> }) {
+export function InsidesBtn({ words, open, onPress, testID, dataSet, ink }: { words: string; open?: boolean; onPress: () => void; testID?: string; dataSet?: Record<string, string>; ink?: boolean }) {
   return (
     <Btn
       kind="plain"
+      ink={ink}
       // P-103 (10): the disclosure chevron — › shut (or: goes in), ⌄ open.
       mark={open ? 'chevronDown' : 'chevron'}
       spoken={insidesSpoken(words, open)}

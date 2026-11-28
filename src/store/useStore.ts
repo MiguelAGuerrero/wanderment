@@ -3,7 +3,7 @@ import { create } from 'zustand';
 import { applyUndo, sameValue, UndoEntry, undoEntry } from '@/domain/diff';
 import { Settings } from '@/domain/migrate';
 import { LogInput, logActivity, newId } from '@/domain/model';
-import { currentRun, editRoutine, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
+import { ChunkGiven, currentRun, editRoutine, Given, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
 import { Acted, noticeFor, runnerView, whatChanged } from '@/domain/runView';
 import { Data, emptyData, Id, Run } from '@/domain/types';
 import { nameKey, tidyName } from '@/domain/values';
@@ -202,7 +202,11 @@ interface State {
   leaveRun: (runId: Id) => Did;
   /** Next ("It's happened" on a wait). An Undo only when it ended the run (P-95). */
   /** P-98: `owed` — what Next asked for, on a call or a step broken down not stepped into (given by that row, in the same write). */
-  nextStep: (runId: Id, owed?: { name: string; text: string }[]) => Did;
+  /**
+   * P-112: `chunk` — Next over the steps in view (See ahead), each taken as done with what was typed for it, in one write.
+   * Over more than one step it leaves an Undo (it is a skip, as Jump to is); over one it is Next.
+   */
+  nextStep: (runId: Id, owed?: Given[], chunk?: ChunkGiven[]) => Did;
   /** Done: leaves the level it is in; at the top ends the run. Undo. */
   /** P-98: `owed` — what Step out asked for (the names the level still owed), given by the row it was entered from. */
   doneLevel: (runId: Id, owed?: { name: string; text: string }[]) => Did;
@@ -547,9 +551,10 @@ export const useStore = create<State>()((set, get) => ({
   leaveRun: gated<State['leaveRun']>(refused, (runId) => act({ kind: 'home', runId }, 'clear')),
   nextStep: gated<State['nextStep']>(
     refused,
-    (runId, owed) => act({ kind: 'next', runId, ...(owed?.length && { owed }) }, 'ends'),
+    (runId, owed, chunk) => act({ kind: 'next', runId, ...(owed?.length && { owed }), ...(chunk && { chunk }) }, chunk && chunk.length > 1 ? 'set' : 'ends'),
     // P-98: a press that carries typed values is refused like any typed text (the sheet keeps them); a bare one is kept.
-    (runId, owed) => (owed?.length ? sayReconnecting() : keepPress('next', runId)),
+    // (P-112: so is one over a chunk — kept, it would be replayed as one Next.)
+    (runId, owed, chunk) => (owed?.length || chunk ? sayReconnecting() : keepPress('next', runId)),
   ),
   doneLevel: gated<State['doneLevel']>(
     refused,

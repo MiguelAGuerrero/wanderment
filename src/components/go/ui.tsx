@@ -282,7 +282,7 @@ export function HiddenH1({ children, ref }: { children: string; ref?: Ref<TextRe
  * <step>" on the runner — the two must never sound alike). It takes no room. Web: a polite live region
  * filled a moment after it is there (one filled from the start is not read); native: announced.
  */
-export function Said({ text }: { text: string }) {
+export function Said({ text, testID = 'go-said' }: { text: string; testID?: string }) {
   const [first] = useState(text);
   const [shown, setShown] = useState('');
   useEffect(() => {
@@ -295,7 +295,7 @@ export function Said({ text }: { text: string }) {
     return () => clearTimeout(timer);
   }, [first]);
   return (
-    <Text role="status" aria-live="polite" accessibilityLiveRegion="polite" style={styles.hidden} testID="go-said">
+    <Text role="status" aria-live="polite" accessibilityLiveRegion="polite" style={styles.hidden} testID={testID}>
       {/* Once what it said is no longer so (the next step), it says nothing: never something stale. */}
       {text === first ? shown : ''}
     </Text>

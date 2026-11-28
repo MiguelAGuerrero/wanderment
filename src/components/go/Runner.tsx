@@ -1,5 +1,5 @@
 /**
- * B-11 slice 1 (P-86), B-12 (P-90), P-96: the runner — the step and nothing else (B-11 §3.1, §9b; B-12 v1).
+ * B-11 slice 1 (P-86), B-12 (P-90), P-96: the runner — the step (P-112: and the next ones pulled into view, `Chunk.tsx`) (B-11 §3.1, §9b; B-12 v1).
  *
  * A column exactly as tall as what is visible. P-96 (one navigation scheme): the TOP is context only —
  * the path (the level, after its parent), then the values in play (a row of their own, each opening its
@@ -21,23 +21,27 @@
  * the keyboard; under the note the field reads the label and the value, and a tap opens the sheet.
  */
 import { router, useIsFocused } from 'expo-router';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { chunkAt, ChunkField, chunkView, Drafts } from '@/domain/chunk';
 import { NOTE_PAD, NOTE_SIZES, noteType } from '@/domain/goText';
 import { panelView, partsText, routineHue, runnerView, RunnerView, sinceWords, StepPart, ValueField, wordsShown } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
 import { OwedSheet } from './Calls';
+import { ChunkSheet, SeeAhead } from './Chunk';
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
 import { OpenRows, PlaceRow } from './Places';
 import { decideWhere } from './session';
 import { face, G, hueOf, SP, TARGET } from './tokens';
-import { EntrySheet, Gives, Parts, ValueFields, ValueSheet, ValuesRow } from './Values';
+import { DraftListSheet, EntrySheet, Gives, Parts, ValueFields, ValueSheet, ValuesRow } from './Values';
 import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Said, Sheet, T, useBackCloses, useKeys, useVisibleHeight, ViewRef } from './ui';
 
 const WEB = Platform.OS === 'web';
+/** P-112: the chunk at a place it has not been changed at — one step in view, nothing open, nothing typed. */
+const FRESH: { n: number; open: string[]; drafts: Drafts } = { n: 1, open: [], drafts: {} };
 const SHADOW = 10;
 const GUTTER = 16;
 /** The note never gets smaller than this (the runner scrolls instead). */
@@ -78,7 +82,9 @@ export function Runner({ runId }: { runId: string }) {
   const [entry, setEntry] = useState<ValueField | null>(null);
   /** P-98: Next or Step out pressed past what still owes names — its fields first. */
   const [owing, setOwing] = useState<'next' | 'out' | null>(null);
-  const typing = !!entry || !!owing;
+  /** P-112: a list typed in the See ahead view, for a step not reached yet: its editor is open on this field. */
+  const [listing, setListing] = useState<ChunkField | null>(null);
+  const typing = !!entry || !!owing || !!listing;
   /** P-101 (ruling 2): Plan was pressed here — once the run is paused, its Plan (this address), in this screen's place. */
   const toPlan = useRef<string | null>(null);
   /** P-103 (3): Plan was opened from here, over this screen — coming back (its Back, the browser's) resumes where you were. */
@@ -89,6 +95,17 @@ export function Runner({ runId }: { runId: string }) {
   const note = useRef<ViewRef>(null);
   const handle = useRef<ViewRef>(null);
   const nextBtn = useRef<ViewRef>(null);
+  /**
+   * P-112: See ahead is on (it stays on after Next until turned off). The chunk — how many steps are in view, which
+   * are open, what was typed — belongs to the place it was chosen at: a move (Next, Step in, Undo) resets it to one step.
+   * Nothing of it is stored.
+   */
+  const [ahead, setAhead] = useState(false);
+  const here = chunkAt(data, runId);
+  const [chunkState, setChunk] = useState<{ at: string; n: number; open: string[]; drafts: Drafts }>({ at: '', n: 1, open: [], drafts: {} });
+  const chunk = chunkState.at === here ? chunkState : { at: here, ...FRESH };
+  const cv = useMemo(() => (ahead && running && !v?.planning ? chunkView(data, runId, chunk.n, new Set(chunk.open), chunk.drafts) : undefined), [ahead, running, v?.planning, data, runId, chunk.n, chunk.open, chunk.drafts]);
+  const setChunkOf = (f: (c: typeof chunk) => Partial<typeof chunk>) => setChunk({ ...chunk, ...f(chunk) });
 
   // The route follows the run. Whatever is open is put away first (it would hold the screen).
   const status = v?.status;
@@ -133,7 +150,7 @@ export function Runner({ runId }: { runId: string }) {
   // P-103 (1; audit F1): Done is held — a press on it does nothing — for DONE_GUARD_MS after it takes Next's place,
   // and after the runner appears or comes back (a second tap on Plan's "Resume at <last step>", or a tile's Resume,
   // lands right here): whichever is later. A key press on it (focused, deliberate) still works; so does Return on the note.
-  const doneKey = v?.next === 'done' ? `${v.step.itemId}|${v.depth}` : '';
+  const doneKey = (cv ? cv.ends : v?.next === 'done') ? `${v?.step.itemId}|${v?.depth}|${cv ? cv.n : 0}` : '';
   const [held, setHeld] = useState(false);
   useLayoutEffect(() => {
     if (!doneKey || !focused) return;
@@ -148,6 +165,11 @@ export function Runner({ runId }: { runId: string }) {
   }, [doneKey, focused]);
   const next = () => {
     if (!v) return;
+    // P-112: with See ahead on, Next takes every step in view as done (one move), with what was typed for them.
+    if (cv?.moves.length) {
+      act().nextStep(runId, undefined, cv.moves);
+      return;
+    }
     // P-98: past a call (or a step broken down) not stepped into, what it still owes is asked first — as a consequence of the press, never on the step.
     if (v.nextOwes.length && !v.ends) return setOwing('next');
     act().nextStep(runId);
@@ -206,7 +228,9 @@ export function Runner({ runId }: { runId: string }) {
 
   const hue = hueOf(routineHue(data, v.routineId));
   const shown = partsText(v.step.parts) || v.step.words;
-  const done = v.next === 'done';
+  const done = cv ? cv.ends : v.next === 'done';
+  // (P-112: over more than one step in view, Next is Next — a wait among them is taken as done with the rest.)
+  const happened = v.next === 'itsHappened' && !done && !(cv && cv.n > 1);
   const valueSheet = sheet ? <ValueSheet runId={runId} name={sheet} onClose={() => setSheet(null)} fallback={note} /> : null;
   const entrySheet = entry && v.step.itemId ? <EntrySheet key={`${v.step.itemId}:${entry.name}`} runId={runId} itemId={v.step.itemId} field={entry} onClose={() => setEntry(null)} fallback={nextBtn} /> : null;
   const restartSheet =
@@ -241,11 +265,28 @@ export function Runner({ runId }: { runId: string }) {
       }}
     />
   ) : null;
-  const layer = owedSheet ?? restartSheet ?? (pausing ? <PauseSheet name={v.name} reason={v.reason ?? ''} onPause={pause} onClose={() => setPausing(false)} fallback={pauseBtn} /> : (entrySheet ?? valueSheet));
+  const listSheet = listing ? (
+    <DraftListSheet
+      title={listing.name}
+      items={listing.items ?? []}
+      refs={listing.refs}
+      runId={runId}
+      routines={listing.routines}
+      fallback={note}
+      onClose={() => setListing(null)}
+      onKeep={(items, refs) => {
+        const key = listing.key;
+        setChunkOf((c) => ({ drafts: { ...c.drafts, [key]: { text: items.join('\n'), items, ...(refs.some(Boolean) && { refs }) } } }));
+      }}
+    />
+  ) : null;
+  const layer = listSheet ?? owedSheet ?? restartSheet ?? (pausing ? <PauseSheet name={v.name} reason={v.reason ?? ''} onPause={pause} onClose={() => setPausing(false)} fallback={pauseBtn} /> : (entrySheet ?? valueSheet));
   // P-101 (ruling 2): "Plan <routine>" inside a call. In a window too narrow for it beside the path (200 %
   // text) the button says "Plan" and its spoken name keeps the routine (the path beside it names it too).
   const planSpoken = v.planIn ? `Plan ${v.planIn.name}` : 'Plan';
   const planLabel = v.planIn && !compact ? planSpoken : 'Plan';
+  // (P-112: the note's mark — with See ahead on there is no note.)
+  const long = full && !cv;
   const pathWords = (
     <View style={[styles.contextWords, compact && styles.contextWordsAlone]} testID="go-context">
       {!!v.parent && <T dim>{`${v.parent} ›`}</T>}
@@ -259,10 +300,10 @@ export function Runner({ runId }: { runId: string }) {
   const planDoor = (
     <Btn
       label={planLabel}
-      spoken={full ? `${planSpoken}. This step is long` : planSpoken !== planLabel ? planSpoken : undefined}
-      mark={full && !narrow ? 'split' : undefined}
+      spoken={long ? `${planSpoken}. This step is long` : planSpoken !== planLabel ? planSpoken : undefined}
+      mark={long && !narrow ? 'split' : undefined}
       testID="go-plan-door"
-      dataSet={{ marked: full ? 'true' : 'false' }}
+      dataSet={{ marked: long ? 'true' : 'false' }}
       onPress={plan}
       style={styles.planDoor}
     />
@@ -281,6 +322,22 @@ export function Runner({ runId }: { runId: string }) {
     </View>
   );
   const pinTop = !seen || seen.height >= 360;
+  const panelEl = (
+    <Panel
+      runId={runId}
+      restart={{ name: v.name, level: v.depth > 1 ? v.level : undefined }}
+      onRestart={(level) => {
+        setPanel(false);
+        setRestarting(level === 'level' ? v.depth - 1 : 0);
+      }}
+      onClose={closePanel}
+      onUndo={undo}
+      onMoved={() => {
+        setPanel(false);
+        toNote();
+      }}
+    />
+  );
 
   return (
     <GoScreen testID="go-runner" layer={layer}>
@@ -292,7 +349,7 @@ export function Runner({ runId }: { runId: string }) {
       <ScrollView style={styles.column} contentContainerStyle={styles.columnBody} keyboardShouldPersistTaps="handled" testID="go-column">
       {!pinTop && topLine}
       {/* Audit F6: with little room the values and the note on them are one row high and scroll inside it. */}
-      <ScrollView style={tight && styles.valuesTight} contentContainerStyle={tight && styles.valuesTightBody} nestedScrollEnabled keyboardShouldPersistTaps="handled" testID="go-values-area">
+      <ScrollView style={[tight && styles.valuesTight, cv && styles.valuesAhead]} contentContainerStyle={tight && styles.valuesTightBody} nestedScrollEnabled keyboardShouldPersistTaps="handled" testID="go-values-area">
         {/* P-110 (the owner: "not displaying placeholders if those values aren't supplied"): only the values held at the place. */}
         <ValuesRow values={v.values} onOpen={(name) => { setPanel(false); setSheet(name); }} />
         {/* P-101 (ruling 3): the pause note, read on the way back in (until the first move drops it). */}
@@ -305,38 +362,59 @@ export function Runner({ runId }: { runId: string }) {
         )}
       </ScrollView>
 
+      {cv ? (
+        <View style={styles.upper}>
+          <ChunkSheet
+            view={cv}
+            hue={hue}
+            sheetRef={note}
+            onOpen={(key) => setChunkOf((c) => ({ open: c.open.includes(key) ? c.open.filter((k) => k !== key && !k.startsWith(`${key}/`)) : [...c.open, key] }))}
+            onDraft={(key, text) => setChunkOf((c) => ({ drafts: { ...c.drafts, [key]: { text } } }))}
+            onList={(f) => {
+              setPanel(false);
+              setListing(f);
+            }}
+            onMore={() => setChunkOf(() => ({ n: cv.n + 1 }))}
+            onFewer={() => setChunkOf(() => ({ n: Math.max(1, cv.n - 1) }))}
+          />
+          <Notice onUndone={toNote} reserve />
+          {panel && (
+            <>
+              <Pressable style={[StyleSheet.absoluteFill, styles.dim]} onPress={closePanel} accessible={false} focusable={false} {...(WEB && ({ tabIndex: -1, 'aria-hidden': true } as object))} />
+              {panelEl}
+            </>
+          )}
+        </View>
+      ) : (
       <NoteArea
         view={v}
         hue={hue}
         noteRef={note}
         panelOpen={panel}
         onPanel={(open) => (open ? setPanel(true) : closePanel())}
-        panel={
-          panel ? (
-            <Panel
-              runId={runId}
-              restart={{ name: v.name, level: v.depth > 1 ? v.level : undefined }}
-              onRestart={(level) => {
-                setPanel(false);
-                setRestarting(level === 'level' ? v.depth - 1 : 0);
-              }}
-              onClose={closePanel}
-              onUndo={undo}
-              onMoved={() => {
-                setPanel(false);
-                toNote();
-              }}
-            />
-          ) : null
-        }
+        panel={panel ? panelEl : null}
         notice={<Notice onUndone={toNote} reserve />}
         fields={v.step.itemId ? <ValueFields fields={v.fields} onOpen={(f) => { setPanel(false); setEntry(f); }} /> : null}
         onFull={setFull}
       />
+      )}
       </ScrollView>
       {/* Audit F6: the handle, the moves and Next are pinned below the column — always whole on screen; the column above (the notice's row with it) scrolls. */}
           <>
-            <Handle ref={handle} open={panel} onToggle={() => (panel ? closePanel() : setPanel(true))} onSwipe={(up) => (up ? setPanel(true) : closePanel())} />
+            {/* P-112: the bottom bar's top row — the handle, and at its right See ahead (pressed while the view is on). */}
+            <View style={styles.handleRow}>
+              <View style={styles.handleGrow}>
+                <Handle ref={handle} open={panel} onToggle={() => (panel ? closePanel() : setPanel(true))} onSwipe={(up) => (up ? setPanel(true) : closePanel())} />
+              </View>
+              <SeeAhead
+                on={ahead}
+                onPress={() => {
+                  // Off: back to one step (what was typed stays with the place until a move).
+                  if (ahead) setChunkOf(() => ({ n: 1, open: [] }));
+                  setAhead(!ahead);
+                }}
+              />
+            </View>
             <View style={[styles.tray, tight && styles.trayTight]}>
               {/* P-101 (ruling 1): the moves — Step in · Step out · the filled Next, lowest; it wraps (large text), Next last and full width. */}
               <View style={styles.moves} testID="go-moves">
@@ -358,11 +436,11 @@ export function Runner({ runId }: { runId: string }) {
                 <Btn
                   kind="filled"
                   ref={nextBtn}
-                  label={v.next === 'itsHappened' ? 'It’s happened' : done ? 'Done' : 'Next'}
-                  spoken={v.next === 'itsHappened' ? `It’s happened: ${shown}` : done ? `Done with ${v.name}` : undefined}
+                  label={happened ? 'It’s happened' : done ? 'Done' : 'Next'}
+                  spoken={happened ? `It’s happened: ${shown}` : done ? `Done with ${v.name}` : undefined}
                   // P-103 (1): Done has its own mark, the check — never Next's arrow.
                   mark={done ? 'check' : undefined}
-                  markAfter={v.next === 'itsHappened' || done ? undefined : 'forward'}
+                  markAfter={happened || done ? undefined : 'forward'}
                   onPress={next}
                   hold={done && held}
                   size={18}
@@ -740,6 +818,8 @@ const styles = StyleSheet.create({
   pauseDoor: { flexShrink: 0, paddingHorizontal: SP.s2 },
   contextGap: { flexGrow: 1 },
   valuesTight: { flexGrow: 0, flexShrink: 0, maxHeight: 64 },
+  // P-112: with See ahead on, the sheet starts right under the values (the note is centred in its room; the sheet is not).
+  valuesAhead: { flexGrow: 0 },
   valuesTightBody: { paddingBottom: SP.s1 },
   // Under 340 px (large text): the path has the line to itself, the doors beneath it at the right.
   contextWordsAlone: { flexBasis: '100%', minHeight: 0 },
@@ -761,6 +841,8 @@ const styles = StyleSheet.create({
   words: { fontWeight: '600' },
   corner: { position: 'absolute', right: 0, bottom: 0, width: 22, height: 22 },
   dim: { backgroundColor: 'rgba(0,0,0,0.55)' },
+  handleRow: { flexDirection: 'row', alignItems: 'stretch' },
+  handleGrow: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
   handleBtn: { minHeight: TARGET, alignItems: 'center', justifyContent: 'center', borderTopWidth: 2, borderTopColor: G.surf2, backgroundColor: G.surf },
   handle: { width: 48, height: 6, backgroundColor: G.dim },
   tray: { backgroundColor: G.surf, paddingHorizontal: GUTTER, paddingBottom: SP.s3, gap: SP.s2 },
