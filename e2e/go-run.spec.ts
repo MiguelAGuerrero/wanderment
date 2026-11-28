@@ -18,7 +18,8 @@ test('J04-a, J04-b: a plain step — the context line (P-96: the path only; was:
   // The context line is words, not a control (P-90: the sequence is Plan's, reached by the Plan button).
   // P-101 (ruling 2; was: the handle, ❚❚, Plan, Next): ❚❚ and Plan on the top line, then the handle and Next.
   // P-103 (2; was ['', 'Plan', …]: ❚❚ alone): ❚❚ Pause says its word.
-  await expect(r.screen.getByRole('button')).toHaveText(['Pause', 'Plan', '', 'Next']);
+  // (P-112, rewritten: See ahead, the one toggle at the right of the handle — was ['Pause', 'Plan', '', 'Next'].)
+  await expect(r.screen.getByRole('button')).toHaveText(['Pause', 'Plan', '', 'See ahead', 'Next']);
   await expect(r.pause).toBeVisible();
   await expect(r.plan).toHaveText('Plan');
   await expect(r.plan).toBeEnabled();

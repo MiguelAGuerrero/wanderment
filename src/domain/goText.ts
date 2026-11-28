@@ -82,16 +82,18 @@ export function tileLine(tile: Tile, now = new Date()): TileLine {
   const atParts: StepPart[] = tile.atParts ?? (tile.at ? [{ kind: 'text', text: tile.at }] : []);
   const at = tile.at === undefined ? undefined : partsText(atParts);
   const valued = atParts.some((p) => p.kind !== 'text');
-  const parts = (before: string, after = ''): { parts?: StepPart[] } => (valued ? { parts: [{ kind: 'text', text: before }, ...atParts, ...(after ? [{ kind: 'text' as const, text: after }] : [])] } : {});
+  // P-99 (B-16, "The tile"): inside an In any order block, the part last touched first — "Practise · at Deliberate practice".
+  const pre = tile.part ? `${tile.part} · ` : '';
+  const parts = (before: string, after = ''): { parts?: StepPart[] } => (valued ? { parts: [{ kind: 'text', text: pre + before }, ...atParts, ...(after ? [{ kind: 'text' as const, text: after }] : [])] } : {});
   if (tile.state === 'waiting') {
     // A date that is not one is left out (never "since undefined").
     const since = tile.since ? sinceWords(tile.since, now) : '';
     const tail = since ? ` · since ${since}` : '';
-    const line = `waiting for ${at ?? tile.waitingFor ?? ''}${tail}`;
+    const line = `${pre}waiting for ${at ?? tile.waitingFor ?? ''}${tail}`;
     return { mark: 'wait', line, ...(tile.reason && { reason: tile.reason }), button, spoken, says: [tile.name, line, tile.reason].filter(Boolean).join(', '), ...parts('waiting for ', tail) };
   }
   // P-101 (ruling 4): every paused run reads the same way — at the edge, as Plan says it: "nothing next yet".
-  const line = at ? `at ${at}` : tile.asking && tile.action === 'plan' ? 'nothing next yet' : '';
+  const line = at ? `${pre}at ${at}` : tile.asking && tile.action === 'plan' ? 'nothing next yet' : '';
   const paused = tile.state === 'paused';
   return {
     ...(paused && { mark: 'paused' as const }),
@@ -100,7 +102,7 @@ export function tileLine(tile: Tile, now = new Date()): TileLine {
     button,
     spoken,
     // The one that is running says so (the others say paused, or waiting).
-    says: [tile.name, paused ? `paused${line ? `${at ? ' ' : ', '}${line}` : ''}` : ['running', line].filter(Boolean).join(', '), tile.reason].filter(Boolean).join(', '),
+    says: [tile.name, paused ? `paused${line ? `${at && !pre ? ' ' : ', '}${line}` : ''}` : ['running', line].filter(Boolean).join(', '), tile.reason].filter(Boolean).join(', '),
     ...(at && parts('at ')),
   };
 }

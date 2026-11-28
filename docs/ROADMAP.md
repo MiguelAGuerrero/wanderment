@@ -43,73 +43,39 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-100 Home is one queue `[feature]` `[data]` `[ux]` L
+### F-1 Final review fixes: engine and stored data `[data]` M
 *Status:* in-progress
-*Why:* (replaces P-94, and P-100's Up next / Ongoing / Finishing) owner, 2026-11-27: "The home view should
-really be a queue. Any ongoing runs would be the queue itself. And the new would be enqueue"; answered
-"One queue". Earlier, 2026-11-25/26: "ensure that this is depth-first … we only queue up only the leafs."
-*Done when:* Home is one ordered list with no sections: each ongoing run is a row showing its current
-(depth-first, leaf) step and where it sits; + New adds a run at the bottom; the top row carries the filled
-Resume; rows reorder by drag (and by keyboard); a waiting run shows what it waits for; finishing a run
-takes its row off; the order persists across every storage path; old data reads in its current order.
+*Why:* the final adversarial review (owner, 2026-11-27: "defer all auditing at the end in one batch
+review"): `.polish/product/final-audit-engine.md` and `final-audit-storage.md`; owner rulings 2026-11-28.
+*Done when:* every reproduced data-loss and rule-break finding in those two reports is fixed with a test
+that was red first (Back after a for each, Jump discarding silently, values doubled on a redo, Back across
+a round, Remove in Plan, See ahead drafts on Pause/Back/Jump/Plan, finished vs stopped, rebuilt records
+dropping unknown fields, kept-list refs and caps, requeue over unreadable values, Undo of a take-up, Copy's
+shared breakdown, an older open tab wiping newer shapes); Home's queue steps into a call's first step;
+`verify.sh --full`.
 
-### P-112 Chunks on the runner: see several steps at once `[ux]` M
+### F-2 Final review fixes: surfaces, library and short text `[ux]` `[a11y]` M
 *Status:* todo
-*Why:* owner, 2026-11-27 (relayed; B-16 "A chunk is chosen while running"): "you can choose to keep pushing
-on the next steps as you see fit … they're expandable, and effectively it just turns into an outline view.
-And operates as a skip … It just has to be a quality of life UI affordance"; "Ensure that we have a
-mock-up … there has to be a way for simple provision of values." Mock-up (second session):
-https://claude.ai/artifact/LA7yH557zSxLrVc38JGbTf — waits on the owner's reaction.
-*Done when:* as B-16: a toggled view (owner: "I want that to be a toggled view … like a button you click") — off, the runner is one step as now; on (one button), the runner is a condensed list (16 px text, a field on one line beside its name, thin rules) that tightens as rows are added but never below 48 px targets, then scrolls (owner: "the list stops tightening and just allow a scroll"); the step in view can be extended with the next, again and again; a step with
-insides opens in place as an outline; a giving step in the chunk has its field there; Next takes the
-chunk as done (one move, Undo) and goes past it; nothing stored; DESIGN.md's runner rule reworded.
+*Why:* `.polish/product/final-audit-surfaces.md`; owner 2026-11-28 short-text rule.
+*Done when:* every reproduced finding there is fixed (template copied under a callee's name refused, Copy
+says when it uses your routine of that name, kept lists not read as asks, "@" list not cut at 200 %,
+spoken titles without "▢", Resume naming its routine and saying why it is off, "@…" kept after Close,
+dead "no headings" assertions); short hints where they help (Where, pause note, list rows, the step and
+value fields, Add's "@" and "{", Gives, the read-only Places sheet); `verify.sh --full`.
 
-### P-99 In any order: parts as threads, joined `[feature]` `[data]` `[ux]` L
+### P-113 A routine can call itself `[feature]` `[data]` M
 *Status:* todo
-*Why:* owner, 2026-11-26: "I choose which activity suits my mood and energy … independent activities, but
-ultimately joined together"; "a thread has managed its own state … done once that single thread returns".
-*Done when:* an In any order block starts one child run per part, each with its own place and values;
-the runner offers the parts to choose; a part returns what it gives; the block finishes when every part
-has returned or been stopped; parts cannot outlive the block. Canvas row 6. From B-16 (D-23): a part whose for each has finished takes up
-again when its list gains an item (it reads as ready again; its block is not finished until it returns); a step after the block that the run could already
-reach waits again while such a part is going (it reads as waiting on that part in the tree view and on the
-tile) — designer's ruling, to confirm in P-99's contract: the run's place is not moved back and work
-already done is never undone;
-what the parts of an In any order block give under one name is collected into one list in the order
-given (owner, 2026-11-27); an In any order block inside a for each keeps each part's place per item; the step after the block cannot be
-reached while any part has not returned or been stopped (stated as a test). The tree view (owner, 2026-11-27: "Scope the tree view
-alongside P-99"; B-16 §"With P-99"): the pull-up panel of a run inside an In any order block lists every
-part of every level the run is in, each with where it stands in existing wordings; tapping a part moves
-the run there and each part keeps its own place and values, across a reload; the same view opens from the
-routine's tile on home when the run is paused (the tile reads the part last touched); a finished part and
-a stopped part are told apart in words, and that record survives export and import; at 390 px and 200 %
-text every line wraps and none is cut, each row ≥ 48 px with a full spoken name; no count, percentage or
-"left" anywhere; no editing from it.
+*Why:* owner, 2026-11-28: "Unpark self-calls" (the library's Find out ▢ needs it).
+*Done when:* a routine can call itself, each call its own level with its own inputs passed in (the lead,
+not the question again); deep levels are named by the value they were called with, "…" in long paths;
+depth stays bounded and is said; Find out ▢ works end to end.
 
-### P-104 The library (B-17 slices 1 and 4) `[feature]` `[ux]` M
+### P-114 Onboarding through a composer `[feature]` `[ux]` L
 *Status:* todo
-*Why:* owner, 2026-11-27: "write a brief for the library and quick composer"; D-24 go after P-98.
-*Done when:* as B-17 slice 1 and slice 4 state — My routines gains a Library view (Yours | Library); a
-method can be found, previewed, copied (Undo), started by itself and called from another routine; a copy
-survives reload, export and import and is unchanged by an app update; a name already in Yours offers
-"Open yours"; the library ships in the export format and passes the import check; a test fails the build
-if a library routine breaks the import check or the house style (verb-first names, one job, plural list /
-singular item, no counts or minutes, no kept list, no wait step); at 390 px and 200 % text nothing is cut.
-
-### P-105 Adding a library method from where you write (B-17 slice 2) `[feature]` `[ux]` M
-*Status:* todo
-*Why:* D-24 ("Only when summoned").
-*Done when:* "@" and Add's "a routine" list Yours and Library under headings; a library row opens the
-sheet with Copy and add; one Undo removes both; typing "@" and part of a method's name offers it; nothing
-is copied by Return; a giving field on the runner lists Yours only; no list appears while the person types
-their own words.
-
-### P-106 Templates (B-17 slice 3) `[feature]` `[data]` M
-*Status:* todo
-*Why:* D-24; after P-99.
-*Done when:* as B-17 slice 3 — Learn ▢, Find out ▢, Make ▢, Make a decision, "Work it out as you go";
-Copy… names the copy and brings what it calls, by name; copied twice gives two routines with separate
-kept lists that call the same methods; a name in use is refused in the sheet and nothing is overwritten.
+*Why:* owner, 2026-11-28: "a proper on boarding process … a composer of sorts guide you through a set up
+of a routine … leverage the library functions as a scaffold to interpret a users intent."
+*Done when:* a brief (B-19) agreed with the owner first, from B-17's composer and the guided-composer
+discovery; then built as the brief says.
 
 ### P-91 Erase everything `[data]` `[feature]` S
 *Status:* todo
@@ -394,6 +360,10 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-28 · P-104, P-105, P-106 — the library (B-17 slices 1–4): My routines gains Yours | Library (opens on Library while Yours is empty; Find shows both); 15 methods and 5 templates ship in the export format and pass the import check; a row shows one line on what it is for and opens a preview with Copy (one write, one Undo, brings what it calls by name, theirs used where the name exists), Open yours, or Copy… for templates (a name in use is refused); "@" and Add's "a routine" list Yours and Library under headings, a library row's Copy and add copies and adds in one Undo, and Return never picks a library row. A test fails the build if any library routine breaks the import check or the house style (docs/product/library.md). evidence: library tests + persistence, go-library and go-templates specs at 390×844 and 195×422, 149 implicated e2e, 1243 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
+- 2026-11-28 · P-99 — In any order: Plan's Add makes an In any order block of parts (inside it, Add a part); on the runner the parts are listed and the filled button reads Start/Resume <part>; each part keeps its own place and values (put down and handed back, never seen by another part); the pull-up panel and a home tile's ··· show where every part stands at every level (first / at <step> / finished / stopped) and tapping one moves there; the step after the block can't be reached until every part has returned or been stopped; what parts give under one name is collected into one list in order given. Stored as a breakdown with `any: true` plus a parts record (older builds read a breakdown; no migration). Parked by the owner: joins that reopen. Also fixes four See ahead value-loss bugs (typing over gets "Changed {name}" with Undo; an empty draft means unchanged; a refused draft refuses Next and says so; Step out keeps or names drafts). evidence: golden p99-* frozen from 475e70d (with what the old build shows), anyOrder (23) + golden (10) + persistence (6) + p112 tests, go-any-order spec at 390×844 and 195×422, 189 implicated e2e, 1210 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
+- 2026-11-28 · P-112 — See ahead: a toggle in the runner's bottom bar (off: one step as before); on, the steps in view are one condensed sheet (16 px rows, a giving step's field on one line), a dashed "then: <words>" row pulls the next step in and Fewer takes it back, steps with insides open in place as an outline (P-111's control), spacing tightens with more rows but never below 48 px targets, then scrolls; rows follow the engine's own Next; Next takes everything in view as done in one move with one Undo ("Took N steps as done"); nothing stored. evidence: chunk (16) + store (2) tests, go-chunks spec at 390×844 and 195×422, implicated runner specs, 1166 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
+- 2026-11-28 · P-100 — Home is one queue: one ordered list with no sections; each running, paused or waiting run is a row with its step (held values), a short path below the first level and its pause note; the filled Resume takes the top row; a new run goes to the bottom; rows reorder by a grip or the ··· menu (Move up / Move down / To the top) with Undo; a finished run leaves. The order is a `queue` number on each run (old data reads oldest first, today's order; nothing converted). evidence: golden p100-* frozen from 0b67fb1, queue (12) + golden (7) + persistence (5) tests, go-queue spec at 390×844 and 195×422, 14 implicated home specs, 1148 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-111 — a breakdown opens its own view in Plan: a broken-down step or a for each is one shut row; its chevron (or a tap on its words) opens it at `?at=<row>` with a path one up, its words as the heading, its own steps and its own Add a step; the browser's Back returns; Plan opened from a run opens where HERE is; calls stay calls. The shared insides control (`Insides.tsx`) is ready for the runner's chunks. Also, owner rulings on P-110: Back keeps values; a Plan edit never clears a run's values. And "@": an exact name ranks first; an unchanged "@<name>" step stays words. evidence: planAt (14) + backKeeps (7) + persistence tests, go-breakdown-view spec at 390×844 and 195×422, 1124 unit tests, implicated specs, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-110 — values follow the place: a value is held only while its giving step is above the place (or is the place); every move clears values given below it, a move back also clears the step it lands on, with a notice and one Undo; no "not given yet" chips; Plan during a run and "Resume at …" show held values; "Last ran" on home; "@" stays open across spaces, "@<routine>" becomes a call, works while changing a step, and an existing "@<name>" row offers Make it a call. Runs stored before are corrected on read, nothing deleted. Also fixes three P-108 repros (kept-list reorder dropping items, duplicate kept refs, Step in on a self-held routine). evidence: golden p110-* frozen from 1b005ac, 26 domain + 4 store + 10 golden + 6 persistence tests, go-place-values spec at 390×844 and 195×422, 1102 unit tests, `verify.sh` (changed specs; full suite deferred to the end, owner 2026-11-27). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-108 — kept lists, a for each's own list, and values that are routines: a for each over a list kept in the routine (rows under the block, items stay across runs; one added comes round next sitting) or its own list asked on arrival (local to the block); a step can give a list held at its level or above; a value can be a routine held by reference (`▤ {name}` rows, Step in on the runner; a removed one reads "(removed)"); lists of routines; "@" lists names given above. Also fixes P-107's place-keeping (duplicate or renamed items no longer skip or repeat: the loop compares the list it last saw). No migration. evidence: golden p108-* frozen from ee66a65 (with what the old build shows), 32 domain + 10 golden + 6 persistence tests, go-kept-lists spec at 390×844 and 195×422, E2E_SLOW repeat-each=5, 1056 unit tests, `verify.sh --full` (397 e2e). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).

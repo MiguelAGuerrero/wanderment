@@ -16,6 +16,13 @@
  * what is in motion — the runs running, paused or waiting — under **Ongoing** (the routine has no end: it repeats
  * until I'm done at its top) and **Finishing** (it has an end); each keeps its tile. A routine with nothing going
  * is on My routines (the left side door), with Start there and in its Plan.
+ *
+ * P-100 (owner, 2026-11-27: "The home view should really be a queue … And the new would be enqueue"; "One queue"):
+ * home is ONE ordered list — no sections, no headings. Each run going is a row: its routine's name, the step it is on
+ * (the deepest level it is in, with its values in place), where it sits (a short path, below the first level), its
+ * pause note or what it waits for. The top row is what the filled Resume at the bottom resumes. A run started goes
+ * to the bottom; a run that finishes leaves the list. Rows move by their grip (a drag) and by their ··· (Move up,
+ * Move down, To the top), each with Undo; the order is stored on the runs (`queueRuns`).
  */
 import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -23,15 +30,17 @@ import { Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View 
 
 import { tileLine } from '@/domain/goText';
 import { placesShown } from '@/domain/places';
-import { homeGroups, myRoutines } from '@/domain/routines';
-import { leftOff, opensAt, Tile } from '@/domain/runView';
+import { myRoutines } from '@/domain/routines';
+import { homeQueue, leftOff, opensAt, partsText, partsTree, Tile } from '@/domain/runView';
 import { useStore } from '@/store/useStore';
 
+import { Grip } from './Grip';
 import { Mark } from './marks';
 import { Notice, useRunUndo } from './Notice';
 import { decideWhere, wentHome, whereDecided } from './session';
 import { G, hueOf, SP, TARGET } from './tokens';
 import { Btn, Confirm, Field, focusOn, focusSoon, GoScreen, hard, HiddenH1, Menu, MenuItem, MenuSep, Sheet, T, TextRef, useKeys, ViewRef } from './ui';
+import { PartsList } from './Parts';
 import { PlacesSheet } from './Places';
 import { KeptSheet, Parts } from './Values';
 
@@ -58,8 +67,9 @@ export function GoHome() {
     if (focused && here) focusSoon(title);
   }, [focused, here]);
 
-  const groups = homeGroups(data);
-  const tiles = [...groups.ongoing, ...groups.finishing];
+  /** P-100: the queue, top first. */
+  const tiles = homeQueue(data);
+  const top = tiles[0];
   /** P-97: there are routines to find on My routines (named, not removed). */
   const any = myRoutines(data).length > 0;
   // One thing at a time: while a run is running it is the only thing home lets you resume or start.
@@ -77,13 +87,46 @@ export function GoHome() {
   };
   /** New: its own sheet asks for the name; the routine only (named, on home, no run), then its Plan with the open row focused. */
   const [naming, setNaming] = useState(false);
-  /** P-101 amendment (ruling 9): a paused tile's ··· (its menu), then Start over asked. */
+  /** P-101 amendment (ruling 9): a tile's ··· (its menu), then Start over asked. P-100: and its moves in the queue. */
   const [tileMenu, setTileMenu] = useState<Tile | null>(null);
+  const menuAt = tileMenu ? tiles.findIndex((t) => t.runId === tileMenu.runId) : -1;
+  const move = (t: Tile, to: number | 'top') => {
+    if (t.runId) act().moveInQueue(t.runId, to);
+  };
+  /** P-100: a row dragged by its grip — which, how far the pointer has moved, and where the line showing the drop goes. */
+  const [drag, setDrag] = useState<{ runId: string; line?: number } | null>(null);
+  /** Each row's box in the list (by run), and the rows as they were when the drag began. */
+  const boxes = useRef<Record<string, { y: number; h: number }>>({});
+  const dragFrom = useRef<{ runId: string; spans: { runId: string; y: number; h: number }[] } | undefined>(undefined);
+  const spansNow = () => tiles.flatMap((t) => (t.runId && boxes.current[t.runId] ? [{ runId: t.runId, ...boxes.current[t.runId] }] : []));
+  /** How many rows a drag let go at `dy` crossed (negative: up), and where its line goes — by where they were when it began. */
+  const dropOf = (runId: string, dy: number): { by: number; line?: number } | undefined => {
+    const spans = dragFrom.current?.runId === runId ? dragFrom.current.spans : spansNow();
+    const c = spans.findIndex((x) => x.runId === runId);
+    if (c < 0) return undefined;
+    const mid = (x: { y: number; h: number }) => x.y + x.h / 2;
+    // Where the pointer is: the grip sits at the row's top-left corner, so its middle is half a target below the row's top.
+    const at = spans[c].y + TARGET / 2 + dy;
+    let up = 0;
+    let down = 0;
+    while (c - up - 1 >= 0 && mid(spans[c - up - 1]) > at) up++;
+    while (c + down + 1 < spans.length && mid(spans[c + down + 1]) < at) down++;
+    return { by: down - up, ...(up ? { line: spans[c - up].y - SP.s1 } : down ? { line: spans[c + down].y + spans[c + down].h + SP.s1 } : {}) };
+  };
+  const dropped = (t: Tile, dy: number | undefined) => {
+    const d = dy === undefined || !t.runId ? undefined : dropOf(t.runId, dy);
+    dragFrom.current = undefined;
+    setDrag(null);
+    // After the click the release makes (web): that click puts a shown notice away, and the move's own notice must stay.
+    if (d?.by) setTimeout(() => move(t, d.by), 0);
+  };
   const [restarting, setRestarting] = useState<Tile | null>(null);
   /** P-103 (6): "End this run" asked, for this tile's run. */
   const [ending, setEnding] = useState<Tile | null>(null);
   /** P-109: a tile's Places door — its routine's places, to open (read-only here). */
   const [placesOf, setPlacesOf] = useState<Tile | null>(null);
+  /** P-99 (B-16, "the same view opens from the routine's tile"): where every part of a run's In any order blocks stands. */
+  const [partsOf, setPartsOf] = useState<Tile | null>(null);
   /** P-108: + Add on a tile's kept list. */
   const [keptOf, setKeptOf] = useState<{ seq: string; list: string } | null>(null);
   /** P-102 audit F5: each tile's ··· (by routine), what its menu hangs from. */
@@ -118,7 +161,7 @@ export function GoHome() {
     else focusOn(title);
   };
   useKeys(
-    focused && !naming && !tileMenu && !restarting && !ending && !placesOf && !keptOf,
+    focused && !naming && !tileMenu && !restarting && !ending && !placesOf && !keptOf && !partsOf,
     {
       'mod+z': () => {
         if (!can) return;
@@ -129,6 +172,7 @@ export function GoHome() {
     true,
   );
 
+  /** Narrower than this, a row has no grip (its ··· has the moves), as Plan's rows. */
   const columns = width >= 340 ? 2 : 1;
   return (
     <GoScreen
@@ -139,6 +183,22 @@ export function GoHome() {
           <NewSheet onMake={create} onClose={() => setNaming(false)} fallback={newBtn} />
         ) : keptOf ? (
           <KeptSheet seq={keptOf.seq} list={keptOf.list} onClose={() => setKeptOf(null)} fallback={title} />
+        ) : partsOf?.runId ? (
+          <Sheet title={`In any order, in ${partsOf.name}`} onClose={() => setPartsOf(null)} testID="go-parts-sheet" fallback={title}>
+            <PartsList
+              groups={partsTree(data, partsOf.runId)}
+              onTake={(level, part) => {
+                const s = act();
+                const runId = partsOf.runId!;
+                if (!s.takeUpPart(runId, level, part).ok) return;
+                setPartsOf(null);
+                // Taken up, it is resumed there: the runner, at that part's place.
+                if (s.resumeRun(runId).ok) router.push(`/go/run/${runId}`);
+              }}
+              testID="go-tile-tree"
+            />
+            <Btn label="Close" onPress={() => setPartsOf(null)} testID="go-parts-close" />
+          </Sheet>
         ) : placesOf ? (
           <PlacesSheet routineId={placesOf.routineId} name={placesOf.name} onClose={() => setPlacesOf(null)} fallback={title} />
         ) : restarting?.runId ? (
@@ -171,6 +231,24 @@ export function GoHome() {
         ) : tileMenu ? (
           // P-102 audit F5 (was: a bottom sheet): the same small menu as Plan's, anchored to the tile's ···.
           <Menu anchor={() => mores[tileMenu.routineId]} label={tileMenu.name} onClose={() => setTileMenu(null)} testID="go-tile-menu" fallback={title}>
+            {/* P-100: its moves in the queue — the way to reorder without a drag. Only those it can make. */}
+            {menuAt > 0 && <MenuItem label="Move up" spoken={`Move up: ${tileMenu.name}`} testID="go-tile-up" onPress={() => { move(tileMenu, -1); setTileMenu(null); }} />}
+            {menuAt >= 0 && menuAt < tiles.length - 1 && <MenuItem label="Move down" spoken={`Move down: ${tileMenu.name}`} testID="go-tile-down" onPress={() => { move(tileMenu, 1); setTileMenu(null); }} />}
+            {menuAt > 1 && <MenuItem label="To the top" spoken={`To the top: ${tileMenu.name}`} testID="go-tile-top" onPress={() => { move(tileMenu, 'top'); setTileMenu(null); }} />}
+            {/* P-99: a run inside an In any order block — where every part stands (a tap takes one up). */}
+            {!!tileMenu.runId && partsTree(data, tileMenu.runId).length > 0 && (
+              <MenuItem
+                label="In any order…"
+                spoken={`In any order: where every part of ${tileMenu.name} stands`}
+                testID="go-tile-parts"
+                onPress={() => {
+                  setPartsOf(tileMenu);
+                  setTileMenu(null);
+                }}
+              />
+            )}
+            {tiles.length > 1 && tileMenu.state !== 'running' && <MenuSep />}
+            {tileMenu.state !== 'running' && (
             <MenuItem
               label="Start over"
               spoken={`Start over: ${tileMenu.name}`}
@@ -180,6 +258,7 @@ export function GoHome() {
                 setTileMenu(null);
               }}
             />
+            )}
 {/* P-103 audit F5: only a paused run is ended here — one resting on a wait is waited for, not put down. */}
             {tileMenu.state === 'paused' && (
               <>
@@ -222,25 +301,50 @@ export function GoHome() {
             </T>
           </View>
         )}
-        {(
-          [
-            ['ongoing', 'Ongoing', groups.ongoing],
-            ['finishing', 'Finishing', groups.finishing],
-          ] as const
-        ).map(
-          ([key, heading, group]) =>
-            group.length > 0 && (
-              <View key={key} style={styles.group} testID="go-home-group" {...{ dataSet: { group: key } }}>
-                <T bold dim role="heading" aria-level={2} accessibilityRole="header" testID="go-home-heading">
-                  {heading}
-                </T>
-                <View style={styles.grid}>
-                  {group.map((t) => (
-                    <TileBox key={t.routineId} tile={t} wide={columns === 1} onPress={() => choose(t)} onPlan={() => toPlan(t.routineId, t.runId)} onMore={t.runId && t.state !== 'running' ? () => setTileMenu(t) : undefined} moreRef={(el) => { mores[t.routineId] = el; }} unavailable={busy(t)} onPlaces={placesShown(data.routines[t.routineId]?.places).length > 0 ? () => setPlacesOf(t) : undefined} onKept={(k) => setKeptOf(k)} />
-                  ))}
-                </View>
+        {/* P-100: one queue — no sections, no headings; top first. */}
+        {tiles.length > 0 && (
+          <View role="list" style={styles.queue} testID="go-queue">
+            {tiles.map((t, i) => (
+              <View
+                key={t.routineId}
+                role="listitem"
+                onLayout={(e) => {
+                  if (t.runId) boxes.current[t.runId] = { y: e.nativeEvent.layout.y, h: e.nativeEvent.layout.height };
+                }}>
+                <TileBox
+                  tile={t}
+                  first={i === 0}
+                  dragging={drag?.runId === t.runId}
+                  grip={
+                    tiles.length > 1 && columns > 1 && t.runId ? (
+                      <Grip
+                        ink
+                        words={t.name}
+                        testID="go-tile-grip"
+                        style={styles.grip}
+                        onStart={() => {
+                          dragFrom.current = { runId: t.runId!, spans: spansNow() };
+                        }}
+                        onMove={(dy) => setDrag({ runId: t.runId!, line: dropOf(t.runId!, dy)?.line })}
+                        onDrop={(dy) => dropped(t, dy)}
+                        onPress={() => setTileMenu(t)}
+                      />
+                    ) : undefined
+                  }
+                  onPress={() => choose(t)}
+                  onPlan={() => toPlan(t.routineId, t.runId)}
+                  onMore={t.runId && (tiles.length > 1 || t.state !== 'running') ? () => setTileMenu(t) : undefined}
+                  moreRef={(el) => {
+                    mores[t.routineId] = el;
+                  }}
+                  unavailable={busy(t)}
+                  onPlaces={placesShown(data.routines[t.routineId]?.places).length > 0 ? () => setPlacesOf(t) : undefined}
+                  onKept={(k) => setKeptOf(k)}
+                />
               </View>
-            ),
+            ))}
+            {drag?.line !== undefined && <View style={[styles.dropLine, { top: drag.line - 2 }]} testID="go-queue-drop" pointerEvents="none" />}
+          </View>
         )}
       </ScrollView>
       {/* Its own row, in the flow above the side doors: never over a tile (ruling 8). */}
@@ -252,6 +356,12 @@ export function GoHome() {
           <Btn ref={newBtn} mark="add" label="New" onPress={() => setNaming(true)} testID="go-new" />
         </View>
       </View>
+      {/* P-100: the one filled button — the top row's way back in. */}
+      {top && (
+        <View style={styles.resume}>
+          <Btn kind="filled" size={18} label={resumeLabel(top)} disabled={busy(top)} onPress={() => choose(top)} testID="go-resume" />
+        </View>
+      )}
       </View>
     </GoScreen>
   );
@@ -273,9 +383,29 @@ export function NewSheet({ onMake, onClose, fallback }: { onMake: (words: string
   );
 }
 
+/** P-100: what the filled Resume says — the top row's step (its values in place); on a wait, its routine (the wait's words are not a step to do); at the edge, its Plan. */
+export function resumeLabel(t: Tile): string {
+  if (t.action === 'plan') return `Plan ${t.name}`;
+  if (t.state === 'waiting') return `Resume ${t.name}`;
+  const step = t.atParts ? partsText(t.atParts) : (t.at ?? '');
+  return step ? `Resume ${step}` : `Resume ${t.name}`;
+}
+
+/** P-100: where a row's run sits — its levels, its routine first; past three, the first and the last two. */
+export function shortPath(path: string[] | undefined): string {
+  const p = path ?? [];
+  if (p.length < 2) return '';
+  return (p.length > 3 ? [p[0], '…', ...p.slice(-2)] : p).join(' › ');
+}
+
 interface TileProps {
   tile: Tile;
-  wide: boolean;
+  /** P-100: the top row of the queue (what the filled Resume resumes). */
+  first: boolean;
+  /** P-100: its grip (none when there is nothing to reorder, or too narrow). */
+  grip?: React.ReactNode;
+  /** P-100: it is being dragged. */
+  dragging: boolean;
   /** Its one action: Resume (its body, for a run), Start, or — at the edge — Plan. */
   onPress: () => void;
   /** Its Plan (the word). */
@@ -301,9 +431,10 @@ const RING_INK = WEB ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: 
  * (at the edge: "Plan <name>") — with Plan beside it; the run touched last says "Last ran" (P-110). A routine with
  * nothing going has Start (outlined, never filled) and Plan.
  */
-function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, onPlaces, onKept }: TileProps) {
+function TileBox({ tile, first, grip, dragging, onPress, onPlan, unavailable, onMore, moreRef, onPlaces, onKept }: TileProps) {
   const hue = hueOf(tile.hue);
   const l = tileLine(tile);
+  const where = shortPath(tile.path);
   const color = G.ink;
   const going = tile.state !== 'idle';
   const body = (
@@ -330,6 +461,11 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, on
           )}
         </View>
       )}
+      {!!where && (
+        <T ink style={styles.tileName} testID="go-tile-path">
+          {where}
+        </T>
+      )}
       {!!l.reason && (
         <T ink bold testID="go-tile-reason">
           {l.reason}
@@ -338,15 +474,17 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, on
     </>
   );
   // What its body's button says: the action and the name, then what the body shows.
-  const said = [l.spoken, tile.current && going ? 'Last ran' : '', l.line, l.reason].filter(Boolean).join(', ');
+  const said = [l.spoken, tile.current && going ? 'Last ran' : '', l.line, where, l.reason].filter(Boolean).join(', ');
   return (
     <View
-      style={[styles.tile, wide ? styles.tileWide : styles.tileHalf, { backgroundColor: hue.c }, hard(6, hue.d)]}
+      style={[styles.tile, { backgroundColor: hue.c }, hard(6, hue.d), dragging && styles.tileDragging]}
       testID="go-tile"
       role="group"
-      aria-label={l.says}
-      accessibilityLabel={l.says}
-      {...{ dataSet: { state: tile.state, current: tile.current ? 'true' : 'false', routine: tile.routineId } }}>
+      aria-label={[l.says, where].filter(Boolean).join(', ')}
+      accessibilityLabel={[l.says, where].filter(Boolean).join(', ')}
+      {...{ dataSet: { state: tile.state, current: tile.current ? 'true' : 'false', routine: tile.routineId, run: tile.runId ?? '', first: first ? 'true' : 'false', dragging: dragging ? 'true' : 'false' } }}>
+      <View style={styles.tileTop}>
+      {grip}
       <View style={[styles.tileBody, going && unavailable && styles.tileOff]}>
         {body}
         {/* The body's own button, over it (the whole body is the target): its name is what it does and what the body shows. */}
@@ -361,6 +499,7 @@ function TileBox({ tile, wide, onPress, onPlan, unavailable, onMore, moreRef, on
             style={(state) => [StyleSheet.absoluteFill, (state as { focused?: boolean }).focused && RING_INK]}
           />
         )}
+      </View>
       </View>
       <View style={styles.tileFoot}>
         {/* Nothing going: Start (none with no steps yet — Plan is where the first step is added). */}
@@ -389,14 +528,17 @@ const styles = StyleSheet.create({
   bar: { minHeight: 56, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingLeft: SP.s3, paddingRight: SP.s2, gap: SP.s1 },
   settings: { width: TARGET, paddingHorizontal: 0, justifyContent: 'center' },
   list: { paddingHorizontal: SP.s3, paddingTop: SP.s1, paddingBottom: SP.s3, gap: SP.s3 },
-  group: { gap: SP.s2 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s3 - 2 },
-  tile: { padding: SP.s3 - 4, gap: SP.s1, minHeight: 132, marginRight: 6, marginBottom: 6 },
-  tileHalf: { flexGrow: 1, flexShrink: 1, flexBasis: '40%', maxWidth: '100%' },
-  tileWide: { flexBasis: '100%', flexGrow: 1 },
+  queue: { gap: SP.s3 - 2 },
+  tile: { padding: SP.s3 - 4, gap: SP.s1, marginRight: 6, marginBottom: 6 },
+  tileTop: { flexDirection: 'row', alignItems: 'stretch' },
+  // The row being dragged stays where it is, dashed; the line shows where it goes (as Plan's rows).
+  tileDragging: { borderWidth: 2, borderStyle: 'dashed', borderColor: G.ink },
+  grip: { marginLeft: -(SP.s3 - 4), marginTop: -(SP.s3 - 4), alignSelf: 'flex-start' },
+  dropLine: { position: 'absolute', left: 0, right: 0, height: 4, backgroundColor: G.text },
+  resume: { paddingHorizontal: SP.s3, paddingBottom: SP.s3 },
   tileHead: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.s1 },
   last: { borderWidth: 2, borderColor: G.ink, paddingHorizontal: SP.s1, lineHeight: 22 },
-  tileBody: { gap: SP.s1, minHeight: TARGET },
+  tileBody: { flex: 1, minWidth: 0, gap: SP.s1, minHeight: TARGET },
   tileOff: { opacity: 0.6 },
   tileName: { flex: 1, minWidth: 0 },
   tileLine: { flexDirection: 'row', alignItems: 'flex-start', gap: SP.s1 },

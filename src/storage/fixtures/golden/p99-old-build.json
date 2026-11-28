@@ -1,0 +1,335 @@
+{
+  "plan": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Warm up",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "In any order",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": [
+          "copies"
+        ]
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Gesture practice",
+        "broken": true,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Draw 10 hands, 30 s each",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Draw 10 feet, 30 s each",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Study: hand anatomy, chapter 3",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Master copy",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "copies",
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Compare {copies} with this week’s gestures and pick one thing to work on",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ]
+  },
+  "inGesture": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Warm up",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "In any order",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "hoisted": [
+          "copies"
+        ]
+      },
+      {
+        "depth": 1,
+        "kind": "routine",
+        "words": "Gesture practice",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Draw 10 hands, 30 s each",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 2,
+        "kind": "step",
+        "words": "Draw 10 feet, 30 s each",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Study: hand anatomy, chapter 3",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Master copy",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "copies",
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Compare {copies} with this week’s gestures and pick one thing to work on",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "Gesture practice",
+      "parent": "In any order",
+      "step": "step",
+      "words": "Draw 10 feet, 30 s each",
+      "fields": [],
+      "values": [],
+      "moves": {
+        "stepIn": false,
+        "stepOut": {
+          "name": "Gesture practice"
+        }
+      },
+      "next": "next"
+    },
+    "tile": {
+      "line": "at Draw 10 feet, 30 s each",
+      "path": [
+        "Get better at hands",
+        "In any order",
+        "Gesture practice"
+      ]
+    }
+  },
+  "choosing": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "In any order",
+        "broken": true,
+        "here": true,
+        "within": false,
+        "gives": null,
+        "hoisted": [
+          "thumbnail"
+        ]
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Thumbnail",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": "thumbnail",
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Pick a palette",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Line art",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "Draw a piece",
+      "parent": null,
+      "step": "routine",
+      "words": "In any order",
+      "fields": [],
+      "values": [],
+      "moves": {
+        "stepIn": true
+      },
+      "next": "next"
+    },
+    "tile": {
+      "line": "at In any order",
+      "path": [
+        "Draw a piece"
+      ]
+    }
+  },
+  "steppedIn": {
+    "rows": [
+      {
+        "depth": 0,
+        "kind": "routine",
+        "words": "In any order",
+        "broken": true,
+        "here": false,
+        "within": true,
+        "gives": null,
+        "hoisted": [
+          "thumbnail"
+        ]
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Thumbnail",
+        "broken": false,
+        "here": true,
+        "within": false,
+        "gives": "thumbnail",
+        "hoisted": []
+      },
+      {
+        "depth": 1,
+        "kind": "step",
+        "words": "Pick a palette",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      },
+      {
+        "depth": 0,
+        "kind": "step",
+        "words": "Line art",
+        "broken": false,
+        "here": false,
+        "within": false,
+        "gives": null,
+        "hoisted": []
+      }
+    ],
+    "runner": {
+      "level": "In any order",
+      "parent": "Draw a piece",
+      "step": "step",
+      "words": "Thumbnail",
+      "fields": [
+        {
+          "name": "thumbnail",
+          "text": "",
+          "gives": true
+        }
+      ],
+      "values": [],
+      "moves": {
+        "stepIn": false,
+        "stepOut": {
+          "name": "In any order"
+        }
+      },
+      "next": "next"
+    },
+    "tile": {
+      "line": "at Thumbnail",
+      "path": [
+        "Draw a piece",
+        "In any order"
+      ]
+    }
+  }
+}

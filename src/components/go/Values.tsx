@@ -270,6 +270,28 @@ function ListSheet({ runId, itemId, field, onClose, fallback }: { runId: string;
 }
 
 /**
+ * P-112: a list typed in the runner's See ahead view, for a step not reached yet — the same list editor, its rows held
+ * by the view (a draft) until Next takes the steps in view as done. Nothing is written here.
+ */
+export function DraftListSheet({ title, items, refs, runId, routines, onKeep, onClose, fallback }: { title: string; items: string[]; refs?: (ListRef | null)[]; runId: string; routines?: boolean; onKeep: (items: string[], refs: (ListRef | null)[]) => void; onClose: () => void; fallback: { current: unknown } }) {
+  return (
+    <ListEditor
+      title={title}
+      testID="go-list-sheet"
+      rows={items.map((text, i) => ({ text, ref: refs?.[i] ?? null }))}
+      offerAll={routines}
+      runId={runId}
+      fallback={fallback}
+      onClose={onClose}
+      onKeep={(kept, r) => {
+        onKeep(kept, r);
+        return true;
+      }}
+    />
+  );
+}
+
+/**
  * P-108: + Add on a kept list (in Plan, under its block; on the routine's tile) — its items as rows, a new one at the end
  * with the focus; the filled Keep keeps the list in the routine (one change, said, with its Undo). No count anywhere.
  */

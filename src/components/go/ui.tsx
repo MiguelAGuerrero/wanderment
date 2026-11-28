@@ -282,7 +282,7 @@ export function HiddenH1({ children, ref }: { children: string; ref?: Ref<TextRe
  * <step>" on the runner — the two must never sound alike). It takes no room. Web: a polite live region
  * filled a moment after it is there (one filled from the start is not read); native: announced.
  */
-export function Said({ text }: { text: string }) {
+export function Said({ text, testID = 'go-said' }: { text: string; testID?: string }) {
   const [first] = useState(text);
   const [shown, setShown] = useState('');
   useEffect(() => {
@@ -295,7 +295,7 @@ export function Said({ text }: { text: string }) {
     return () => clearTimeout(timer);
   }, [first]);
   return (
-    <Text role="status" aria-live="polite" accessibilityLiveRegion="polite" style={styles.hidden} testID="go-said">
+    <Text role="status" aria-live="polite" accessibilityLiveRegion="polite" style={styles.hidden} testID={testID}>
       {/* Once what it said is no longer so (the next step), it says nothing: never something stale. */}
       {text === first ? shown : ''}
     </Text>
@@ -532,6 +532,8 @@ interface SheetProps {
   fallback?: { current: unknown };
   /** P-109: a menu of its own is open over it — Esc and Back are the menu's, and nothing in the sheet can be reached until it closes. */
   inert?: boolean;
+  /** P-104: controls pinned under what scrolls (the library sheet's Copy, then Close). */
+  foot?: ReactNode;
 }
 
 /**
@@ -540,7 +542,7 @@ interface SheetProps {
  * Esc, Back and the scrim close it. It slides up in under 200 ms; under Reduce Motion it is just there.
  * `data-moving` says whether it is still arriving.
  */
-export function Sheet({ title, onClose, children, confirm, testID, fallback, inert }: SheetProps) {
+export function Sheet({ title, onClose, children, confirm, testID, fallback, inert, foot }: SheetProps) {
   const reduce = useReduce();
   const [arrived, setArrived] = useState(false);
   const moving = !reduce && !arrived;
@@ -622,9 +624,11 @@ export function Sheet({ title, onClose, children, confirm, testID, fallback, ine
         <T ref={heading} role="heading" aria-level={2} accessibilityRole="header" bold size={20} style={[styles.sheetTitle, NO_RING]} {...(WEB && ({ tabIndex: -1 } as object))}>
           {title}
         </T>
-        <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
+        {/* (P-104: with its controls pinned below, what scrolls may hold only words — it can be reached by the keyboard to scroll.) */}
+        <ScrollView style={styles.sheetScroll} contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled" {...(WEB && !!foot && ({ tabIndex: 0, 'aria-label': title, role: 'region' } as object))}>
           {children}
         </ScrollView>
+        {!!foot && <View style={styles.sheetFoot}>{foot}</View>}
       </Animated.View>
     </View>
   );
@@ -882,6 +886,7 @@ export const styles = StyleSheet.create({
   sheetTitle: { paddingHorizontal: SP.s3, paddingBottom: SP.s2 },
   sheetScroll: { flexGrow: 0, flexShrink: 1 },
   sheetBody: { paddingHorizontal: SP.s3, paddingTop: SP.s2, paddingBottom: SP.s2, gap: SP.s2 },
+  sheetFoot: { paddingHorizontal: SP.s3, paddingTop: SP.s2, gap: SP.s2, borderTopWidth: 1, borderTopColor: G.line },
   pair: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2 },
   // P-102: the anchored menu — barely dimmed beneath; a box with the hard shadow, at its button.
   menuLayer: { zIndex: 10 },

@@ -43,6 +43,7 @@ import { LayoutChangeEvent, Platform, Pressable, ScrollView, StyleSheet, useWind
 
 import { callersOf, Refusal, routineNamed, RoutineEdit } from '@/domain/run';
 import { atPick, rankRoutines, routineInWords, wordsKept } from '@/domain/atPick';
+import { LibraryRow, libraryMatches, libraryToAdd } from '@/domain/library';
 import { myRoutines } from '@/domain/routines';
 import { insidesOf, namesOffered, PLAN_TOP, planAt, PlanDivider, PlanRow, planView, readersOf, routinesByAge, rowMoves, StepPart } from '@/domain/runView';
 import { placesShown, placesWritable } from '@/domain/places';
@@ -52,6 +53,7 @@ import { useStore } from '@/store/useStore';
 
 import { decorative } from '../a11y';
 import { BindSheet, CallLines, copyName, CopySheet, ForEachSheet, InputsSheet, removeBody, RoutinesSheet } from './Calls';
+import { librarySignature, LibrarySheet } from './Library';
 import { Mark } from './marks';
 import { rowLine } from './MyRoutines';
 import { Notice, useRunUndo } from './Notice';
@@ -64,6 +66,7 @@ import { G, SP, TARGET } from './tokens';
 import { Btn, caretToEnd, Confirm, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Menu, MenuItem, MenuSep, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
 import { Gives, KeptSheet, NameChip, ValueText } from './Values';
 import { InsidesBtn } from './Insides';
+import { Grip } from './Grip';
 
 const WEB = Platform.OS === 'web';
 /** The focus ring: its own colour, with a gap (never the white of HERE). */
@@ -75,6 +78,8 @@ const under = (key: string, parent: string) => key === parent || key.startsWith(
 const tidy = (s: string) => s.trim().replace(/\s+/g, ' ');
 /** The "Add a step" row's placeholder and spoken name: one string, nothing keyed to its words (a later composer may ask a question here). */
 export const ADD_PLACEHOLDER = 'Add a step';
+/** P-99: the Add row of an In any order block's own view (the mock-up's "+ Add a part"). */
+export const ADD_PART = 'Add a part';
 
 /** P-98: why a routine was not added as a step, in words. */
 export function callRefused(reason: Refusal | 'reconnecting' | undefined, routine: string, into: string): string | undefined {
@@ -180,6 +185,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
    * (that one stays closed); a "}" typed, a space, or the caret moving away does too. `start`: where the "@"/"{" is.
    */
   const [picking, setPicking] = useState<{ start: number; query: string } | null>(null);
+  /** P-105: a library method chosen from "@" or Add's "a routine" — its preview open, Copy and add going to `seq` (after `after`; absent: the end). */
+  const [libAdd, setLibAdd] = useState<{ row: LibraryRow; seq: string; after?: string } | null>(null);
   /** P-103 audit F3: the name the person has chosen in it (↑/↓), -1 for none yet; typing part of a name chooses the first match. */
   const [lit, setLit] = useState(-1);
   /** A name just put in: where the caret goes, set as soon as the field holds the new words (before the next key). */
@@ -348,6 +355,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   const view = pv!;
   /** P-111: where this view's own steps are added — its sequence (the routine's, or the row's insides). */
   const ownSeq = sub?.ref ?? v.routineId;
+  /** P-99: this view is an In any order block's — its rows are its parts, and Add adds a part. */
+  const inAny = !!sub?.any;
+  const anySeqs = new Set(v.rows.filter((r) => r.any && r.ref).map((r) => r.ref!));
+  const addWords = inAny ? ADD_PART : ADD_PLACEHOLDER;
   /** The words this view is headed by (P-110: as shown, with the values held at the run's place). */
   const headWords = sub ? (sub.shown ?? sub.words) : v.name;
   /** P-111: the address of a view of this Plan (`?at=`; the routine's own: PLAN_TOP), keeping where it was opened from. */
@@ -467,7 +478,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   };
   const keepTyped = (t: Typing, stay: boolean) => {
     const words = tidy(t.text);
-    const target = t.mode === 'name' ? undefined : calledBy(words);
+    // (P-99: a part of an In any order block is a step, or a step broken down — "@" words there stay words.)
+    const target = t.mode === 'name' || (t.mode !== 'into' && anySeqs.has(rowAt(t.path)?.seq ?? '')) ? undefined : calledBy(words);
     const leave = (to?: string) => {
       setTyping(null);
       if (stay && to !== undefined) toRow(list, to, title);
@@ -527,7 +539,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
     setPicking(null);
     if (!adding.trim()) return;
     // P-110: a step added as "@<routine name>" is a call to it.
-    const target = calledBy(adding);
+    const target = inAny ? undefined : calledBy(adding);
     // Refused (reconnecting): the words stay in the field.
     // (P-111: in a row's own view, after its last step.)
     if (target ? !refusedCall(edit(ownSeq, { kind: 'addCall', routine: target }), target) : edit(ownSeq, { kind: 'addStep', text: adding }).ok) {
@@ -538,6 +550,14 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   };
 
   const close = () => setMenu(null);
+  /** P-99: Add's "In any order" — the block at the end of this view, its first part typed inside it at once. */
+  const addAnyHere = () => {
+    const had = new Set(v.rows.map((r) => keyOf(r.path)));
+    if (!edit(ownSeq, { kind: 'addAny' }).ok) return;
+    const now = planView(act().data, v.runId ? { runId: v.runId } : { routineId: v.routineId });
+    const made = now?.rows.find((r) => r.any && parentOf(keyOf(r.path)) === view.key && !had.has(keyOf(r.path)));
+    if (made) startTyping({ mode: 'into', path: keyOf(made.path), text: '' });
+  };
   /** P-107: the names a for each added at the end can go through — every name given in the routine, as Add a step offers them. */
   // (P-111: in a row's own view, the names given above its end — its item, and what its steps give, too.)
   const subIndex = sub ? v.rows.indexOf(sub) : -1;
@@ -576,11 +596,19 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
   const routineMatches = atSign ? rankRoutines(picking!.query, myRoutines(data), routinesByAge(data).map((r) => r.routineId)).slice(0, 6) : [];
   // P-108: after "@", the names given above as routine rows too (`▤ {name}`), before the person's routines.
   const slotMatches = atSign && !wordsAt ? matching : [];
-  const picks = matching.length + slotMatches.length + routineMatches.length;
+  // P-105 (B-17 journey 4): after "@", the library's methods too, under their own heading — at most three; never while
+  // changing a step's words (that makes the step a call to one of the person's own).
+  const libMatches = atSign && !wordsAt ? libraryMatches(data, picking!.query) : [];
+  const picks = matching.length + slotMatches.length + routineMatches.length + libMatches.length;
   const picked = !!picking && picks > 0;
-  /** The name (or routine) Return puts in: one the person chose (↑/↓), or — once part of one is typed — the first match. */
-  const chosen = !picked ? -1 : lit >= 0 ? Math.min(lit, picks - 1) : picking!.query ? 0 : -1;
-  const choose = (i: number) => (i < matching.length ? insertName(matching[i]) : i < matching.length + slotMatches.length ? addRoutineHere(slotMatches[i - matching.length], true) : addRoutineHere(routineMatches[i - matching.length - slotMatches.length].routineId));
+  /**
+   * The name (or routine) Return puts in: one the person chose (↑/↓), or — once part of one is typed — the first match.
+   * P-105: never a library row by itself (Return in the field copies nothing): only one the person moved to opens its sheet.
+   */
+  const chosen = !picked ? -1 : lit >= 0 ? Math.min(lit, picks - 1) : picking!.query && picks > libMatches.length ? 0 : -1;
+  const ownPicks = matching.length + slotMatches.length + routineMatches.length;
+  const choose = (i: number) =>
+    i < matching.length ? insertName(matching[i]) : i < matching.length + slotMatches.length ? addRoutineHere(slotMatches[i - matching.length], true) : i < ownPicks ? addRoutineHere(routineMatches[i - matching.length - slotMatches.length].routineId) : addLibraryHere(libMatches[i - ownPicks]);
   /** The words the caret is in: the add field's or the row's being typed (the caret moved: the names may close). */
   // (Read from the field itself: a caret event can come before the words it follows are rendered.)
   const caretMoved = () => readPick(WEB && lastField.current?.isConnected ? lastField.current.value : live.current ? live.current.text : adding);
@@ -658,6 +686,22 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
     const added = siblings[siblings.findIndex((r) => r.itemId === row.itemId) + 1];
     setTyping(added ? { mode: 'after', path: keyOf(added.path), text: rest } : null);
   };
+  /**
+   * P-105: a library method chosen from "@" — the "@…" typed for it taken out of the field, and its preview opened with
+   * Copy and add, which adds it where the words were going (the end, after the row typed after, into a for each).
+   */
+  const addLibraryHere = (row: LibraryRow) => {
+    const now = live.current ? live.current.text : adding;
+    const rest = picking ? (now.slice(0, picking.start) + now.slice(picking.start + 1 + picking.query.length)).replace(/\s+$/, '') : now;
+    setPicking(null);
+    const t = live.current;
+    const at = t && t.mode === 'after' ? rowAt(t.path) : undefined;
+    const into = t && t.mode === 'into' ? rowAt(t.path) : undefined;
+    const where = into?.each && into.ref ? { seq: into.ref } : at ? { seq: at.seq, after: at.itemId } : { seq: ownSeq };
+    if (t) setTyping(rest.trim() ? { ...t, text: rest } : null);
+    else setAdding(rest);
+    setLibAdd({ row, ...where });
+  };
   /** The focus left the bar for somewhere that is not the field it came from: the typing is over, as if the field had been left. */
   const leftBar = () => {
     if (live.current) keep(false);
@@ -675,9 +719,23 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       });
   };
 
-  const layer = menuRow ? (
+  const layer = libAdd ? (
+    // P-105: the library's preview, its filled button Copy and add — both effects named before they happen; no notice
+    // after (Plan's adds give none); one Undo, the routine's menu, takes the call and the copy away together.
+    <LibrarySheet
+      row={libAdd.row}
+      mode="add"
+      fallback={addField}
+      onClose={() => setLibAdd(null)}
+      onCopy={() => {
+        const did = act().copyAndAdd(libAdd.row.id, libAdd.seq, libAdd.after);
+        setLibAdd(null);
+        if (!did.ok && did.reason !== 'reconnecting') act().say(`Couldn’t add “${libAdd.row.name}”`);
+      }}
+    />
+  ) : menuRow ? (
     <Menu anchor={() => mores[keyOf(menuRow.path)]} label={menuRow.words} onClose={close} testID="go-plan-menu" fallback={title}>
-      {(menuRow.kind !== 'routine' || menuRow.broken) && !menuRow.each && !menuRow.slot && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
+      {(menuRow.kind !== 'routine' || menuRow.broken) && !menuRow.each && !menuRow.any && !menuRow.slot && <MenuItem label="Edit" onPress={() => startTyping({ mode: 'words', path: keyOf(menuRow.path), text: menuRow.words })} />}
       {/* P-110: a step whose words are "@<routine name>" — offered as a call to it (never made one by itself). */}
       {!!menuRow.asCall && (
         <MenuItem
@@ -696,6 +754,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       )}
       {/* P-107: a for each — its steps are added inside it. */}
       {!!menuRow.each && <MenuItem label="Add a step inside" spoken={`Add a step inside ${menuRow.words}`} testID="go-plan-add-inside" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
+      {/* P-99: an In any order block — its parts are added inside it. */}
+      {!!menuRow.any && <MenuItem label={ADD_PART} spoken={`Add a part to ${menuRow.words}`} testID="go-plan-add-part" onPress={() => startTyping({ mode: 'into', path: keyOf(menuRow.path), text: '' })} />}
       {/* P-98: a call — Open (that routine's Plan), Edit inputs. */}
       {!!menuRow.call && !menuRow.call.removed && menuRow.ref && (
         <MenuItem
@@ -835,6 +895,13 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
         if (edit(ownSeq, { kind: 'addSlot', name }).ok) close();
       }}
       routines={myRoutines(data).map((r) => ({ routineId: r.routineId, name: r.name, line: rowLine({ ...r, tags: [], going: undefined }) }))}
+      library={libraryToAdd(data).map((r) => ({ routineId: r.id, name: r.name, line: librarySignature(r) }))}
+      onLibrary={(id) => {
+        const row = libraryToAdd(data).find((r) => r.id === id);
+        setRoutineError(undefined);
+        close();
+        if (row) setLibAdd({ row, seq: ownSeq });
+      }}
       error={routineError}
       fallback={addField}
       onClose={() => {
@@ -920,7 +987,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
       {sub ? (
         // P-111: a row's own view — its own words (a step broken down), and Remove; the routine's own items are its Plan's.
         <>
-          {!sub.each && <MenuItem label="Edit" spoken={`Edit ${sub.words}`} onPress={() => startTyping({ mode: 'words', path: view.key, text: sub.words })} />}
+          {!sub.each && !sub.any && <MenuItem label="Edit" spoken={`Edit ${sub.words}`} onPress={() => startTyping({ mode: 'words', path: view.key, text: sub.words })} />}
           <MenuSep />
           <MenuItem
             label="Remove"
@@ -1176,7 +1243,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                       } }) as object)}
                       {...{ dataSet: { here: row.here ? 'true' : 'false', within: row.within ? 'true' : 'false', kind: row.kind, depth: String(row.depth - view.base), repeats: rail ? 'true' : 'false', dragging: drag?.key === key ? 'true' : 'false' } }}>
                       {/* Too narrow (large text): no grip — the words keep their room (P-102: the moves are on the step's menu there). */}
-                      {!narrow && (row.canUp || row.canDown) && <Grip words={row.words} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ reorder: key })} gripRef={moreRef(`grip:${key}`)} />}
+                      {!narrow && (row.canUp || row.canDown) && <Grip words={row.words} keys={MOVE_KEYS} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ reorder: key })} gripRef={moreRef(`grip:${key}`)} />}
                       {/* P-103 (10; was ▤, the routine's mark, as a button): the disclosure chevron — › shut, ⌄ open. P-111: a
                           step broken down or a for each goes into its own view (›); a routine used as a step opens in place. */}
                       {insides === 'view' && <InsidesBtn words={shownWords} onPress={() => openView(row)} testID="go-plan-insides" dataSet={{ insides: key }} />}
@@ -1241,7 +1308,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                 </View>
                 {typing && typingAfter === i && typing.mode !== 'words' && typing.mode !== 'name' && (
                   <View style={typing.mode === 'into' ? { marginLeft: indent(typingRow!.depth + 1) - indent(row.depth) } : { marginLeft: indent(typingRow!.depth) - indent(row.depth) }}>
-                    {typed(typing.mode === 'into' ? (typingRow!.each ? `Add a step inside ${typingRow!.words}` : `A smaller step of ${typingRow!.words}`) : `Add a step after ${typingRow!.words}`, typing.mode === 'into' && !typingRow!.each ? 'A smaller step' : ADD_PLACEHOLDER)}
+                    {typed(
+                      typing.mode === 'into' ? (typingRow!.any ? `Add a part to ${typingRow!.words}` : typingRow!.each ? `Add a step inside ${typingRow!.words}` : `A smaller step of ${typingRow!.words}`) : anySeqs.has(typingRow!.seq) ? `Add a part after ${typingRow!.words}` : `Add a step after ${typingRow!.words}`,
+                      typing.mode === 'into' ? (typingRow!.any ? ADD_PART : typingRow!.each ? ADD_PLACEHOLDER : 'A smaller step') : anySeqs.has(typingRow!.seq) ? ADD_PART : ADD_PLACEHOLDER,
+                    )}
                   </View>
                 )}
               </View>
@@ -1270,8 +1340,8 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                 if (WEB) lastField.current = e.target as unknown as HTMLInputElement;
               }}
               onBlur={(e) => !toBar(e) && setAddFocused(false)}
-              placeholder={ADD_PLACEHOLDER}
-              accessibilityLabel={ADD_PLACEHOLDER}
+              placeholder={addWords}
+              accessibilityLabel={addWords}
               onSubmit={addIt}
               style={styles.addField}
               testID="go-plan-add"
@@ -1280,9 +1350,11 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                 keyboard up, large text) it gives way to the words — nothing moves under a press — and "@" is there. */}
             {(!floor || (addFocused && !!insertBtn) || !!adding.trim()) && (
               <View style={styles.addTools}>
-                {!floor && <Btn kind="plain" mark="routine" label="A routine" spoken="Add a routine as a step" onPress={() => setMenu({ addRoutine: true })} style={styles.addBtn} testID="go-plan-add-routine" />}
+                {!floor && !inAny && <Btn kind="plain" mark="routine" label="A routine" spoken="Add a routine as a step" onPress={() => setMenu({ addRoutine: true })} style={styles.addBtn} testID="go-plan-add-routine" />}
                 {/* P-107: a loop over a name given above; P-108: or over a list of its own. */}
-                {!floor && <Btn kind="plain" label="For each…" onPress={() => setMenu({ addEach: true })} style={styles.addBtn} testID="go-plan-add-each" />}
+                {!floor && !inAny && <Btn kind="plain" label="For each…" onPress={() => setMenu({ addEach: true })} style={styles.addBtn} testID="go-plan-add-each" />}
+                {/* P-99: a block whose parts are taken up in any order — its first part is typed inside it at once. (A part is a step or a step broken down: none inside one.) */}
+                {!floor && !inAny && <Btn kind="plain" label="In any order" spoken="Add In any order: parts taken in any order" onPress={addAnyHere} style={styles.addBtn} testID="go-plan-add-any" />}
                 {addFocused && insertBtn}
                 {!!adding.trim() && <Btn kind="plain" label="Add" spoken="Add this step" onPress={addIt} style={styles.addBtn} testID="go-plan-add-btn" />}
               </View>
@@ -1291,7 +1363,10 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
         </View>
         {floor && foot}
       </ScrollView>
-      {(offered.length > 0 || routineMatches.length > 0) && <NamesBar names={picked ? matching : offered} slots={picked ? slotMatches : []} routines={picked ? routineMatches.map((r) => ({ id: r.routineId, name: r.name })) : []} picking={picked} lit={chosen} onMove={(by) => setLit(chosen < 0 ? (by > 0 ? 0 : picks - 1) : (chosen + by + picks) % picks)} onPick={insertName} onSlot={(n) => addRoutineHere(n, true)} onRoutine={(id) => addRoutineHere(id)} asCall={wordsAt} lastField={lastField} onLeave={leftBar} />}
+      {(offered.length > 0 || routineMatches.length > 0 || libMatches.length > 0) && <NamesBar names={picked ? matching : offered} slots={picked ? slotMatches : []} routines={picked ? routineMatches.map((r) => ({ id: r.routineId, name: r.name })) : []} library={picked ? libMatches.map((r) => ({ id: r.id, name: r.name })) : []} onLibrary={(id) => {
+        const row = libMatches.find((r) => r.id === id);
+        if (row) addLibraryHere(row);
+      }} picking={picked} lit={chosen} onMove={(by) => setLit(chosen < 0 ? (by > 0 ? 0 : picks - 1) : (chosen + by + picks) % picks)} onPick={insertName} onSlot={(n) => addRoutineHere(n, true)} onRoutine={(id) => addRoutineHere(id)} asCall={wordsAt} lastField={lastField} onLeave={leftBar} />}
       {!floor && foot}
     </GoScreen>
   );
@@ -1333,118 +1408,6 @@ function MoveItems({ row, onMove }: { row: PlanRow; onMove: (by: -1 | 1) => void
 
 /** P-102: the keys that move a row (web), as `aria-keyshortcuts` says them. */
 const MOVE_KEYS = 'Alt+ArrowUp Alt+ArrowDown';
-
-/** A move this far (px) is a drag; a press right after one is the drag's own release, not a tap. */
-const DRAG_PX = 8;
-const AFTER_DRAG_MS = 600;
-/** Web: the grip takes the touch itself (no page scroll, no text selected while dragging). */
-const GRAB = WEB ? ({ touchAction: 'none', userSelect: 'none', cursor: 'grab' } as object) : null;
-
-/**
- * P-95: a row's grip — the visible way to drag it. It claims the pointer once it has moved DRAG_PX up or
- * down; pressed, it is a button ("Reorder <words>") that opens its own small menu, Move up · Move down
- * (P-102 audit F1: the way to reorder without a drag).
- */
-function Grip({ words, onStart, onMove, onDrop, onPress, gripRef }: { words: string; onStart: () => void; onMove: (dy: number) => void; onDrop: (dy: number | undefined) => void; onPress: () => void; gripRef?: (el: unknown) => void }) {
-  const start = useRef<number | null>(null);
-  const dragging = useRef(false);
-  const ended = useRef(0);
-  const box = useRef<ViewRef>(null);
-  // The latest handlers, for the listeners the web path adds once.
-  const calls = useRef({ onStart, onMove, onDrop });
-  useEffect(() => {
-    calls.current = { onStart, onMove, onDrop };
-  });
-  const end = (to: number | undefined) => {
-    if (dragging.current) ended.current = Date.now();
-    const was = dragging.current;
-    dragging.current = false;
-    start.current = null;
-    if (was) calls.current.onDrop(to);
-  };
-  const pointer = useRef<number | undefined>(undefined);
-  const moved = (y: number) => {
-    if (start.current === null) return;
-    const dy = y - start.current;
-    if (!dragging.current && Math.abs(dy) > DRAG_PX) {
-      dragging.current = true;
-      // Web: from here on the grip has the pointer, wherever it goes (not before: a press stays a press).
-      const el = box.current as unknown as HTMLElement | null;
-      try {
-        if (WEB && el && pointer.current !== undefined) el.setPointerCapture(pointer.current);
-      } catch {
-        // (A pointer that is already gone.)
-      }
-      calls.current.onStart();
-    }
-    if (dragging.current) calls.current.onMove(dy);
-  };
-  // Web: DOM pointer events (touch and mouse alike). Pressed on the grip, the pointer is followed on the
-  // whole window until it is let go: a quick first move is already off the grip before it counts as a
-  // drag (audit F2 spec), and RN-web's responder only asks the grip about moves over it.
-  useEffect(() => {
-    const el = box.current as unknown as HTMLElement | null;
-    if (!WEB || !el || typeof el.addEventListener !== 'function') return;
-    let id: number | undefined;
-    const move = (e: PointerEvent) => e.pointerId === id && moved(e.clientY);
-    const stop = (e: PointerEvent, to: number | undefined) => {
-      if (e.pointerId !== id) return;
-      id = undefined;
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', cancel);
-      end(to);
-    };
-    const up = (e: PointerEvent) => stop(e, start.current === null ? undefined : e.clientY - start.current);
-    const cancel = (e: PointerEvent) => stop(e, undefined);
-    const down = (e: PointerEvent) => {
-      if (e.button !== 0 || id !== undefined) return;
-      id = e.pointerId;
-      pointer.current = e.pointerId;
-      start.current = e.clientY;
-      dragging.current = false;
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
-      window.addEventListener('pointercancel', cancel);
-    };
-    el.addEventListener('pointerdown', down);
-    return () => {
-      el.removeEventListener('pointerdown', down);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', cancel);
-    };
-    // Once: the handlers are read through `calls`.
-  }, []);
-  type Touch = { nativeEvent: { pageY: number } };
-  // Native: the responder system (a vertical move past DRAG_PX claims the touch).
-  const native = WEB
-    ? {}
-    : {
-        onStartShouldSetResponderCapture: (e: Touch) => {
-          start.current = e.nativeEvent.pageY;
-          return false;
-        },
-        onMoveShouldSetResponder: (e: Touch) => start.current !== null && Math.abs(e.nativeEvent.pageY - start.current) > DRAG_PX,
-        onResponderMove: (e: Touch) => moved(e.nativeEvent.pageY),
-        onResponderRelease: (e: Touch) => end(start.current === null ? undefined : e.nativeEvent.pageY - start.current),
-        onResponderTerminationRequest: () => false,
-        onResponderTerminate: () => end(undefined),
-      };
-  return (
-    <View ref={box} style={[styles.grip, GRAB]} {...native} testID="go-plan-grip">
-      <Pressable
-        ref={gripRef}
-        onPress={() => Date.now() - ended.current > AFTER_DRAG_MS && !dragging.current && onPress()}
-        accessibilityRole="button"
-        accessibilityLabel={`Reorder ${words}`}
-        {...(WEB && { 'aria-keyshortcuts': MOVE_KEYS })}
-        style={(state) => [styles.gripBtn, (state as { focused?: boolean }).focused && RING]}>
-        <Mark name="grip" color={G.dim} />
-      </Pressable>
-    </View>
-  );
-}
 
 /** A field typed in, in place: it has the focus from the start; Return keeps the words, leaving it keeps them too. P-101: "{ } Insert" beside it. */
 function Typed({ value, label, placeholder, onChange, onSubmit, onBlur, onField, onCaret, insert }: { value: string; label: string; placeholder?: string; onChange: (text: string) => void; onSubmit: () => void; onBlur: () => void; onField: (el: HTMLInputElement) => void; onCaret?: () => void; insert: React.ReactNode }) {
@@ -1568,7 +1531,7 @@ function InsertBtn({ lastField, onLeave }: { lastField: { current: HTMLInputElem
  * keyboard (audit F6): Alt+↓ in the field goes to the first name (Tab reaches them too); ←/→ move
  * between them; Return or Space inserts and goes back to the field; Esc goes back without inserting.
  */
-function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove, onPick, onSlot, onRoutine, asCall = false, lastField, onLeave }: { names: string[]; slots?: string[]; routines?: { id: string; name: string }[]; picking?: boolean; lit?: number; onMove?: (by: 1 | -1) => void; onPick: (name: string) => void; onSlot?: (name: string) => void; onRoutine?: (routineId: string) => void; /** P-110: typed while changing a step's words — a routine chosen makes the step a call to it. */ asCall?: boolean; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
+function NamesBar({ names, slots = [], routines = [], library = [], onLibrary, picking, lit = -1, onMove, onPick, onSlot, onRoutine, asCall = false, lastField, onLeave }: { names: string[]; slots?: string[]; routines?: { id: string; name: string }[]; /** P-105: after "@", the library's methods that match (a tap opens the preview, Copy and add). */ library?: { id: string; name: string }[]; onLibrary?: (id: string) => void; picking?: boolean; lit?: number; onMove?: (by: 1 | -1) => void; onPick: (name: string) => void; onSlot?: (name: string) => void; onRoutine?: (routineId: string) => void; /** P-110: typed while changing a step's words — a routine chosen makes the step a call to it. */ asCall?: boolean; lastField: { current: HTMLInputElement | null }; onLeave: () => void }) {
   const box = useRef<ViewRef>(null);
   const leave = useRef(onLeave);
   const move = useRef<{ picking?: boolean; onMove?: (by: 1 | -1) => void }>({});
@@ -1580,7 +1543,7 @@ function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove,
     const el = box.current as unknown as HTMLElement | null;
     if (!WEB || !el || typeof el.addEventListener !== 'function') return;
     const isField = (t: EventTarget | null): t is HTMLInputElement => !!t && ((t as Element).tagName === 'INPUT' || (t as Element).tagName === 'TEXTAREA');
-    const chips = () => Array.from(el.querySelectorAll<HTMLElement>('[data-testid="go-names-chip"], [data-testid="go-names-routine"]'));
+    const chips = () => Array.from(el.querySelectorAll<HTMLElement>('[data-testid="go-names-chip"], [data-testid="go-names-routine"], [data-testid="go-names-library"]'));
     const keep = (e: Event) => e.preventDefault();
     const into = (e: FocusEvent) => {
       if (isField(e.relatedTarget)) lastField.current = e.relatedTarget;
@@ -1662,6 +1625,12 @@ function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove,
           </T>
         </Pressable>
       ))}
+      {/* P-105 (B-17 journey 4): Yours and Library under their headings — shown when the library has a match. */}
+      {library.length > 0 && (
+        <T dim style={styles.barHead} testID="go-names-heading" {...{ dataSet: { heading: 'yours' } }}>
+          {routines.length ? 'Yours' : 'Yours: none match'}
+        </T>
+      )}
       {/* P-98: after "@", the person's routines that match — a tap adds one as a step. */}
       {routines.map((r, j) => (
         <Pressable key={r.id} onPress={() => onRoutine?.(r.id)} accessibilityRole="button" accessibilityLabel={asCall ? `Make it a call to ${r.name}` : `Add ${r.name} as a step`} style={(state) => [styles.chip, styles.routineChip, picking && names.length + slots.length + j === lit && styles.chipFirst, (state as { focused?: boolean }).focused && RING]} testID="go-names-routine" {...{ dataSet: { lit: picking && names.length + slots.length + j === lit ? 'true' : 'false', routine: r.id } }}>
@@ -1671,6 +1640,22 @@ function NamesBar({ names, slots = [], routines = [], picking, lit = -1, onMove,
           <T bold>{r.name}</T>
         </Pressable>
       ))}
+      {library.length > 0 && (
+        <T dim style={styles.barHead} testID="go-names-heading" {...{ dataSet: { heading: 'library' } }}>
+          Library
+        </T>
+      )}
+      {library.map((r, j) => {
+        const k = names.length + slots.length + routines.length + j;
+        return (
+          <Pressable key={`lib:${r.id}`} onPress={() => onLibrary?.(r.id)} accessibilityRole="button" accessibilityLabel={`${r.name}, in the library: look before copying`} style={(state) => [styles.chip, styles.routineChip, picking && k === lit && styles.chipFirst, (state as { focused?: boolean }).focused && RING]} testID="go-names-library" {...{ dataSet: { lit: picking && k === lit ? 'true' : 'false', lib: r.id } }}>
+            <View {...decorative}>
+              <Mark name="routine" color={G.dim} />
+            </View>
+            <T bold>{r.name}</T>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -1842,8 +1827,6 @@ const styles = StyleSheet.create({
   up: { flexShrink: 1, marginLeft: -SP.s2 },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 52, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf, paddingLeft: SP.s3 - 4, gap: SP.s2 },
   // P-95: the grip, at the row's left edge (the row's own padding is its left half), a full target tall.
-  grip: { marginLeft: -(SP.s3 - 4), alignSelf: 'stretch', justifyContent: 'center' },
-  gripBtn: { width: TARGET, minHeight: TARGET, alignItems: 'center', justifyContent: 'center' },
   // The row being dragged stays where it is, dashed (audit F2: nothing is covered — HERE included); the line shows where it goes.
   rowDragging: { borderStyle: 'dashed', borderColor: G.dim },
   dropLine: { position: 'absolute', left: 0, right: 0, height: 4, backgroundColor: G.paper, zIndex: 3 },
@@ -1878,6 +1861,7 @@ const styles = StyleSheet.create({
   bar: { flexDirection: 'row', flexWrap: 'wrap', gap: SP.s2, paddingHorizontal: SP.s3, paddingVertical: SP.s2, backgroundColor: G.surf, borderTopWidth: 2, borderTopColor: G.line },
   chipFirst: { borderColor: G.text },
   routineChip: { flexDirection: 'row', alignItems: 'center', gap: SP.s1 },
+  barHead: { flexBasis: '100%', paddingTop: SP.s1 },
   chip: { minHeight: TARGET, minWidth: TARGET, justifyContent: 'center', paddingHorizontal: SP.s3, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf2 },
   forward: { minHeight: 56 },
   // As tall as the filled button and the room its shadow keeps.

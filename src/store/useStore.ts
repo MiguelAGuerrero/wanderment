@@ -3,7 +3,8 @@ import { create } from 'zustand';
 import { applyUndo, sameValue, UndoEntry, undoEntry } from '@/domain/diff';
 import { Settings } from '@/domain/migrate';
 import { LogInput, logActivity, newId } from '@/domain/model';
-import { currentRun, editRoutine, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
+import { activePart, ChunkGiven, currentRun, place, editRoutine, Given, isRunning, JumpTo, ListRef, readRun, Refusal, Result, RoutineEdit, runVerb, Verb } from '@/domain/run';
+import { copiedWords, Copied, copyAndAdd, copyFromLibrary } from '@/domain/library';
 import { Acted, noticeFor, runnerView, whatChanged } from '@/domain/runView';
 import { Data, emptyData, Id, Run } from '@/domain/types';
 import { nameKey, tidyName } from '@/domain/values';
@@ -202,10 +203,19 @@ interface State {
   leaveRun: (runId: Id) => Did;
   /** Next ("It's happened" on a wait). An Undo only when it ended the run (P-95). */
   /** P-98: `owed` — what Next asked for, on a call or a step broken down not stepped into (given by that row, in the same write). */
-  nextStep: (runId: Id, owed?: { name: string; text: string }[]) => Did;
+  /**
+   * P-112: `chunk` — Next over the steps in view (See ahead), each taken as done with what was typed for it, in one write.
+   * Over more than one step it leaves an Undo (it is a skip, as Jump to is); over one it is Next.
+   */
+  nextStep: (runId: Id, owed?: Given[], chunk?: ChunkGiven[]) => Did;
   /** Done: leaves the level it is in; at the top ends the run. Undo. */
   /** P-98: `owed` — what Step out asked for (the names the level still owed), given by the row it was entered from. */
-  doneLevel: (runId: Id, owed?: { name: string; text: string }[]) => Did;
+  /**
+   * P-99 (the P-112 investigator's repro 4): with See ahead on, `given` — what was typed for the step the run is on, given
+   * first in the same write (a value typed over is said, with the Undo); `notKept` — names typed for steps further down,
+   * which Step out passes over: said in its notice, never dropped silently.
+   */
+  doneLevel: (runId: Id, owed?: { name: string; text: string }[], given?: Given[], notKept?: string[]) => Did;
   /** P-103: "End this run" (a paused tile's ···, asked first): the existing end verb, Done, for the whole run where it stands. Final, as every finish: × only. */
   endRun: (runId: Id) => Did;
   /** Step in. No Undo (P-95). P-98: refused past the depth it can go, or into a removed routine — said in words (a notice). */
@@ -252,6 +262,29 @@ interface State {
   /** P-107: `wasItems` — the list it began with (a list field): the Undo puts those items back, one per row. */
   /** P-108: `wasRefs` — the routines it held: the Undo puts them back too. */
   typedOver: (runId: Id, itemId: Id, name: string, was: string, wasItems?: string[], wasRefs?: (ListRef | null)[]) => Did;
+  /**
+   * P-100: home's queue — a run's row moved `to` rows (negative: up; a drag is several at once) or to the top (the
+   * row's ··· Move up / Move down / To the top, and its grip). One write; a notice ("Moved “X” up") and an Undo.
+   */
+  moveInQueue: (runId: Id, to: number | 'top') => Did;
+  /**
+   * P-99: a part of an In any order block taken up (the runner's parts on the block's row, the panel's and a tile's
+   * tree view) — `level`, the level holding the block's row. Putting down the part the run is in leaves an Undo and its
+   * notice ("Took up “Study”"): one Undo brings both parts back as they were. From the row (nothing put down): no Undo,
+   * as Step in. Refused `ended` for a part that returned or was stopped.
+   */
+  takeUpPart: (runId: Id, level: number, part: Id) => Did;
+  /**
+   * P-104 / P-106 (B-17 journey 3): Copy from the library — the library routine `libId` made the person's (a template
+   * under `words`), with what it calls, in one write: a notice ("Copied “X”", "… and what it calls") and one Undo for
+   * all. Refused `same-name` for a name already theirs (nothing written), `empty` for no name.
+   */
+  copyFromLibrary: (libId: Id, words?: string) => Did;
+  /**
+   * P-105 (B-17 journey 4): Copy and add — the library method copied and added as a step of `seq` (after `after`; absent:
+   * at the end), in one write. A Plan edit: no notice; its Undo (the routine's menu, Ctrl/⌘+Z) removes both.
+   */
+  copyAndAdd: (libId: Id, seq: Id, after?: Id | null) => Did;
   /** P-98: a refusal said in words, in the notice's row (nothing changed, nothing to undo): Plan's "a routine as a step of itself". */
   say: (text: string) => void;
   /** The notice was put away. Session only. */
@@ -317,7 +350,7 @@ function change(patch: Partial<State> | ((s: State) => Partial<State>)): true {
  * round), a run ended, this-run changes folded (by any verb). Moving through a run (Start, Next, Step
  * in, Back to, Pause, Resume, Plan) leaves none.
  */
-function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdit }, mode: 'set' | 'clear' | 'keep' | 'ends'): Did {
+function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdit }, mode: 'set' | 'clear' | 'keep' | 'ends', notKept: string[] = []): Did {
   let undo = mode;
   const s = useStore.getState();
   const env = { now: new Date().toISOString(), id: newId };
@@ -338,6 +371,11 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   // a value an earlier build let a step give ahead) — named, with the move's Undo.
   const cleared = r.ok ? namesOnce([...(verb.kind === 'back' ? clearedNames(s.data, r.data, verb.runId) : []), ...(r.cleared ?? [])]) : [];
   if (cleared.length) undo = 'set';
+  // P-99 (the P-112 investigator's repro 1): a value typed over in See ahead's fields is said, with its Undo, as P-96's own field has it.
+  const typedOver = r.ok ? (r.changed ?? []) : [];
+  if (typedOver.length) undo = 'set';
+  const extra = [...typedOver.map((n) => `Changed {${n}}`), ...(r.ok && notKept.length ? [`Not kept: ${notKept.map((n) => `{${n}}`).join(', ')}`] : [])];
+  const more = (n: { text: string; label: string }) => (extra.length ? { ...n, text: [n.text, ...extra].filter(Boolean).join(' · ') } : n);
   // P-96 audit F3: a value typed over in the step's own field keeps its Undo through the move that follows.
   if (undo === 'clear' && (verb.kind === 'next' || verb.kind === 'stepIn') && s.runNotice?.verb === 'value' && s.runNotice.entry && s.runNotice.entry === s.undo) undo = 'keep';
   if (!r.ok) {
@@ -345,6 +383,8 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
     if (r.running) useStore.setState({ runNotice: { verb: verb.kind, text: `${r.running.name} is running`, label: '' } });
     // P-98: the depth refusal, and a removed routine, in words.
     else if (verb.kind === 'stepIn' && (r.reason === 'too-deep' || r.reason === 'gone')) useStore.setState({ runNotice: { verb: 'stepIn', text: r.reason === 'too-deep' ? STEP_IN_TOO_DEEP : 'That routine was removed', label: '' } });
+    // P-99 (repro 3): a value typed in See ahead's fields that the engine will not keep — said; nothing moved, the words stay.
+    else if (r.refusedValue) useStore.setState({ runNotice: { verb: verb.kind, text: `Couldn’t keep {${r.refusedValue}}`, label: '' } });
     return { ok: false, reason: r.reason ?? 'cannot', ...(r.running && { running: r.running }) };
   }
   // P-96 (ruling 7): finishing ends the run and Pause puts it down — either way the screen goes home.
@@ -364,11 +404,11 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
     data: r.data,
     undo: entry,
     runNotice: ended
-      ? { verb: verb.kind, ...said(noticeFor(verb.kind, r.said, onWait, r.folded), what), follows: true as const }
+      ? { verb: verb.kind, ...more(said(noticeFor(verb.kind, r.said, onWait, r.folded), what)), follows: true as const }
       : entry
       ? {
           verb: verb.kind,
-          ...clearedSaid(noticeFor(verb.kind, r.said, onWait, r.folded), what, cleared),
+          ...more(clearedSaid(noticeFor(verb.kind, r.said, onWait, r.folded), what, cleared)),
           entry,
           // P-101 (ruling 6): Plan's edits say nothing. What changes the screen itself (the run ended: home; New, and
           // Plan's fold of an earlier build's changes: its Plan; Jump to…: the runner; the routine removed: home)
@@ -385,6 +425,30 @@ function act(verb: Verb | { kind: 'editRoutine'; routineId: Id; edit: RoutineEdi
   });
   return did;
 }
+
+const envNow = () => ({ now: new Date().toISOString(), id: newId });
+
+/**
+ * P-104 / P-105: a copy from the library kept — the data, its one Undo, and its notice: said ("Copied “X”") from the
+ * library; `quiet` (Copy and add, a Plan edit) says nothing and its Undo is the routine's menu ("Undo added “X” …").
+ */
+function copied(r: Copied, quiet: boolean): Did {
+  if (!r.ok) return { ok: false, reason: r.reason ?? 'cannot' };
+  const s = useStore.getState();
+  const entry = undoEntry(s.data, r.data);
+  const said = copiedWords(r);
+  const name = r.made?.[0] ?? '';
+  useStore.setState({
+    data: r.data,
+    undo: entry,
+    runNotice: { verb: 'editRoutine', text: quiet ? `Added “${name}” from the library` : said, label: LABEL_COPY, entry, ...(quiet && { quiet: true as const }) },
+    toVerb: undefined,
+    toast: undefined,
+  });
+  return { ok: true, ...(r.routineId !== undefined && { routineId: r.routineId }) };
+}
+/** What a copy's Undo takes back ("Undo Copy"). */
+const LABEL_COPY = 'Copy';
 
 /** P-109: the Places sheet's edits (each said, with its Undo, in the sheet). */
 // (P-108: and + Add on a kept list — from Plan or a tile, said with its Undo.)
@@ -542,13 +606,14 @@ export const useStore = create<State>()((set, get) => ({
   leaveRun: gated<State['leaveRun']>(refused, (runId) => act({ kind: 'home', runId }, 'clear')),
   nextStep: gated<State['nextStep']>(
     refused,
-    (runId, owed) => act({ kind: 'next', runId, ...(owed?.length && { owed }) }, 'ends'),
+    (runId, owed, chunk) => act({ kind: 'next', runId, ...(owed?.length && { owed }), ...(chunk && { chunk }) }, chunk && chunk.length > 1 ? 'set' : 'ends'),
     // P-98: a press that carries typed values is refused like any typed text (the sheet keeps them); a bare one is kept.
-    (runId, owed) => (owed?.length ? sayReconnecting() : keepPress('next', runId)),
+    // (P-112: so is one over a chunk — kept, it would be replayed as one Next.)
+    (runId, owed, chunk) => (owed?.length || chunk ? sayReconnecting() : keepPress('next', runId)),
   ),
   doneLevel: gated<State['doneLevel']>(
     refused,
-    (runId, owed) => act({ kind: 'done', runId, ...(owed?.length && { owed }) }, 'set'),
+    (runId, owed, given, notKept) => act({ kind: 'done', runId, ...(owed?.length && { owed }), ...(given?.length && { given }) }, 'set', notKept),
     // P-98: a press that carries typed values is refused like any typed text (the sheet keeps them); a bare one is kept.
     (runId, owed) => (owed?.length ? sayReconnecting() : keepPress('done', runId)),
   ),
@@ -567,6 +632,17 @@ export const useStore = create<State>()((set, get) => ({
   typeList: gated<State['typeList']>(refused, (runId, itemId, name, items, refs) => act({ kind: 'value', runId, name, text: items.join('\n'), items, item: itemId, ...(refs && { refs }) }, 'keep')),
   changeValue: gated<State['changeValue']>(refused, (runId, name, text) => act({ kind: 'value', runId, name, text }, 'set')),
   typedOver: gated<State['typedOver']>(refused, typedOverValue),
+  moveInQueue: gated<State['moveInQueue']>(refused, (runId, to) => act({ kind: 'queue', runId, to }, 'set')),
+  takeUpPart: gated<State['takeUpPart']>(refused, (runId, level, part) => {
+    const d = get().data;
+    const run = readRun(d, runId);
+    const at = run && place(d, run);
+    // (Inside a part of that block: it is put down — an Undo, as Jump to has.)
+    const putsDown = !!run && !!at && activePart(d, run, at.frames, level) !== undefined;
+    return act({ kind: 'part', runId, level, part }, putsDown ? 'set' : 'clear');
+  }),
+  copyFromLibrary: gated<State['copyFromLibrary']>(refused, (libId, words) => copied(copyFromLibrary(get().data, libId, envNow(), words === undefined ? {} : { words }), false)),
+  copyAndAdd: gated<State['copyAndAdd']>(refused, (libId, seq, after) => copied(copyAndAdd(get().data, libId, seq, after, envNow()), true)),
   say: (text) => set({ runNotice: { verb: 'editRoutine', text, label: '' } }),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
   hideNotice: () => set((s) => ({ ...(s.runNotice && !s.runNotice.hidden && { runNotice: { ...s.runNotice, hidden: true as const } }), ...(s.toast?.notice && { toast: undefined }) })),

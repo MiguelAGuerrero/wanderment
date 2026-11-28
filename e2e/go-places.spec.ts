@@ -241,7 +241,7 @@ for (const size of [
       const resume = (await t.getByTestId('go-tile-resume').boundingBox())!;
       expect(d.y).toBeGreaterThanOrEqual(resume.y - 1);
       expect(await t.locator('[data-testid^="go-tile-"][role="button"]').evaluateAll((els) => els.map((e) => e.getAttribute('data-testid')))).toEqual(['go-tile-body', 'go-tile-resume', 'go-tile-places', 'go-tile-more']);
-      await expectRules(home(page).screen, []);
+      await expectRules(home(page).screen, ['Resume Work in {page}']); // (P-100, rewritten: was [] — the top row's Resume is the one filled button.)
       await expectNoSeriousViolations(page);
       await door.click();
       const sheet = await arrived(page, 'go-places-sheet');

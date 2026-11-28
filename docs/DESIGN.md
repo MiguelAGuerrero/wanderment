@@ -115,6 +115,28 @@ routines in their own words — and runs them with the person, one small step at
   a run chooses is never stored on the routine (owner: "Edit Plan by hand"). (Not built: renaming the item from the
   block's menu; reordering a list's rows; a routine's typed inputs carried with the value; a call row giving a
   routine; a routine calling itself; kept lists shared between parts — B-16, parked.)
+- **In any order** *(built, P-99; B-16 rule 3 and "With P-99"; the owner: "a thread has managed its own state … done once
+  that single thread returns")*: a block whose **parts** are taken up in any order, each a step or a step broken down.
+  Stored as a step broken down (a row `{ id, ref }` to an unnamed sequence "In any order") carrying `any: true`, so **an
+  older build reads it as a step broken down** (its parts one after another); nothing is converted. Made from Add's **In
+  any order** (beside For each…; its first part is typed inside it at once); its row opens as a view of its own (P-111)
+  whose Add reads **Add a part** (no routine, for each or block inside a block); its ··· reads **Add a part · Add a step
+  after** · a line · **Remove**. **Running:** arriving rests on its row, which offers the parts (each with where it
+  stands); a part taken up runs as its own thread — its **own place and values** (a part broken down goes in at its first
+  step; parts never read what another gave) — and the filled button reads **Start <part>** / **Resume <part>** (the part
+  put down last). Next past a part's last step **returns** it ("finished"); Step out of it **stops** it ("stopped"); Back
+  from a part goes to the row, putting it down where it is. **The step after the block is reached only when every part has
+  returned or been stopped** (Next on the row is refused until then); Step out on the row — or on a step part — leaves the
+  block, stopping the rest (parts cannot outlive it), on the first layer too. What the parts give under one name is
+  **collected into one list in the order given** after the block. Each part's place, values and end are kept on the
+  level holding the row (`parts: { row, list }`); one this version cannot read is kept, never written over. **Where every
+  part stands** (the tree view): the pull-up panel lists every part of every block the run is in — "at <step>" with its
+  values in place, "waiting for <words> · since <day>", "first: <step>" (a part broken down not taken up yet),
+  "finished", "stopped"; the part the run is in marked HERE and "you are here" — and a tap takes one up (putting down the
+  one the run is in, said "Took up “<part>”" with Undo); a paused or waiting tile's ··· **In any order…** opens the same
+  view, a tap taking the part up in the runner. A tile reads the part last touched: "<part> · at <step>". No count,
+  percentage or "left". (Parked, the owner: a finished part taken up again when its list grows, and the step after the
+  block waiting again.)
 - **Calls** *(built, P-98; B-16, B-15 journey 5)*: a routine used as a step is a **call row** — stored as the
   routine's id with its name then (`words`) and, per input, what fills it (`with`). Its **inputs** are the names
   its steps read that nothing in it gives (its own calls' unbound inputs too); it **gives** every name it gives.
@@ -260,7 +282,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
 - **One navigation scheme on every screen** *(built, P-96; P-101; P-103)*: the TOP is context, with the one
   way out first at its left (Plan's band: ⌂ Home — or ← Back to the run — then the word PLAN; the runner's top
   line: ❚❚ Pause, the path, Plan at its right; Settings' and Jump's ←; ⚙ on home, at the right). The BOTTOM, lowest, is the forward choice: the filled "Resume at <step>" or Start on Plan; on
-  the runner the moves and Next (see *The verbs*). Home has no filled button *(P-101, ruling 5)*. Side
+  the runner the moves and Next (see *The verbs*). On home, the filled **Resume <step>** of the queue's top row,
+  beneath the side doors *(P-100; was P-101 ruling 5: no filled button)*. Side
   doors: on home **My routines** (left, once there is a routine) and + New (right) *(P-97)*; Done at Plan's edge only (right). Rows and tiles carry only actions about
   themselves. Sheets: a title, the choices, the filled button keeps or applies, Close (lowest) leaves
   things as they were.
@@ -278,17 +301,23 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   with its labelled Undo, as every Remove does.
 - **One thing runs at a time.** At most one run is running. To take up another you pause first. The
   app opens where you left off: the runner while one runs, else home (a run at the edge: its Plan).
-- **Home is what is in motion** *(built; P-96, P-101; P-97, the owner: home "populated with a whole bunch of
-  disparate types of routines")*: every run going — running, paused or waiting — is a tile, coloured like its
-  note — the name and where it is ("at <step>", its values in place, inverted; the pause note under it) —
-  under one of two headings, told apart by structure: **Ongoing** (the routine has no end: "Repeat from here"
-  until I'm done at its top level) and **Finishing** (it has an end: no repeat, a number of rounds, or a repeat
-  only inside a step). A routine with nothing going is **not** on home: it is on My routines (its stored
+- **Home is one queue** *(built; P-96, P-101, P-97; P-100, the owner: "The home view should really be a queue. Any
+  ongoing runs would be the queue itself. And the new would be enqueue" — "One queue")*: every run going — running,
+  paused or waiting — is a row, coloured like its note — the name, where it is ("at <step>": the step at the deepest
+  level the run is in, its values in place, inverted), below its first level **where it sits** (a short path, "Practise
+  drawing › Hand studies"; past three levels the first and the last two), and the pause note or what it waits for —
+  in **one ordered list, no sections and no headings** *(was P-97: Ongoing and Finishing)*. The **top row** is what the
+  filled **Resume <step>** at the bottom resumes. A run started (+ New's routine started, or Start on My routines)
+  goes to the **bottom**; a run that finishes leaves the list. Rows move by their **grip** (a drag; none narrower
+  than 340 px) and by their **···** (Move up · Move down · To the top — only those it can make), each said ("Moved
+  “<name>” up") with Undo. The order is stored on each run (`queue`, renumbered 1…n by a move); a run with none —
+  every run from before P-100 — stands by when it was started, so old data reads as home always showed it, the
+  oldest first. A routine with nothing going is **not** on home: it is on My routines (its stored
   `home` mark is kept and written as before, and no longer read). Order never changes because of a pause
-  *(P-101, ruling 5)*: in each group the runs by when each was started; the run touched last carries a small
+  *(P-101, ruling 5)*; the run touched last carries a small
   **"Last ran"** (in words; *P-110, the owner: "last is relative"* — was "last"). A run's tile **body** is its way back in — a button, "Resume <name>" (at the edge, "Plan
   <name>") — and *(P-103)* a visible **Resume** in words, where Start sits on an idle tile, with **Plan** beside
-  it and, on a paused run, **···** (Start over · a line · End this run, red). A paused tile has no ❚❚ (that mark
+  it and **···** (*P-100:* the moves, a line, then — not running — Start over · a line · End this run, red, on a paused run). A paused tile has no ❚❚ (that mark
   is the runner's Pause alone); a waiting one keeps ⧗. *(P-103)* With no routines at all, home says one line,
   "Your routines will be here.", and + New is its one action; *(P-97)* with routines and nothing going, "Nothing
   going.", with My routines and + New. Home has **no title in words** (a heading for
@@ -308,11 +337,26 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   read “(removed)”." — then "Removed “<name>”" with Undo, here). Tapping a row opens its Plan, whose way out, top-left in
   Home's place, reads **← My routines** and goes back there. **+ New routine** is the one filled button, lowest
   (New's own sheet; its Plan comes back here). With no routines: "No routines yet."; with nothing matching: "No
-  routines match." and Clear. Room is kept for a second view later (B-17's "Yours | Library", P-104): the list is
-  its only view now.
+  routines match." and Clear.
+- **The library** *(built, P-104 / P-105 / P-106; B-17)*: methods and templates that ship with the app
+  (`src/domain/libraryContent.ts`, in the export format, read through the import check; house style and citations:
+  `docs/product/library.md`). Never written into the person's data until they **Copy**. On My routines, a tab list
+  **Yours | Library** under Find (the chosen one underlined); it opens on Yours, or on Library while Yours is empty.
+  Library: rows under headings — the name, then one short line on what it is for beside its signature ("asks
+  {material} · gives {faults}"); spoken "<name>, <line>, <signature>, in the library" (or "yours"; "Learn ▢" is
+  "Learn blank"). Find with text shows both under "Yours" and "Library" headings (names only). A row opens a
+  **preview sheet** (read-only rows; filled **Copy** — **Copy…** for a template, **Open yours** for a name already
+  theirs — then **Close**, both pinned). Copy brings what it calls, by name (theirs where they have that name), in one
+  write: "Copied “X”" / "… and what it calls", one Undo; it stays on the library. A template's **Copy…** asks a name
+  (the field starts "Learn "; a name in use: "! A routine already uses that name", nothing written). In Plan, only
+  when summoned: "@" lists up to three library methods under **Library**, after **Yours**; Add's "a routine" lists
+  them under a Library heading; a library row opens the preview with **Copy and add** (one Plan edit: no notice,
+  one Undo in the routine's menu). Return in the field never picks a library row; the runner's giving fields list
+  Yours only. A copy is an ordinary routine: no badge, no link back; an app update never changes it.
 - **Nothing is created or started without a tap.** Typing starts nothing until a row is chosen
   (Return takes the first row, which is always visible and marked). The app never jumps by itself.
-- **The runner is the step and nothing else** *(built; P-96, P-101)*: the top line is the path (the
+- **The runner is the step, and as many of the next ones as the person pulls into view** *(built; P-96, P-101;
+  reworded by P-112 — was "the step and nothing else")*: the top line is the path (the
   level after its parent, "Drawing practice › Sketch", in words, wrapping — not a control), with the
   doors at its right — ❚❚ and Plan ("Plan <routine>" inside a call), each at least 48 px; with too little
   room (200 % text) they go beneath it, at the right. When the step (or the level) is a step broken
@@ -337,6 +381,23 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   run). Nothing is planned here. Nothing about repeating is on the surface except one small mark on
   **the last step of a round**. A repeating part comes round again silently; a counted loop ends by
   itself. There is no "one more round".
+- **See ahead** *(built; P-112, B-16 "A chunk is chosen while running")*: off by default — the runner is one step,
+  with nothing added to it. One toggle, **See ahead** (pressed while on), in the bottom bar's top row at the right of
+  the handle, turns it on; it stays on after Next until it is turned off. On, the step and those pulled into view are
+  **one condensed sheet** in the note's colour (no big note): a row per step, 16 px words at weight 500, thin rules
+  between; a giving step's field on one line, its label then the input (a short placeholder, "optional"; a list opens
+  the list editor); a step with insides (a call, a step broken down, a routine held by a value) has P-111's Open /
+  Close, and open, its smaller steps are laid out under it, indented — an outline, read and passed over, never edited
+  — with fields for what it owes on the smaller step that gives it (a for each inside whose list is given: one per
+  item); closed, those fields are on the step. Under the sheet the dashed **then: <next step>** adds the step Next
+  would go to, again and again (a turn's end runs into the next turn), and **Fewer** takes the last off. The spacing
+  tightens in steps as rows are added (≤ 5 roomy, 6–9 closer, ≥ 10 closest); the text stays 16 px and no target goes
+  under 48 px — past that the column scrolls. **Next takes everything in view as done**: one move, with what was typed,
+  to the step after the last one shown; over more than one step it is said ("Took 3 steps as done") with one Undo (it
+  is a skip); the chunk then resets to one step. Step in still steps into the first step in view. What a passed chunk
+  gave stays (the place is below it). Nothing is stored: what is typed is held by the screen until Next; a move leaves one
+  step in view (Undo of a Next brings back the steps in view as they were, with what was typed), and leaving the
+  runner (or a reload) turns the view off. A screen reader hears how many steps are in view as it changes.
 - **The note always fits**, keyboard up included: the type steps down first, then the note shrinks
   to the space. Words too long for it scroll inside it and Plan carries a quiet mark (breaking a
   step down is planning).
@@ -461,9 +522,11 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
 ## Rules
 - **Minimalism (owner).** The app should communicate itself. Use an icon only where it is
   conventional and unambiguous; otherwise the word. Words are for form labels, button labels that
-  need them, and the person's own text. **No instructional or explanatory text, no preamble, no
-  disclaimers** — needing one is a sign the design has failed to say it. Not to be applied
-  overzealously: a label that prevents a mistake stays.
+  need them, and the person's own text. **No large text in the main loop** (home, Plan, the runner,
+  their sheets): no paragraphs, preamble or disclaimers. **Short text is welcome where it helps** —
+  a placeholder, a label or one line saying what a field accepts, what a control is for, or how a
+  thing works (owner, 2026-11-28: "It's OK if it explains how the app works. It's just not huge
+  paragraphs"). Longer explanations belong off the main loop, in Settings, where they have room.
 - **Borrow established conventions** from adjacent productivity apps for layout, spacing, icon and
   settings placement and component choice, so the app meets expectations before it asks anyone to
   learn.

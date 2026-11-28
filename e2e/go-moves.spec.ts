@@ -137,7 +137,7 @@ for (const size of SIZES) {
       await expect(tile(page, 'MyStack').getByTestId('go-tile-reason')).toHaveCount(0);
     });
 
-    test('(3) home: the order never changes for a pause; "last" marks the run touched last; a tile’s body resumes; no Resume bar; nothing reads "planning"', async ({ page }) => {
+    test('(3) home: the order never changes for a pause; "last" marks the run touched last; a tile’s body resumes; P-100 (rewritten: was no Resume bar) the top row’s Resume at the bottom; nothing reads "planning"', async ({ page }) => {
       // Practise drawing's run was started first; MyStack's later. MyStack was made first.
       await startGo(
         page,
@@ -153,7 +153,7 @@ for (const size of SIZES) {
       // The runs, by when each was started (P-97; was: then what has nothing going — that is on My routines now).
       const order = await names();
       expect(order).toEqual(['other', 'stack']);
-      await expect(page.getByTestId('go-resume')).toHaveCount(0);
+      await expect(page.getByTestId('go-resume')).toHaveCount(1); // (P-100, rewritten: was toHaveCount(0) — the top row's Resume is the one filled button at the bottom.)
       await expect(tile(page, 'Practise drawing').getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
       await expect(tile(page, 'MyStack').getByTestId('go-tile-last')).toHaveCount(0);
       // The body is a button: "Resume <name>", with what it shows. Its Plan stays.

@@ -5,7 +5,7 @@
  * undefined, and the screen goes home.
  */
 import { routineInWords } from './atPick';
-import { advance, canCall, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, givenAhead, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
+import { activePart, anyBlock, backUp, Part, partsJoined, partsOf, partToTakeUp, advance, canCall, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, queueRuns, givenAhead, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
 import { hash } from './hash';
 import { addressesIn, PlaceShown, placesOf, placesShown, tidyPlaceText } from './places';
 import { Data, Id } from './types';
@@ -364,6 +364,16 @@ export interface Tile {
   values?: ValueShown[];
   /** P-108: its for each blocks' kept lists, each with + Add (`editRoutine(seq, { kind: 'keptList', items })`); absent when none. */
   kept?: { seq: Id; list: string; items: string[] }[];
+  /**
+   * P-100: where its run sits — the levels it is in, its routine first (a for each by its item, as on the runner's
+   * path: "For each photo"). Absent when idle.
+   */
+  path?: string[];
+  /**
+   * P-99 (B-16, "The tile"): inside an In any order block, the part last touched — the one the run is in, or, while it
+   * is choosing, the one put down last (`at` then reads where that part was put down). Its line reads "<part> · at <step>".
+   */
+  part?: string;
 }
 
 /** A routine and its smaller steps, as stored (each once). */
@@ -414,19 +424,107 @@ function tileOf(data: Data, s: Seq, run: RunState | undefined, current: Id | und
   const planning = isPlanning(data, run);
   const values = valuesInPlay(data, run);
   const scope = topScope(data, run, at.frames);
+  const path = at.frames.map((f) => view(data, run, f.seq)).map((x) => (x?.each ? `For each ${x.each.item}` : (x?.words ?? '')));
+  // P-99: the part last touched, and where it stands.
+  const lastPart = partLastTouched(data, run, at);
+  const atItem = lastPart?.at ?? at.item;
+  const atFrames = lastPart?.frames ?? at.frames;
+  const atRun = lastPart?.run ?? run;
   return {
     ...base,
-    ...(at.item && { atParts: partsFor(data, run, wordsOf(data, run, at.item), at.frames) }),
+    path,
+    ...(lastPart && { part: lastPart.words }),
+    ...(atItem && { atParts: partsFor(data, atRun, wordsOf(data, run, atItem), atFrames) }),
     ...(values.length && { values: values.map((e) => shownOf(data, e, scope)) }),
     runId: run.id,
-    state: isWait(at.item) ? 'waiting' : isRunning(data, run) ? 'running' : 'paused',
-    ...(at.item ? { at: wordsOf(data, run, at.item) } : { asking: true as const }),
+    state: isWait(atItem) ? 'waiting' : isRunning(data, run) ? 'running' : 'paused',
+    ...(atItem ? { at: wordsOf(data, run, atItem) } : { asking: true as const }),
     ...(reason && { reason }),
-    ...(isWait(at.item) && { waitingFor: at.item.wait, ...(dated(run.waitingSince) && { since: run.waitingSince }) }),
+    ...(isWait(atItem) && { waitingFor: atItem.wait, ...(lastPart?.since ? { since: lastPart.since } : dated(run.waitingSince) && { since: run.waitingSince }) }),
     startedAt: run.startedAt,
     current: run.id === current,
     action: planning ? 'plan' : 'resume',
   };
+}
+
+/**
+ * P-99: the part of an In any order block a run's tile reads — the innermost block's part the run is in; or, on a block's
+ * row (choosing), the part put down last, where it was put down (its levels, and a reading of the run with its values).
+ */
+function partLastTouched(data: Data, run: RunState, at: Place): { words: string; at?: Item; frames?: Frame[]; run?: RunState; since?: string } | undefined {
+  const { frames } = at;
+  for (let i = frames.length - 2; i >= 0; i--) {
+    const active = activePart(data, run, frames, i);
+    if (active) return { words: wordsOf(data, run, view(data, run, frames[i + 1].seq)?.items.find((x) => x.id === active)) };
+  }
+  const L = frames.length - 1;
+  if (!anyBlock(data, run, at.item)) return undefined;
+  const take = partToTakeUp(data, run, frames, L);
+  const rec = partsOf(frames[L])?.list.find((p) => p.item === take);
+  if (!rec?.frames) return undefined;
+  const down = putDown(data, run, frames, L, rec);
+  return down ? { words: wordsOf(data, run, view(data, run, rec.frames[0].seq)?.items.find((x) => x.id === rec.item)), ...down } : undefined;
+}
+
+/** P-99: a part put down, read where it was put down — its levels after the block's row, and the run with its values then. */
+function putDown(data: Data, run: RunState, frames: Frame[], i: number, rec: Part): { at?: Item; frames: Frame[]; run: RunState; since?: string } | undefined {
+  if (!rec.frames) return undefined;
+  const as: RunState = { ...run, frames: [...frames.slice(0, i + 1), ...rec.frames], values: [...run.values.filter((v) => v.level <= i), ...(rec.values ?? [])] };
+  const p = place(data, as);
+  return p ? { at: p.item, frames: p.frames, run: as, ...(rec.since && { since: rec.since }) } : undefined;
+}
+
+/**
+ * P-99 (B-16, "With P-99: where every part stands"): one part of an In any order block, as the tree view says it —
+ * `here`: the part the run is in ("at <step>", the step it is on); `down`: put down at a step ("at <step>"), or on a
+ * wait (`waiting`: "waiting for <words> · since <day>"); `new`: no place yet (a part broken down: its first step);
+ * `finished` / `stopped`: it returned, or was stopped. Steps read with the values that part sees, in place.
+ */
+export interface PartShown {
+  item: Id;
+  words: string;
+  state: 'here' | 'down' | 'waiting' | 'new' | 'finished' | 'stopped';
+  step?: StepPart[];
+  since?: string;
+}
+/** P-99: the parts of one block the run is in (its row's level), and the level it is in, by its words. */
+export interface PartsLevel {
+  level: number;
+  within: string;
+  parts: PartShown[];
+}
+
+/** P-99: every In any order block the run is in (on its row, or inside a part), outermost first, each with every part. */
+export function partsTree(data: Data, runId: Id): PartsLevel[] {
+  const run = readRun(data, runId);
+  const at = run && !run.endedAt ? place(data, run) : undefined;
+  if (!run || !at) return [];
+  const { frames } = at;
+  const out: PartsLevel[] = [];
+  frames.forEach((f, i) => {
+    const s = view(data, run, f.seq);
+    const block = anyBlock(data, run, s?.items.find((x) => x.id === f.at));
+    if (!s || !block) return;
+    const rec = partsOf(f);
+    const active = activePart(data, run, frames, i);
+    const parts = block.items.map((p): PartShown => {
+      const words = wordsOf(data, run, p);
+      const r = rec?.list.find((x) => x.item === p.id);
+      if (p.id === active && at.item) {
+        const w = isWait(at.item);
+        return { item: p.id, words, state: 'here', step: partsFor(data, run, wordsOf(data, run, at.item), frames), ...(w && dated(run.waitingSince) && { since: run.waitingSince }) };
+      }
+      if (r?.ended) return { item: p.id, words, state: r.ended };
+      const down = r ? putDown(data, run, frames, i, r) : undefined;
+      if (down?.at) return { item: p.id, words, state: isWait(down.at) ? 'waiting' : 'down', step: partsFor(data, down.run, wordsOf(data, run, down.at), down.frames), ...(down.since && { since: down.since }) };
+      // (A part broken down: its first step. A step: it is its own first step, and says nothing more.)
+      const inner = isRef(p) ? view(data, run, p.ref) : undefined;
+      const first = inner && !inner.named ? inner.items[0] : undefined;
+      return { item: p.id, words, state: 'new', ...(first && { step: partsFor(data, run, wordsOf(data, run, first), frames) }) };
+    });
+    out.push({ level: i, within: s.each ? `For each ${s.each.item}` : s.words, parts });
+  });
+  return out;
 }
 
 const firstMade = (a: Seq, b: Seq) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -435,8 +533,6 @@ const lastTouched = (a: RunState, b: RunState) => ((a.touchedAt ?? '') > (b.touc
 /** The run to mark on home: the one the app is on, else the open run touched last. */
 const markedRun = (data: Data): Id | undefined => (currentRun(data) ?? [...openRuns(data)].sort(lastTouched)[0])?.id;
 
-/** P-101 (ruling 5): runs by when each was made (started), stable. */
-const firstStarted = (a: RunState, b: RunState) => (a.startedAt < b.startedAt ? -1 : a.startedAt > b.startedAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /**
  * Home's tiles: every routine that is on home or has a run going, in a FIXED order (when each was
@@ -454,18 +550,20 @@ export function homeTiles(data: Data): Tile[] {
 }
 
 /**
- * Home's tiles as shown. P-101 (ruling 5; was P-95: the run the app is on first): the runs going, by when
- * each was made (started), then the routines with nothing going in `homeTiles`' order. Nothing is ranked:
- * a pause, a resume or a step never reorders; the run touched last is marked "last" (`Tile.current`).
+ * Home's tiles as shown: the runs going in home's queue order (P-100: `queueRuns` — by when each was started until the
+ * queue is reordered; was P-101 ruling 5, by when started), then the routines with nothing going in `homeTiles`'
+ * order. A pause, a resume or a step never reorders; the run touched last is marked "Last ran" (`Tile.current`).
  */
 export function homeShown(data: Data, tiles: Tile[] = homeTiles(data)): Tile[] {
-  const started = new Map<Id, RunState>();
-  for (const t of tiles) {
-    const r = t.runId === undefined ? undefined : readRun(data, t.runId);
-    if (r) started.set(t.routineId, r);
-  }
-  const going = tiles.filter((t) => started.has(t.routineId)).sort((a, b) => firstStarted(started.get(a.routineId)!, started.get(b.routineId)!));
-  return [...going, ...tiles.filter((t) => !started.has(t.routineId))];
+  const rank = new Map(queueRuns(data).map((r, i) => [r.id, i]));
+  const at = (t: Tile) => (t.runId === undefined ? undefined : rank.get(t.runId));
+  const going = tiles.filter((t) => at(t) !== undefined).sort((a, b) => at(a)! - at(b)!);
+  return [...going, ...tiles.filter((t) => at(t) === undefined)];
+}
+
+/** P-100: home — one queue, no sections: each run going is a row, top first (the top row is what the filled Resume resumes). */
+export function homeQueue(data: Data): Tile[] {
+  return homeShown(data).filter((t) => t.runId !== undefined && t.state !== 'idle');
 }
 
 /**
@@ -534,7 +632,14 @@ export interface RunnerView {
    * The filled button: Next; Done (P-96, ruling 7) when that press ends the whole run; or "It's happened"
    * (a wait). edge: there is none (the run is in Plan).
    */
-  next: 'next' | 'done' | 'itsHappened' | 'edge';
+  next: 'next' | 'done' | 'itsHappened' | 'edge' | 'take';
+  /**
+   * P-99: on an In any order block's row — choosing: its parts (as the tree view says them, `level` the row's level:
+   * `takeUpPart(runId, level, part)`), and `take`, what the filled button takes up while a part has not returned (`next`
+   * is 'take'): the part put down last ("Resume <part>"), else the first not taken up ("Start <part>"). Once every part
+   * has returned or been stopped, the filled button is Next (or Done) again: the block is passed.
+   */
+  choose?: { level: number; parts: PartShown[]; take?: { part: Id; words: string; resume: boolean } };
   /** P-96: pressing it ends the whole run (`nextStep` then answers `home: true`). */
   ends: boolean;
   /**
@@ -590,12 +695,24 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
   const target = held && 'routine' in held ? view(data, run, held.routine) : isRef(item) && !removed && !view(data, run, item.ref)?.each ? view(data, run, item.ref) : undefined;
   const waiting = waitingOf(run, at);
   const ends = !!item && !run.endedAt && wouldEnd(data, { kind: 'next', runId });
+  // P-99: on an In any order block's row, choosing a part.
+  const choosing = !!item && !!anyBlock(data, run, item);
+  const L = frames.length - 1;
+  const takeId = choosing && !partsJoined(data, run, frames, L) ? partToTakeUp(data, run, frames, L) : undefined;
+  const takeItem = takeId ? view(data, run, anyBlock(data, run, item)!.id)?.items.find((x) => x.id === takeId) : undefined;
+  const choose = choosing
+    ? {
+        level: L,
+        parts: partsTree(data, runId).find((g) => g.level === L)?.parts ?? [],
+        ...(takeItem && { take: { part: takeItem.id, words: wordsOf(data, run, takeItem), resume: !!partsOf(frames[L])?.list.find((p) => p.item === takeItem.id)?.frames } }),
+      }
+    : undefined;
   const words = held && 'routine' in held ? target!.words : held && 'removed' in held ? `${held.removed} (removed)` : item ? wordsOf(data, run, item) : '';
   const heldRoutine = !!held && !('words' in held);
-  const kind = heldRoutine ? 'routine' : item && ownBlock(data, run, item) ? 'step' : item ? kindOf(item) : 'step';
+  const kind = heldRoutine ? 'routine' : item && (ownBlock(data, run, item) || choosing) ? 'step' : item ? kindOf(item) : 'step';
   // (P-110, the P-108 investigator's repro 3: a value holding a routine the run is already in offers no Step in — the engine refuses it.)
   const into = !!target?.items.length && !(held && 'routine' in held && frames.some((f) => f.seq === held.routine));
-  const middle = into && frames.length < MAX_DEPTH ? 'stepIn' : 'plan';
+  const middle = into && !choosing && frames.length < MAX_DEPTH ? 'stepIn' : 'plan';
   let inner: Seq | undefined;
   for (let j = frames.length - 1; j > 0 && !inner; j--) {
     const s = view(data, run, frames[j].seq);
@@ -619,15 +736,17 @@ export function runnerView(data: Data, runId: Id): RunnerView | undefined {
     fields: fieldsFor(data, run, at),
     values: valuesInPlay(data, run).map((e) => shownOf(data, e, topScope(data, run, frames), inputFrom(data, run, frames, e))),
     lastOfRound: lastOfRound(at),
-    canBack: !!previous(data, run),
+    canBack: !!previous(data, run) || !!backUp(data, run),
     middle,
     // P-96 audit F5: Done wherever the press ends the run — a last step that is a wait included.
-    next: !item ? 'edge' : ends ? 'done' : isWait(item) ? 'itsHappened' : 'next',
+    next: !item ? 'edge' : choose?.take ? 'take' : ends ? 'done' : isWait(item) ? 'itsHappened' : 'next',
+    ...(choose && { choose }),
     ends,
     ...(!run.endedAt && { finish: { name: levelWords(seq), ends: wouldEnd(data, { kind: 'done', runId }) } }),
     ...(waiting && { waiting }),
     // P-98: past the depth it can go, Step in is still there — and says, in words, why it goes no deeper.
-    moves: { stepIn: into, ...(frames.length > 1 && { stepOut: { name: levelWords(seq) } }) },
+    // (P-99: on a block's row Step out leaves the block — on the first layer too; the filled button takes up a part.)
+    moves: { stepIn: into && !choosing, ...(choosing ? { stepOut: { name: wordsOf(data, run, item) } } : frames.length > 1 && { stepOut: { name: levelWords(seq) } }) },
     ...(inner && { planIn: { seq: inner.id, name: inner.words } }),
     gives,
     ...(reason && { reason }),
@@ -657,6 +776,8 @@ export interface PanelView {
   places?: { routine: string; places: PlaceShown[]; inner?: true }[];
   /** P-109 (journey 4): "Open <host>" — each http(s) address typed in the step's words, a value in play or the pause note, once. */
   addresses?: { href: string; host: string }[];
+  /** P-99: where every part stands, of every In any order block the run is in (`partsTree`). Absent: none. */
+  parts?: PartsLevel[];
 }
 
 export function panelView(data: Data, runId: Id): PanelView | undefined {
@@ -667,8 +788,10 @@ export function panelView(data: Data, runId: Id): PanelView | undefined {
   const index = item ? seq.items.findIndex((i) => i.id === item.id) : -1;
   const looping = seq.repeatFrom !== undefined && index >= seq.repeatFrom;
   const next = item && !run.endedAt ? advance(data, run, frames) : undefined;
-  const to = next && !next.ended && !next.asking ? place(data, { ...run, frames: next.frames }) : undefined;
+  const to = next && !next.ended && !next.asking && !next.waiting ? place(data, { ...run, frames: next.frames }) : undefined;
   const back = previous(data, run);
+  const up = back ? undefined : backUp(data, run);
+  const tree = partsTree(data, runId);
   const wait = waitingOf(run, at);
   const places = placesOfRun(data, run.routineId, frames);
   const addresses = addressesIn(item && (isStep(item) ? item.text : isWait(item) ? item.wait : undefined), ...(runnerView(data, runId)?.values.map((x) => x.text) ?? []), run.reason);
@@ -676,11 +799,12 @@ export function panelView(data: Data, runId: Id): PanelView | undefined {
     ...(looping && { round: { n: frame.round, ...(seq.repeat !== undefined && frame.round <= seq.repeat && { of: seq.repeat }) } }),
     lastOfRound: lastOfRound(at),
     ...(to?.item && { then: wordsOf(data, run, to.item) }),
-    ...(back && { backTo: wordsOf(data, run, seq.items.find((i) => i.id === back.at)) }),
+    ...(back ? { backTo: wordsOf(data, run, seq.items.find((i) => i.id === back.at)) } : up && { backTo: wordsOf(data, run, up.row) }),
     ...(wait && { wait }),
     ...(tidy(run.reason) && { reason: tidy(run.reason) }),
     ...(places.length > 0 && { places }),
     ...(addresses.length > 0 && { addresses }),
+    ...(tree.length > 0 && { parts: tree }),
   };
 }
 
@@ -915,6 +1039,8 @@ export interface PlanRow {
    * the block, + Add (`editRoutine(ref, { kind: 'keptList', items })`); never counted.
    */
   each?: { item: string; list: string; own?: true; kept?: ShownItem[] };
+  /** P-99: an In any order block — its rows are its parts (each a step or a step broken down); it opens as a view of its own. */
+  any?: true;
   /** P-108: a routine row whose routine is a value — `▤ {slot}` (it reads the name; "asks" when nothing gives it). */
   slot?: string;
   /**
@@ -1094,6 +1220,7 @@ export function planView(data: Data, of: { runId: Id; in?: Id } | { routineId: I
         asks: [],
         ...(call && { call }),
         ...(each && { each: { item: each.item, list: each.list, ...(each.own && { own: true as const }), ...(each.kept && { kept: shownItems(data, { items: each.kept, refs: each.refs }) }) } }),
+        ...(isRef(item) && read(item.ref)?.any && { any: true as const }),
         ...(slot && { slot }),
       });
       for (const g of [gives, ...(call?.gives ?? [])]) if (g && !given.some((x) => nameKey(x) === nameKey(g))) given.push(g);
@@ -1300,6 +1427,8 @@ const LABELS: Record<Acted, string> = {
   jump: 'Jump',
   restart: 'Start over',
   value: 'Change',
+  queue: 'Move',
+  part: 'Move',
   editRoutine: 'Change',
 };
 
@@ -1355,6 +1484,8 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     if (e.kind === 'addCall') return `Added ${quoted(readRoutine(data, e.routine)?.words ?? '')}`;
     // P-107: Add's "For each…".
     if (e.kind === 'addEach') return `Added ${quoted(eachWords({ item: tidyName(e.item), list: tidyName(e.list) }))}`;
+    // P-99: Add's "In any order".
+    if (e.kind === 'addAny') return `Added ${quoted('In any order')}`;
     if (e.kind === 'bind') return `Changed {${tidyName(e.input)}} for ${item(e.item)}`;
     // P-108: a kept list given (+ Add): the item added, else the list changed; a routine row by a name.
     if (e.kind === 'keptList') {
@@ -1403,5 +1534,21 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     return f ? `Started ${view(data, r!, f.seq)?.words ?? ''} over` : '';
   }
   if (verb.kind === 'value') return `${verb.text.trim() ? 'Changed' : 'Cleared'} {${tidyName(verb.name)}}`;
+  // P-99: a part taken up, putting down the one the run was in.
+  if (verb.kind === 'part') {
+    const r = readRun(data, verb.runId);
+    const f = r?.frames[verb.level];
+    const block = r && f ? anyBlock(data, r, view(data, r, f.seq)?.items.find((i) => i.id === f.at)) : undefined;
+    const p = block?.items.find((i) => i.id === verb.part);
+    return p ? `Took up ${quoted(wordsOf(data, r!, p))}` : '';
+  }
+  // P-112: Next over the steps in view.
+  if (verb.kind === 'next' && Array.isArray(verb.chunk) && verb.chunk.length > 1) return `Took ${verb.chunk.length} steps as done`;
+  // P-100: a row of home's queue moved — named by its routine.
+  if (verb.kind === 'queue') {
+    const r = readRun(data, verb.runId);
+    const name = quoted(r ? (readRoutine(data, r.routineId)?.words ?? '') : '');
+    return `Moved ${name} ${verb.to === 'top' ? 'to the top' : verb.to < 0 ? 'up' : 'down'}`;
+  }
   return '';
 }

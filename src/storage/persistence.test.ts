@@ -1566,6 +1566,39 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         },
       },
       changeValue: { args: ['n1', 'topic', 'another ad'], setup: going({ values: [{ name: 'topic', items: ['the ad'], level: 0, seq: 'g1', item: 'a', at }] }) },
+      // P-100: home's queue — a second run (of g2, started later) moved to the top.
+      moveInQueue: {
+        args: ['n2', 'top'],
+        setup: (store) => {
+          going({ status: 'paused' })(store);
+          const held = store.getState().storage;
+          if (held.state !== 'ready' || held.reconnecting) return;
+          store.setState((st) => ({ data: { ...st.data, runs: { ...st.data.runs, n2: { id: 'n2', routineId: 'g2', startedAt: '2030-01-01T00:00:00.000Z', touchedAt: at, frames: [{ seq: 'g2', at: 'q', round: 1 }], changes: [] } } } }));
+        },
+      },
+      // P-99: a part of an In any order block taken up (the run on the block's row).
+      takeUpPart: {
+        args: ['n1', 0, 'p1'],
+        setup: (store) => {
+          going({ frames: [{ seq: 'g1', at: 'y', round: 1 }] })(store);
+          const g1 = store.getState().data.routines.g1;
+          if (!g1) return;
+          store.setState((st) => ({
+            data: {
+              ...st.data,
+              routines: {
+                ...st.data.routines,
+                g1: { ...g1, items: [{ id: 'y', ref: 'g3' }, ...(g1.items as unknown[])] },
+                g3: { id: 'g3', words: 'In any order', named: false, createdAt: at, any: true, items: [{ id: 'p1', text: 'Study' }, { id: 'p2', text: 'Practise' }] },
+              },
+            },
+          }));
+        },
+      },
+      // P-104 / P-106: Copy from the library (a method; a template under a name).
+      copyFromLibrary: { args: ['lib-recall'] },
+      // P-105: Copy and add — the library method copied and added as a step of g1.
+      copyAndAdd: { args: ['lib-cue', 'g1'], setup: going() },
       // P-107: a list given in its step's list field (one item per row).
       typeList: {
         args: ['n1', 'a', 'topic', ['the ad', 'the poster']],
@@ -3977,6 +4010,125 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
     });
   });
 
+  // ───────── P-104 / P-105 / P-106: the library ─────────
+  describe('P-104 / P-105 / P-106: routines copied from the library — a method with what it calls, a method copied and added as a step, a template copied twice — survive reload, journal replay, the fallback, undo and export → import; nothing of the library is stored', () => {
+    type Ids = { recall: string; plan: string; guitar: string; spanish: string };
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /** Through the store, as a person would: Copy "Recall before you look"; a routine of their own with "Set a cue to start" copied and added; "Learn ▢" copied twice. */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const recall = g().copyFromLibrary('lib-recall');
+      const own = g().createRoutine('Study for the exam');
+      if (!recall.ok || !recall.routineId || !own.ok || !own.routineId) throw new Error('refused');
+      expect(g().editRoutine(own.routineId, { kind: 'addStep', text: 'Read chapter one' }).ok).toBe(true);
+      expect(g().copyAndAdd('lib-cue', own.routineId).ok).toBe(true);
+      const guitar = g().copyFromLibrary('lib-learn', 'Learn guitar');
+      const spanish = g().copyFromLibrary('lib-learn', 'Learn Spanish');
+      if (!guitar.ok || !guitar.routineId || !spanish.ok || !spanish.routineId) throw new Error('refused');
+      return { recall: recall.routineId, plan: own.routineId, guitar: guitar.routineId, spanish: spanish.routineId };
+    }
+    const names = (data: import('@/domain/types').Data) => Object.values(data.routines).filter((r) => r.named).map((r) => r.words).sort();
+    const isAsBuilt = (data: import('@/domain/types').Data, ids: Ids) => {
+      expect(names(data)).toEqual(['Check and mend', 'Keep the lesson', 'Learn guitar', 'Learn Spanish', 'Practise at the edge', 'Recall before you look', 'Review after doing', 'Say what done is', 'Set a cue to start', 'Study for the exam'].sort());
+      const items = data.routines[ids.plan].items as Record<string, unknown>[];
+      expect(items[1]).toMatchObject({ words: 'Set a cue to start' });
+      expect(data.routines[items[1].ref as string]).toMatchObject({ words: 'Set a cue to start', named: true });
+      // Nothing of the library is stored: no library id anywhere.
+      expect(JSON.stringify(data)).not.toMatch(/lib-/);
+    };
+
+    it('reload: saved to SQLite as copied, the same after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      isAsBuilt(shown, ids);
+      expect(await onDisk()).toEqual(shown);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), all of it is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const shown = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      isAsBuilt(store.getState().data, ids);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('the localStorage fallback keeps them, and moves them into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const shown = store.getState().data;
+      isAsBuilt(JSON.parse(env.ls.get('wanderment')!).state.data, ids);
+      store = await reload();
+      expect(store.getState().data).toEqual(shown);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(await onDisk()).toEqual(shown);
+    });
+
+    it('undo of a copy that brought what it calls, and of Copy and add: one Undo each, taken back on screen and on disk', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const before = store.getState().data;
+      expect(store.getState().copyFromLibrary('lib-weigh').ok).toBe(true);
+      await tick(30);
+      expect(names(await onDisk())).toEqual(expect.arrayContaining(['Weigh the options', 'Gather options', 'Choose']));
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      expect(store.getState().copyAndAdd('lib-outside', ids.plan, null).ok).toBe(true);
+      await tick(30);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      expect(store.getState().data).toEqual(before);
+    });
+
+    it('export → import: the copies are the person’s data, in the backup as they are; the same file is identical; after an import they are still there', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      isAsBuilt(JSON.parse(json).data, ids);
+      expect(previewImport(json).plan).toMatchObject({ identical: true });
+      expect(store.getState().copyFromLibrary('lib-source').ok).toBe(true);
+      expect(confirmImport(previewImport(json)).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(exported);
+      // A name copied before is still the person's: copying it again is refused, nothing written.
+      expect(store.getState().copyFromLibrary('lib-recall')).toEqual({ ok: false, reason: 'same-name' });
+      expect(store.getState().data).toEqual(exported);
+    });
+  });
+
   // ───────── P-109: places ─────────
   describe('P-109: places survive reload, journal replay, the fallback, hand-over, export and import — a shape this version does not know is kept, an unsafe Where stays words', () => {
     type Ids = { placed: string; other: string };
@@ -4895,6 +5047,407 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(store.getState().runNotice?.text).toContain('Cleared {feature}');
       await tick(30);
       expect(valuesOf_(await onDisk() as never, ids)).toEqual([]);
+    });
+  });
+
+  // ───────── P-100: home is one queue ─────────
+
+  // ───────── P-99: In any order — parts as threads, joined ─────────
+
+  describe('P-99: an In any order block, each part’s place and values, what ended how, and the join survive reload, journal replay, the fallback, hand-over, undo, export and import — a record of parts this version cannot read is kept', () => {
+    type Ids = { hands: string; block: string; row: string; gesture: string; study: string; copy: string; sketch: string; runId: string };
+    const itemsOf = (data: { routines: Record<string, Record<string, unknown>> }, id: string) => data.routines[id].items as Record<string, unknown>[];
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /**
+     * Through the store's actions, as a person would: New "Get better at hands"; "Warm up"; Add's "In any order" with the
+     * parts Study, Master copy (gives {copies}), Gesture practice (broken down: Draw 10 hands, Draw 10 feet) and Sketch
+     * from life (broken down: Find a model); "Compare {copies}" after it. Started; Next onto the block; Master copy taken
+     * up, {copies} given, Next (it returned); Sketch taken up and Step out (stopped); Gesture taken up, Next (on Draw 10
+     * feet); Study taken up (Gesture put down at Draw 10 feet).
+     */
+    function build(store: Store): Ids {
+      const g = () => store.getState();
+      const made = g().createRoutine('Get better at hands');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      const hands = made.routineId;
+      const all = [g().editRoutine(hands, { kind: 'addStep', text: 'Warm up' }), g().editRoutine(hands, { kind: 'addAny', parts: ['Study', 'Master copy', 'Gesture practice', 'Sketch from life'] })];
+      const row = itemsOf(g().data, hands)[1] as { id: string; ref: string };
+      const [study, copy, gesture, sketch] = itemsOf(g().data, row.ref).map((i) => i.id as string);
+      all.push(g().editRoutine(row.ref, { kind: 'gives', item: copy, name: 'copies' }));
+      all.push(g().editRoutine(row.ref, { kind: 'breakDown', item: gesture, steps: ['Draw 10 hands', 'Draw 10 feet'] }));
+      all.push(g().editRoutine(row.ref, { kind: 'breakDown', item: sketch, steps: ['Find a model'] }));
+      all.push(g().editRoutine(hands, { kind: 'addStep', text: 'Compare {copies}' }));
+      const started = g().startRoutine(hands);
+      if (!started.ok || !started.runId) throw new Error('Start was refused');
+      const runId = started.runId;
+      all.push(g().nextStep(runId), g().takeUpPart(runId, 0, copy), g().typeValue(runId, copy, 'copies', 'two Dürer hands'), g().nextStep(runId));
+      all.push(g().takeUpPart(runId, 0, sketch), g().doneLevel(runId));
+      all.push(g().takeUpPart(runId, 0, gesture), g().nextStep(runId), g().takeUpPart(runId, 0, study));
+      expect(all.map((r) => r.ok)).toEqual(all.map(() => true));
+      return { hands, block: row.ref, row: row.id, gesture, study, copy, sketch, runId };
+    }
+    const isAsBuilt = (data: { routines: Record<string, Record<string, unknown>>; runs: Record<string, Record<string, unknown>> }, ids: Ids) => {
+      expect(data.routines[ids.block]).toMatchObject({ named: false, words: 'In any order', any: true });
+      expect(itemsOf(data, ids.hands)[1]).toEqual({ id: ids.row, ref: ids.block });
+      const run = data.runs[ids.runId] as { frames: { parts?: { row: string; list: Record<string, unknown>[] } }[] };
+      expect(run.frames[1]).toMatchObject({ seq: ids.block, at: ids.study, from: ids.row });
+      const list = run.frames[0].parts!.list;
+      expect(run.frames[0].parts!.row).toBe(ids.row);
+      expect(list.find((p) => p.item === ids.copy)).toMatchObject({ ended: 'finished', values: [{ name: 'copies', items: ['two Dürer hands'] }] });
+      expect(list.find((p) => p.item === ids.sketch)).toMatchObject({ ended: 'stopped' });
+      expect(list.find((p) => p.item === ids.gesture)).toMatchObject({ frames: [{ seq: ids.block, at: ids.gesture }, { at: expect.any(String) }] });
+      expect(list.find((p) => p.item === ids.gesture)!.ended).toBeUndefined();
+    };
+    /** Where every part stands, as the tree view says it. */
+    const tree = async (data: unknown, ids: Ids) => {
+      const { partsTree } = await import('@/domain/runView');
+      return partsTree(data as never, ids.runId).map((gr) => gr.parts.map((p) => [p.words, p.state, p.step?.map((x) => ('text' in x ? x.text : '')).join('') ?? null]));
+    };
+    const AS_BUILT = [
+      [
+        ['Study', 'here', 'Study'],
+        ['Master copy', 'finished', null],
+        ['Gesture practice', 'down', 'Draw 10 feet'],
+        ['Sketch from life', 'stopped', null],
+      ],
+    ];
+
+    it('reload: saved to SQLite as kept — the block, each part’s place, what ended how and what it gave — the same after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const data = store.getState().data;
+      isAsBuilt(data as never, ids);
+      expect(await onDisk()).toEqual(data);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      expect(await tree(store.getState().data, ids)).toEqual(AS_BUILT);
+      // Each part keeps its own place, across the reload: Gesture is taken up where it was put down.
+      expect(store.getState().takeUpPart(ids.runId, 0, ids.gesture).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      const { runnerView } = await import('@/domain/runView');
+      expect(runnerView(store.getState().data, ids.runId)!.step.words).toBe('Draw 10 feet');
+      // Then Study puts it down again; the last two return: the step after the block reads what was joined.
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      expect(store.getState().takeUpPart(ids.runId, 0, ids.study).ok).toBe(true);
+      expect(store.getState().nextStep(ids.runId).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(runnerView(store.getState().data, ids.runId)!.step.parts.map((p) => ('text' in p ? p.text : '')).join('')).toBe('Compare two Dürer hands');
+      expect(await onDisk()).toEqual(store.getState().data);
+    });
+
+    it('journal replay: kept while no write commits (the tab dies), all of it is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      env.state.hangWrites = true;
+      const ids = build(store);
+      await tick(30);
+      expect(await onDisk()).toMatchObject({ routines: {} });
+      const data = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      isAsBuilt(store.getState().data as never, ids);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('the localStorage fallback keeps it, and moves it into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const data = store.getState().data;
+      isAsBuilt(JSON.parse(env.ls.get('wanderment')!).state.data, ids);
+      store = await reload();
+      expect(store.getState().storage).toEqual({ state: 'ready', kind: 'local' });
+      expect(store.getState().data).toEqual(data);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(data);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('hand-over with a take-back: a part taken up here, still only in the journal when hidden, stays on top of another page’s part added to the block; the other page’s is taken', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      writeGate = deferred();
+      expect(store.getState().takeUpPart(ids.runId, 0, ids.gesture).ok).toBe(true);
+      await tick(0);
+      expect(store.getState().takeUpPart(ids.runId, 0, ids.study).ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRuns.map((r: { id: string }) => r.id)).toEqual([ids.runId]);
+      const mine = store.getState().data.runs[ids.runId];
+
+      const { editRoutine } = await import('@/domain/run');
+      const other = editRoutine(await onDisk(), ids.block, { kind: 'addStep', text: 'Gesture from memory' }, { now: '2026-11-28T12:00:00.000Z', id: () => 'other-page-part' });
+      expect(other.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [other.data.routines[ids.block]] } as never);
+      db.close();
+
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.runs[ids.runId]).toEqual(mine);
+      expect(itemsOf(store.getState().data as never, ids.block).map((i) => i.text ?? i.ref)).toEqual(['Study', 'Master copy', expect.any(String), expect.any(String), 'Gesture from memory']);
+      expect(store.getState().data.routines[ids.block]).toMatchObject({ any: true });
+      expect((await tree(store.getState().data, ids))[0].map((p) => [p[0], p[1]])).toEqual([
+        ['Study', 'here'],
+        ['Master copy', 'finished'],
+        ['Gesture practice', 'down'],
+        ['Sketch from life', 'stopped'],
+        ['Gesture from memory', 'new'],
+      ]);
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('undo of Add’s "In any order", of a part taken up (putting another down) and of Step out of the block: taken back on screen and on disk', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = build(store);
+      await tick(30);
+      const before = store.getState().data;
+      expect(store.getState().editRoutine(ids.hands, { kind: 'addAny' }).ok).toBe(true);
+      await tick(30);
+      expect(itemsOf(await onDisk(), ids.hands)).toHaveLength(4);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      // Taking up Gesture puts Study down: one Undo brings both back as they were.
+      expect(store.getState().takeUpPart(ids.runId, 0, ids.gesture).ok).toBe(true);
+      expect(store.getState().runNotice?.text).toBe('Took up “Gesture practice”');
+      await tick(30);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(before);
+      // Step out of the block from its row: the parts not returned stopped, the block passed — and taken back.
+      expect(store.getState().backTo(ids.runId).ok).toBe(true);
+      await tick(30);
+      const onRow = store.getState().data;
+      expect(store.getState().doneLevel(ids.runId).ok).toBe(true);
+      expect(store.getState().runNotice?.text).toBe('Left In any order');
+      await tick(30);
+      expect(((await onDisk()).runs[ids.runId].frames as unknown[]).length).toBe(1);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(onRow);
+    });
+
+    it('export → import: the block and the record of parts are in the backup, finished and stopped told apart; the same file is identical; a record this version cannot read is kept exactly through a move, a reload, the journal and another export', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = build(store);
+      await tick(30);
+      const exported = store.getState().data;
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const json = toBackup(exported);
+      const file = JSON.parse(json);
+      isAsBuilt(file.data, ids);
+      expect(previewImport(json).plan).toMatchObject({ identical: true });
+      // As the file reads: the tree view the same, finished and stopped apart.
+      expect(await tree(file.data, ids)).toEqual(AS_BUILT);
+      // A later build's record (a part ended some other way): kept as stored, never written over; the run still reads.
+      const later = { row: ids.row, list: [{ item: ids.copy, ended: 'merged' }] };
+      file.data.runs[ids.runId].frames[0].parts = later;
+      expect(confirmImport(previewImport(JSON.stringify(file))).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      const { readRun } = await import('@/domain/run');
+      expect(readRun(store.getState().data, ids.runId)!.frames[0].parts).toEqual(later);
+      // Nothing that would write over it is done: a part's end waits (said in words by the runner's refusal); a Jump keeps it.
+      expect(store.getState().nextStep(ids.runId).ok).toBe(false);
+      env.state.hangWrites = true;
+      expect(store.getState().jumpTo(ids.runId, { path: [itemsOf(store.getState().data as never, ids.hands)[0].id as string] }).ok).toBe(true);
+      await tick(30);
+      env.state.hangWrites = false;
+      store = await reload();
+      const held = store.getState().data;
+      expect((held.runs[ids.runId].frames as Record<string, unknown>[])[0]).toMatchObject({ parts: later });
+      expect(JSON.parse(toBackup(held)).data).toEqual(held);
+    });
+  });
+
+  describe('P-100: the queue order (a run’s `queue`) survives reload, journal replay, the fallback, hand-over, undo, export and import; runs stored with no order read oldest started first; nothing else is written', () => {
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /** Through the store's actions: three routines, each started then paused, a few ms apart — A, B, C in that order. */
+    async function build(store: Store): Promise<Record<'A' | 'B' | 'C', string>> {
+      const g = () => store.getState();
+      const out: Record<string, string> = {};
+      for (const name of ['A', 'B', 'C']) {
+        const made = g().createRoutine(`Routine ${name}`);
+        if (!made.ok || !made.routineId) throw new Error('New: was refused');
+        expect(g().editRoutine(made.routineId, { kind: 'addStep', text: `${name} first` }).ok).toBe(true);
+        const started = g().startRoutine(made.routineId);
+        if (!started.ok || !started.runId) throw new Error('Start was refused');
+        expect(g().pauseRun(started.runId).ok).toBe(true);
+        out[name] = started.runId;
+        await tick(5);
+      }
+      return out as Record<'A' | 'B' | 'C', string>;
+    }
+    const order = async (data: Parameters<typeof import('@/domain/runView').homeQueue>[0]) => (await import('@/domain/runView')).homeQueue(data).map((t) => t.name);
+
+    it('reload: a move is saved as it is made — only `queue` on the runs — and its Undo is taken back on disk too; a run started after it goes to the bottom', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = await build(store);
+      await tick(30);
+      const before = await onDisk();
+      expect(await order(before)).toEqual(['Routine A', 'Routine B', 'Routine C']);
+      expect(Object.values(before.runs).some((r) => 'queue' in r)).toBe(false);
+      expect(store.getState().moveInQueue(ids.C, 'top').ok).toBe(true);
+      expect(store.getState().runNotice?.text).toBe('Moved “Routine C” to the top');
+      await tick(30);
+      const moved = await onDisk();
+      expect(await order(moved)).toEqual(['Routine C', 'Routine A', 'Routine B']);
+      for (const id of Object.keys(before.runs)) {
+        const { queue: _q, ...rest } = moved.runs[id];
+        expect(rest).toEqual(before.runs[id]);
+      }
+      expect(moved.routines).toEqual(before.routines);
+      store = await reload();
+      expect(await order(store.getState().data)).toEqual(['Routine C', 'Routine A', 'Routine B']);
+      expect(store.getState().moveInQueue(ids.A, 1).ok).toBe(true);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(moved);
+      const made = store.getState().createRoutine('Routine D');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      expect(store.getState().editRoutine(made.routineId, { kind: 'addStep', text: 'D first' }).ok).toBe(true);
+      expect(store.getState().startRoutine(made.routineId).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(await order(store.getState().data)).toEqual(['Routine C', 'Routine A', 'Routine B', 'Routine D']);
+    });
+
+    it('journal replay: a move kept while no write commits (the tab dies) is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = await build(store);
+      await tick(30);
+      env.state.hangWrites = true;
+      expect(store.getState().moveInQueue(ids.B, -1).ok).toBe(true);
+      await tick(30);
+      const data = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      expect(await order(data)).toEqual(['Routine B', 'Routine A', 'Routine C']);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('the localStorage fallback keeps the order, and moves it into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = await build(store);
+      expect(store.getState().moveInQueue(ids.C, -2).ok).toBe(true);
+      await tick(30);
+      const data = store.getState().data;
+      const blob = JSON.parse(env.ls.get('wanderment')!).state.data;
+      expect(await order(blob)).toEqual(['Routine C', 'Routine A', 'Routine B']);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(data);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('hand-over with a take-back: a move still only in the journal when hidden stays on top of another page’s change; the other page’s change is taken', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = await build(store);
+      await tick(30);
+      writeGate = deferred();
+      expect(store.getState().moveInQueue(ids.C, 'top').ok).toBe(true);
+      await tick(0);
+      expect(store.getState().moveInQueue(ids.A, 1).ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRuns.map((r: { id: string }) => r.id).sort()).toEqual([ids.A, ids.B].sort());
+      const mine = store.getState().data.runs;
+      const routineA = store.getState().data.runs[ids.A].routineId as string;
+      const { editRoutine } = await import('@/domain/run');
+      const other = editRoutine(await onDisk(), routineA, { kind: 'addStep', text: 'A second' }, { now: '2026-11-28T12:00:00.000Z', id: () => 'other-page-step' });
+      expect(other.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [other.data.routines[routineA]] } as never);
+      db.close();
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.runs).toEqual(mine);
+      expect(await order(store.getState().data)).toEqual(['Routine C', 'Routine B', 'Routine A']);
+      expect((store.getState().data.routines[routineA].items as { id: string }[]).map((i) => i.id)).toContain('other-page-step');
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('export → import: the order goes out and comes back exactly; a backup with no order (from before P-100) reads oldest started first and is imported without a `queue` written', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = await build(store);
+      expect(store.getState().moveInQueue(ids.C, 'top').ok).toBe(true);
+      expect(store.getState().moveInQueue(ids.B, -1).ok).toBe(true);
+      await tick(30);
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const file = JSON.parse(toBackup(store.getState().data));
+      expect(await order(file.data)).toEqual(['Routine C', 'Routine B', 'Routine A']);
+      // From before P-100: the same runs, no order stored.
+      const old = JSON.parse(JSON.stringify(file));
+      for (const r of Object.values(old.data.runs) as Record<string, unknown>[]) delete r.queue;
+      expect(confirmImport(previewImport(JSON.stringify(old))).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(old.data);
+      expect(await order(store.getState().data)).toEqual(['Routine A', 'Routine B', 'Routine C']);
+      expect(await onDisk()).toEqual(old.data);
+      expect(confirmImport(previewImport(JSON.stringify(file))).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      expect(await order(await onDisk())).toEqual(['Routine C', 'Routine B', 'Routine A']);
+      expect(JSON.parse(toBackup(store.getState().data)).data).toEqual(file.data);
     });
   });
 });

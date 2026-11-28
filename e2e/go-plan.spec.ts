@@ -241,7 +241,7 @@ test.describe('plan ↔ run', () => {
     await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-line')).toHaveText('at Tailor the CV');
     await expect(tileBody(page, 'Apply to Initech')).toHaveAccessibleName(/^Resume Apply to Initech/);
     await expect(tileBody(page, 'Practise drawing')).toHaveAccessibleName(/^Resume Practise drawing/);
-    await expect(page.getByTestId('go-resume')).toHaveCount(0);
+    await expect(page.getByTestId('go-resume')).toHaveCount(1); // (P-100, rewritten: was toHaveCount(0) — the top row's Resume is the one filled button at the bottom.)
     await t.getByRole('button', { name: 'Plan Test out the app', exact: true }).click();
     await expect(plan(page).forward).toHaveText('Resume at Vibe check');
   });

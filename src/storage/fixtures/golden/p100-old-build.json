@@ -1,0 +1,226 @@
+{
+  "home": {
+    "order": [
+      {
+        "name": "Make dinner",
+        "runId": "new-002",
+        "state": "paused",
+        "line": "at salt the water — a big pinch",
+        "reason": "the phone rang"
+      },
+      {
+        "name": "Weekly review",
+        "runId": "p94-007",
+        "state": "paused",
+        "line": "at Plan the week",
+        "reason": null
+      },
+      {
+        "name": "Call the bank",
+        "runId": "p94-012",
+        "state": "waiting",
+        "line": "waiting for a call back · since Tuesday",
+        "reason": null
+      },
+      {
+        "name": "Write the report",
+        "runId": "p94-017",
+        "state": "paused",
+        "line": "at Draft",
+        "reason": null
+      },
+      {
+        "name": "Learn Spanish",
+        "runId": "p94-023",
+        "state": "paused",
+        "line": "nothing next yet",
+        "reason": null
+      },
+      {
+        "name": "Make tea",
+        "runId": "p94-032",
+        "state": "paused",
+        "line": "at Boil the water",
+        "reason": "the phone rang"
+      },
+      {
+        "name": "Feature loop",
+        "runId": "p96-008",
+        "state": "paused",
+        "line": "at Tap through",
+        "reason": null
+      },
+      {
+        "name": "Scales",
+        "runId": "p96-012",
+        "state": "paused",
+        "line": "at Play the scale",
+        "reason": null
+      },
+      {
+        "name": "Move house",
+        "runId": "p96-022",
+        "state": "paused",
+        "line": "at Box the pans",
+        "reason": null
+      },
+      {
+        "name": "Garden",
+        "runId": "p96-026",
+        "state": "paused",
+        "line": "at Weed",
+        "reason": null
+      },
+      {
+        "name": "Return the parcel",
+        "runId": "p96-031",
+        "state": "waiting",
+        "line": "waiting for the courier · since Thursday",
+        "reason": "out until five"
+      },
+      {
+        "name": "Learn guitar",
+        "runId": "p96-034",
+        "state": "paused",
+        "line": "nothing next yet",
+        "reason": null
+      },
+      {
+        "name": "Read a chapter",
+        "runId": "p96-050",
+        "state": "running",
+        "line": "at Read",
+        "reason": null
+      },
+      {
+        "name": "Draw every day",
+        "runId": "p97-004",
+        "state": "paused",
+        "line": "at Draw hands for ten minutes",
+        "reason": "after dinner"
+      },
+      {
+        "name": "Improve my workout routine",
+        "runId": "p98-011",
+        "state": "paused",
+        "line": "at Note what I found",
+        "reason": "mid research"
+      },
+      {
+        "name": "practise piano",
+        "runId": "p97-011",
+        "state": "paused",
+        "line": "at Arpeggios",
+        "reason": null
+      },
+      {
+        "name": "Weekend plan",
+        "runId": "p98-012",
+        "state": "paused",
+        "line": "at Old helper (removed)",
+        "reason": null
+      },
+      {
+        "name": "Zine issue",
+        "runId": "p97-015",
+        "state": "paused",
+        "line": "at Write a page",
+        "reason": null
+      },
+      {
+        "name": "Product design",
+        "runId": "p109-006",
+        "state": "paused",
+        "line": "at Work in https://www.notion.so/team/Product-design-1a2b3c",
+        "reason": "left off at https://www.figma.com/file/XyZ/Sketches section 3"
+      },
+      {
+        "name": "Drawing practice",
+        "runId": "p107-008",
+        "state": "paused",
+        "line": "at Draw the dancer, big shapes first",
+        "reason": "mid sketch"
+      },
+      {
+        "name": "Become a better drawer",
+        "runId": "p108-012",
+        "state": "paused",
+        "line": "at Draw with guidelines",
+        "reason": "before the guidelines"
+      },
+      {
+        "name": "Try ways",
+        "runId": "p108-013",
+        "state": "paused",
+        "line": "at Note how Draw with guidelines: proportions held, slower went",
+        "reason": "trying ways"
+      },
+      {
+        "name": "Iterate on the app",
+        "runId": "p110-009",
+        "state": "paused",
+        "line": "at Envision how I’d expect {feature} to work",
+        "reason": "back to envisioning"
+      },
+      {
+        "name": "Write the post",
+        "runId": "p110-014",
+        "state": "paused",
+        "line": "at Choose a subject",
+        "reason": "rethinking the subject"
+      },
+      {
+        "name": "Plan my day",
+        "runId": "p100-005",
+        "state": "paused",
+        "line": "at Pick three things",
+        "reason": "after coffee"
+      },
+      {
+        "name": "Apply to Acme",
+        "runId": "p100-009",
+        "state": "waiting",
+        "line": "waiting for a reply from Acme · since today",
+        "reason": null
+      },
+      {
+        "name": "Better drawer",
+        "runId": "p100-016",
+        "state": "paused",
+        "line": "at Gesture practice",
+        "reason": "hands are tired"
+      }
+    ],
+    "ongoing": [
+      "p96-012",
+      "p97-004"
+    ],
+    "finishing": [
+      "new-002",
+      "p94-007",
+      "p94-012",
+      "p94-017",
+      "p94-023",
+      "p94-032",
+      "p96-008",
+      "p96-022",
+      "p96-026",
+      "p96-031",
+      "p96-034",
+      "p96-050",
+      "p98-011",
+      "p97-011",
+      "p98-012",
+      "p97-015",
+      "p109-006",
+      "p107-008",
+      "p108-012",
+      "p108-013",
+      "p110-009",
+      "p110-014",
+      "p100-005",
+      "p100-009",
+      "p100-016"
+    ]
+  }
+}
