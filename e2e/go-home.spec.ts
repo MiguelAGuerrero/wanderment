@@ -152,7 +152,7 @@ test('J02-b (P-96; was: with a paused run /go opens its paused screen): with a p
   await expect(page).toHaveURL(/\/go$/);
   await expect(home(page).tiles.first()).toHaveAccessibleName('Apply to Initech, paused at Tailor the CV');
   await expect(tileBody(page, 'Apply to Initech')).toHaveAccessibleName(/^Resume Apply to Initech/);
-  await expect(page.getByTestId('go-resume')).toHaveCount(0);
+  await expect(page.getByTestId('go-resume')).toHaveText('Resume Tailor the CV'); // (P-100, rewritten: was toHaveCount(0) — the top row's step is the one filled Resume.)
 });
 
 test('one thing at a time: a start while something is running is unavailable (P-97: on My routines; was: on idle tiles); Plan and New stay; the running run is resumed by its tile (P-101; was: by the bottom bar)', async ({ page }) => {
@@ -250,7 +250,7 @@ test('P-95 (5), P-96 (was: Home on the runner): Pause pauses the run and home sh
   const resume = tileBody(page, 'Apply to Initech');
   await expect(resume).toHaveAccessibleName(/^Resume Apply to Initech/);
   const filled = await h.screen.getByRole('button').evaluateAll((els) => els.filter((e) => getComputedStyle(e).backgroundColor === 'rgb(244, 241, 232)').length);
-  expect(filled).toBe(0);
+  expect(filled).toBe(1); // (P-100, rewritten: was 0 — the top row's Resume is the one filled button.)
   // The other tiles keep their fixed order after it.
   const names = await h.tiles.evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')?.split(',')[0]));
   // (P-97: the routine with nothing going is not among them.)

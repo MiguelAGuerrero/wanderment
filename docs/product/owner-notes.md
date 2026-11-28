@@ -18,6 +18,22 @@ Led to: <P-## / brief B-## / nothing yet>
 
 ---
 
+## 2026-11-28 — Short helpful text is welcome; long explanations are not
+Relayed from the second session: "I think I've been misinterpreted on the instructional aspect of things. I
+didn't want there to be a lot of descriptive text on how the app works, but quick and insightful or
+necessary text to explain what's accepted and what are perfectly okay."
+Interpretation (ours, and the second session's): DESIGN.md's Minimalism rule has been applied too strictly.
+Proposed wording (to confirm): "Short text that says what a field accepts or what a control is for is
+welcome where it is needed: a placeholder, a label, one line. Text that explains how the app works is not."
+Led to: DESIGN.md rewording (pending confirmation); the final review re-checks short text removed under the
+old reading.
+
+Answered in chat 2026-11-28, on the proposed wording: "It's OK if it explains how the app works. It's just
+not huge paragraphs unless it's off in an additional settings where that useful information is has a space
+to occupy but as part of the main user loop I don't want large text is what I'm trying to say."
+Led to: DESIGN.md's Minimalism rule reworded (no large text in the main loop; short text welcome, including
+how a thing works; longer explanations in Settings).
+
 ## 2026-11-27 — Back keeps a value; a Plan edit never clears a run's values
 Answered in chat on two P-110 behaviours the investigator flagged:
 - Back onto the giving step: "Back keeps it" — Back shows the value in the step's field to keep or change;

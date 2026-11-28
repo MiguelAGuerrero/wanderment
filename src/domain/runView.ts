@@ -5,7 +5,7 @@
  * undefined, and the screen goes home.
  */
 import { routineInWords } from './atPick';
-import { advance, canCall, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, givenAhead, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
+import { advance, canCall, heldBy, ListRef, ownBlock, refsOf, slotOf, bindingOf, callIO, callWords, currentRun, eachGives, eachPlace, eachWords, Frame, isScopeSeq, readByEach, valuesAtLevel, isCall, isInputCopy, isLiveCall, isPlanning, isRemovedCall, owedBy, queueRuns, givenAhead, isRef, isRunning, isStep, isWait, Item, MAX_DEPTH, openRuns, outOf, place, Place, previous, readRoutine, readRun, RoutineEdit, routineBody, runVerb, RunState, Said, scopeLevel, Seq, stepOutOwes, Verb, view, valuesInPlay, visibleValue, wordsOf } from './run';
 import { hash } from './hash';
 import { addressesIn, PlaceShown, placesOf, placesShown, tidyPlaceText } from './places';
 import { Data, Id } from './types';
@@ -364,6 +364,11 @@ export interface Tile {
   values?: ValueShown[];
   /** P-108: its for each blocks' kept lists, each with + Add (`editRoutine(seq, { kind: 'keptList', items })`); absent when none. */
   kept?: { seq: Id; list: string; items: string[] }[];
+  /**
+   * P-100: where its run sits — the levels it is in, its routine first (a for each by its item, as on the runner's
+   * path: "For each photo"). Absent when idle.
+   */
+  path?: string[];
 }
 
 /** A routine and its smaller steps, as stored (each once). */
@@ -414,8 +419,10 @@ function tileOf(data: Data, s: Seq, run: RunState | undefined, current: Id | und
   const planning = isPlanning(data, run);
   const values = valuesInPlay(data, run);
   const scope = topScope(data, run, at.frames);
+  const path = at.frames.map((f) => view(data, run, f.seq)).map((x) => (x?.each ? `For each ${x.each.item}` : (x?.words ?? '')));
   return {
     ...base,
+    path,
     ...(at.item && { atParts: partsFor(data, run, wordsOf(data, run, at.item), at.frames) }),
     ...(values.length && { values: values.map((e) => shownOf(data, e, scope)) }),
     runId: run.id,
@@ -435,8 +442,6 @@ const lastTouched = (a: RunState, b: RunState) => ((a.touchedAt ?? '') > (b.touc
 /** The run to mark on home: the one the app is on, else the open run touched last. */
 const markedRun = (data: Data): Id | undefined => (currentRun(data) ?? [...openRuns(data)].sort(lastTouched)[0])?.id;
 
-/** P-101 (ruling 5): runs by when each was made (started), stable. */
-const firstStarted = (a: RunState, b: RunState) => (a.startedAt < b.startedAt ? -1 : a.startedAt > b.startedAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
 /**
  * Home's tiles: every routine that is on home or has a run going, in a FIXED order (when each was
@@ -454,18 +459,20 @@ export function homeTiles(data: Data): Tile[] {
 }
 
 /**
- * Home's tiles as shown. P-101 (ruling 5; was P-95: the run the app is on first): the runs going, by when
- * each was made (started), then the routines with nothing going in `homeTiles`' order. Nothing is ranked:
- * a pause, a resume or a step never reorders; the run touched last is marked "last" (`Tile.current`).
+ * Home's tiles as shown: the runs going in home's queue order (P-100: `queueRuns` — by when each was started until the
+ * queue is reordered; was P-101 ruling 5, by when started), then the routines with nothing going in `homeTiles`'
+ * order. A pause, a resume or a step never reorders; the run touched last is marked "Last ran" (`Tile.current`).
  */
 export function homeShown(data: Data, tiles: Tile[] = homeTiles(data)): Tile[] {
-  const started = new Map<Id, RunState>();
-  for (const t of tiles) {
-    const r = t.runId === undefined ? undefined : readRun(data, t.runId);
-    if (r) started.set(t.routineId, r);
-  }
-  const going = tiles.filter((t) => started.has(t.routineId)).sort((a, b) => firstStarted(started.get(a.routineId)!, started.get(b.routineId)!));
-  return [...going, ...tiles.filter((t) => !started.has(t.routineId))];
+  const rank = new Map(queueRuns(data).map((r, i) => [r.id, i]));
+  const at = (t: Tile) => (t.runId === undefined ? undefined : rank.get(t.runId));
+  const going = tiles.filter((t) => at(t) !== undefined).sort((a, b) => at(a)! - at(b)!);
+  return [...going, ...tiles.filter((t) => at(t) === undefined)];
+}
+
+/** P-100: home — one queue, no sections: each run going is a row, top first (the top row is what the filled Resume resumes). */
+export function homeQueue(data: Data): Tile[] {
+  return homeShown(data).filter((t) => t.runId !== undefined && t.state !== 'idle');
 }
 
 /**
@@ -1300,6 +1307,7 @@ const LABELS: Record<Acted, string> = {
   jump: 'Jump',
   restart: 'Start over',
   value: 'Change',
+  queue: 'Move',
   editRoutine: 'Change',
 };
 
@@ -1403,5 +1411,11 @@ export function whatChanged(data: Data, verb: Verb | { kind: 'editRoutine'; rout
     return f ? `Started ${view(data, r!, f.seq)?.words ?? ''} over` : '';
   }
   if (verb.kind === 'value') return `${verb.text.trim() ? 'Changed' : 'Cleared'} {${tidyName(verb.name)}}`;
+  // P-100: a row of home's queue moved — named by its routine.
+  if (verb.kind === 'queue') {
+    const r = readRun(data, verb.runId);
+    const name = quoted(r ? (readRoutine(data, r.routineId)?.words ?? '') : '');
+    return `Moved ${name} ${verb.to === 'top' ? 'to the top' : verb.to < 0 ? 'up' : 'down'}`;
+  }
   return '';
 }

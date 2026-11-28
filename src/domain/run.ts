@@ -140,6 +140,11 @@ export interface RunState {
   endedBy?: 'done' | 'finished';
   /** P-96: its values (what can be read of them: see `readValues`). Empty for every run from before P-96. */
   values: ValueEntry[];
+  /**
+   * P-100: its place in home's queue, once the queue has been reordered (lower: higher up; see `queueKey`).
+   * Absent for every run from before P-100 and for a run never moved: it then stands by when it was started.
+   */
+  queue?: number;
 }
 
 export interface Env {
@@ -278,7 +283,13 @@ export type Verb =
    * came from, unless it changes a value another step gave). No `item`: the value sheet, changing the
    * value the run's step sees (refused `cannot` when there is none); it is marked changed.
    */
-  | { kind: 'value'; runId: Id; name: string; text: string; item?: Id; items?: string[]; refs?: (ListRef | null)[] };
+  | { kind: 'value'; runId: Id; name: string; text: string; item?: Id; items?: string[]; refs?: (ListRef | null)[] }
+  /**
+   * P-100: home's queue reordered — the run's row moved `to` rows (negative: up; a drag is several at once), or to
+   * the top. One write (each row's `queue` renumbered 1…n where it changed), so one Undo. Refused `gone` for a run
+   * that is not a row, `cannot` past either end; already there: nothing changes.
+   */
+  | { kind: 'queue'; runId: Id; to: number | 'top' };
 
 /** What a verb has to say. `finished`: the levels left by themselves or by Done, innermost first. */
 export type Said = { kind: 'finished'; names: string[] } | { kind: 'ended'; name: string } | { kind: 'edge' } | { kind: 'jumped'; from: string };
@@ -487,6 +498,8 @@ export function readRun(data: Data, id: Id): RunState | undefined {
     ...(text(r.touchedAt) && { touchedAt: r.touchedAt }),
     ...((r.endedBy === 'done' || r.endedBy === 'finished') && { endedBy: r.endedBy }),
     values: readValues(r.values),
+    // P-100: only a number this version can order by (anything else is left in the record as it is, and not read).
+    ...(typeof r.queue === 'number' && Number.isFinite(r.queue) && { queue: r.queue }),
   };
   states.set(r, run);
   return run;
@@ -627,6 +640,50 @@ export const openRuns = (data: Data): RunState[] =>
   Object.keys(data.runs)
     .map((id) => readRun(data, id))
     .filter(isOpen);
+
+// ───────── home's queue (P-100) ─────────
+
+/**
+ * P-100: a run's place in home's queue — lower is higher up. Its stored `queue` once the queue has been reordered;
+ * otherwise when it was started (ms), so data from before P-100 reads in the order home always showed it (the
+ * oldest started first) and a run started now goes to the bottom. A start that cannot be read goes last.
+ */
+export function queueKey(run: RunState): number {
+  if (run.queue !== undefined) return run.queue;
+  const t = Date.parse(run.startedAt);
+  return Number.isFinite(t) ? t : Number.MAX_VALUE;
+}
+const byStart = (a: RunState, b: RunState) => (a.startedAt < b.startedAt ? -1 : a.startedAt > b.startedAt ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+const byQueue = (a: RunState, b: RunState) => queueKey(a) - queueKey(b) || byStart(a, b);
+const byTouch = (a: RunState, b: RunState) => ((a.touchedAt ?? '') < (b.touchedAt ?? '') ? -1 : (a.touchedAt ?? '') > (b.touchedAt ?? '') ? 1 : a.id < b.id ? 1 : -1);
+
+/**
+ * P-100: home's queue — its rows, top first. Each routine with a run going is one row: its open run touched last
+ * (should an import have left two), when its routine can be read and the run has a place.
+ */
+export function queueRuns(data: Data): RunState[] {
+  const one = new Map<Id, RunState>();
+  for (const r of [...openRuns(data)].sort(byTouch)) one.set(r.routineId, r);
+  return [...one.values()].filter((r) => !!readRoutine(data, r.routineId) && !!place(data, r)).sort(byQueue);
+}
+
+/** P-100: a row moved in home's queue (`Verb` 'queue'). */
+function requeue(data: Data, runId: Id, to: number | 'top'): Result {
+  const rows = queueRuns(data);
+  const i = rows.findIndex((r) => r.id === runId);
+  if (i < 0) return refuse(data, 'gone');
+  const j = to === 'top' ? 0 : Number.isInteger(to) ? i + to : -1;
+  if (j < 0 || j >= rows.length) return refuse(data, 'cannot');
+  if (j === i) return done(data);
+  const order = rows.filter((r) => r.id !== runId);
+  order.splice(j, 0, rows[i]);
+  let next = data;
+  order.forEach((r, k) => {
+    const raw = own(next.runs, r.id)!;
+    if (raw.queue !== k + 1) next = putRun(next, patched(raw, { queue: k + 1 }));
+  });
+  return done(next);
+}
 
 /**
  * The one run the app is on: the one with a status. Should damage or an import leave several, the
@@ -2775,6 +2832,8 @@ function verbOf(data: Data, verb: Verb, env: Env): Result {
       return jump(data, verb.runId, verb.to, env);
     case 'value':
       return setValue(data, verb.runId, verb.name, verb.text, verb.item, env, verb.items, verb.refs);
+    case 'queue':
+      return requeue(data, verb.runId, verb.to);
     default:
       return refuse(data, 'cannot');
   }

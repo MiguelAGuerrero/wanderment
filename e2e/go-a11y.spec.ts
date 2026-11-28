@@ -76,15 +76,16 @@ test('home: axe, targets, text, heading, names — empty, with tiles, and with a
   await startGo(page, RUNS.slice(1));
   const h = home(page);
   await expectNoSeriousViolations(page);
-  await expectRules(page, h.screen, 1, 0);
+  await expectRules(page, h.screen, 1, 1); // (P-100, rewritten: was 0 filled — the top row's Resume is the one filled button.)
   // P-96: reading order — the heading, the tiles in their order, the side doors (+ New). P-101 (ruling 5; was: then the filled Resume bar): no filled button; a run's tile body resumes it.
   await startGo(page, [{ ...RUNS[1], status: 'paused' as const }, RUNS[2]]);
   await expectNoSeriousViolations(page);
-  await expectRules(page, h.screen, 1, 0);
+  await expectRules(page, h.screen, 1, 1); // (P-100, rewritten: was 0 filled — the top row's Resume is the one filled button.)
   // P-97 (was: four tiles, two of routines with nothing going): the two runs going, under their group's heading
   // (Finishing: neither repeats until done), then the side doors — My routines, + New.
   const order = await h.screen.evaluate((root) => [...root.querySelectorAll('[role="heading"], [data-testid="go-tile"], [data-testid="go-my-routines"], [data-testid="go-new"], [data-testid="go-resume"]')].map((e) => (e.getAttribute('role') === 'heading' ? `heading ${e.textContent}` : (e as HTMLElement).dataset.testid)));
-  expect(order).toEqual(['heading Home', 'heading Finishing', 'go-tile', 'go-tile', 'go-my-routines', 'go-new']);
+  // (P-100, rewritten: was 'heading Finishing' before the tiles and nothing after + New — one queue with no headings, then the filled Resume.)
+  expect(order).toEqual(['heading Home', 'go-tile', 'go-tile', 'go-my-routines', 'go-new', 'go-resume']);
 });
 
 test('the runner and its panel: axe and the rules on each; reading order context → values → note → fields → notice → handle → buttons (P-96: no Done on the context line); it says "Running" and the step on arriving', async ({ page }) => {
@@ -258,7 +259,7 @@ test('a wait, home with a paused (waiting) run first (P-95, P-96; was: Paused, W
   await pausing.getByTestId('go-pause-confirm').click();
   await expect(page.getByTestId('go-tile').filter({ hasText: 'Apply to Acme' })).toHaveAttribute('data-state', 'waiting');
   await expectNoSeriousViolations(page);
-  await expectRules(page, home(page).screen, 1, 0);
+  await expectRules(page, home(page).screen, 1, 1); // (P-100, rewritten: was 0 filled — the top row's Resume is the one filled button.)
   await tileBody(page, 'Apply to Acme').click();
 
   await r.handle.click();
@@ -277,7 +278,7 @@ test('a wait, home with a paused (waiting) run first (P-95, P-96; was: Paused, W
   await page.goto('./go/run/r1/paused');
   await expect(home(page).tiles.first()).toHaveAttribute('data-state', 'paused');
   await expectNoSeriousViolations(page);
-  await expectRules(page, home(page).screen, 1, 0);
+  await expectRules(page, home(page).screen, 1, 1); // (P-100, rewritten: was 0 filled — the top row's Resume is the one filled button.)
 });
 
 test('focus has its own ring; sheets take focus and give it back; focus is never lost to nothing', async ({ page }) => {
@@ -550,7 +551,7 @@ for (const [label, size] of [
     // P-101 (ruling 5; was: the paused run first, "Resume <name>" the one filled button): its body resumes it, in reach.
     await tileBody(page, 'Practise drawing').scrollIntoViewIfNeeded();
     await expect(tileBody(page, 'Practise drawing')).toBeInViewport();
-    await expectRules(page, h.screen, 1, 0);
+    await expectRules(page, h.screen, 1, 1); // (P-100, rewritten: was 0 filled — the top row's Resume is the one filled button.)
     await expectNoSeriousViolations(page);
     // New's own sheet: the name field and Plan in reach.
     await h.screen.getByTestId('go-new').click();

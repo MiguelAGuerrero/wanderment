@@ -1566,6 +1566,16 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
         },
       },
       changeValue: { args: ['n1', 'topic', 'another ad'], setup: going({ values: [{ name: 'topic', items: ['the ad'], level: 0, seq: 'g1', item: 'a', at }] }) },
+      // P-100: home's queue — a second run (of g2, started later) moved to the top.
+      moveInQueue: {
+        args: ['n2', 'top'],
+        setup: (store) => {
+          going({ status: 'paused' })(store);
+          const held = store.getState().storage;
+          if (held.state !== 'ready' || held.reconnecting) return;
+          store.setState((st) => ({ data: { ...st.data, runs: { ...st.data.runs, n2: { id: 'n2', routineId: 'g2', startedAt: '2030-01-01T00:00:00.000Z', touchedAt: at, frames: [{ seq: 'g2', at: 'q', round: 1 }], changes: [] } } } }));
+        },
+      },
       // P-107: a list given in its step's list field (one item per row).
       typeList: {
         args: ['n1', 'a', 'topic', ['the ad', 'the poster']],
@@ -4895,6 +4905,168 @@ describe('holding the data only while the page is visible (P-29 part B)', () => 
       expect(store.getState().runNotice?.text).toContain('Cleared {feature}');
       await tick(30);
       expect(valuesOf_(await onDisk() as never, ids)).toEqual([]);
+    });
+  });
+
+  // ───────── P-100: home is one queue ─────────
+
+  describe('P-100: the queue order (a run’s `queue`) survives reload, journal replay, the fallback, hand-over, undo, export and import; runs stored with no order read oldest started first; nothing else is written', () => {
+    async function reload() {
+      (await import('./persistence')).stopPersistence();
+      page = fakePage();
+      fakeLocks();
+      const store = await load();
+      await tick(30);
+      return store;
+    }
+    /** Through the store's actions: three routines, each started then paused, a few ms apart — A, B, C in that order. */
+    async function build(store: Store): Promise<Record<'A' | 'B' | 'C', string>> {
+      const g = () => store.getState();
+      const out: Record<string, string> = {};
+      for (const name of ['A', 'B', 'C']) {
+        const made = g().createRoutine(`Routine ${name}`);
+        if (!made.ok || !made.routineId) throw new Error('New: was refused');
+        expect(g().editRoutine(made.routineId, { kind: 'addStep', text: `${name} first` }).ok).toBe(true);
+        const started = g().startRoutine(made.routineId);
+        if (!started.ok || !started.runId) throw new Error('Start was refused');
+        expect(g().pauseRun(started.runId).ok).toBe(true);
+        out[name] = started.runId;
+        await tick(5);
+      }
+      return out as Record<'A' | 'B' | 'C', string>;
+    }
+    const order = async (data: Parameters<typeof import('@/domain/runView').homeQueue>[0]) => (await import('@/domain/runView')).homeQueue(data).map((t) => t.name);
+
+    it('reload: a move is saved as it is made — only `queue` on the runs — and its Undo is taken back on disk too; a run started after it goes to the bottom', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = await build(store);
+      await tick(30);
+      const before = await onDisk();
+      expect(await order(before)).toEqual(['Routine A', 'Routine B', 'Routine C']);
+      expect(Object.values(before.runs).some((r) => 'queue' in r)).toBe(false);
+      expect(store.getState().moveInQueue(ids.C, 'top').ok).toBe(true);
+      expect(store.getState().runNotice?.text).toBe('Moved “Routine C” to the top');
+      await tick(30);
+      const moved = await onDisk();
+      expect(await order(moved)).toEqual(['Routine C', 'Routine A', 'Routine B']);
+      for (const id of Object.keys(before.runs)) {
+        const { queue: _q, ...rest } = moved.runs[id];
+        expect(rest).toEqual(before.runs[id]);
+      }
+      expect(moved.routines).toEqual(before.routines);
+      store = await reload();
+      expect(await order(store.getState().data)).toEqual(['Routine C', 'Routine A', 'Routine B']);
+      expect(store.getState().moveInQueue(ids.A, 1).ok).toBe(true);
+      expect(store.getState().undoLast()).toBe(true);
+      await tick(30);
+      expect(await onDisk()).toEqual(moved);
+      const made = store.getState().createRoutine('Routine D');
+      if (!made.ok || !made.routineId) throw new Error('New: was refused');
+      expect(store.getState().editRoutine(made.routineId, { kind: 'addStep', text: 'D first' }).ok).toBe(true);
+      expect(store.getState().startRoutine(made.routineId).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(await order(store.getState().data)).toEqual(['Routine C', 'Routine A', 'Routine B', 'Routine D']);
+    });
+
+    it('journal replay: a move kept while no write commits (the tab dies) is there after a reload', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = await build(store);
+      await tick(30);
+      env.state.hangWrites = true;
+      expect(store.getState().moveInQueue(ids.B, -1).ok).toBe(true);
+      await tick(30);
+      const data = store.getState().data;
+      env.state.hangWrites = false;
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      expect(await order(data)).toEqual(['Routine B', 'Routine A', 'Routine C']);
+      expect(env.ls.has('wanderment:journal')).toBe(false);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('the localStorage fallback keeps the order, and moves it into SQLite once it can', async () => {
+      env.state.openError = new Error('no OPFS');
+      fakeLocks();
+      let store = await load();
+      const ids = await build(store);
+      expect(store.getState().moveInQueue(ids.C, -2).ok).toBe(true);
+      await tick(30);
+      const data = store.getState().data;
+      const blob = JSON.parse(env.ls.get('wanderment')!).state.data;
+      expect(await order(blob)).toEqual(['Routine C', 'Routine A', 'Routine B']);
+      store = await reload();
+      expect(store.getState().data).toEqual(data);
+      env.state.openError = undefined;
+      store = await reload();
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data).toEqual(data);
+      expect(await onDisk()).toEqual(data);
+    });
+
+    it('hand-over with a take-back: a move still only in the journal when hidden stays on top of another page’s change; the other page’s change is taken', async () => {
+      fakeLocks();
+      const store = await load();
+      const ids = await build(store);
+      await tick(30);
+      writeGate = deferred();
+      expect(store.getState().moveInQueue(ids.C, 'top').ok).toBe(true);
+      await tick(0);
+      expect(store.getState().moveInQueue(ids.A, 1).ok).toBe(true);
+      await tick(0);
+      page.hide();
+      writeGate.open();
+      writeGate = undefined;
+      await tick(30);
+      expect(JSON.parse(env.ls.get('wanderment:journal')!).changes.upsertRuns.map((r: { id: string }) => r.id).sort()).toEqual([ids.A, ids.B].sort());
+      const mine = store.getState().data.runs;
+      const routineA = store.getState().data.runs[ids.A].routineId as string;
+      const { editRoutine } = await import('@/domain/run');
+      const other = editRoutine(await onDisk(), routineA, { kind: 'addStep', text: 'A second' }, { now: '2026-11-28T12:00:00.000Z', id: () => 'other-page-step' });
+      expect(other.ok).toBe(true);
+      const { nodeDb } = await import('./nodeDb');
+      const { saveChanges } = await import('./repository');
+      const db = nodeDb(env.state.dbPath);
+      await saveChanges(db, { upsertRoutines: [other.data.routines[routineA]] } as never);
+      db.close();
+      page.show();
+      await tick(100);
+      expect(store.getState().storage).toEqual(READY);
+      expect(store.getState().data.runs).toEqual(mine);
+      expect(await order(store.getState().data)).toEqual(['Routine C', 'Routine B', 'Routine A']);
+      expect((store.getState().data.routines[routineA].items as { id: string }[]).map((i) => i.id)).toContain('other-page-step');
+      expect(await onDisk()).toEqual(store.getState().data);
+      expect((await reload()).getState().data).toEqual(store.getState().data);
+    });
+
+    it('export → import: the order goes out and comes back exactly; a backup with no order (from before P-100) reads oldest started first and is imported without a `queue` written', async () => {
+      fakeLocks();
+      let store = await load();
+      const ids = await build(store);
+      expect(store.getState().moveInQueue(ids.C, 'top').ok).toBe(true);
+      expect(store.getState().moveInQueue(ids.B, -1).ok).toBe(true);
+      await tick(30);
+      const { toBackup } = await import('@/domain/backup');
+      const { previewImport, confirmImport } = await import('@/store/importBackup');
+      const file = JSON.parse(toBackup(store.getState().data));
+      expect(await order(file.data)).toEqual(['Routine C', 'Routine B', 'Routine A']);
+      // From before P-100: the same runs, no order stored.
+      const old = JSON.parse(JSON.stringify(file));
+      for (const r of Object.values(old.data.runs) as Record<string, unknown>[]) delete r.queue;
+      expect(confirmImport(previewImport(JSON.stringify(old))).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(old.data);
+      expect(await order(store.getState().data)).toEqual(['Routine A', 'Routine B', 'Routine C']);
+      expect(await onDisk()).toEqual(old.data);
+      expect(confirmImport(previewImport(JSON.stringify(file))).ok).toBe(true);
+      await tick(30);
+      store = await reload();
+      expect(store.getState().data).toEqual(file.data);
+      expect(await order(await onDisk())).toEqual(['Routine C', 'Routine B', 'Routine A']);
+      expect(JSON.parse(toBackup(store.getState().data)).data).toEqual(file.data);
     });
   });
 });

@@ -64,6 +64,7 @@ import { G, SP, TARGET } from './tokens';
 import { Btn, caretToEnd, Confirm, Field, focusOn, focusSoon, GoScreen, GrowField, H1, InputRef, Menu, MenuItem, MenuSep, Said, Sheet, T, TextRef, useKeys, useVisibleHeight, ViewRef } from './ui';
 import { Gives, KeptSheet, NameChip, ValueText } from './Values';
 import { InsidesBtn } from './Insides';
+import { Grip } from './Grip';
 
 const WEB = Platform.OS === 'web';
 /** The focus ring: its own colour, with a gap (never the white of HERE). */
@@ -1176,7 +1177,7 @@ export function Plan({ runId, routineId, inSeq, fromRun, fromList, at }: { runId
                       } }) as object)}
                       {...{ dataSet: { here: row.here ? 'true' : 'false', within: row.within ? 'true' : 'false', kind: row.kind, depth: String(row.depth - view.base), repeats: rail ? 'true' : 'false', dragging: drag?.key === key ? 'true' : 'false' } }}>
                       {/* Too narrow (large text): no grip — the words keep their room (P-102: the moves are on the step's menu there). */}
-                      {!narrow && (row.canUp || row.canDown) && <Grip words={row.words} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ reorder: key })} gripRef={moreRef(`grip:${key}`)} />}
+                      {!narrow && (row.canUp || row.canDown) && <Grip words={row.words} keys={MOVE_KEYS} onStart={() => { const spans = spansOf(key); dragFrom.current = spans ? { key, spans } : undefined; }} onMove={(dy) => setDrag({ key, dy, line: dropOf(key, dy)?.line })} onDrop={(dy) => drop(row, dy)} onPress={() => setMenu({ reorder: key })} gripRef={moreRef(`grip:${key}`)} />}
                       {/* P-103 (10; was ▤, the routine's mark, as a button): the disclosure chevron — › shut, ⌄ open. P-111: a
                           step broken down or a for each goes into its own view (›); a routine used as a step opens in place. */}
                       {insides === 'view' && <InsidesBtn words={shownWords} onPress={() => openView(row)} testID="go-plan-insides" dataSet={{ insides: key }} />}
@@ -1333,118 +1334,6 @@ function MoveItems({ row, onMove }: { row: PlanRow; onMove: (by: -1 | 1) => void
 
 /** P-102: the keys that move a row (web), as `aria-keyshortcuts` says them. */
 const MOVE_KEYS = 'Alt+ArrowUp Alt+ArrowDown';
-
-/** A move this far (px) is a drag; a press right after one is the drag's own release, not a tap. */
-const DRAG_PX = 8;
-const AFTER_DRAG_MS = 600;
-/** Web: the grip takes the touch itself (no page scroll, no text selected while dragging). */
-const GRAB = WEB ? ({ touchAction: 'none', userSelect: 'none', cursor: 'grab' } as object) : null;
-
-/**
- * P-95: a row's grip — the visible way to drag it. It claims the pointer once it has moved DRAG_PX up or
- * down; pressed, it is a button ("Reorder <words>") that opens its own small menu, Move up · Move down
- * (P-102 audit F1: the way to reorder without a drag).
- */
-function Grip({ words, onStart, onMove, onDrop, onPress, gripRef }: { words: string; onStart: () => void; onMove: (dy: number) => void; onDrop: (dy: number | undefined) => void; onPress: () => void; gripRef?: (el: unknown) => void }) {
-  const start = useRef<number | null>(null);
-  const dragging = useRef(false);
-  const ended = useRef(0);
-  const box = useRef<ViewRef>(null);
-  // The latest handlers, for the listeners the web path adds once.
-  const calls = useRef({ onStart, onMove, onDrop });
-  useEffect(() => {
-    calls.current = { onStart, onMove, onDrop };
-  });
-  const end = (to: number | undefined) => {
-    if (dragging.current) ended.current = Date.now();
-    const was = dragging.current;
-    dragging.current = false;
-    start.current = null;
-    if (was) calls.current.onDrop(to);
-  };
-  const pointer = useRef<number | undefined>(undefined);
-  const moved = (y: number) => {
-    if (start.current === null) return;
-    const dy = y - start.current;
-    if (!dragging.current && Math.abs(dy) > DRAG_PX) {
-      dragging.current = true;
-      // Web: from here on the grip has the pointer, wherever it goes (not before: a press stays a press).
-      const el = box.current as unknown as HTMLElement | null;
-      try {
-        if (WEB && el && pointer.current !== undefined) el.setPointerCapture(pointer.current);
-      } catch {
-        // (A pointer that is already gone.)
-      }
-      calls.current.onStart();
-    }
-    if (dragging.current) calls.current.onMove(dy);
-  };
-  // Web: DOM pointer events (touch and mouse alike). Pressed on the grip, the pointer is followed on the
-  // whole window until it is let go: a quick first move is already off the grip before it counts as a
-  // drag (audit F2 spec), and RN-web's responder only asks the grip about moves over it.
-  useEffect(() => {
-    const el = box.current as unknown as HTMLElement | null;
-    if (!WEB || !el || typeof el.addEventListener !== 'function') return;
-    let id: number | undefined;
-    const move = (e: PointerEvent) => e.pointerId === id && moved(e.clientY);
-    const stop = (e: PointerEvent, to: number | undefined) => {
-      if (e.pointerId !== id) return;
-      id = undefined;
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', cancel);
-      end(to);
-    };
-    const up = (e: PointerEvent) => stop(e, start.current === null ? undefined : e.clientY - start.current);
-    const cancel = (e: PointerEvent) => stop(e, undefined);
-    const down = (e: PointerEvent) => {
-      if (e.button !== 0 || id !== undefined) return;
-      id = e.pointerId;
-      pointer.current = e.pointerId;
-      start.current = e.clientY;
-      dragging.current = false;
-      window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', up);
-      window.addEventListener('pointercancel', cancel);
-    };
-    el.addEventListener('pointerdown', down);
-    return () => {
-      el.removeEventListener('pointerdown', down);
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', cancel);
-    };
-    // Once: the handlers are read through `calls`.
-  }, []);
-  type Touch = { nativeEvent: { pageY: number } };
-  // Native: the responder system (a vertical move past DRAG_PX claims the touch).
-  const native = WEB
-    ? {}
-    : {
-        onStartShouldSetResponderCapture: (e: Touch) => {
-          start.current = e.nativeEvent.pageY;
-          return false;
-        },
-        onMoveShouldSetResponder: (e: Touch) => start.current !== null && Math.abs(e.nativeEvent.pageY - start.current) > DRAG_PX,
-        onResponderMove: (e: Touch) => moved(e.nativeEvent.pageY),
-        onResponderRelease: (e: Touch) => end(start.current === null ? undefined : e.nativeEvent.pageY - start.current),
-        onResponderTerminationRequest: () => false,
-        onResponderTerminate: () => end(undefined),
-      };
-  return (
-    <View ref={box} style={[styles.grip, GRAB]} {...native} testID="go-plan-grip">
-      <Pressable
-        ref={gripRef}
-        onPress={() => Date.now() - ended.current > AFTER_DRAG_MS && !dragging.current && onPress()}
-        accessibilityRole="button"
-        accessibilityLabel={`Reorder ${words}`}
-        {...(WEB && { 'aria-keyshortcuts': MOVE_KEYS })}
-        style={(state) => [styles.gripBtn, (state as { focused?: boolean }).focused && RING]}>
-        <Mark name="grip" color={G.dim} />
-      </Pressable>
-    </View>
-  );
-}
 
 /** A field typed in, in place: it has the focus from the start; Return keeps the words, leaving it keeps them too. P-101: "{ } Insert" beside it. */
 function Typed({ value, label, placeholder, onChange, onSubmit, onBlur, onField, onCaret, insert }: { value: string; label: string; placeholder?: string; onChange: (text: string) => void; onSubmit: () => void; onBlur: () => void; onField: (el: HTMLInputElement) => void; onCaret?: () => void; insert: React.ReactNode }) {
@@ -1842,8 +1731,6 @@ const styles = StyleSheet.create({
   up: { flexShrink: 1, marginLeft: -SP.s2 },
   row: { flexDirection: 'row', alignItems: 'center', minHeight: 52, borderWidth: 2, borderColor: G.line, backgroundColor: G.surf, paddingLeft: SP.s3 - 4, gap: SP.s2 },
   // P-95: the grip, at the row's left edge (the row's own padding is its left half), a full target tall.
-  grip: { marginLeft: -(SP.s3 - 4), alignSelf: 'stretch', justifyContent: 'center' },
-  gripBtn: { width: TARGET, minHeight: TARGET, alignItems: 'center', justifyContent: 'center' },
   // The row being dragged stays where it is, dashed (audit F2: nothing is covered — HERE included); the line shows where it goes.
   rowDragging: { borderStyle: 'dashed', borderColor: G.dim },
   dropLine: { position: 'absolute', left: 0, right: 0, height: 4, backgroundColor: G.paper, zIndex: 3 },

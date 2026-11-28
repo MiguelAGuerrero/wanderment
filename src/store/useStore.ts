@@ -252,6 +252,11 @@ interface State {
   /** P-107: `wasItems` — the list it began with (a list field): the Undo puts those items back, one per row. */
   /** P-108: `wasRefs` — the routines it held: the Undo puts them back too. */
   typedOver: (runId: Id, itemId: Id, name: string, was: string, wasItems?: string[], wasRefs?: (ListRef | null)[]) => Did;
+  /**
+   * P-100: home's queue — a run's row moved `to` rows (negative: up; a drag is several at once) or to the top (the
+   * row's ··· Move up / Move down / To the top, and its grip). One write; a notice ("Moved “X” up") and an Undo.
+   */
+  moveInQueue: (runId: Id, to: number | 'top') => Did;
   /** P-98: a refusal said in words, in the notice's row (nothing changed, nothing to undo): Plan's "a routine as a step of itself". */
   say: (text: string) => void;
   /** The notice was put away. Session only. */
@@ -567,6 +572,7 @@ export const useStore = create<State>()((set, get) => ({
   typeList: gated<State['typeList']>(refused, (runId, itemId, name, items, refs) => act({ kind: 'value', runId, name, text: items.join('\n'), items, item: itemId, ...(refs && { refs }) }, 'keep')),
   changeValue: gated<State['changeValue']>(refused, (runId, name, text) => act({ kind: 'value', runId, name, text }, 'set')),
   typedOver: gated<State['typedOver']>(refused, typedOverValue),
+  moveInQueue: gated<State['moveInQueue']>(refused, (runId, to) => act({ kind: 'queue', runId, to }, 'set')),
   say: (text) => set({ runNotice: { verb: 'editRoutine', text, label: '' } }),
   dismissRunNotice: () => set((s) => (s.runNotice ? { runNotice: undefined } : {})),
   hideNotice: () => set((s) => ({ ...(s.runNotice && !s.runNotice.hidden && { runNotice: { ...s.runNotice, hidden: true as const } }), ...(s.toast?.notice && { toast: undefined }) })),

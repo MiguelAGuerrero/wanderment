@@ -190,3 +190,22 @@ step never asks ahead), never what is stored: this data must load exactly as bef
 | `p110-old-build.json` | that build's `planView` and `runnerView` | what it SHOWED: `{feature}` asked at the reader ahead of its giver; the value kept (and shown, and in the reader's field) after the Jump back; "Resume at Build {feature}" and "at Envision how I’d expect {feature} to work" with the name as written; `{subject}` kept after the Jump back onto its step |
 
 `freeze-p110.ts.txt` is the script that wrote them.
+
+## P-100 (frozen 2026-11-27, before home is one queue)
+
+Written the same way by the build before P-100 (`0b67fb1`, P-111), through its own store actions only (no Import). That
+build stored no order for home: it showed the runs going by when each was started, the oldest first, under Ongoing (the
+routine repeats until done) and Finishing. It started from `p110-schema4.sqlite` (so everything above is in it). P-100
+stores the order on a run (`queue`) only when a row is moved; this data has none, so it must load exactly as before,
+write nothing by loading and read as one queue in the order that build showed, for good.
+
+| File | Written by | Holds |
+|---|---|---|
+| `p100-schema4.sqlite` | that build, ordinary saves, over `p110-schema4.sqlite` | everything in `p110-schema4.sqlite`, plus "Plan my day", a run paused on its second step with the note "after coffee"; "Apply to Acme", a run resting on its wait "a reply from Acme"; "Better drawer", a run paused inside its step broken down "Get better at hands" (on "Gesture practice", note "hands are tired"); and P-96's "Read a chapter" running again |
+| `p100-journal.json` | the same build, writes never committing | the journal holding all of that as pending changes |
+| `p100-fallback.json` | the same build, where SQLite can't run | the `wanderment` blob with all of that |
+| `p100-backup.json` | the same build's `toBackup` | a format-2 backup of all of that |
+| `p100-expected.json` | that build's store | what those four must read as |
+| `p100-old-build.json` | that build's `homeShown`, `homeGroups` and `tileLine` | what it SHOWED on home: every run going in order (name, run, state, line, note), and which were under Ongoing and Finishing |
+
+`freeze-p100.ts.txt` is the script that wrote them.

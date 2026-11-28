@@ -25,7 +25,7 @@ const RUNS = [
 const SINCE = sinceDate(9);
 const PAPER = 'rgb(244, 241, 232)';
 
-test('J10-a (P-96; was: Pause opens the paused screen): Pause goes home — P-101 (rulings 3, 5; was: the run first, "Resume <name>" the filled button): through its sheet; the run marked "last", every run resumed by its own tile, none filled', async ({ page }) => {
+test('J10-a (P-96; was: Pause opens the paused screen): Pause goes home — P-101 (rulings 3, 5; was: the run first, "Resume <name>" the filled button): through its sheet; the run marked "last", every run resumed by its own tile, P-100 (rewritten: was none filled) the top row’s Resume the one filled button', async ({ page }) => {
   await startGo(page, RUNS, 'runner');
   await pauseRun(page);
   const h = home(page);
@@ -33,7 +33,7 @@ test('J10-a (P-96; was: Pause opens the paused screen): Pause goes home — P-10
   await expect(page).toHaveURL(/\/go$/);
   await expect(h.tiles.first()).toHaveAccessibleName('Apply to Initech, paused at Tailor the CV');
   await expect(tile(page, 'Apply to Initech').getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
-  await expect(page.getByTestId('go-resume')).toHaveCount(0);
+  await expect(page.getByTestId('go-resume')).toHaveCount(1); // (P-100, rewritten: was toHaveCount(0) — the top row's Resume is the one filled button at the bottom.)
   await expect(tile(page, 'Apply to Acme').getByTestId('go-tile-line')).toHaveText(`waiting for a reply from Acme · since ${SINCE}`);
   for (const name of ['Apply to Initech', 'Practise drawing', 'Apply to Acme']) {
     const b = tileBody(page, name);

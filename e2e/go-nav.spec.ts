@@ -126,7 +126,7 @@ test.describe('the runner', () => {
     await expect(t.getByTestId('go-tile-line')).toHaveText('at Find three reference photos of hands');
     await expect(tileBody(page, 'Drawing practice')).toHaveAccessibleName(/^Resume Drawing practice/);
     await expect(t.getByRole('button', { name: 'Plan Drawing practice', exact: true })).toBeVisible();
-    await expect(page.getByTestId('go-resume')).toHaveCount(0);
+    await expect(page.getByTestId('go-resume')).toHaveCount(1); // (P-100, rewritten: was toHaveCount(0) — the top row's Resume is the one filled button at the bottom.)
     // No notice for Pause.
     await expect(h.notice).toHaveCount(0);
     await saved(page);

@@ -43,18 +43,8 @@ _Empty. Write here — one line is enough._
 
 ## Now
 
-### P-100 Home is one queue `[feature]` `[data]` `[ux]` L
-*Status:* in-progress
-*Why:* (replaces P-94, and P-100's Up next / Ongoing / Finishing) owner, 2026-11-27: "The home view should
-really be a queue. Any ongoing runs would be the queue itself. And the new would be enqueue"; answered
-"One queue". Earlier, 2026-11-25/26: "ensure that this is depth-first … we only queue up only the leafs."
-*Done when:* Home is one ordered list with no sections: each ongoing run is a row showing its current
-(depth-first, leaf) step and where it sits; + New adds a run at the bottom; the top row carries the filled
-Resume; rows reorder by drag (and by keyboard); a waiting run shows what it waits for; finishing a run
-takes its row off; the order persists across every storage path; old data reads in its current order.
-
 ### P-112 Chunks on the runner: see several steps at once `[ux]` M
-*Status:* todo
+*Status:* in-progress
 *Why:* owner, 2026-11-27 (relayed; B-16 "A chunk is chosen while running"): "you can choose to keep pushing
 on the next steps as you see fit … they're expandable, and effectively it just turns into an outline view.
 And operates as a skip … It just has to be a quality of life UI affordance"; "Ensure that we have a
@@ -394,6 +384,7 @@ replayed on start; covered by the persistence tests with a native-flavoured mock
 
 Newest first. One line per batch: date · items · commit.
 
+- 2026-11-28 · P-100 — Home is one queue: one ordered list with no sections; each running, paused or waiting run is a row with its step (held values), a short path below the first level and its pause note; the filled Resume takes the top row; a new run goes to the bottom; rows reorder by a grip or the ··· menu (Move up / Move down / To the top) with Undo; a finished run leaves. The order is a `queue` number on each run (old data reads oldest first, today's order; nothing converted). evidence: golden p100-* frozen from 0b67fb1, queue (12) + golden (7) + persistence (5) tests, go-queue spec at 390×844 and 195×422, 14 implicated home specs, 1148 unit tests, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-111 — a breakdown opens its own view in Plan: a broken-down step or a for each is one shut row; its chevron (or a tap on its words) opens it at `?at=<row>` with a path one up, its words as the heading, its own steps and its own Add a step; the browser's Back returns; Plan opened from a run opens where HERE is; calls stay calls. The shared insides control (`Insides.tsx`) is ready for the runner's chunks. Also, owner rulings on P-110: Back keeps values; a Plan edit never clears a run's values. And "@": an exact name ranks first; an unchanged "@<name>" step stays words. evidence: planAt (14) + backKeeps (7) + persistence tests, go-breakdown-view spec at 390×844 and 195×422, 1124 unit tests, implicated specs, `verify.sh` (full suite deferred to the end). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-110 — values follow the place: a value is held only while its giving step is above the place (or is the place); every move clears values given below it, a move back also clears the step it lands on, with a notice and one Undo; no "not given yet" chips; Plan during a run and "Resume at …" show held values; "Last ran" on home; "@" stays open across spaces, "@<routine>" becomes a call, works while changing a step, and an existing "@<name>" row offers Make it a call. Runs stored before are corrected on read, nothing deleted. Also fixes three P-108 repros (kept-list reorder dropping items, duplicate kept refs, Step in on a self-held routine). evidence: golden p110-* frozen from 1b005ac, 26 domain + 4 store + 10 golden + 6 persistence tests, go-place-values spec at 390×844 and 195×422, 1102 unit tests, `verify.sh` (changed specs; full suite deferred to the end, owner 2026-11-27). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).
 - 2026-11-27 · P-108 — kept lists, a for each's own list, and values that are routines: a for each over a list kept in the routine (rows under the block, items stay across runs; one added comes round next sitting) or its own list asked on arrival (local to the block); a step can give a list held at its level or above; a value can be a routine held by reference (`▤ {name}` rows, Step in on the runner; a removed one reads "(removed)"); lists of routines; "@" lists names given above. Also fixes P-107's place-keeping (duplicate or renamed items no longer skip or repeat: the loop compares the list it last saw). No migration. evidence: golden p108-* frozen from ee66a65 (with what the old build shows), 32 domain + 10 golden + 6 persistence tests, go-kept-lists spec at 390×844 and 195×422, E2E_SLOW repeat-each=5, 1056 unit tests, `verify.sh --full` (397 e2e). audit: 0 reported · 0 reproduced · 0 fixed · 0 deferred (deferred to the final review, owner 2026-11-27).

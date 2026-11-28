@@ -279,17 +279,15 @@ test.describe('home shows only what is in motion', () => {
     { name: '390×844', width: 390, height: 844 },
     { name: '200 % text (195×422)', width: 195, height: 422 },
   ]) {
-    test(`at ${size.name}: runs going (running, paused, waiting) under Ongoing (repeats until done) and Finishing (has an end); routines with nothing going are not there; My routines (left) and + New (right) at the bottom`, async ({ page }) => {
+    // (P-100, rewritten: was "under Ongoing (repeats until done) and Finishing (has an end)" — home is one queue, no sections.)
+    test(`at ${size.name}: runs going (running, paused, waiting) in one list, no headings; routines with nothing going are not there; My routines (left) and + New (right) at the bottom`, async ({ page }) => {
       await page.setViewportSize({ width: size.width, height: size.height });
       await startGo(page, RUNS, 'runner', SHELF);
       await page.goBack();
       const h = home(page);
-      await expect(h.headings).toHaveText(['Ongoing', 'Finishing']);
-      await expect(h.group('ongoing').getByTestId('go-tile')).toHaveCount(1);
-      await expect(h.group('ongoing').getByTestId('go-tile').first()).toHaveAttribute('data-routine', 'draw');
-      const finishing = h.group('finishing').getByTestId('go-tile');
-      await expect(finishing).toHaveCount(2);
-      expect(await finishing.evaluateAll((els) => els.map((e) => `${e.getAttribute('data-routine')} ${e.getAttribute('data-state')}`))).toEqual(['acme waiting', 'gesture running']);
+      // (P-100, rewritten: was the headings Ongoing and Finishing, draw under the first and acme, gesture under the second — one list, by when each was started.)
+      await expect(h.headings).toHaveCount(0);
+      expect(await h.tiles.evaluateAll((els) => els.map((e) => `${e.getAttribute('data-routine')} ${e.getAttribute('data-state')}`))).toEqual(['draw paused', 'acme waiting', 'gesture running']);
       await expect(h.tiles).toHaveCount(3);
       for (const idle of ['apple pie', 'zine issue', 'Éclair practice']) await expect(tile(page, idle)).toHaveCount(0);
       // Each keeps its tile: where it is, its note, Resume, Plan and (not running) its ···.
@@ -300,13 +298,16 @@ test.describe('home shows only what is in motion', () => {
       await expect(d.getByRole('button', { name: 'Plan Drawing practice', exact: true })).toBeVisible();
       await expect(d.getByTestId('go-tile-more')).toBeVisible();
       await expect(tile(page, 'Gesture drawing').getByTestId('go-tile-last')).toHaveText('Last ran'); // (P-110, rewritten: was 'last' — the owner: "last is relative"; it reads "Last ran".)
-      // The side doors, lowest: My routines at the left, + New at the right — nothing filled.
+      // The side doors: My routines at the left, + New at the right — (P-100, rewritten: was "lowest") the top row's Resume beneath them.
       const left = await box(h.routinesBtn);
       const right = await box(h.newBtn);
       expect(left.x).toBeLessThan(right.x);
       expect(Math.abs(left.y - right.y)).toBeLessThanOrEqual(2);
       expect(left.x).toBeLessThanOrEqual(24);
       expect(right.x + right.width).toBeGreaterThanOrEqual(size.width - 24);
+      // P-100: the top row's Resume, beneath the side doors — unavailable (not filled) while Gesture drawing runs.
+      await expect(h.screen.getByTestId('go-resume')).toBeDisabled();
+      expect((await box(h.screen.getByTestId('go-resume'))).y).toBeGreaterThan(left.y);
       await expectRules(h.screen, []);
       await expectNoSeriousViolations(page);
       await h.routinesBtn.click();
@@ -314,7 +315,8 @@ test.describe('home shows only what is in motion', () => {
     });
   }
 
-  test('ended or never started, a routine is not on home; a run whose routine repeats only inside a step (or a counted number of times) is Finishing', async ({ page }) => {
+  // (P-100, rewritten: was "… is Finishing" with the heading Finishing checked — one list, no headings.)
+  test('ended or never started, a routine is not on home; the runs going stay in one list, in order', async ({ page }) => {
     const NESTED: RoutineSpec[] = [
       { id: 'outer', name: 'Piano', steps: [{ routine: 'drill' }, 'Play a piece'] },
       { id: 'drill', name: 'Drill', home: false, repeatFrom: 0, steps: ['Scales', 'Arpeggios'] },
@@ -327,11 +329,11 @@ test.describe('home shows only what is in motion', () => {
     const h = home(page);
     await expect(h.notice).toContainText('Done with Make tea');
     await expect(tile(page, 'Make tea')).toHaveCount(0);
-    await expect(h.headings).toHaveText(['Finishing']);
-    expect(await h.group('finishing').getByTestId('go-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-routine')))).toEqual(['outer', 'count']);
+    await expect(h.headings).toHaveCount(0); // (P-100, rewritten: was toHaveText(['Finishing']).)
+    expect(await h.tiles.evaluateAll((els) => els.map((e) => e.getAttribute('data-routine')))).toEqual(['outer', 'count']); // (P-100, rewritten: was the Finishing group's tiles.)
     await saved(page);
     await page.reload();
-    await expect(home(page).headings).toHaveText(['Finishing']);
+    await expect(home(page).headings).toHaveCount(0); // (P-100, rewritten: was toHaveText(['Finishing']).)
     await expect(home(page).tiles).toHaveCount(2);
   });
 

@@ -260,7 +260,8 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
 - **One navigation scheme on every screen** *(built, P-96; P-101; P-103)*: the TOP is context, with the one
   way out first at its left (Plan's band: ⌂ Home — or ← Back to the run — then the word PLAN; the runner's top
   line: ❚❚ Pause, the path, Plan at its right; Settings' and Jump's ←; ⚙ on home, at the right). The BOTTOM, lowest, is the forward choice: the filled "Resume at <step>" or Start on Plan; on
-  the runner the moves and Next (see *The verbs*). Home has no filled button *(P-101, ruling 5)*. Side
+  the runner the moves and Next (see *The verbs*). On home, the filled **Resume <step>** of the queue's top row,
+  beneath the side doors *(P-100; was P-101 ruling 5: no filled button)*. Side
   doors: on home **My routines** (left, once there is a routine) and + New (right) *(P-97)*; Done at Plan's edge only (right). Rows and tiles carry only actions about
   themselves. Sheets: a title, the choices, the filled button keeps or applies, Close (lowest) leaves
   things as they were.
@@ -278,17 +279,23 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
   with its labelled Undo, as every Remove does.
 - **One thing runs at a time.** At most one run is running. To take up another you pause first. The
   app opens where you left off: the runner while one runs, else home (a run at the edge: its Plan).
-- **Home is what is in motion** *(built; P-96, P-101; P-97, the owner: home "populated with a whole bunch of
-  disparate types of routines")*: every run going — running, paused or waiting — is a tile, coloured like its
-  note — the name and where it is ("at <step>", its values in place, inverted; the pause note under it) —
-  under one of two headings, told apart by structure: **Ongoing** (the routine has no end: "Repeat from here"
-  until I'm done at its top level) and **Finishing** (it has an end: no repeat, a number of rounds, or a repeat
-  only inside a step). A routine with nothing going is **not** on home: it is on My routines (its stored
+- **Home is one queue** *(built; P-96, P-101, P-97; P-100, the owner: "The home view should really be a queue. Any
+  ongoing runs would be the queue itself. And the new would be enqueue" — "One queue")*: every run going — running,
+  paused or waiting — is a row, coloured like its note — the name, where it is ("at <step>": the step at the deepest
+  level the run is in, its values in place, inverted), below its first level **where it sits** (a short path, "Practise
+  drawing › Hand studies"; past three levels the first and the last two), and the pause note or what it waits for —
+  in **one ordered list, no sections and no headings** *(was P-97: Ongoing and Finishing)*. The **top row** is what the
+  filled **Resume <step>** at the bottom resumes. A run started (+ New's routine started, or Start on My routines)
+  goes to the **bottom**; a run that finishes leaves the list. Rows move by their **grip** (a drag; none narrower
+  than 340 px) and by their **···** (Move up · Move down · To the top — only those it can make), each said ("Moved
+  “<name>” up") with Undo. The order is stored on each run (`queue`, renumbered 1…n by a move); a run with none —
+  every run from before P-100 — stands by when it was started, so old data reads as home always showed it, the
+  oldest first. A routine with nothing going is **not** on home: it is on My routines (its stored
   `home` mark is kept and written as before, and no longer read). Order never changes because of a pause
-  *(P-101, ruling 5)*: in each group the runs by when each was started; the run touched last carries a small
+  *(P-101, ruling 5)*; the run touched last carries a small
   **"Last ran"** (in words; *P-110, the owner: "last is relative"* — was "last"). A run's tile **body** is its way back in — a button, "Resume <name>" (at the edge, "Plan
   <name>") — and *(P-103)* a visible **Resume** in words, where Start sits on an idle tile, with **Plan** beside
-  it and, on a paused run, **···** (Start over · a line · End this run, red). A paused tile has no ❚❚ (that mark
+  it and **···** (*P-100:* the moves, a line, then — not running — Start over · a line · End this run, red, on a paused run). A paused tile has no ❚❚ (that mark
   is the runner's Pause alone); a waiting one keeps ⧗. *(P-103)* With no routines at all, home says one line,
   "Your routines will be here.", and + New is its one action; *(P-97)* with routines and nothing going, "Nothing
   going.", with My routines and + New. Home has **no title in words** (a heading for
@@ -461,9 +468,11 @@ paused** — nothing else: Plan is a view, not a state, and "planning" is never 
 ## Rules
 - **Minimalism (owner).** The app should communicate itself. Use an icon only where it is
   conventional and unambiguous; otherwise the word. Words are for form labels, button labels that
-  need them, and the person's own text. **No instructional or explanatory text, no preamble, no
-  disclaimers** — needing one is a sign the design has failed to say it. Not to be applied
-  overzealously: a label that prevents a mistake stays.
+  need them, and the person's own text. **No large text in the main loop** (home, Plan, the runner,
+  their sheets): no paragraphs, preamble or disclaimers. **Short text is welcome where it helps** —
+  a placeholder, a label or one line saying what a field accepts, what a control is for, or how a
+  thing works (owner, 2026-11-28: "It's OK if it explains how the app works. It's just not huge
+  paragraphs"). Longer explanations belong off the main loop, in Settings, where they have room.
 - **Borrow established conventions** from adjacent productivity apps for layout, spacing, icon and
   settings placement and component choice, so the app meets expectations before it asks anyone to
   learn.
